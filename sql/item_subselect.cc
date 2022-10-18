@@ -2899,6 +2899,26 @@ Item *Item_subselect::replace_item_view_ref(uchar *arg) {
   return replace_item(&Item::replace_item_view_ref, arg);
 }
 
+Item *Item_subselect::replace_item_subselect(uchar *arg) {
+  auto *info = pointer_cast<Item::Item_singlerow_subselect_replacement *>(arg);
+
+  if (this == info->m_target) {
+    if (info->m_curr_block == info->m_trans_block) return info->m_replacement;
+
+    // The field is an outer reference, so we cannot reuse transformed query
+    // block's Item_field; make a new one for this query block
+    THD *const thd = current_thd;
+    Item_field *outer_field = new (thd->mem_root)
+                              Item_field(thd, info->m_replacement);
+    if (outer_field == nullptr) return nullptr; /* purecov: inspected */
+    outer_field->depended_from = info->m_trans_block;
+    outer_field->context = &info->m_curr_block->context;
+    return outer_field;
+  }
+
+  return this;
+}
+
 void SubqueryWithResult::cleanup(THD *thd) {
   DBUG_TRACE;
   result->cleanup(thd);

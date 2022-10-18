@@ -1,0 +1,451 @@
+# Enable transformations for InnoDB for ease of testing
+SET optimizer_switch='winmagic=on';
+
+# This performance schema table is queried further down. Clear it now,
+# so that we start with a clean state, regardless of what earlier
+# tests have written to it.
+TRUNCATE TABLE performance_schema.events_statements_summary_by_digest;
+
+--echo #
+--echo # Tests for Winmagic which delete scans for some tables.
+--echo # We test Win magic transformation rule in following aspects:
+--echo # 1. Check valid for winmagic algo;
+--echo # 2. Integrity of SQL syntax;
+--echo # 3. Unique key push down tables;
+--echo # 4. Real query in TPCH-H, test query 2 and query 17;
+--echo #
+
+--echo # Data preparation.
+
+CREATE DATABASE `tpch`;
+USE `tpch`;
+CREATE TABLE `lineitem` (
+  `l_orderkey` int NOT NULL,
+  `l_partkey` int NOT NULL,
+  `l_suppkey` int NOT NULL,
+  `l_linenumber` int NOT NULL,
+  `l_quantity` decimal(15,2) NOT NULL,
+  `l_extendedprice` decimal(15,2) NOT NULL,
+  `l_discount` decimal(15,2) NOT NULL,
+  `l_tax` decimal(15,2) NOT NULL,
+  `l_returnflag` char(1) NOT NULL,
+  `l_linestatus` char(1) NOT NULL,
+  `l_shipdate` date NOT NULL,
+  `l_commitdate` date NOT NULL,
+  `l_receiptdate` date NOT NULL,
+  `l_shipinstruct` char(25) NOT NULL,
+  `l_shipmode` char(10) NOT NULL,
+  `l_comment` varchar(44) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE `part` (
+  `p_partkey` int NOT NULL,
+  `p_name` varchar(55) NOT NULL,
+  `p_mfgr` char(25) NOT NULL,
+  `p_brand` char(10) NOT NULL,
+  `p_type` varchar(25) NOT NULL,
+  `p_size` int NOT NULL,
+  `p_container` char(10) NOT NULL,
+  `p_retailprice` decimal(15,2) NOT NULL,
+  `p_comment` varchar(23) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE `supplier` (
+  `s_suppkey` int NOT NULL,
+  `s_name` char(25) NOT NULL,
+  `s_address` varchar(40) NOT NULL,
+  `s_nationkey` int NOT NULL,
+  `s_phone` char(15) NOT NULL,
+  `s_acctbal` decimal(15,2) NOT NULL,
+  `s_comment` varchar(101) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE `partsupp` (
+  `ps_partkey` int NOT NULL,
+  `ps_suppkey` int NOT NULL,
+  `ps_availqty` int NOT NULL,
+  `ps_supplycost` decimal(15,2) NOT NULL,
+  `ps_comment` varchar(199) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE `nation` (
+  `n_nationkey` int NOT NULL,
+  `n_name` char(25) NOT NULL,
+  `n_regionkey` int NOT NULL,
+  `n_comment` varchar(152) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE `region` (
+  `r_regionkey` int NOT NULL,
+  `r_name` char(25) NOT NULL,
+  `r_comment` varchar(152) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+alter table tpch.region add primary key (r_regionkey);
+alter table tpch.nation add primary key (n_nationkey);
+alter table tpch.part add primary key (p_partkey);
+alter table tpch.supplier add primary key (s_suppkey);
+alter table tpch.partsupp add primary key (ps_partkey,ps_suppkey);
+alter table tpch.lineitem add primary key (l_orderkey,l_linenumber);
+
+alter table tpch.nation add constraint nation_fk1 foreign key(n_regionkey) references tpch.region(r_regionkey);
+alter table tpch.supplier add constraint supplier_fk1 foreign key(s_nationkey) references tpch.nation(n_nationkey);
+alter table tpch.partsupp add constraint partsupp_fk1 foreign key(ps_suppkey) references tpch.supplier(s_suppkey);
+alter table tpch.partsupp add constraint partsupp_fk2 foreign key(ps_partkey) references tpch.part(p_partkey);
+alter table tpch.lineitem add constraint lineitem_fk2 foreign key(l_partkey,l_suppkey) references tpch.partsupp(ps_partkey,ps_suppkey);
+
+create table t1(a int,b int,c int);
+insert into t1 values(1,2,3);
+insert into t1 values(2,2,3);
+insert into t1 values(3,2,3);
+insert into t1 values(4,2,3);
+insert into t1 values(5,2,3);
+insert into t1 values(6,2,3);
+
+create table t2(a int,b int,c int);
+insert into t2 values(1,1,1);
+insert into t2 values(2,2,2);
+insert into t2 values(3,3,3);
+insert into t2 values(4,4,4);
+insert into t2 values(5,5,5);
+
+create table t3(a int,b int,c int);
+insert into t3 values(1,2,3);
+insert into t3 values(2,3,4);
+insert into t3 values(3,4,5);
+
+create table t4(a int,b int,c int, primary key(a));
+insert into t4 values(1,2,3);
+insert into t4 values(2,3,4);
+insert into t4 values(3,4,5);
+
+create table t5(a int,b int,c int, primary key(a,b));
+insert into t5 values(1,20,3);
+insert into t5 values(2,30,4);
+insert into t5 values(3,40,5);
+insert into t5 values(4,2,3);
+insert into t5 values(5,2,3);
+insert into t5 values(6,2,3);
+
+analyze table `lineitem`;
+analyze table `part`;
+analyze table `supplier`;
+analyze table `partsupp`;
+analyze table `nation`;
+analyze table `region`;
+
+analyze table t1;
+analyze table t2;
+analyze table t3;
+analyze table t4;
+analyze table t5;
+
+SET optimizer_switch='winmagic=default';
+SET optimizer_switch='winmagic=on';
+
+--echo #
+--echo # 1. Tests for Check valid on multiple situations.
+--echo #
+
+--echo # situation.1 t2.b < 10 is not same as t2.b < 1.
+explain format=tree select sum(t2.a) from t1, t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.c > 
+                       (select max(t2.c) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 1);
+
+explain format=tree select sum(t2.a) from t1, t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.c > 
+                       (select max(t2.c) from t2 where t1.a = t2.a and t2.a > 100 and t2.b < 3);
+
+--echo # situation.2 inner query block more condition.
+explain format=tree select sum(t2.a) from t1, t2 where t1.a = t2.a and t1.b = t2.b and t2.a > 1 and t2.c < 
+                       (select avg(t2.c) from t2 where t1.a = t2.a and t1.b = t2.b and t2.a > 1 and t2.c < 100);
+
+explain format=tree select sum(t2.a) from t1, t2 where t1.a = t2.a and t1.b = t2.b and t2.a > 1 and t2.c < 
+                       (select avg(t2.c) from t2 where t1.a = t2.a and t1.b = t2.b and t2.b > 1 and t2.a > 1 and t2.c < 100);
+
+--echo # situation.3 inner query block more join conditon.
+explain format=tree select sum(t2.a) from t1, t2 where t1.a = t2.a and t2.a > 1 and t2.c < 
+                       (select avg(t2.c) from t2 where t1.a = t2.a and t1.b = t2.c and t2.a > 1 and t2.c < 100);
+
+explain format=tree select sum(t2.a) from t1, t2 where t1.a = t2.a and t1.b = t2.b and t2.a > 1 and t2.c < 
+                       (select avg(t2.c) from t2 where t1.a = t2.c and t1.a = t2.a and t1.b = t2.b and t2.a > 1);
+
+--echo # situation.4 add group by in subquery.
+explain format=tree select sum(t2.a) from t1,t2,t3 where t2.a = t1.a and t2.a > 1 and t2.b < 10 and t2.c = 
+                      (select max(t2.c) from t2,t3 where t2.a = t1.a and t2.a > 1 and t2.b < 10 group by t2.a);
+
+--echo # situation.5 no correlated join condition.
+explain format=tree select a from t1 where a=(select max(a) from t1);
+explain format=tree select a from t1 where a=(select max(a) from t1) and a;
+explain format=tree select a from t1 where a=(select max(a) from t1) and (a > 1);
+
+--echo # situation.6 derived table 
+explain format=tree select not exists (select a from t1 where a in (select b from t1));
+
+--echo # situation.7 keys not cover not push down
+explain format=tree select t1.a from t1, t5 where t1.a = t5.a and t1.a > 1 and t1.c = (select min(t1.c) from t1 where t1.a = t5.a and t1.a > 1);
+
+--echo #
+--echo # 2. Integrity of SQL syntax
+--echo #
+
+--echo # normal.1
+let $query = select sum(t2.a) from t1, t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.c > 
+                (select max(t2.c) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10);
+eval EXPLAIN $query;
+eval EXPLAIN FORMAT=TREE $query;
+eval $query;
+
+--echo # normal.2 0.2 * avg
+let $query = select sum(t2.a) from t1, t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.c >
+          (select 0.2 * max(t2.c) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10);
+eval EXPLAIN $query;
+eval EXPLAIN FORMAT=TREE $query;
+eval $query;
+
+let $query = select sum(t2.a) + 1 from t1, t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.c > 
+              (select 0.2 * max(t2.c) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10);
+eval EXPLAIN $query;
+eval EXPLAIN FORMAT=TREE $query;
+eval $query;
+
+--echo # normal.3 max(a+b)
+let $query = select sum(t2.a) from t1, t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.c + t2.b > 
+   (select 0.2 * max(t2.c + t2.b) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10);
+eval EXPLAIN $query;
+eval EXPLAIN FORMAT=TREE $query;
+eval $query;
+
+let $query = select t2.c from t1, t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.c + 1> 
+   (select 0.2 * max(t2.c + 1) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10);
+eval EXPLAIN $query;
+eval EXPLAIN FORMAT=TREE $query;
+eval $query;
+
+--echo # normal.4 t1.a = t2.a and t2.a = t1.a
+let $query = select sum(t2.a) from t1, t2 where t2.a = t1.a and t2.a > 1 and t2.b < 10 and t2.c > 
+          (select 0.2 * max(t2.c) from t2 where t2.a = t1.a and t2.a > 1 and t2.b < 10);
+eval EXPLAIN $query;
+eval EXPLAIN FORMAT=TREE $query;
+eval $query;
+
+# we ignore this situation. a=b and b=a.
+# let $query = select sum(t2.a) from t1, t2 where t2.a = t1.a and t2.a > 1 and t2.b < 10 and t2.c > (select 0.2 * max(t2.c) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10);
+
+--echo # normal.5 more condition in outer query block.
+let $query = select t2.a, t2.b from t1, t2, t3 where t1.a = t3.a and t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.c = 
+                     (select min(t2.c) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10);
+eval EXPLAIN $query;
+eval EXPLAIN FORMAT=TREE $query;
+eval $query;
+
+let $query = select t2.a, t2.b, t3.c from t1, t2, t3 where t2.a = t3.a and t1.a = t3.a and t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.c = 
+                     (select min(t2.c) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10);
+eval EXPLAIN $query;
+eval EXPLAIN FORMAT=TREE $query;
+eval $query;
+
+--echo # normal.6 more tables
+let $query = select t2.a, t2.b from t1, t2, t3, t4 where t1.a = t3.a and t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.c = (select min(t2.c) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10);
+eval EXPLAIN $query;
+eval EXPLAIN FORMAT=TREE $query;
+eval $query;
+
+--echo # normal.7 more select list fields.
+let $query = select t2.a, t2.b, t2.b, t2.c from t1, t2, t3 where t1.a = t3.a and t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.c = 
+                                 (select min(t2.c) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10);
+eval EXPLAIN $query;
+eval EXPLAIN FORMAT=TREE $query;
+eval $query;
+
+let $query = select * from t1, t2, t3 where t1.a = t3.a and t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.c = 
+            (select min(t2.c) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10);
+eval EXPLAIN $query;
+eval EXPLAIN FORMAT=TREE $query;
+eval $query;
+
+--echo # normal.8 more select list fields and condition not same field.
+let $query = select t2.a, t2.b, t2.b, t2.c from t1, t2, t3 where t1.a = t3.a and t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.a = 
+                                 (select min(t2.c) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10);
+eval EXPLAIN $query;
+eval EXPLAIN FORMAT=TREE $query;
+eval $query;
+
+let $query = select t2.a+t2.b, t2.b+t2.c+t3.c+10, t2.b+t3.c+1 from t1, t2, t3 where t1.a = t3.a and t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.a = 
+                                                    (select min(t2.c) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10);
+eval EXPLAIN $query;
+eval EXPLAIN FORMAT=TREE $query;
+eval $query;
+
+# 1. replace select list by using fields in derived table;
+# 2. replace where condition by using fields in derived table;
+# 3. no need to replace in join conditions, all going to subquery;
+# 4. having clause;
+let $query = select sum(t2.a) from t1, t2 where t2.a = t1.a and t2.a > 1 and t2.b < 10 and t2.c > 
+          (select 0.2 * max(t2.c) from t2 where t2.a = t1.a and t2.a > 1 and t2.b < 10) having sum(t2.a) > 1;
+eval EXPLAIN $query;
+eval EXPLAIN FORMAT=TREE $query;
+eval $query;
+
+let $query = select t1.a, sum(t2.a) from t1, t2 where t2.a = t1.a and t2.a > 1 and t2.b < 10 and t2.c > 
+          (select 0.2 * max(t2.c) from t2 where t2.a = t1.a and t2.a > 1 and t2.b < 10) group by t1.a having sum(t2.a) > 1;
+eval EXPLAIN $query;
+eval EXPLAIN FORMAT=TREE $query;
+eval $query;
+
+let $query = select t1.a, sum(t4.a) from t1, t4 where t1.a = t4.a and t1.a > 1 and t1.b < 10 and t1.c > 
+          (select 0.2 * max(t4.c) from t1 where t1.a = t4.a and t1.a > 1 and t1.b < 10) group by t1.a having sum(t4.a) > 1;
+eval EXPLAIN $query;
+eval EXPLAIN FORMAT=TREE $query;
+eval $query;
+
+# 5. group by condition fields in derived table;
+let $query = select t1.a, sum(t2.a) from t1, t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.c > 
+                (select 0.2 * max(t2.c) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10) group by t1.a;
+eval EXPLAIN $query;
+eval EXPLAIN FORMAT=TREE $query;
+eval $query;
+
+let $query = select t1.a + 1 from t1, t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.c > 
+         (select 0.2 * max(t2.c) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10) group by t1.a + 1;
+eval EXPLAIN $query;
+eval EXPLAIN FORMAT=TREE $query;
+eval $query;
+
+let $query = select t1.a + 1 from t1, t5 where t1.a = t5.a and t1.b = t5.b and t1.a > 1 and t1.b < 10 and t1.c > 
+         (select 0.2 * max(t1.c) from t1 where t1.a = t5.a and t1.b = t5.b and t1.a > 1 and t1.b < 10) group by t1.a + 1;
+eval EXPLAIN $query;
+eval EXPLAIN FORMAT=TREE $query;
+eval $query;
+
+# 6. replace order by condition by using fields in derived table;
+let $query = select t1.a + t2.a from t1, t2 where t1.a = t2.a and t2.a > 1 and t2.c > 
+         (select 0.2 * max(t2.c) from t2 where t1.a = t2.a and t2.a > 1) order by t1.a + t2.a desc;
+eval EXPLAIN $query;
+eval EXPLAIN FORMAT=TREE $query;
+eval $query;
+
+let $query = select t1.a + 1 from t1, t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.c > 
+         (select 0.2 * max(t2.c) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10) group by t1.a + 1 order by t1.a + 1 desc;
+eval EXPLAIN $query;
+eval EXPLAIN FORMAT=TREE $query;
+eval $query;
+
+# 7. replace limit exprs;
+# t1.a + 1 is not same as t1.a+t2.a TODO: error.
+#let $query = select t1.a + 1 from t1, t2 where t1.a = t2.a and t2.a > 1 and t2.c > 
+#         (select 0.2 * max(t2.c) from t2 where t1.a = t2.a and t2.a > 1) order by t1.a + t2.a limit 2;
+#eval EXPLAIN $query;
+#eval EXPLAIN FORMAT=TREE $query;
+#eval $query;
+
+let $query = select t1.a + 1 from t1, t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10 and t2.c > 
+         (select 0.2 * max(t2.c) from t2 where t1.a = t2.a and t2.a > 1 and t2.b < 10) group by t1.a + 1 order by t1.a + 1 desc limit 2;
+eval EXPLAIN $query;
+eval EXPLAIN FORMAT=TREE $query;
+eval $query;
+
+--echo #
+--echo # 3. Unique key push down tables;
+--echo #
+let $query = select t1.a from t1, t4 where t1.a = t4.a and t1.a > 1 and t1.c = (select min(t1.c) from t1 where t1.a = t4.a and t1.a > 1);
+eval EXPLAIN $query;
+eval EXPLAIN FORMAT=TREE $query;
+eval $query;
+
+let $query = select sum(t1.a) from t1, t4 where t1.a = t4.a and t1.a > 1 and t1.c = (select min(t1.c) from t1 where t1.a = t4.a and t1.a > 1);
+eval EXPLAIN $query;
+eval EXPLAIN FORMAT=TREE $query;
+eval $query;
+
+let $query = select sum(t1.a+t2.b) from t1, t2, t4 where t1.a = t4.a and t1.a > 1 and t1.c = (select min(t1.c) from t1 where t1.a = t4.a and t1.a > 1);
+eval EXPLAIN $query;
+eval EXPLAIN FORMAT=TREE $query;
+eval $query;
+
+let $query = select sum(t1.a+t2.b+1) from t1, t2, t3, t4 where t1.a = t4.a and t1.b = t3.b and t1.a > 1 and t1.c = (select min(t1.c) from t1 where t1.a = t4.a and t1.a > 1);
+eval EXPLAIN $query;
+eval EXPLAIN FORMAT=TREE $query;
+eval $query;
+
+let $query = select t1.a from t1, t5 where t1.a = t5.a and t1.b = t5.b and t1.a > 1 and t1.c = (select min(t1.c) from t1 where t1.a = t5.a and t1.b = t5.b and t1.a > 1);
+eval EXPLAIN $query;
+eval EXPLAIN FORMAT=TREE $query;
+eval $query;
+
+let $query = select sum(t1.a+t5.b) from t1, t5 where t1.a = t5.a and t1.b = t5.b and t1.a > 1 and t1.c = (select min(t1.c) from t1 where t1.a = t5.a and t1.b = t5.b and t1.a > 1);
+eval EXPLAIN $query;
+eval EXPLAIN FORMAT=TREE $query;
+eval $query;
+
+let $query = select sum(t1.a+t5.b+100) from t1, t2, t5 where t1.a = t5.a and t1.b = t5.b and t1.a > 1 and t1.c = (select min(t1.c) from t1 where t1.a = t5.a and t1.b = t5.b and t1.a > 1);
+eval EXPLAIN $query;
+eval EXPLAIN FORMAT=TREE $query;
+eval $query;
+
+let $query = select sum(t1.a+t5.b+100) from t1, t2, t3, t4, t5 where t2.a = t3.a and t1.a = t5.a and t1.b = t5.b and t1.a > 1 and t1.c = (select min(t1.c) from t1 where t1.a = t5.a and t1.b = t5.b and t1.a > 1);
+eval EXPLAIN $query;
+eval EXPLAIN FORMAT=TREE $query;
+eval $query;
+
+--echo #
+--echo # 4. Real query in TPCH-H, test query 2 and query 17;
+--echo #
+
+--echo #
+--echo # query-17 in TPCH which can use winmagic to speedup.
+--echo #
+let $query = 
+select sum(l_extendedprice)/7.0 as avg_yearly
+  from lineitem, part
+ where p_partkey = l_partkey
+   and p_brand = 'Brand#13'
+   and p_container = 'JUMBO PKG'
+   and l_quantity < (select 0.2 * avg(l_quantity)
+                       from lineitem
+                      where p_partkey = l_partkey);
+
+eval EXPLAIN $query;
+eval EXPLAIN FORMAT=TREE $query;
+eval $query;
+
+--echo #
+--echo # query-2 in TPCH which can use winmagic to speedup.
+--echo #
+let $query = 
+select s_acctbal, s_name, n_name, p_partkey, p_mfgr, s_address, s_phone, s_comment
+  from part, supplier, partsupp, nation, region
+ where p_partkey = ps_partkey
+   and s_suppkey = ps_suppkey
+   and p_size = 30
+   and p_type like '%STEEL'
+   and s_nationkey = n_nationkey
+   and n_regionkey = r_regionkey
+   and r_name = 'ASIA'
+   and ps_supplycost = (select min(ps_supplycost)
+                          from partsupp, supplier, nation,region
+                         where p_partkey = ps_partkey
+                           and s_suppkey = ps_suppkey
+                           and s_nationkey = n_nationkey
+                           and n_regionkey = r_regionkey
+                           and r_name = 'ASIA');
+
+eval EXPLAIN $query;
+eval EXPLAIN FORMAT=TREE $query;
+eval $query;
+
+--echo #
+--echo # check valid failed.
+
+SET optimizer_switch='winmagic=default';
+
+drop table `lineitem`;
+drop table `partsupp`;
+drop table `supplier`;
+drop table `nation`;
+drop table `region`;
+drop table `part`;
+drop table t1;
+drop table t2;
+drop table t3;
+drop table t4;
+drop table t5;
+drop database tpch;

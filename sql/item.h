@@ -75,6 +75,7 @@ class Item;
 class Item_field;
 class Item_singlerow_subselect;
 class Item_sum;
+class Item_ref;
 class Json_wrapper;
 class Protocol;
 class Query_block;
@@ -2487,6 +2488,7 @@ class Item : public Parse_tree_node {
 
   virtual bool collect_item_field_processor(uchar *) { return false; }
   virtual bool collect_item_field_or_ref_processor(uchar *) { return false; }
+  virtual bool collect_item_ref_processor(uchar *) { return false; }
 
   class Collect_item_fields_or_refs : public Item_tree_walker {
    public:
@@ -2518,6 +2520,7 @@ class Item : public Parse_tree_node {
     friend class Item_sum;
     friend class Item_field;
     friend class Item_view_ref;
+    friend class Item_singlerow_subselect;
   };
 
   /**
@@ -2559,6 +2562,7 @@ class Item : public Parse_tree_node {
   virtual bool is_non_const_over_literals(uchar *) {
     return !basic_const_item();
   }
+  virtual bool ignore_ins(uchar *) { return false; }
   /// Is this an Item_field which references the given Field argument?
   virtual bool find_field_processor(uchar *) { return false; }
   /// Wrap incompatible arguments in CAST nodes to the expected data types
@@ -2708,6 +2712,16 @@ class Item : public Parse_tree_node {
     /// If true, add a COALESCE around replaced subquery: used for implicitly
     /// grouped COUNT() in subquery select list when subquery is correlated
     bool m_add_coalesce{false};
+  };
+
+  /** Replace field item and its composite item map info in Winmagic. */
+  struct WM_replace_info {
+    // Composite item which contains field item addr.
+    Item **p_composite_item{nullptr};
+    // field item pointer.
+    Item *field{nullptr};
+    WM_replace_info(Item **composite_item, Item *field)
+      : p_composite_item(composite_item), field(field) {}
   };
 
   /**
@@ -2962,6 +2976,22 @@ class Item : public Parse_tree_node {
         : Item_replacement(select, select), m_target(target), m_field(field) {}
   };
 
+  struct Item_aggregate_ref_replacement : Item_replacement {
+    Item_ref *m_target;  ///< The item identifying the item_ref to be replaced
+    Item_sum *m_replacement;  ///< The replacement item
+    Item_aggregate_ref_replacement(Item_ref *ref, Item_sum *replacement,
+      Query_block *select) : Item_replacement(select, select),
+      m_target(ref), m_replacement(replacement) {}
+  };
+
+  struct Item_singlerow_subselect_replacement : Item_replacement {
+    Item* m_target;  ///< The replacement field
+    Item_field *m_replacement; ///< Item identifying view_ref to be replaced
+    Item_singlerow_subselect_replacement(Item *target, Item_field *replacement,
+      Query_block *select) : Item_replacement(select, select), m_target(target),
+                             m_replacement(replacement) {}
+  };
+
   struct Aggregate_replacement {
     Item_sum *m_target;
     Item_field *m_replacement;
@@ -2987,6 +3017,8 @@ class Item : public Parse_tree_node {
   virtual Item *replace_item_view_ref(uchar *) { return this; }
   virtual Item *replace_aggregate(uchar *) { return this; }
   virtual Item *replace_outer_ref(uchar *) { return this; }
+  virtual Item *replace_item_subselect(uchar *) { return this; }
+  virtual Item *replace_aggregate_ref(uchar *) { return this; }
 
   struct Aggregate_ref_update {
     Item_sum *m_target;
@@ -4170,6 +4202,8 @@ class Item_field : public Item_ident {
     are supported.
   */
   bool can_use_prefix_key{false};
+  /* whether ignore table instance when check eq. */
+  bool ignore_table_ins{false};
 
   Item_field(Name_resolution_context *context_arg, const char *db_arg,
              const char *table_name_arg, const char *field_name_arg);
@@ -4239,6 +4273,7 @@ class Item_field : public Item_ident {
   bool add_field_to_cond_set_processor(uchar *) override;
   bool remove_column_from_bitmap(uchar *arg) override;
   bool find_item_in_field_list_processor(uchar *arg) override;
+  bool ignore_ins(uchar *) override;
   bool find_field_processor(uchar *arg) override {
     return pointer_cast<Field *>(arg) == field;
   }
@@ -5821,6 +5856,9 @@ class Item_ref : public Item_ident {
     return (*ref)->check_column_in_group_by(arg);
   }
   bool collect_item_field_or_ref_processor(uchar *arg) override;
+  bool collect_item_ref_processor(uchar *arg) override;
+
+  Item *replace_aggregate_ref(uchar *arg) override;
 };
 
 /**
