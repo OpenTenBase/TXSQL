@@ -6317,3 +6317,13 @@ Note	1003	/* select#1 */ select `test`.`t4`.`pk` AS `pk`,`test`.`t4`.`c` AS `c`,
 SELECT * FROM (t4 LEFT JOIN (t5 LEFT JOIN (SELECT * FROM t1 as tx WHERE tx.pk IN (SELECT c FROM t3 WHERE pk > 2)) t13 on t5.pk = t13.pk) on t5.c = t4.c + 20) JOIN (t1 LEFT JOIN t2 on t1.pk = t2.pk and t1.pk > 3) on t1.pk = t13.pk AND t1.pk > 3;
 pk	c	pk	c	pk	c	pk	c	pk	c
 DROP TABLE t1, t2, t3, t4, t5;
+#
+#  Bug #551 Wrong results Left join with derived partitioned table
+#
+CREATE TABLE t1(a INT);
+CREATE TABLE t2(a INT PRIMARY KEY) PARTITION BY LIST(a) (PARTITION p1 VALUES IN(1));
+INSERT INTO t1 VALUES(1);
+INSERT INTO t2 VALUES(1);
+SELECT * FROM t1 x LEFT JOIN (SELECT a FROM t2) y ON (x.a = y.a) WHERE y.a IS NULL;
+a	a
+DROP TABLE t1, t2;

@@ -790,8 +790,11 @@ bool Query_block::apply_local_transforms(THD *thd, bool prune) {
         This will only prune constant conditions, which will be used for
         lock pruning.
       */
+      Item *prune_cond = tbl->join_cond();
+      if (!prune_cond && !tbl->is_inner_table_of_outer_join())
+        prune_cond = m_where_cond;
       if (prune_partitions(thd, tbl->table, this,
-                           tbl->join_cond() ? tbl->join_cond() : m_where_cond))
+                           prune_cond))
         return true; /* purecov: inspected */
 
       if (tbl->table->all_partitions_pruned_away &&
