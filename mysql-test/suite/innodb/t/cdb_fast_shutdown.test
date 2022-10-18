@@ -1,0 +1,18 @@
+
+# fast shutdown SQL command test cases.
+
+
+--echo shutdown the server from mtr
+--exec echo "wait" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--shutdown_server
+--source include/wait_until_disconnected.inc
+
+let SEARCH_FILE = $MYSQLTEST_VARDIR/log/mysqld.1.err;
+# Look for fast shutdown in the error log.
+let SEARCH_PATTERN=Fast shutdown completed;
+--source include/search_pattern_in_file.inc
+
+--echo restart the server
+--exec echo "restart:" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--enable_reconnect
+--source include/wait_until_connected_again.inc

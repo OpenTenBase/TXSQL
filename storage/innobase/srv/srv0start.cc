@@ -3070,7 +3070,7 @@ static lsn_t srv_shutdown_log() {
 
   /* No redo log might be generated since now. */
   log_background_threads_inactive_validate();
-  if (!innodb_quickly_stoped) {
+  if (!srv_cdb_fast_shutdown) {
     buf_must_be_all_freed();
   }
   const lsn_t lsn = log_get_lsn(*log_sys);
@@ -3097,7 +3097,7 @@ static lsn_t srv_shutdown_log() {
     ut_a(err == DB_SUCCESS);
   }
 
-  if ( !innodb_quickly_stoped ) {
+  if ( !srv_cdb_fast_shutdown ) {
     buf_must_be_all_freed();
   }
   ut_a(lsn == log_get_lsn(*log_sys));
@@ -3259,6 +3259,13 @@ void srv_shutdown() {
   and closing the data dictionary.  */
   btr_search_disable(true);
 
+  /* Gracefully fast shutdown */
+  if (srv_cdb_fast_shutdown) {
+    ib::info() << "Fast shutdown completed; log sequence number "
+               << shutdown_lsn;
+
+    goto fast_shutdown;
+  }
   ibuf_close();
   ddl_log_close();
   log_sys_close();
@@ -3294,7 +3301,7 @@ void srv_shutdown() {
 
   /* 6. Free the synchronisation infrastructure. */
   sync_check_close();
-
+fast_shutdown:
   ib::info(ER_IB_MSG_1155, ulonglong{shutdown_lsn});
 
   srv_start_has_been_called = false;
