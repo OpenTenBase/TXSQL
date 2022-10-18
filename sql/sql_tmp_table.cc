@@ -1126,7 +1126,9 @@ TABLE *create_tmp_table(THD *thd, Temp_table_param *param,
             !param->force_copy_fields && (modify_items || group != nullptr),
             item->marker == Item::MARKER_BIT ||
                 param->bit_fields_as_long,  //(2)
-            param->force_copy_fields);
+            // don't copy the generate rec len field
+            (param->force_copy_fields &&
+             !(fieldnr == 0 && param->m_has_rec_len_field)));
         from_item[fieldnr] = item;
       }
 
