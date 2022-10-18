@@ -1960,7 +1960,9 @@ int ha_rollback_low(THD *thd, bool all) {
 int ha_rollback_trans(THD *thd, bool all) {
   int error = 0;
   Transaction_ctx *trn_ctx = thd->get_transaction();
-  bool is_xa_rollback = trn_ctx->xid_state()->has_state(XID_STATE::XA_PREPARED);
+  bool is_xa_rollback =
+      (trn_ctx->xid_state()->has_state(XID_STATE::XA_PREPARED) ||
+       thd->rpl_partial_xa_rollback());
 
   /*
     "real" is a nick name for a transaction for which a commit will

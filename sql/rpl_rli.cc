@@ -216,6 +216,7 @@ Relay_log_info::Relay_log_info(bool is_slave_recovery,
   cached_charset_invalidate();
   inited_hash_workers = false;
   commit_timestamps_status = COMMIT_TS_UNKNOWN;
+  is_partial_xa_rollback= false;
 
   if (!rli_fake) {
     mysql_mutex_init(key_relay_log_info_log_space_lock, &log_space_lock,

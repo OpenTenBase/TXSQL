@@ -170,6 +170,15 @@ typedef struct xid_t {
    */
   static const uint ser_buf_size = 8 + 2 * XIDDATASIZE + 4 * sizeof(long) + 1;
 
+  /*
+    Set fields with serialized string stored in buf.
+    @retval true buf format error;
+            false success.
+  */
+  bool deserialize(const char *buf) {
+    return deserialize_xid(buf, formatID, gtrid_length, bqual_length, data);
+  }
+
   /**
      The method fills XID in a buffer in format of GTRID,BQUAL,FORMATID
      where GTRID, BQUAL are represented as hex strings.
@@ -301,6 +310,8 @@ class XID_STATE {
     XA_ROLLBACK_ONLY
   };
 
+  enum xa_types { XA_INTERNAL, XA_EXTERNAL };
+
   /**
      Transaction identifier.
      For now, this is only used to catch duplicated external xids.
@@ -332,14 +343,21 @@ class XID_STATE {
   */
   bool m_is_binlogged;
 
+  xa_types m_xa_type;
+
  public:
   XID_STATE()
       : xa_state(XA_NOTR),
         rm_error(0),
         m_is_binlogged(false),
+        m_xa_type(XA_INTERNAL),
         prepare_state_time(0) {
     m_xid.null();
   }
+
+  void set_xa_type(xa_types t) { m_xa_type = t; }
+
+  xa_types get_xa_type() const { return m_xa_type; }
 
   std::mutex &get_xa_lock() { return m_xa_lock; }
 
