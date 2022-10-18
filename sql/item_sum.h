@@ -2159,8 +2159,8 @@ class Item_func_group_concat final : public Item_sum {
   /// Describes the temporary table used to perform group concat
   Temp_table_param *tmp_table_param{nullptr};
   String result;
-  TREE tree_base;
-  TREE *tree{nullptr};
+  std::unique_ptr<TREE> tree;
+  size_t tree_len;
 
   /**
      If DISTINCT is used with this GROUP_CONCAT, this member is used to filter
@@ -2196,6 +2196,7 @@ class Item_func_group_concat final : public Item_sum {
                                              const void *key2);
   friend int dump_leaf_key(void *key_arg, element_count count [[maybe_unused]],
                            void *item_arg);
+  bool repack_tree(THD *thd);
 
  public:
   Item_func_group_concat(const POS &pos, bool is_distinct,

@@ -199,6 +199,9 @@ class Temp_table_param {
   /// If this is the out table of a window: the said window
   Window *m_window;
 
+  /// repack tree create a field to store the record string len
+  bool m_has_rec_len_field{false};
+
   Temp_table_param(MEM_ROOT *mem_root = *THR_MALLOC)
       : copy_fields(Mem_root_allocator<Copy_field>(mem_root)),
         group_buff(nullptr),

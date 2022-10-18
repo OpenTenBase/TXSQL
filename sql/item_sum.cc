@@ -4173,6 +4173,8 @@ Item_func_group_concat::Item_func_group_concat(
       m_order_arg_count(opt_order_list ? opt_order_list->value.elements : 0),
       m_field_arg_count(select_list->elements()),
       separator(separator_arg),
+      tree(nullptr),
+      tree_len(0),
       order_array(*THR_MALLOC) {
   Item **arg_ptr;
 
@@ -4220,7 +4222,7 @@ Item_func_group_concat::Item_func_group_concat(THD *thd,
       context(item->context),
       separator(item->separator),
       tmp_table_param(item->tmp_table_param),
-      tree(item->tree),
+      tree_len(item->tree_len),
       unique_filter(item->unique_filter),
       table(item->table),
       order_array(thd->mem_root),
@@ -4229,6 +4231,8 @@ Item_func_group_concat::Item_func_group_concat(THD *thd,
       warning_for_row(item->warning_for_row),
       force_copy_fields(item->force_copy_fields),
       original(item) {
+  tree = std::move(item->tree);
+  item->tree_len = 0;
   allow_group_via_temp_table = item->allow_group_via_temp_table;
   result.set_charset(collation.collation);
 
@@ -4273,8 +4277,8 @@ void Item_func_group_concat::cleanup() {
       free_tmp_table(table);
       table = nullptr;
       if (tree != nullptr) {
-        delete_tree(tree);
-        tree = nullptr;
+        delete_tree(tree.get());
+        tree.reset(nullptr);
       }
       if (unique_filter) {
         destroy(unique_filter);
@@ -4335,24 +4339,96 @@ void Item_func_group_concat::clear() {
   null_value = true;
   warning_for_row = false;
   m_result_finalized = false;
-  if (tree) reset_tree(tree);
+  if (tree) {
+    reset_tree(tree.get());
+    tree_len= 0;
+  }
   if (unique_filter) unique_filter->reset();
   if (table && table->blob_storage) table->blob_storage->reset();
   /* No need to reset the table as we never call write_row */
 }
+
+struct st_repack_tree {
+  std::unique_ptr<TREE> tree;
+  TABLE *table;
+  size_t len, maxlen;
+
+  st_repack_tree() : tree(nullptr), table(nullptr), len(0), maxlen(0){}
+};
+
+extern "C" int copy_to_tree(void *key,
+                            element_count count __attribute__((unused)),
+                            void *arg) {
+  struct st_repack_tree *st = (struct st_repack_tree *)arg;
+  TABLE *table = st->table;
+  Field *field = table->field[0];
+  const uchar *ptr = field->ptr_in_record((uchar *)key - table->s->null_bytes);
+  size_t len = (size_t)field->val_int(const_cast<uchar *>(ptr));
+
+  assert(count == 1);
+  if (!tree_insert(st->tree.get(), key, 0, st->tree->custom_arg)) return 1;
+
+  st->len += len;
+  return st->len > st->maxlen;
+}
+
+bool Item_func_group_concat::repack_tree(THD *thd) {
+  struct st_repack_tree st;
+  int size = tree->size_of_element;
+  if (!tree->offset_to_key) size -= sizeof(void *);
+
+  st.tree.reset(new TREE());
+  init_tree(st.tree.get(), 0, size, group_concat_key_cmp_with_order, false,
+            nullptr, this);
+  assert(tree->size_of_element == st.tree->size_of_element);
+  st.table = table;
+  st.len = 0;
+  st.maxlen = thd->variables.group_concat_max_len;
+  tree_walk(tree.get(), &copy_to_tree, &st, left_root_right);
+  if (st.len <= st.maxlen) {  // Copying aborted. Must be OOM
+    delete_tree(st.tree.get());
+    return true;
+  }
+  delete_tree(tree.get());
+  tree_len = st.len;
+  tree = std::move(st.tree);
+
+  return false;
+}
+
+/*
+  Repacking the tree is expensive. But it keeps the tree small, and
+  inserting into an unnecessary large tree is also waste of time.
+
+  The following number is best-by-test. Test execution time slowly
+  decreases up to N=10 (that is, factor=1024) and then starts to increase,
+  again, very slowly.
+*/
+#ifndef NDEBUG
+#define GCONCAT_REPACK_FACTOR 2
+#else
+#define GCONCAT_REPACK_FACTOR 10
+#endif
 
 bool Item_func_group_concat::add() {
   if (always_null) return false;
   THD *thd = current_thd;
   if (copy_funcs(tmp_table_param, thd)) return true;
 
+  size_t row_str_len = 0;
+  StringBuffer<MAX_FIELD_WIDTH> buf;
+  String *res;
   for (uint i = 0; i < m_field_arg_count; i++) {
     Item *show_item = args[i];
     if (show_item->const_item()) continue;
 
     Field *field = show_item->get_tmp_table_field();
-    if (field && field->is_null_in_record((const uchar *)table->record[0]))
-      return false;  // Skip row if it contains null
+
+    if (field) {
+      if (field->is_null_in_record((const uchar *)table->record[0]))
+        return false;  // Skip row if it contains null
+      if (tree && (res = field->val_str(&buf))) row_str_len += res->length();
+    }
   }
 
   null_value = false;
@@ -4369,12 +4445,19 @@ bool Item_func_group_concat::add() {
   if (row_eligible && tree) {
     DBUG_EXECUTE_IF("trigger_OOM_in_gconcat_add",
                     DBUG_SET("+d,simulate_persistent_out_of_memory"););
-    el = tree_insert(tree, table->record[0] + table->s->null_bytes, 0,
+    // THD *thd= table->in_use;
+    table->field[0]->store(row_str_len);
+    if (tree_len > thd->variables.group_concat_max_len * GCONCAT_REPACK_FACTOR
+        && tree->elements_in_tree > 1) {
+      if (repack_tree(thd)) return true;
+    }
+    el = tree_insert(tree.get(), table->record[0] + table->s->null_bytes, 0,
                      tree->custom_arg);
     DBUG_EXECUTE_IF("trigger_OOM_in_gconcat_add",
                     DBUG_SET("-d,simulate_persistent_out_of_memory"););
     /* check if there was enough memory to insert the row */
     if (!el) return true;
+    tree_len += row_str_len;
   }
   /*
     In case of GROUP_CONCAT with DISTINCT or ORDER BY (or both) don't dump the
@@ -4533,8 +4616,20 @@ bool Item_func_group_concat::setup(THD *thd) {
     fields.push_front(order_array[i].item[0]);
   }
 
+  if (m_order_arg_count > 0) {
+    /*
+      Prepend the field to store the length of the string representation
+      of this row. Used to detect when the tree goes over group_concat_max_len
+    */
+    Item *item = new (thd->mem_root) Item_int((int32)thd->variables.group_concat_max_len);
+    if (!item || fields.push_front(item))
+      return true;
+    tmp_table_param->m_has_rec_len_field = true;
+  }
+
   count_field_types(aggr_query_block, tmp_table_param, fields, false, true);
   tmp_table_param->force_copy_fields = force_copy_fields;
+  tmp_table_param->hidden_field_count = (m_order_arg_count > 0);
   if (order_or_distinct) {
     /*
       Force the create_tmp_table() to convert BIT columns to INT
@@ -4579,14 +4674,15 @@ bool Item_func_group_concat::setup(THD *thd) {
   uint tree_key_length = table->s->reclength - table->s->null_bytes;
 
   if (m_order_arg_count > 0) {
-    tree = &tree_base;
+    tree.reset(new TREE());
     /*
       Create a tree for sorting. The tree is used to sort (according to the
       syntax of this function). If there is no ORDER BY clause, we don't
       create this tree.
     */
-    init_tree(tree, 0, tree_key_length, group_concat_key_cmp_with_order, false,
+    init_tree(tree.get(), 0, tree_key_length, group_concat_key_cmp_with_order, false,
               nullptr, this);
+    tree_len = 0;
   }
 
   if (distinct) {
@@ -4625,7 +4721,7 @@ String *Item_func_group_concat::val_str(String *) {
   if (!m_result_finalized)  // Result yet to be written.
   {
     if (tree != nullptr)  // order by
-      tree_walk(tree, &dump_leaf_key, this, left_root_right);
+      tree_walk(tree.get(), &dump_leaf_key, this, left_root_right);
     else if (distinct)  // distinct (and no order by).
       unique_filter->walk(&dump_leaf_key, this);
     else

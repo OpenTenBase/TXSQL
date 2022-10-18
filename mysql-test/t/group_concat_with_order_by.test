@@ -1,0 +1,41 @@
+--source include/have_debug.inc
+
+create table t(id int primary key, c1 int, c2 varchar(1024));
+--disable_query_log
+insert into t values(0,1,'1');
+insert into t values(1,1,'1');
+insert into t values(2,2,'22');
+insert into t values(3,3,repeat('3',4));
+insert into t values(4,4,repeat('4',8));
+insert into t values(5,5,repeat('5',9));
+insert into t values(6,6,repeat('6',10));
+insert into t values(7,7,repeat('6',10));
+insert into t values(8,8,repeat('8',16));
+insert into t values(9,9,repeat('9',32));
+insert into t values(10,10,repeat('9',64));
+insert into t values(11,2,'22');
+--enable_query_log
+select group_concat(t.c2 order by t.c1 separator',') as test from t;
+set group_concat_max_len=10;
+select group_concat(t.c2 order by t.c1 separator',') as test from t;
+
+drop table t;
+#key length 1024 will store pointer in the tree
+create table t(id int primary key, c1 int, c2 varchar(1010)) charset=latin1;
+--disable_query_log
+insert into t values(0,1,'1');
+insert into t values(1,1,'1');
+insert into t values(2,2,'22');
+insert into t values(3,3,repeat('3',4));
+insert into t values(4,4,repeat('4',8));
+insert into t values(5,5,repeat('5',9));
+insert into t values(6,6,repeat('6',10));
+insert into t values(7,7,repeat('6',10));
+insert into t values(8,8,repeat('8',16));
+insert into t values(9,9,repeat('9',32));
+insert into t values(10,10,repeat('9',64));
+insert into t values(11,2,'22');
+--enable_query_log
+select group_concat(t.c2 order by t.c1 separator',') as test from t;
+
+drop table t;

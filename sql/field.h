@@ -1102,6 +1102,12 @@ class Field {
    */
   virtual uint32 max_data_length() const { return pack_length(); }
 
+  const uchar *ptr_in_record(const uchar *record) const {
+    ptrdiff_t l_offset= (ptrdiff_t) (ptr -  table->record[0]);
+    assert(l_offset >= 0 && table->s->rec_buff_length - l_offset > 0);
+    return record + l_offset;
+  }
+
   virtual type_conversion_status reset() {
     memset(ptr, 0, pack_length());
     return TYPE_OK;
