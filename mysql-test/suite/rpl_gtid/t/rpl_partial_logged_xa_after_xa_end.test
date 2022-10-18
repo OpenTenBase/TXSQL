@@ -1,0 +1,45 @@
+source include/force_restart.inc;
+source include/have_binlog_format_row.inc;
+source include/master-slave.inc;
+
+connection slave;
+stop replica;
+
+connection master;
+create table t1(id int not null primary key,c1 int);
+
+xa start 'xatest1';
+insert into t1 values(1,1),(2,2);
+xa end 'xatest1';
+xa prepare 'xatest1';
+
+connection slave;
+let $DATADIR= `select @@datadir`;
+start replica io_thread;
+connection master;
+source include/sync_slave_io_with_master.inc;
+replace_column 5 # 6 #;
+show relaylog events in 'slave-relay-bin.000003';
+let $rpl_server_number= 2;
+source include/rpl_stop_server.inc;
+list_files  $DATADIR;
+exec truncate -s 974 $DATADIR/slave-relay-bin.000003;
+
+let $rpl_server_number= 2;
+let $rpl_server_parameters= --relay-log-recovery=0 --skip-slave-start;
+let $rpl_omit_print_server_parameters= 1;
+source include/rpl_start_server.inc;
+list_files  $DATADIR;
+replace_column 5 # 6 #;
+show relaylog events in 'slave-relay-bin.000003';
+start replica;
+connection master;
+xa commit 'xatest1';
+source include/sync_slave_sql_with_master.inc;
+connection slave;
+select * from t1;
+connection master;
+drop table t1;
+source include/sync_slave_sql_with_master.inc;
+
+source include/rpl_end.inc;

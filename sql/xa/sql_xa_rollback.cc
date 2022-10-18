@@ -27,6 +27,7 @@
 #include "sql/handler.h"             // commit_owned_gtids
 #include "sql/raii/sentry.h"         // raii::Sentry<>
 #include "sql/rpl_gtid.h"            // gtid_state_commit_or_rollback
+#include "sql/rpl_rli.h"
 #include "sql/sql_class.h"           // THD
 #include "sql/tc_log.h"              // tc_log
 #include "sql/transaction.h"  // trans_reset_one_shot_chistics, trans_track_end_trx
@@ -103,6 +104,18 @@ bool Sql_cmd_xa_rollback::process_attached_xa_rollback(THD *thd) const {
   std::tie(gtid_error, need_clear_owned_gtid) = commit_owned_gtids(thd, true);
   CONDITIONAL_SYNC_POINT_FOR_TIMESTAMP("before_rollback_xa_trx");
   bool res = xa_trans_force_rollback(thd) || gtid_error;
+  const bool partial_xa_rb = thd->rpl_partial_xa_rollback();
+  if (partial_xa_rb) {
+    need_clear_owned_gtid = true;
+    /* gtid_error should be set to true */
+    gtid_error = true;
+    thd->rpl_partial_xa_rollback(false);
+    /*
+       In this case it's possible that current txn didn't access any storage
+       engine, and if so we need this unflagging.
+       */
+    thd->rli_slave->reattach_engine_ha_data(thd);
+  }
   gtid_state_commit_or_rollback(thd, need_clear_owned_gtid, !gtid_error);
   // todo: report a bug in that the raised rm_error in this branch
   //       is masked unlike the detached rollback branch above.

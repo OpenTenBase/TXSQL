@@ -3637,4 +3637,12 @@ time_t THD::get_backquery_timestamp(const std::string &key) {
   return it->second;
 }
 
+bool THD::rpl_partial_xa_rollback() const {
+  return rli_slave && rli_slave->partial_xa_rollback();
+}
+
+void THD::rpl_partial_xa_rollback(bool b) {
+  if (rli_slave) rli_slave->partial_xa_rollback(b);
+}
+
 /* Changes from TXSQL end. */

@@ -189,6 +189,9 @@ bool trans_begin(THD *thd, uint flags) {
 
   if (tst) tst->add_trx_state(thd, TX_EXPLICIT);
 
+  XID_STATE *xid_state = thd->get_transaction()->xid_state();
+  if (xid_state) xid_state->set_xa_type(XID_STATE::XA_INTERNAL);
+
   /* ha_start_consistent_snapshot() relies on OPTION_BEGIN flag set. */
   if (flags & MYSQL_START_TRANS_OPT_WITH_CONS_SNAPSHOT) {
     if (tst) tst->add_trx_state(thd, TX_WITH_SNAPSHOT);

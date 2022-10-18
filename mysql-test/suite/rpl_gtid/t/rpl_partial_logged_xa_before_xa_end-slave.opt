@@ -1,0 +1,2 @@
+--replica-parallel-workers=1
+--replica-parallel-type=logical_clock
