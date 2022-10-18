@@ -6499,10 +6499,10 @@ int Xid_apply_log_event::do_apply_event(Relay_log_info const *rli) {
     rli repository being transactional means replication is crash safe.
     Positions are written into transactional tables ahead of commit and the
     changes are made permanent during commit.
-    XA transactional does not actually commit so has to defer its flush_info().
+    See Xid_apply_log_event::do_apply_event_worker() at the same code section.
    */
-  if (!thd->get_transaction()->xid_state()->check_in_xa(false) &&
-      rli_ptr->is_transactional()) {
+  bool is_in_xa = thd->get_transaction()->xid_state()->check_in_xa(false);
+  if (!is_in_xa && rli_ptr->is_transactional()) {
     if ((error =
              rli_ptr->flush_info(Relay_log_info::RLI_FLUSH_IGNORE_SYNC_OPT)))
       goto err;
@@ -6589,7 +6589,7 @@ int Xid_apply_log_event::do_apply_event(Relay_log_info const *rli) {
       Where as for non transactional rli repository the positions are flushed
       only on successful commit.
      */
-    if (!rli_ptr->is_transactional())
+    if (!rli_ptr->is_transactional() || is_in_xa)
       rli_ptr->flush_info(Relay_log_info::RLI_FLUSH_NO_OPTION);
   }
 err:

@@ -4623,7 +4623,8 @@ apply_event_and_update_pos(Log_event **ptr_ev, THD *thd, Relay_log_info *rli) {
     */
     int error = 0;
     if (*ptr_ev &&
-        ((ev->get_type_code() != binary_log::XID_EVENT &&
+        (((ev->get_type_code() != binary_log::XID_EVENT &&
+           ev->get_type_code() != binary_log::XA_PREPARE_LOG_EVENT) &&
           !is_committed_ddl(*ptr_ev)) ||
          skip_event ||
          (rli->is_mts_recovery() && !is_gtid_event(ev) &&
@@ -4996,8 +4997,9 @@ static int exec_relay_log_event(THD *thd, Relay_log_info *rli,
       DBUG_EXECUTE_IF(
           "incomplete_group_in_relay_log",
           if ((ev->get_type_code() == binary_log::XID_EVENT) ||
+              (ev->get_type_code() == binary_log::XA_PREPARE_LOG_EVENT) ||
               ((ev->get_type_code() == binary_log::QUERY_EVENT) &&
-               strcmp("COMMIT", ((Query_log_event *)ev)->query) == 0)) {
+               ev->ends_group())) {
             rli->abort_slave = 1;
             mysql_mutex_unlock(&rli->data_lock);
             delete ev;
