@@ -1283,6 +1283,8 @@ static void trx_start_low(
                    (!trx->internal && thd_trx_is_read_only(trx->mysql_thd)) ||
                    srv_read_only_mode;
 
+  trx->has_gap_locks = false;
+
   if (!trx->auto_commit) {
     ++trx->will_lock;
   } else if (trx->will_lock == 0) {
@@ -3015,8 +3017,17 @@ static void trx_prepare(trx_t *trx) {
     /* Stop inheriting GAP locks. */
     trx->skip_lock_inheritance = true;
 
-    /* Release only GAP locks for now. */
-    lock_trx_release_read_locks(trx, true);
+    /* Release only GAP locks for now. Due to description
+    of bug#27189701, this is only for solving conflicts on
+    slave, so we can only let slave thread  or the one who
+    already holds gap lock to release gap locks.
+    For other cases, locks are released at commit stage. This
+    will avoid one more acquirement of global lock_sys->mutex for
+    most cases while RC isolation is used. */
+    if (!trx->mysql_thd || thd_is_replication_slave_thread(trx->mysql_thd) ||
+        trx->has_gap_locks) {
+      lock_trx_release_read_locks(trx, true);
+    }
   }
 
   if (lsn > 0) {
