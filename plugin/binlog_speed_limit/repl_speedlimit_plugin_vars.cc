@@ -68,13 +68,15 @@ static void fix_rpl_speed_limit_max_token_ratio(MYSQL_THD thd, SYS_VAR *var,
 static void fix_rpl_speed_limit_trace_level(MYSQL_THD thd, SYS_VAR *var,
                                             void *ptr, const void *val);
 
+#ifndef NDEBUG
+
 static void fix_rpl_speed_limit_run_test(MYSQL_THD thd, SYS_VAR *var, void *ptr,
                                          const void *val);
 
 static int check_rpl_speed_limit_run_test(MYSQL_THD thd, SYS_VAR *var,
                                           void *save,
                                           struct st_mysql_value *value);
-
+#endif
 static MYSQL_SYSVAR_ENUM(
     mode, rpl_speed_limit_mode, PLUGIN_VAR_RQCMDARG,
     "Mode of speed limit: SHARE_BANDWIDTH-> total/N slaves;"
@@ -123,7 +125,7 @@ static MYSQL_SYSVAR_ULONG(trace_level, rpl_speed_limit_trace_level,
                           NULL,                              // check
                           &fix_rpl_speed_limit_trace_level,  // update
                           0, 0, ~0UL, 1);
-
+#ifndef NDEBUG
 static MYSQL_SYSVAR_ULONG(test_send_len, rpl_speed_limit_test_send_len,
                           PLUGIN_VAR_OPCMDARG,
                           "send len of bytes on the running test.",
@@ -136,13 +138,20 @@ static MYSQL_SYSVAR_ULONG(run_test, rpl_speed_limit_run_test,
                           &check_rpl_speed_limit_run_test,  // check
                           &fix_rpl_speed_limit_run_test,    // update
                           0, 0, 100UL, 1);
-
+#endif
 SYS_VAR *repl_speed_limit_system_vars[] = {
-    MYSQL_SYSVAR(enabled),         MYSQL_SYSVAR(mode),
-    MYSQL_SYSVAR(tick_interval),   MYSQL_SYSVAR(max_token_ratio),
-    MYSQL_SYSVAR(slave_bandwidth), MYSQL_SYSVAR(total_bandwidth),
-    MYSQL_SYSVAR(trace_level),     MYSQL_SYSVAR(test_send_len),
-    MYSQL_SYSVAR(run_test),        NULL,
+    MYSQL_SYSVAR(enabled),
+    MYSQL_SYSVAR(mode),
+    MYSQL_SYSVAR(tick_interval),
+    MYSQL_SYSVAR(max_token_ratio),
+    MYSQL_SYSVAR(slave_bandwidth),
+    MYSQL_SYSVAR(total_bandwidth),
+    MYSQL_SYSVAR(trace_level),
+#ifndef NDEBUG
+    MYSQL_SYSVAR(test_send_len),
+    MYSQL_SYSVAR(run_test),
+#endif
+    NULL,
 };
 
 static void fix_rpl_speed_limit_mode(MYSQL_THD, SYS_VAR *, void *ptr,
@@ -197,6 +206,8 @@ static void fix_rpl_speed_limit_trace_level(MYSQL_THD, SYS_VAR *, void *ptr,
   return;
 }
 
+#ifndef NDEBUG
+
 static void fix_rpl_speed_limit_run_test(MYSQL_THD, SYS_VAR *, void *ptr,
                                          const void *val) {
   *static_cast<unsigned long *>(ptr) =
@@ -221,3 +232,4 @@ static int check_rpl_speed_limit_run_test(MYSQL_THD, SYS_VAR *, void *save,
     return value->val_int(value, (long long *)save);
   }
 }
+#endif

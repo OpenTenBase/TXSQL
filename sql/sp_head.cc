@@ -2514,6 +2514,7 @@ bool sp_head::execute_function(THD *thd, Item **argp, uint argcount,
   ulonglong binlog_save_options = 0;
   bool need_binlog_call = false;
   uint arg_no;
+  bool save_log_general = false;
   sp_rcontext *parent_sp_runtime_ctx = thd->sp_runtime_ctx;
   char buf[STRING_BUFFER_USUAL_SIZE];
   String binlog_buf(buf, sizeof(buf), &my_charset_bin);
@@ -2647,6 +2648,13 @@ bool sp_head::execute_function(THD *thd, Item **argp, uint argcount,
     thd->variables.option_bits &= ~OPTION_BIN_LOG;
   }
 
+  if (!opt_general_log &&
+      !(thd->variables.option_bits & OPTION_LOG_OFF)) {
+    save_log_general = true;
+    /* disable this bit */
+    thd->variables.option_bits |= OPTION_LOG_OFF;
+  }
+
   opt_trace_disable_if_no_stored_proc_func_access(thd, this);
 
   /*
@@ -2671,6 +2679,9 @@ bool sp_head::execute_function(THD *thd, Item **argp, uint argcount,
 #endif
 
   thd->swap_query_arena(backup_arena, &call_arena);
+  if (save_log_general) {
+    thd->variables.option_bits &= ~OPTION_LOG_OFF;
+  }
 
   if (need_binlog_call) {
     mysql_bin_log.stop_union_events(thd);
