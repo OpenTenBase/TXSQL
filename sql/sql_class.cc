@@ -3645,4 +3645,18 @@ void THD::rpl_partial_xa_rollback(bool b) {
   if (rli_slave) rli_slave->partial_xa_rollback(b);
 }
 
+#ifdef HAVE_TDSQL
+extern "C" const char *thd_trx_xa_type(const MYSQL_THD thd) {
+  if (!thd->get_transaction() || !thd->get_transaction()->xid_state())
+    return nullptr;
+  return thd->get_transaction()->xid_state()->get_xa_type_str();
+}
+
+extern "C" const char *thd_trx_xa_xid(const MYSQL_THD thd) {
+  if (!thd->get_transaction() || !thd->get_transaction()->xid_state())
+    return nullptr;
+  return thd->get_transaction()->xid_state()->get_xa_xid();
+}
+#endif
+
 /* Changes from TXSQL end. */

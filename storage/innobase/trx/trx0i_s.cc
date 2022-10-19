@@ -79,6 +79,10 @@ static_assert(sizeof(pk_pos_data_lock_wait::m_blocking_engine_lock_id) >
               "pk_pos_data_lock_wait::m_blocking_engine_lock_id must be able "
               "to hold engine_lock_id which has TRX_I_S_LOCK_ID_MAX_LEN chars");
 
+#ifdef HAVE_TDSQL
+extern "C" const char *thd_trx_xa_type(const MYSQL_THD thd);
+extern "C" const char *thd_trx_xa_xid(const MYSQL_THD thd);
+#endif
 /** Initial number of rows in the table cache */
 constexpr uint32_t TABLE_CACHE_INITIAL_ROWSNUM = 1024;
 
@@ -425,6 +429,10 @@ static bool fill_trx_row(
     thread data structure. */
     row->trx_mysql_thread_id = 0;
     row->trx_query = nullptr;
+#ifdef HAVE_TDSQL
+    row->trx_xid[0] = '\0';
+    row->trx_xa_type = nullptr;
+#endif
     goto thd_done;
   }
 
@@ -445,6 +453,18 @@ static bool fill_trx_row(
   } else {
     row->trx_query = nullptr;
   }
+
+#ifdef HAVE_TDSQL
+  // Cache xid
+  row->trx_xid[0] = '\0';
+  {
+    const char *trx_xid = thd_trx_xa_xid(trx->mysql_thd);
+    if (trx_xid) {
+      memcpy(row->trx_xid, trx_xid, XID::ser_buf_size + 16);
+    }
+  }
+  row->trx_xa_type = thd_trx_xa_type(trx->mysql_thd);
+#endif
 
 thd_done:
   s = trx->op_info;
