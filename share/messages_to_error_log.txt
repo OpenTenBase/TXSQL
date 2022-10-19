@@ -11996,6 +11996,9 @@ ER_CDB_SYS_RECYCLE_BIN_INIT_FAILED
 ER_CDB_SYS_RECYCLE_BIN_ALREADY_EXIST
   eng "TXSQL: recycle_bin database %s already exist."
 
+ER_CDB_WARN_UNRECOGNIZED_REPLICA_ROLE
+  eng "Unrecognized role '%lu' reported for replica (server id %lu), set to CDB_ROLE_UNKNOWN."
+
 #
 # End of server-to-error-log message for CDB 8.0.
 #

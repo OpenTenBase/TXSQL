@@ -52,10 +52,12 @@ struct REPLICA_INFO {
   my_thread_id thd_id;
   binary_log::Uuid replica_uuid;
   bool valid_replica_uuid;
+  uint32 role;
 };
 
 int register_replica(THD *thd, uchar *packet, size_t packet_length);
 void unregister_replica(THD *thd, bool only_mine, bool need_lock_slave_list);
+void report_slave_role(THD *thd, ulong role);
 bool show_replicas(THD *thd);
 String *get_replica_uuid(THD *thd, String *value);
 bool show_master_status(THD *thd);

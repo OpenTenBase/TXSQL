@@ -1,0 +1,128 @@
+###############################################################################
+#                                                                             #
+# Variable Name: cdb_role                                                     #
+# Scope: Global                                                               #
+# Data Type: enumeration                                                      #
+# Default: 0                                                                  #
+# Accepted Values: 0, 1, 2 ,3                                                 #
+#                                                                             #
+#                                                                             #
+# Creation Date: 2021-11-21                                                   #
+#                                                                             #
+#                                                                             #
+# Description:Test Cases of Dynamic System Variable                           #
+#             cdb_role                                  #
+#             that checks the behavior of this variable in the following ways #
+#              * Value Check                                                  #
+#              * Scope Check                                                  #
+#                                                                             #
+###############################################################################
+connect (tencent_conn, localhost, tencentroot,'', );
+connection tencent_conn;
+
+# Save initial value
+--let $saved_cdb_role= `SELECT @@global.cdb_role`
+
+# Set initial values to test further
+SET GLOBAL cdb_role= 'CDB_ROLE_UNKNOWN';
+
+#
+# Scope: Global only
+#
+SELECT COUNT(@@GLOBAL.cdb_role);
+
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT COUNT(@@SESSION.cdb_role);
+
+--disable_warnings
+SELECT VARIABLE_NAME FROM performance_schema.global_variables WHERE VARIABLE_NAME='cdb_role';
+SELECT VARIABLE_NAME FROM performance_schema.session_variables WHERE variable_name='cdb_role';
+--enable_warnings
+
+#
+# Access Type: Dynamic
+#
+SET GLOBAL cdb_role= 'CDB_ROLE_UNKNOWN';
+--let $assert_text= 'cdb_role is a dynamic variable'
+--let $assert_cond= "[SELECT @@GLOBAL.cdb_role]" = "CDB_ROLE_UNKNOWN"
+--source include/assert.inc
+
+#
+# Valid values and Default value
+#
+SET GLOBAL cdb_role= 'CDB_ROLE_UNKNOWN';
+--let $assert_text= 'cdb_role should be CDB_ROLE_UNKNOWN'
+--let $assert_cond= "[SELECT @@GLOBAL.cdb_role]" = "CDB_ROLE_UNKNOWN"
+--source include/assert.inc
+
+SET GLOBAL cdb_role= 0;
+--let $assert_text= 'cdb_role should be CDB_ROLE_UNKNOWN'
+--let $assert_cond= "[SELECT @@GLOBAL.cdb_role]" = "CDB_ROLE_UNKNOWN"
+--source include/assert.inc
+
+SET GLOBAL cdb_role= 'CDB_ROLE_MASTER';
+--let $assert_text= 'cdb_role should be CDB_ROLE_MASTER'
+--let $assert_cond= "[SELECT @@GLOBAL.cdb_role]" = "CDB_ROLE_MASTER"
+--source include/assert.inc
+
+SET GLOBAL cdb_role= 1;
+--let $assert_text= 'cdb_role should be CDB_ROLE_MASTER'
+--let $assert_cond= "[SELECT @@GLOBAL.cdb_role]" = "CDB_ROLE_MASTER"
+--source include/assert.inc
+
+SET GLOBAL cdb_role= 'CDB_ROLE_SLAVE';
+--let $assert_text= 'cdb_role should be CDB_ROLE_SLAVE'
+--let $assert_cond= "[SELECT @@GLOBAL.cdb_role]" = "CDB_ROLE_SLAVE"
+--source include/assert.inc
+
+SET GLOBAL cdb_role= 2;
+--let $assert_text= 'cdb_role should be CDB_ROLE_SLAVE'
+--let $assert_cond= "[SELECT @@GLOBAL.cdb_role]" = "CDB_ROLE_SLAVE"
+--source include/assert.inc
+
+SET GLOBAL cdb_role= 'CDB_ROLE_RO';
+--let $assert_text= 'cdb_role should be CDB_ROLE_RO'
+--let $assert_cond= "[SELECT @@GLOBAL.cdb_role]" = "CDB_ROLE_RO"
+--source include/assert.inc
+
+SET GLOBAL cdb_role= 3;
+--let $assert_text= 'cdb_role should be CDB_ROLE_RO'
+--let $assert_cond= "[SELECT @@GLOBAL.cdb_role]" = "CDB_ROLE_RO"
+--source include/assert.inc
+
+SET GLOBAL cdb_role= DEFAULT;
+--let $assert_text= 'cdb_role should be CDB_ROLE_UNKNOWN'
+--let $assert_cond= "[SELECT @@GLOBAL.cdb_role]" = "CDB_ROLE_UNKNOWN"
+--source include/assert.inc
+
+#
+# Invalid values
+#
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL cdb_role= NULL;
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL cdb_role= '';
+
+--error ER_WRONG_TYPE_FOR_VAR
+SET GLOBAL cdb_role= 1.0;
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL cdb_role= 'GARBAGE';
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL cdb_role= ON;
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL cdb_role= OFF;
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL cdb_role= 4;
+
+--echo Expect value still set to "CDB_ROLE_UNKNOWN"
+SELECT @@global.cdb_role;
+
+# Clean up
+--disable_query_log
+--eval SET GLOBAL cdb_role= '$saved_cdb_role';
+--enable_query_log

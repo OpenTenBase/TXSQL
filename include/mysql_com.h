@@ -95,6 +95,7 @@
 #define INDEX_COMMENT_MAXLEN 1024
 #define TABLE_PARTITION_COMMENT_MAXLEN 1024
 #define TABLESPACE_COMMENT_MAXLEN 2048
+#define ROLENAME_CHAR_LENGTH 32
 
 /**
   Maximum length of protocol packet.

@@ -1,0 +1,17 @@
+!include ../my.cnf
+
+[mysqld.1]
+server_id=1
+
+[mysqld.2]
+server_id=2
+
+[mysqld.3]
+server_id=3
+cdb_role=CDB_ROLE_SLAVE
+
+[ENV]
+MASTER_MYPORT=  @mysqld.1.port
+MASTER_MYSOCK=  @mysqld.1.socket
+SLAVE_MYPORT3=  @mysqld.3.port
+SLAVE_MYSOCK3=  @mysqld.3.socket

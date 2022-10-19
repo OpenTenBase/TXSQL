@@ -7989,6 +7989,28 @@ static Sys_var_bool Sys_cdb_sql_filter_enable(
     CMD_LINE(OPT_ARG), DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG,
     ON_CHECK(nullptr), ON_UPDATE(nullptr));
 
+static Sys_var_enum Sys_cdb_role(
+    "cdb_role",
+    "Set the role of the current node in a flat replication cluster. "
+    "CDB_ROLE_MASTER and CDB_ROLE_SLAVE nodes form a HA group. "
+    "Changes come from CCDB_ROLE_MASTER and get applied to "
+    "CDB_ROLE_SLAVE. CDB_ROLE_RO form another group of nodes that "
+    "also apply changes but do not participate in HA. In most cases, "
+    "there is only one CDB_ROLE_SLAVE in an HA group, and it does "
+    "not serve user requests. Changing the role requires stopping "
+    "or reconnecting the replication channel.",
+    GLOBAL_VAR(cdb_node_role), CMD_LINE(REQUIRED_ARG),
+    cdb_role_names, DEFAULT(CDB_ROLE_UNKNOWN));
+
+static Sys_var_bool Sys_cdb_replica_host_detection(
+    "cdb_replica_host_detection",
+    "Autocomplete the Hostname or IP of the slave if the option "
+    "report_host is not set, deriving from the connection. Auto-"
+    "detection has the limitation documented with report_host.",
+    GLOBAL_VAR(cdb_replica_host_detection), CMD_LINE(OPT_ARG),
+    DEFAULT(true), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr),
+    ON_UPDATE(nullptr));
+
 static Sys_var_ulonglong Sys_binlog_write_threshold(
     "binlog_write_threshold",
     "The max allowed size (in bytes) of the transactional and"

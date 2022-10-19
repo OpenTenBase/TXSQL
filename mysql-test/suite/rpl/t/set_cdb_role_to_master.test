@@ -1,0 +1,86 @@
+--source include/not_group_replication_plugin.inc
+--source include/master-slave.inc
+
+# Note: Reconfiguring cdb_role requires tencentroot because it is TENCENT_VAR.
+connect (tencentroot,127.0.0.1,tencentroot,,test,$MASTER_MYPORT,);
+connect (slave3,127.0.0.1,tencentroot,,test,$SLAVE_MYPORT3,);
+
+--connection slave3
+--echo [connection slave3]
+
+--let $saved_cdb_role= `SELECT @@global.cdb_role`
+# slave3 requires replication configuration because is not part of topology.
+--echo # Set up and connect replication channel.
+--replace_result $MASTER_MYPORT MASTER_PORT
+--eval CHANGE MASTER TO master_host='127.0.0.1',master_port=$MASTER_MYPORT,master_user='root'
+--eval START SLAVE IO_THREAD
+source include/wait_for_slave_io_to_start.inc;
+
+
+--connection tencentroot
+--echo [connection tencentroot]
+
+--echo # Slave (Server_id 2) reports default cdb_role.
+--echo # Slave (Server_id 3) reports explicitly configured cdb_role.
+# Wait for slave (Server_id 3) to register as CDB_ROLE_SLAVE.
+--let $show_statement= SHOW SLAVE HOSTS
+--let $field= Server_id
+--let $condition= ='3'
+source include/wait_show_condition.inc;
+--replace_column 3 'SLAVE_PORT'
+--replace_result $SLAVE_MYPORT SLAVE_PORT $DEFAULT_MASTER_PORT DEFAULT_PORT
+--sorted_result
+source include/show_slave_hosts.inc;
+
+
+--connection slave3
+--echo [connection slave3]
+
+set global cdb_role = 3;
+
+--connection tencentroot
+--echo [connection tencentroot]
+
+--echo # Slave (Server_id 3) does not report reconfigured cdb_role without reconnecting.
+--replace_column 3 'SLAVE_PORT'
+--replace_result $SLAVE_MYPORT SLAVE_PORT $DEFAULT_MASTER_PORT DEFAULT_PORT
+--sorted_result
+source include/show_slave_hosts.inc;
+
+
+--connection slave3
+--echo [connection slave3]
+
+STOP SLAVE IO_THREAD;
+set global cdb_role = 1;
+START SLAVE IO_THREAD;
+
+
+--connection tencentroot
+--echo [connection tencentroot]
+
+--echo # Slave (Server_id 3) reports reconfigured cdb_role after reconnecting.
+# Wait for slave (Server_id 3) to register as CDB_ROLE_MASTER.
+--let $show_statement= SHOW SLAVE HOSTS
+--let $field= Server_id
+--let $condition= ='3'
+source include/wait_show_condition.inc;
+--replace_column 3 'SLAVE_PORT'
+--replace_result $SLAVE_MYPORT SLAVE_PORT $DEFAULT_MASTER_PORT DEFAULT_PORT
+--sorted_result
+source include/show_slave_hosts.inc;
+
+
+--connection slave3
+--echo [connection slave3]
+
+#--disable_query_log
+#--eval SET GLOBAL cdb_role= '$saved_cdb_role';
+#--enable_query_log
+--source include/stop_slave_io.inc
+
+
+--connection master
+--echo [connection master]
+
+--source include/rpl_end.inc

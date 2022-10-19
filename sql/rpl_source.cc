@@ -148,6 +148,7 @@ int register_replica(THD *thd, uchar *packet, size_t packet_length) {
   p += 4;
   if (!(si->master_id = uint4korr(p))) si->master_id = server_id;
   si->thd_id = thd->thread_id();
+  si->role = CDB_ROLE_UNKNOWN;
   si->valid_replica_uuid = false;
   if (get_replica_uuid(thd, &replica_uuid)) {
     si->valid_replica_uuid =
@@ -178,6 +179,37 @@ void unregister_replica(THD *thd, bool only_mine, bool need_lock_slave_list) {
       slave_list.erase(it);
 
     if (need_lock_slave_list) mysql_mutex_unlock(&LOCK_replica_list);
+  }
+}
+
+void report_slave_role(THD *thd, ulong role) {
+  if (thd->server_id) {
+    mysql_mutex_lock(&LOCK_replica_list);
+
+    auto it = slave_list.find(thd->server_id);
+    if (it != slave_list.end() && it->second->thd_id == thd->thread_id()) {
+      // validation of role, see cdb_role
+      if (role > CDB_ROLE_RO) {
+        LogErr(WARNING_LEVEL, ER_CDB_WARN_UNRECOGNIZED_REPLICA_ROLE, role,
+              thd->server_id);
+        role = CDB_ROLE_UNKNOWN;
+      }
+
+      it->second->role = role;
+      // auto_perf_node_state &=~2;
+      if (cdb_replica_host_detection && strlen(it->second->host) == 0) {
+        Security_context *inspect_sctx = thd->security_context();
+        LEX_CSTRING inspect_sctx_host = inspect_sctx->host();
+        LEX_CSTRING inspect_sctx_host_or_ip = inspect_sctx->host_or_ip();
+
+        if ((inspect_sctx_host.length || inspect_sctx->ip().length) &&
+            thd->security_context()->host_or_ip().str[0]) {
+          strncpy(it->second->host, inspect_sctx_host_or_ip.str,
+                  HOSTNAME_LENGTH);
+        }
+      }
+    }
+    mysql_mutex_unlock(&LOCK_replica_list);
   }
 }
 
@@ -234,7 +266,6 @@ bool show_replicas(THD *thd) {
     } else {
       protocol->store("", &my_charset_bin);
     }
-
     if (protocol->end_row()) {
       mysql_mutex_unlock(&LOCK_replica_list);
       return true;
