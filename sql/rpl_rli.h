@@ -2112,6 +2112,9 @@ class Relay_log_info : public Rpl_info {
     @param on_rollback  when true the method carries out rollback action
   */
   virtual void post_commit(bool on_rollback);
+
+ public:
+  bool m_last_start_is_xa_start = false;  // record the last start is xa start
 };
 
 /**

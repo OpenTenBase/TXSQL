@@ -105,6 +105,10 @@ class Sql_cmd_xa_rollback : public Sql_cmd_xa_second_phase {
 
  private:
   bool m_force;
+  mutable bool m_clear_state_from_inject{false};
+
+ public:
+  bool clean_state_from_coord_inject(THD *thd) const;
 };
 
 #endif  // XA_SQL_CMD_XA_ROLLBACK

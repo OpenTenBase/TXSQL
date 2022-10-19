@@ -4898,6 +4898,14 @@ private:
 
  public:
   bool skip_priv_checking;
+  /**
+  True if this is a ROLLBACK event injected by the mts coordinator to finish a
+  group corresponding to a partial transaction in the relay log.
+  False otherwise and by default, when coordinator inject an rollback log
+  event,it will set event's rollback_injected_by_coord true. the sql apply
+  thread apply the event,will copy the variable from log event
+ */
+  bool rollback_injected_by_coord = false;
 };
 
 /**

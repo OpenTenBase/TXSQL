@@ -59,6 +59,10 @@ bool Sql_cmd_xa_rollback::execute(THD *thd) {
     XID_STATE *xid_state = thd->get_transaction()->xid_state();
     if (xid_state->get_state() > XID_STATE::XA_NOTR) {  // xid state is valid
       *m_xid = *(xid_state->get_xid());
+    } else {
+      clean_state_from_coord_inject(thd);
+      my_ok(thd);
+      return false;
     }
   }
 
@@ -161,6 +165,8 @@ bool Sql_cmd_xa_rollback::process_attached_xa_rollback(THD *thd) const {
 
   cleanup_trans_state(thd);
 
+  clean_state_from_coord_inject(thd);
+
   xid_state->set_state(XID_STATE::XA_NOTR);
   xid_state->unset_binlogged();
   trans_track_end_trx(thd);
@@ -196,4 +202,29 @@ bool Sql_cmd_xa_rollback::process_detached_xa_rollback(THD *thd) {
   this->cleanup_context(thd);
 
   return this->m_result;
+}
+
+bool Sql_cmd_xa_rollback::clean_state_from_coord_inject(THD *thd) const {
+  if (!m_clear_state_from_inject) {
+    // is xa rollback from coord_thread,need some special logic
+    if (unlikely(m_force && thd->rollback_injected_by_coord)) {
+      /**
+       * if the unfinished trx is :
+       * 1) gtid;
+       * 2) xa start 'xxxx';
+       * 3) xa rollback '' force ;// injected by coord_thread
+       *
+       * above case,the is_engine_ha_data_detached is true,so need unflag
+       */
+      if (thd->rli_slave && thd->rli_slave->is_engine_ha_data_detached()) {
+        thd->rli_slave->reattach_engine_ha_data(thd);
+      }
+
+      gtid_state->update_on_rollback(thd);
+    }
+
+    m_clear_state_from_inject = true;
+  }
+
+  return true;
 }

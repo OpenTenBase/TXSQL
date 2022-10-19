@@ -2184,4 +2184,22 @@ void _db_unlock_file_() {
   native_mutex_unlock(&THR_LOCK_dbug);
 }
 
+bool _db_reset_cur_thread_setting_point_global_setting() {
+  CODE_STATE **my_dptr_state = my_thread_var_dbug();
+  if (!my_dptr_state) {
+    return false;
+  }
+  CODE_STATE *cs = *my_dptr_state;
+
+  if (cs->stack != &init_settings) {
+    FreeState(cs, cs->stack, 1);
+    cs->stack = &init_settings;
+  }
+
+  //  *my_dptr_state = NULL;
+  //  free(cs);
+
+  return true;
+}
+
 #endif
