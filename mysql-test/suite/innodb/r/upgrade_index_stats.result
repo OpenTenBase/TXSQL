@@ -50,6 +50,10 @@ lower(database_name)	lower(table_name)	lower(index_name)	lower(stat_name)
 mysql	component	primary	n_diff_pfx01
 mysql	component	primary	n_leaf_pages
 mysql	component	primary	size
+mysql	tdsql_sequences	primary	n_diff_pfx01
+mysql	tdsql_sequences	primary	n_diff_pfx02
+mysql	tdsql_sequences	primary	n_leaf_pages
+mysql	tdsql_sequences	primary	size
 sys	sys_config	primary	n_diff_pfx01
 sys	sys_config	primary	n_leaf_pages
 sys	sys_config	primary	size

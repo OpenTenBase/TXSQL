@@ -345,6 +345,10 @@ enum enum_sql_command {
   SQLCOM_PARSE_STATEMENT,
   SQLCOM_GEN_KEY_PAIR,
   SQLCOM_SHOW_OUTLINE_INFO,
+  SQLCOM_CREATE_SEQ,
+  SQLCOM_ALTER_SEQ,
+  SQLCOM_DROP_SEQ,
+  SQLCOM_CLEAR_SEQ,
   SQLCOM_END
 };
 #include "plugin_audit_message_types.h"

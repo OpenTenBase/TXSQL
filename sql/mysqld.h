@@ -940,5 +940,9 @@ enum enum_cdb_instance_mode {
 extern std::atomic<ulong> cdb_instance_mode;
 extern char *cdb_server_version;
 
+extern uint num_seq_threads;
+extern bool g_sequence_same_nextval_in_query;
+extern bool g_seq_currval_before_first_nextval_return_error;
+
 /* Changes from txsql end. */
 #endif /* MYSQLD_INCLUDED */

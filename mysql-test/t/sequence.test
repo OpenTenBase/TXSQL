@@ -1,0 +1,228 @@
+set global sequence_same_nextval_in_query = 1;
+set global seq_currval_before_first_nextval_return_error = 1;
+set global forbid_remote_drop_meta=on;
+connect (con1,localhost,root,,);
+--connection con1
+show variables like 'forbid_remote_drop_meta';
+
+create sequence seq0;
+select seq0.nextval, seq0.nextval;
+select seq0.nextval, SEQ0.nextval;
+drop sequence seq0;
+
+--error ER_SEQUENCE_NOT_FOUND
+drop sequence seq1;
+drop sequence if exists seq1;
+--error ER_SEQUENCE_NOT_FOUND
+alter sequence seq1;
+create sequence seq1;
+select*from mysql.tdsql_sequences;
+--error ER_SEQUENCE_EXISTS
+create sequence seq1;
+create sequence if not exists seq1;
+show warnings;
+select*from mysql.tdsql_sequences;
+alter sequence seq1;
+select*from mysql.tdsql_sequences;
+select seq1.nextval;
+select seq1.currval;
+--error ER_PARSE_ERROR
+alter sequence seq1 start with 3;
+alter sequence seq1 increment by 3 maxvalue 3333333 nominvalue; 
+select seq1.nextval, seq1.currval;
+select*from mysql.tdsql_sequences;
+alter sequence seq1 nomaxvalue nominvalue;
+select seq1.currval, seq1.nextval;
+select*from mysql.tdsql_sequences;
+alter sequence seq1 increment by 123 nomaxvalue minvalue -12345678;
+
+select seq1.nextval, seq1.currval;
+select*from mysql.tdsql_sequences;
+select seq1.currval;
+
+drop sequence seq1;
+# this is the only little issue: it can be used after dropped if it was used
+# before dropped in the session.
+select seq1.currval;
+--error ER_SEQUENCE_NOT_FOUND
+drop sequence seq1;
+--error ER_SEQUENCE_NOT_FOUND
+select seq1.nextval;
+drop sequence if exists seq1;
+--error ER_SEQUENCE_NOT_FOUND
+drop sequence seq1;
+
+--error ER_WRONG_SEQ_ARGS
+create sequence seq2 increment by 2 start with 0 maxvalue 10 minvalue -4;
+create sequence seq2 increment by 2 start with 0 maxvalue 10 minvalue -4 cycle cache 4;
+
+let $num= 20;
+while ($num)
+{
+  select seq2.nextval, seq2.currval,seq2.nextval, seq2.currval;
+  dec $num;
+}
+
+create sequence seq3 increment by 3 start with 0 maxvalue 10 minvalue -10 nocycle cache 3;
+--error ER_WRONG_USAGE
+select seq3.currval;
+select seq3.nextval;
+let $num= 3;
+while ($num)
+{
+  select seq3.currval, seq3.nextval, seq3.nextval, seq3.currval;
+  dec $num;
+}
+
+--error ER_NON_CYCLIC_SEQUENCE_CONSUMED
+select seq3.nextval;
+
+create sequence seq4 increment by 13 start with -100 maxvalue 200 minvalue -200 cache 10;
+let $num= 24;
+while ($num)
+{
+  select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+  dec $num;
+}
+
+--error ER_NON_CYCLIC_SEQUENCE_CONSUMED
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+select*from mysql.tdsql_sequences;
+alter sequence seq4 increment by 17 cycle cache 20;
+select*from mysql.tdsql_sequences;
+let $num= 50;
+while ($num)
+{
+  select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+  dec $num;
+  if ($num == 37)
+  {
+    alter sequence seq4 increment by 23 maxvalue 567 minvalue -357 cycle cache 10;
+    select*from mysql.tdsql_sequences;
+  }
+}
+
+
+create sequence seq_3 increment by -1 maxvalue 10 minvalue -10 cache 10;
+let $num= 21;
+select*from mysql.tdsql_sequences where name='seq_3';
+while ($num)
+{
+  select seq_3.nextval, seq_3.nextval, seq_3.currval, seq_3.currval;
+  if ($num == 21)
+  {
+    select*from mysql.tdsql_sequences where name='seq_3';
+  }
+  dec $num;
+}
+select*from mysql.tdsql_sequences where name='seq_3';
+--error ER_NON_CYCLIC_SEQUENCE_CONSUMED
+select seq_3.nextval;
+
+
+
+create sequence seq_50 increment by 10 maxvalue 1000 minvalue 10 nocache;
+select * from mysql.tdsql_sequences;
+select seq_50.nextval;
+select seq_50.nextval;
+select seq_50.nextval;
+select * from mysql.tdsql_sequences;
+alter sequence seq_50 increment by -20;
+select * from mysql.tdsql_sequences;
+select seq_50.nextval;
+--error ER_NON_CYCLIC_SEQUENCE_CONSUMED
+select seq_50.nextval;
+
+create sequence seq_51 increment by 1 maxvalue 1000 minvalue 10 cache 100;
+select seq_51.nextval;
+select seq_51.nextval;
+alter sequence seq_51 increment by 5;
+select seq_51.nextval;
+select seq_51.nextval;
+select * from mysql.tdsql_sequences;
+alter sequence seq_51 increment by -5;
+select * from mysql.tdsql_sequences;
+select seq_51.nextval;
+select seq_51.nextval;
+--error ER_NON_CYCLIC_SEQUENCE_CONSUMED
+select seq_51.nextval;
+--error ER_NON_CYCLIC_SEQUENCE_CONSUMED
+select seq_51.nextval;
+
+
+create sequence seq_52 increment by -10 maxvalue 1000 minvalue 10 nocache;
+select seq_52.nextval;
+select seq_52.nextval;
+alter sequence seq_52 increment by 10;
+select seq_52.nextval;
+--error ER_NON_CYCLIC_SEQUENCE_CONSUMED
+select seq_52.nextval;
+
+#sequence name case insensitive
+create sequence seq_53 increment by -10 maxvalue 1000 minvalue 10 nocache;
+select SEQ_53.nextval;
+alter sequence SEQ_53 increment by 10;
+select SEQ_53.nextval;
+drop sequence SEQ_53;
+
+create table sequence(sequence int primary key, CYCLE int, INCREMENT int, MINVALUE int, NOCACHE int, NOCYCLE int, NOMAXVALUE int, NOMINVALUE int, NOORDER int);
+drop table sequence;
+
+set global sequence_same_nextval_in_query = 0;
+create tdsql_sequence seq_53;
+create table t1(a int);
+insert into t1 values (1),(2),(3);
+select seq_53.nextval;
+select seq_53.nextval,seq_53.nextval;
+select seq_53.nextval,seq_53.nextval, seq_53.currval;
+select seq_53.nextval, a from t1; 
+
+select seq_53.nextval;
+clear sequence cache;
+select seq_53.nextval;
+
+drop table t1;
+drop sequence seq_53;
+
+set global seq_currval_before_first_nextval_return_error = 0;
+create tdsql_sequence seq_54;
+select seq_54.currval;
+drop tdsql_sequence seq_54;
+
+create tdsql_sequence seq_55 tdsql_increment by 5 tdsql_maxvalue 1000 tdsql_minvalue 10 tdsql_nocache;
+select tdsql_setval(seq_55, 5);
+select seq_55.currval;
+select tdsql_setval(seq_55, 20);
+select seq_55.nextval;
+select tdsql_setval(seq_55, 30, 0);
+select seq_55.nextval;
+ --error ER_WRONG_SEQ_ARGS
+select tdsql_setval(seq_55, 20);
+select seq_55.nextval;
+select tdsql_setval(seq_55, 500);
+select seq_55.nextval;
+--error ER_WRONG_SEQ_ARGS
+select tdsql_setval(seq_55, 1001);
+alter tdsql_sequence seq_55 tdsql_increment by -10;
+select test.seq_55.nextval;
+select tdsql_setval(test.seq_55, 300, 1);
+select test.seq_55.nextval;
+--error ER_WRONG_SEQ_ARGS
+select tdsql_setval(test.seq_55, 400, 1);
+select test.seq_55.nextval;
+--error ER_WRONG_SEQ_ARGS
+select tdsql_setval(test.seq_55, 9, 1);
+drop tdsql_sequence seq_55;
+
+#issue#537 increase seq in query result
+show variables like 'sequence_same_nextval_in_query';
+create table t(id int primary key, name varchar(20));
+insert into t values(1,'kz');
+insert into t values(2,'wj');
+create sequence seq_56;
+select seq_56.nextval, name from t;
+drop table t;
+drop sequence seq_56;
+
+--connection default
+set global forbid_remote_drop_meta=off;

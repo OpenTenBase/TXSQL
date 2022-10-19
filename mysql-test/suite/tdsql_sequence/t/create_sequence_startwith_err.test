@@ -1,0 +1,30 @@
+--disable_warnings
+DROP DATABASE IF EXISTS dbtest_seq_sta_err;
+--enable_warnings
+
+CREATE DATABASE dbtest_seq_sta_err;
+
+USE dbtest_seq_sta_err;
+
+--error ER_WRONG_SEQ_ARGS
+CREATE TDSQL_SEQUENCE sequence_001 start with 1000 TDSQL_MAXVALUE 100;
+
+--error ER_WRONG_SEQ_ARGS
+CREATE TDSQL_SEQUENCE sequence_002 TDSQL_increment by 1 start with 1  TDSQL_minvalue 10;
+
+--error ER_WRONG_SEQ_ARGS
+CREATE TDSQL_SEQUENCE sequence_003 TDSQL_increment by 50 start with 60 TDSQL_MAXVALUE 100 TDSQL_nocache;
+
+--error ER_WRONG_SEQ_ARGS
+CREATE TDSQL_SEQUENCE sequence_004 TDSQL_increment by -1 start with 1000 TDSQL_MAXVALUE -10;
+
+--error ER_WRONG_SEQ_ARGS
+CREATE TDSQL_SEQUENCE sequence_005 TDSQL_increment by -1 start with -1000 TDSQL_minvalue -100;
+
+--error ER_WRONG_SEQ_ARGS
+CREATE TDSQL_SEQUENCE sequence_006 TDSQL_increment by -50 start with -2 TDSQL_MAXVALUE -1 TDSQL_minvalue -40 TDSQL_nocache;
+
+--error 1064
+CREATE TDSQL_SEQUENCE sequence_007 TDSQL_increment by 50 startwith '6';
+
+DROP DATABASE dbtest_seq_sta_err ;

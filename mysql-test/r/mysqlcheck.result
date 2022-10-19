@@ -41,6 +41,7 @@ mysql.slave_worker_info                            OK
 mysql.slow_log
 note     : The storage engine for the table doesn't support analyze
 mysql.tables_priv                                  OK
+mysql.tdsql_sequences                              OK
 mysql.time_zone                                    OK
 mysql.time_zone_leap_second                        OK
 mysql.time_zone_name                               OK
@@ -165,6 +166,9 @@ note     : The storage engine for the table doesn't support optimize
 mysql.tables_priv
 note     : Table does not support optimize, doing recreate + analyze instead
 status   : OK
+mysql.tdsql_sequences
+note     : Table does not support optimize, doing recreate + analyze instead
+status   : OK
 mysql.time_zone
 note     : Table does not support optimize, doing recreate + analyze instead
 status   : OK
@@ -222,6 +226,7 @@ mysql.slave_worker_info                            OK
 mysql.slow_log
 note     : The storage engine for the table doesn't support analyze
 mysql.tables_priv                                  OK
+mysql.tdsql_sequences                              OK
 mysql.time_zone                                    OK
 mysql.time_zone_leap_second                        OK
 mysql.time_zone_name                               OK
@@ -331,6 +336,9 @@ status   : OK
 mysql.slow_log
 note     : The storage engine for the table doesn't support optimize
 mysql.tables_priv
+note     : Table does not support optimize, doing recreate + analyze instead
+status   : OK
+mysql.tdsql_sequences
 note     : Table does not support optimize, doing recreate + analyze instead
 status   : OK
 mysql.time_zone

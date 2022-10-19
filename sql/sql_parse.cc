@@ -192,6 +192,7 @@
 #include "sql/opt_statistics.h"
 #include "sql/opt_outline_loader.h"
 #include "sql/opt_outline_builder.h"
+#include "sql/sql_seq.h"
 /**
   Changes from txsql end.
 */
@@ -756,6 +757,14 @@ void init_sql_command_flags() {
   sql_command_flags[SQLCOM_SELECT] =
       CF_REEXECUTION_FRAGILE | CF_CAN_GENERATE_ROW_EVENTS | CF_OPTIMIZER_TRACE |
       CF_HAS_RESULT_SET | CF_CAN_BE_EXPLAINED;
+
+  sql_command_flags[SQLCOM_CREATE_SEQ] = CF_CHANGES_DATA | CF_REEXECUTION_FRAGILE |
+                                         CF_CAN_GENERATE_ROW_EVENTS;
+  sql_command_flags[SQLCOM_ALTER_SEQ] = CF_CHANGES_DATA | CF_REEXECUTION_FRAGILE |
+                                        CF_CAN_GENERATE_ROW_EVENTS;
+  sql_command_flags[SQLCOM_DROP_SEQ] = CF_CHANGES_DATA | CF_REEXECUTION_FRAGILE |
+                                       CF_CAN_GENERATE_ROW_EVENTS;
+
   // (1) so that subquery is traced when doing "SET @var = (subquery)"
   /*
     @todo SQLCOM_SET_OPTION should have CF_CAN_GENERATE_ROW_EVENTS
@@ -949,6 +958,7 @@ void init_sql_command_flags() {
   sql_command_flags[SQLCOM_PRELOAD_KEYS] = CF_AUTO_COMMIT_TRANS;
   sql_command_flags[SQLCOM_ALTER_INSTANCE] |= CF_AUTO_COMMIT_TRANS;
 
+  sql_command_flags[SQLCOM_CLEAR_SEQ] = CF_AUTO_COMMIT_TRANS;
   sql_command_flags[SQLCOM_FLUSH] = CF_AUTO_COMMIT_TRANS;
   sql_command_flags[SQLCOM_RESET] = CF_AUTO_COMMIT_TRANS;
   sql_command_flags[SQLCOM_SET_OUTLINE] = CF_AUTO_COMMIT_TRANS;
@@ -1139,6 +1149,7 @@ void init_sql_command_flags() {
   sql_command_flags[SQLCOM_ASSIGN_TO_KEYCACHE] |= CF_ALLOW_PROTOCOL_PLUGIN;
   sql_command_flags[SQLCOM_PRELOAD_KEYS] |= CF_ALLOW_PROTOCOL_PLUGIN;
   sql_command_flags[SQLCOM_FLUSH] |= CF_ALLOW_PROTOCOL_PLUGIN;
+  sql_command_flags[SQLCOM_CLEAR_SEQ] |= CF_ALLOW_PROTOCOL_PLUGIN;
   sql_command_flags[SQLCOM_KILL] |= CF_ALLOW_PROTOCOL_PLUGIN;
   sql_command_flags[SQLCOM_ANALYZE] |= CF_ALLOW_PROTOCOL_PLUGIN;
   sql_command_flags[SQLCOM_ROLLBACK] |= CF_ALLOW_PROTOCOL_PLUGIN;
@@ -1674,7 +1685,12 @@ static bool deny_updates_if_read_only_option(THD *thd, TABLE_LIST *all_tables) {
       (lex->sql_command == SQLCOM_CREATE_DB) ||
       (lex->sql_command == SQLCOM_DROP_DB);
 
-  if (update_real_tables || create_or_drop_databases) {
+  const bool ddl_seq=
+    (lex->sql_command == SQLCOM_CREATE_SEQ ||
+     lex->sql_command == SQLCOM_DROP_SEQ ||
+     lex->sql_command == SQLCOM_ALTER_SEQ);
+
+  if (update_real_tables || create_or_drop_databases || ddl_seq) {
     /*
       An attempt was made to modify one or more non-temporary tables.
     */
@@ -5052,6 +5068,102 @@ int mysql_execute_command(THD *thd, bool first_level) {
 
       break;
     }
+    case SQLCOM_CREATE_SEQ: {
+      Sequence_info &seqinfo = lex->sequence_info;
+      std::string dbstr;
+
+      if (!seqinfo.ident.db.str) {
+        if (thd->db().str == nullptr) {
+          my_error(ER_NO_DB_ERROR, MYF(0));
+          goto error;
+        }
+
+        dbstr = std::string(thd->db().str, thd->db().length);
+      } else {
+        dbstr = std::string(seqinfo.ident.db.str, seqinfo.ident.db.length);
+      }
+
+      Partitioned_rwlock_read_guard guard(&seq_cache_lock, thd->thread_id());
+      res = create_sequence(thd, dbstr,
+          std::string(seqinfo.ident.name.str, seqinfo.ident.name.length),
+          seqinfo.step.value, seqinfo.start, seqinfo.max.value,
+          seqinfo.min.value,
+          seqinfo.cycle.value, seqinfo.cache.value,
+          lex->create_info->options == HA_LEX_CREATE_IF_NOT_EXISTS);
+      if (!res) {
+        my_ok(thd);
+      }
+
+      break;
+    }
+    case SQLCOM_ALTER_SEQ: {
+      Sequence_info &seqinfo= lex->sequence_info;
+      std::string dbstr;
+
+      if (!seqinfo.ident.db.str) {
+        if (thd->db().str == nullptr) {
+          my_error(ER_NO_DB_ERROR, MYF(0));
+          goto error;
+        }
+
+        dbstr= std::string(thd->db().str, thd->db().length);
+      }
+      else {
+        dbstr= std::string(seqinfo.ident.db.str, seqinfo.ident.db.length);
+      }
+
+      std::string namestr(seqinfo.ident.name.str, seqinfo.ident.name.length);
+      Partitioned_rwlock_read_guard guard(&seq_cache_lock, thd->thread_id());
+      Sequence *seq= get_sequence(thd, dbstr, namestr, false/* no locking */);
+      if (!seq) {
+        res= true;
+        my_error(ER_SEQUENCE_NOT_FOUND, MYF(0), namestr.c_str(), dbstr.c_str());
+        goto error;
+      }
+
+      // seq locked here in alter_args().
+      res = seq->alter_args(
+          thd, seqinfo.step.specified? seqinfo.step.value : seq->get_step(),
+          seqinfo.max.specified? seqinfo.max.value : seq->get_max(),
+          seqinfo.min.specified? seqinfo.min.value : seq->get_min(),
+          seqinfo.cycle.specified? seqinfo.cycle.value : seq->get_cycle(),
+          seqinfo.cache.specified? seqinfo.cache.value : seq->get_n_cache());
+      close_sequence(seq);
+
+      if (!res)
+        my_ok(thd);
+      break;
+    }
+    case SQLCOM_DROP_SEQ: {
+      Sequence_info &seqinfo = lex->sequence_info;
+      std::string dbstr;
+
+      if (!seqinfo.ident.db.str) {
+        if (thd->db().str == nullptr) {
+          my_error(ER_NO_DB_ERROR, MYF(0));
+          goto error;
+        }
+        dbstr = std::string(thd->db().str, thd->db().length);
+      } else {
+        dbstr = std::string(seqinfo.ident.db.str, seqinfo.ident.db.length);
+      }
+
+      {
+        Partitioned_rwlock_read_guard guard(&seq_cache_lock, thd->thread_id());
+        res = drop_sequence(thd, dbstr,
+                            std::string(seqinfo.ident.name.str,
+                                        seqinfo.ident.name.length),
+                            lex->drop_if_exists);
+      }
+      if (!res)
+        my_ok(thd);
+      break;
+    }
+    case SQLCOM_CLEAR_SEQ:
+      clear_sequence_cache(false);
+      res = false;
+      my_ok(thd);
+      break;
     case SQLCOM_ALTER_USER: {
       if (check_reserved_account(thd, lex->users_list))
         goto error;
@@ -5333,6 +5445,7 @@ finish:
       automatically release metadata locks of the current statement.
     */
     thd->mdl_context.release_transactional_locks();
+    thd->release_seq_refs();
   } else if (!thd->in_sub_stmt &&
              (thd->lex->sql_command != SQLCOM_CREATE_TABLE ||
               !thd->lex->create_info->m_transactional_ddl)) {

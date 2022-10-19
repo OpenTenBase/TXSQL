@@ -1,0 +1,49 @@
+--disable_warnings
+DROP DATABASE IF EXISTS dbtest_seq_min;
+
+DROP TDSQL_SEQUENCE IF EXISTS dbtest_seq_min.sequence_001;
+
+DROP TDSQL_SEQUENCE IF EXISTS dbtest_seq_min.sequence_002;
+
+DROP TDSQL_SEQUENCE IF EXISTS dbtest_seq_min.sequence_003;
+
+--enable_warnings
+
+CREATE DATABASE dbtest_seq_min;
+
+USE dbtest_seq_min;
+
+CREATE TDSQL_SEQUENCE sequence_001 TDSQL_increment by 1 TDSQL_nominvalue;
+
+CREATE TDSQL_SEQUENCE sequence_002 TDSQL_increment by -1 TDSQL_nominvalue;
+
+SELECT min_value FROM  mysql.tdsql_sequences where db='dbtest_seq_min' and name='sequence_001';
+
+SELECT min_value FROM  mysql.tdsql_sequences where db='dbtest_seq_min' and name='sequence_002';
+
+commit;
+
+DROP TDSQL_SEQUENCE sequence_001;
+
+DROP TDSQL_SEQUENCE sequence_002;
+
+#CREATE SEQUENCE sequence_003 increment by -100 start with -1  minvalue -201 nocache;
+
+#CREATE TABLE t0(a int PRIMARY KEY);
+
+#INSERT INTO t0 values(sequence_003.nextval);
+#INSERT INTO t0 values(sequence_003.nextval);
+#INSERT INTO t0 values(sequence_003.nextval);
+#--error 10011
+#INSERT INTO t0 values(sequence_003.nextval);
+
+#DROP SEQUENCE sequence_003;
+
+
+--error ER_PARSE_ERROR
+CREATE TDSQL_SEQUENCE sequence_004 TDSQL_increment by 1 TDSQL_minvalue 99999999999999999999999999999;
+
+--error ER_PARSE_ERROR
+CREATE TDSQL_SEQUENCE sequence_005 TDSQL_increment by 50 TDSQL_minvalue '99';
+
+DROP DATABASE dbtest_seq_min ;

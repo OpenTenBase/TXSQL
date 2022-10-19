@@ -1,0 +1,21 @@
+--disable_warnings
+DROP DATABASE IF EXISTS dbtest_seq_err;
+--enable_warnings
+
+CREATE DATABASE dbtest_seq_err;
+
+USE dbtest_seq_err;
+
+--error ER_WRONG_SEQ_ARGS
+CREATE TDSQL_SEQUENCE sequence_001 TDSQL_increment by 0;
+
+--error ER_WRONG_SEQ_ARGS
+CREATE TDSQL_SEQUENCE sequence_002 TDSQL_increment by 1000 TDSQL_MAXVALUE 100 TDSQL_minvalue 10;
+
+--error ER_PARSE_ERROR
+CREATE TDSQL_SEQUENCE sequence_003 TDSQL_increment by '10';
+
+--error ER_PARSE_ERROR
+CREATE TDSQL_SEQUENCE sequence_004 TDSQL_increment by 999999999999999999999;
+
+DROP DATABASE dbtest_seq_err ;

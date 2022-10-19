@@ -270,6 +270,7 @@ our @DEFAULT_SUITES = qw(
   firewall_cdb_plugins
   tdsql_hide_partitions
   tdsql
+  tdsql_sequence
 );
 
 our $DEFAULT_SUITES = join ',', @DEFAULT_SUITES;

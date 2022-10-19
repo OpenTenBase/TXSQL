@@ -881,6 +881,7 @@ MySQL clients support the protocol:
 #include "typelib.h"
 #include "violite.h"
 #include "sql/deadlock_history.h"
+#include "sql/sql_seq.h"
 
 #include "sql/opt_outline_loader.h"
 #include "sql/opt_outline_builder.h"
@@ -4636,6 +4637,18 @@ SHOW_VAR com_status_vars[] = {
      (char *)offsetof(System_status_var,
                       com_stat[(uint)SQLCOM_SHOW_THREADPOOL_STAT]),
      SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
+    {"create_sequence",
+      (char*) offsetof(System_status_var, com_stat[(uint) SQLCOM_CREATE_SEQ]),
+      SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
+    {"alter_sequence",
+      (char*) offsetof(System_status_var, com_stat[(uint) SQLCOM_ALTER_SEQ]),
+      SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
+    {"drop_sequence",
+      (char*) offsetof(System_status_var, com_stat[(uint) SQLCOM_DROP_SEQ]),
+      SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
+    {"clear_sequence",
+      (char*) offsetof(System_status_var, com_stat[(uint) SQLCOM_CLEAR_SEQ]),
+      SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
     {NullS, NullS, SHOW_LONG, SHOW_SCOPE_ALL}};
 
 /* Changes from TXSQL start. */
@@ -4713,8 +4726,6 @@ inline void update_thread_stats(int type, ulonglong size) {
         total_server_memory_used.atomic_sub(thd_get_thread_id(thd), size);
         break;
       case INNODB_MEMORY_ALLOC:
-        thd->status_var.innodb_memory_used += size;
-        total_innodb_memory_used.atomic_add(thd_get_thread_id(thd), size);
         break;
       case INNODB_MEMORY_FREE:
         if (thd->status_var.innodb_memory_used >= size)
@@ -8533,12 +8544,41 @@ int mysqld_main(int argc, char **argv)
                          static_cast<const char **>(argv_p), argc))
     unireg_abort(MYSQLD_ABORT_EXIT);
 
+  {
+    uint err1;
+    int err2;
+    seq_cache_lock.init(64, PSI_NOT_INSTRUMENTED);
+
+    if ((err1 = alter_seq_thds(0, num_seq_threads, &err2))) {
+      if (err1 == (uint)-1 || err1 >= 256) {
+       sql_print_error(
+               "alter_seq_thds(0, %u, %d) returned %u, unable to proceed.",
+               num_seq_threads, err2, err1);
+        unireg_abort(MYSQLD_ABORT_EXIT);
+      }
+
+      uint old_num_seq_threads = num_seq_threads;
+      num_seq_threads = err1 + 1;
+      sql_print_warning("alter_seq_thds(0, %u): Got error %d while "
+                        "creating some squence worker threads at mysqld startup,"
+                        "now we have %u such threads.",
+                        old_num_seq_threads, err2, num_seq_threads);
+    }
+  }
+
 #ifdef _WIN32
   create_shutdown_and_restart_thread();
 #endif
   if (mysqld_process_must_end_at_startup) {
 #if !defined(_WIN32)
     if (opt_daemonize) mysqld::runtime::signal_parent(pipe_write_fd, 1);
+#endif
+#ifndef NDEBUG
+    {
+      // release the thread ids and pass the debug check
+      int seq_err;
+      alter_seq_thds(num_seq_threads, 0, &seq_err);
+    }
 #endif
     unireg_abort(MYSQLD_SUCCESS_EXIT);
   }
@@ -8649,6 +8689,12 @@ int mysqld_main(int argc, char **argv)
   mysql_cond_broadcast(&COND_socket_listener_active);
   mysql_mutex_unlock(&LOCK_socket_listener_active);
 #endif  // !_WIN32
+  {
+    int seq_err;
+    alter_seq_thds(num_seq_threads, 0, &seq_err);
+
+    seq_cache_lock.destroy();
+  }
 
 #ifdef HAVE_PSI_THREAD_INTERFACE
   /*
@@ -13011,3 +13057,7 @@ const char *recyle_bin_startup_modes[] = {"NON", "CDB", "TXSQL", NullS};
 long recycle_bin_startup_mode = RECYCLE_BIN_NON;
 bool cdb_more_gtid_feature_supported = false;
 char *cdb_server_version;
+
+uint num_seq_threads= 4;
+bool g_sequence_same_nextval_in_query = false;
+bool g_seq_currval_before_first_nextval_return_error = false;

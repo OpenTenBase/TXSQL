@@ -1385,6 +1385,30 @@ void warn_about_deprecated_binary(THD *thd)
 %token<lexer.keyword> OUTLINE_SYM 1269                     /* MYSQL */
 %token<lexer.keyword> OUTLINE_INFO_SYM 1270                /* MYSQL */
 %token<lexer.keyword> CDB_OUTLINE_INFO_SYM 1271            /* MYSQL */
+/* Tokens for sequence */
+%token<lexer.keyword> TDSQL_CACHE_SYM 1273
+%token<lexer.keyword> TDSQL_CYCLE_SYM 1274
+%token<lexer.keyword> TDSQL_MAXVALUE_SYM 1275
+%token<lexer.keyword> TDSQL_MINVALUE_SYM 1276
+%token<lexer.keyword> TDSQL_NOCACHE_SYM 1277
+%token<lexer.keyword> TDSQL_NOCYCLE_SYM 1278
+%token<lexer.keyword> TDSQL_NOMAXVALUE_SYM 1279
+%token<lexer.keyword> TDSQL_NOMINVALUE_SYM 1280
+%token<lexer.keyword> TDSQL_NOORDER_SYM 1281
+%token<lexer.keyword> TDSQL_INCREMENT_SYM 1282
+%token<lexer.keyword> TDSQL_ORDER_SYM 1283
+%token<lexer.keyword> TDSQL_SEQUENCE_SYM 1284
+%token<lexer.keyword> CYCLE_SYM  1285
+%token<lexer.keyword> MINVALUE_SYM 1286
+%token<lexer.keyword> NOCACHE_SYM 1287
+%token<lexer.keyword> NOCYCLE_SYM 1288
+%token<lexer.keyword> NOMAXVALUE_SYM 1289
+%token<lexer.keyword> NOMINVALUE_SYM 1290
+%token<lexer.keyword> NOORDER_SYM  1291
+%token<lexer.keyword> INCREMENT_SYM 1292
+%token<lexer.keyword> SEQUENCE_SYM 1293
+%token<lexer.keyword> TDSQL_SETVAL_SYM 1294 /*TDSQL*/
+%token<lexer.keyword> CLEAR_SYM 1295
 /* Changes from txsql end. */
 
 /*
@@ -1853,6 +1877,7 @@ void warn_about_deprecated_binary(THD *thd)
 
 %type <top_level_node>
         alter_instance_stmt
+        alter_seq_stmt
         alter_resource_group_stmt
         alter_table_stmt
         analyze_table_stmt
@@ -1871,6 +1896,7 @@ void warn_about_deprecated_binary(THD *thd)
         drop_resource_group_stmt
         drop_role_stmt
         drop_srs_stmt
+        drop_seq_stmt
         explain_stmt
         explainable_stmt
         handler_stmt
@@ -2188,6 +2214,9 @@ void warn_about_deprecated_binary(THD *thd)
 
 %type <query_id> opt_for_query
 
+%type <longlong_number> seq_start_with absolute_longlong_num real_longlong_num
+%type <seq_attribute> seq_cache seq_cycle seq_increment_by seq_max_value seq_min_value
+%type <seq_ident> seq_ident
 %%
 
 /*
@@ -2312,6 +2341,7 @@ ddl_statement:
         | alter_event_stmt              { $$= nullptr; }
         | alter_function_stmt           { $$= nullptr; }
         | alter_instance_stmt
+        | alter_seq_stmt
         | alter_logfile_stmt            { $$= nullptr; }
         | alter_procedure_stmt          { $$= nullptr; }
         | alter_resource_group_stmt
@@ -2338,6 +2368,7 @@ ddl_statement:
         | drop_role_stmt
         | drop_server_stmt              { $$= nullptr; }
         | drop_srs_stmt
+        | drop_seq_stmt
         | drop_tablespace_stmt          { $$= nullptr; }
         | drop_undo_tablespace_stmt     { $$= nullptr; }
         | drop_table_stmt               { $$= nullptr; }
@@ -2372,6 +2403,7 @@ simple_statement:
         | alter_event_stmt              { $$= nullptr; }
         | alter_function_stmt           { $$= nullptr; }
         | alter_instance_stmt
+        | alter_seq_stmt
         | alter_logfile_stmt            { $$= nullptr; }
         | alter_procedure_stmt          { $$= nullptr; }
         | alter_resource_group_stmt
@@ -2389,6 +2421,7 @@ simple_statement:
         | check_table_stmt
         | checksum                      { $$= nullptr; }
         | clone_stmt                    { $$= nullptr; }
+        | clear_seq_stmt               { $$= nullptr; }
         | commit                        { $$= nullptr; }
         | create                        { $$= nullptr; }
         | create_index_stmt
@@ -2410,6 +2443,7 @@ simple_statement:
         | drop_role_stmt
         | drop_server_stmt              { $$= nullptr; }
         | drop_srs_stmt
+        | drop_seq_stmt
         | drop_tablespace_stmt          { $$= nullptr; }
         | drop_undo_tablespace_stmt     { $$= nullptr; }
         | drop_table_stmt               { $$= nullptr; }
@@ -3591,8 +3625,141 @@ create:
             Lex->m_sql_cmd=
               NEW_PTN Sql_cmd_create_server(&Lex->server_options);
           }
+        | CREATE opt_sequence opt_if_not_exists seq_ident seq_increment_by seq_start_with seq_max_value seq_min_value seq_cycle seq_cache seq_order
+          {
+            Lex->create_info = YYTHD->alloc_typed<HA_CREATE_INFO>();
+            Lex->create_info->options = $3 ? HA_LEX_CREATE_IF_NOT_EXISTS : 0;
+            Lex->sql_command = SQLCOM_CREATE_SEQ;
+            Lex->sequence_info.ident = $4;
+            Lex->sequence_info.step = $5;
+            Lex->sequence_info.start = $6;
+            Lex->sequence_info.max = $7;
+            Lex->sequence_info.min = $8;
+            Lex->sequence_info.cycle = $9;
+            Lex->sequence_info.cache = $10;
+          }
         ;
 
+seq_ident:
+    ident '.' ident
+    {
+      $$.db=$1;
+      $$.name=$3;
+    }
+    | ident
+    {
+      $$.db=NULL_STR;
+      $$.name=$1;
+    }
+    ;
+
+absolute_longlong_num:
+        NUM { int error; $$= my_strtoll10($1.str, nullptr, &error); }
+        | HEX_NUM       { $$= my_strtoll($1.str, (char**) 0, 16); }
+        | LONG_NUM      { int error; $$= my_strtoll10($1.str, nullptr, &error); }
+        | dec_num_error { MYSQL_YYABORT; }
+        ;
+
+real_longlong_num:
+        absolute_longlong_num { $$= $1; }
+        | '+' absolute_longlong_num { $$= $2; }
+        | '-' absolute_longlong_num { $$= -$2; }
+
+seq_increment_by:
+          /* empty */ { $$.value= 1; $$.specified= false; }
+          | opt_increment BY real_longlong_num
+          {
+            $$.value= $3;
+            $$.specified= true;
+          }
+          ;
+
+opt_increment:
+             TDSQL_INCREMENT_SYM {}
+          |  INCREMENT_SYM {}
+          ;
+
+start_or_starts:
+          START_SYM
+          | STARTS_SYM
+          ;
+
+seq_start_with:
+          /* empty */  { $$= Sequence::InvalidSeqValue;}
+          | start_or_starts WITH real_longlong_num
+          {
+            $$= $3;
+          }
+          ;
+
+seq_max_value:
+          /* empty */  { $$.value= Sequence::InvalidSeqValue; $$.specified= false;}
+          | TDSQL_NOMAXVALUE_SYM { $$.value= Sequence::InvalidSeqValue; $$.specified= true;}
+          | NOMAXVALUE_SYM { $$.value= Sequence::InvalidSeqValue; $$.specified= true;}
+          | opt_maxvalue real_longlong_num
+          {
+            $$.value= $2;
+            $$.specified= true;
+          }
+          ;
+
+opt_maxvalue:
+            MAX_VALUE_SYM {}
+          | TDSQL_MAXVALUE_SYM {}
+          ;
+
+seq_min_value:
+          /* empty */  { $$.value= Sequence::InvalidSeqValue; $$.specified= false;}
+          | TDSQL_NOMINVALUE_SYM { $$.value= Sequence::InvalidSeqValue; $$.specified= true;}
+          | NOMINVALUE_SYM { $$.value= Sequence::InvalidSeqValue; $$.specified= true;}
+          | opt_minvalue real_longlong_num
+          {
+            $$.value= $2;
+            $$.specified= true;
+          }
+          ;
+
+opt_minvalue:
+            TDSQL_MINVALUE_SYM {}
+          | MINVALUE_SYM {}
+          ;
+
+seq_cycle:
+        /* empty */ { $$.value= 0; $$.specified= false;}
+        | TDSQL_NOCYCLE_SYM { $$.value= 0; $$.specified= true; }
+        | NOCYCLE_SYM { $$.value= 0; $$.specified= true; }
+        | TDSQL_CYCLE_SYM { $$.value= 1; $$.specified= true; }
+        | CYCLE_SYM { $$.value= 1; $$.specified= true; }
+        ;
+
+seq_cache:
+        /* empty */ { $$.value= 20; $$.specified= false; }
+        | TDSQL_NOCACHE_SYM { $$.value= 1; $$.specified= true; }
+        | NOCACHE_SYM { $$.value= 1; $$.specified= true; }
+        | opt_cache real_ulong_num
+        {
+          $$.value= $2;
+          if ($$.value < 2)
+          {
+            my_error(ER_WRONG_SEQ_ARGS, MYF(0), "CACHE", "In 'CACHE N' clause, N >= 2");
+            MYSQL_YYABORT;
+          }
+          $$.specified= true;
+        }
+        ;
+
+opt_cache:
+          TDSQL_CACHE_SYM {}
+        | CACHE_SYM {}
+        ;
+
+seq_order:
+        /* empty */
+        | TDSQL_ORDER_SYM {}
+        | ORDER_SYM {}
+        | TDSQL_NOORDER_SYM {}
+        | NOORDER_SYM {}
+        ;
 create_srs_stmt:
           CREATE OR_SYM REPLACE_SYM SPATIAL_SYM REFERENCE_SYM SYSTEM_SYM
           real_ulonglong_num srs_attributes
@@ -11166,6 +11333,14 @@ function_call_conflict:
           {
             $$= NEW_PTN Item_func_weight_string(@$, $3, $5, $7, $9);
           }
+        | TDSQL_SETVAL_SYM '(' seq_ident ',' real_longlong_num ')'
+          {
+            $$= NEW_PTN Item_func_tdsql_setval(@$, $3.db, $3.name, $5, 1);
+          }
+        | TDSQL_SETVAL_SYM '(' seq_ident ',' real_longlong_num ',' ulong_num ')'
+          {
+            $$= NEW_PTN Item_func_tdsql_setval(@$, $3.db, $3.name, $5, $7);
+          }
         | geometry_function
         ;
 
@@ -13425,6 +13600,22 @@ drop_srs_stmt:
           {
             $$= NEW_PTN PT_drop_srs($6, $5);
           }
+        ;
+
+drop_seq_stmt:
+          DROP opt_sequence if_exists seq_ident
+          {
+            Lex->sql_command= SQLCOM_DROP_SEQ;
+            Lex->drop_if_exists= $3;
+            Lex->sequence_info.ident= $4;
+          }
+        ;
+
+clear_seq_stmt:
+        CLEAR_SYM SEQUENCE_SYM CACHE_SYM 
+        {
+          Lex->sql_command = SQLCOM_CLEAR_SEQ;
+        }
         ;
 
 drop_role_stmt:
@@ -15806,6 +15997,7 @@ ident_keywords_unambiguous:
         | CPU_SYM
         | CURRENT_SYM /* not reserved in MySQL per WL#2111 specification */
         | CURSOR_NAME_SYM
+        | CYCLE_SYM
         | DATAFILE_SYM
         | DATA_SYM
         | DATETIME_SYM
@@ -15876,6 +16068,7 @@ ident_keywords_unambiguous:
         | IDENTIFIED_SYM
         | IGNORE_SERVER_IDS_SYM
         | INACTIVE_SYM
+        | INCREMENT_SYM
         | INDEXES
         | INITIAL_SIZE_SYM
         | INITIAL_SYM
@@ -15944,6 +16137,7 @@ ident_keywords_unambiguous:
         | MICROSECOND_SYM
         | MIGRATE_SYM
         | MINUTE_SYM
+        | MINVALUE_SYM
         | MIN_ROWS
         | MODE_SYM
         | MODIFY_SYM
@@ -15962,7 +16156,12 @@ ident_keywords_unambiguous:
         | NEVER_SYM
         | NEW_SYM
         | NEXT_SYM
+        | NOCACHE_SYM
+        | NOCYCLE_SYM
         | NODEGROUP_SYM
+        | NOMAXVALUE_SYM
+        | NOMINVALUE_SYM
+        | NOORDER_SYM
         | NOWAIT_SYM
         | NO_WAIT_SYM
         | NULLS_SYM
@@ -16062,6 +16261,7 @@ ident_keywords_unambiguous:
         | SECONDARY_UNLOAD_SYM
         | SECOND_SYM
         | SECURITY_SYM
+        | SEQUENCE_SYM
         | SERIALIZABLE_SYM
         | SERIAL_SYM
         | SERVER_SYM
@@ -16133,6 +16333,18 @@ ident_keywords_unambiguous:
         | TABLESPACE_SYM
         | TABLE_CHECKSUM_SYM
         | TABLE_NAME_SYM
+        | TDSQL_CACHE_SYM
+        | TDSQL_CYCLE_SYM
+        | TDSQL_MAXVALUE_SYM
+        | TDSQL_MINVALUE_SYM
+        | TDSQL_NOCACHE_SYM
+        | TDSQL_NOCYCLE_SYM
+        | TDSQL_NOMAXVALUE_SYM
+        | TDSQL_NOMINVALUE_SYM
+        | TDSQL_NOORDER_SYM
+        | TDSQL_INCREMENT_SYM
+        | TDSQL_ORDER_SYM
+        | TDSQL_SEQUENCE_SYM
         | TEMPORARY
         | TEMPTABLE_SYM
         | TEXT_SYM
@@ -16831,6 +17043,26 @@ alter_instance_action:
         | RELOAD KEYRING_SYM {
             $$ = NEW_PTN PT_alter_instance(RELOAD_KEYRING, EMPTY_CSTR);
           }
+        ;
+
+alter_seq_stmt:
+          ALTER opt_sequence seq_ident seq_increment_by seq_max_value seq_min_value seq_cycle seq_cache seq_order
+          {
+            Lex->sql_command= SQLCOM_ALTER_SEQ;
+            // clear the 'specified' fields.
+            memset(reinterpret_cast<void*>(&(Lex->sequence_info)), 0, sizeof(Lex->sequence_info));
+            Lex->sequence_info.ident = $3;
+            Lex->sequence_info.step = $4;
+            Lex->sequence_info.max = $5;
+            Lex->sequence_info.min = $6;
+            Lex->sequence_info.cycle = $7;
+            Lex->sequence_info.cache = $8;
+          }
+        ;
+
+opt_sequence:
+          SEQUENCE_SYM {}
+        | TDSQL_SEQUENCE_SYM {}
         ;
 
 /*

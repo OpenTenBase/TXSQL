@@ -1,0 +1,681 @@
+set global sequence_same_nextval_in_query = 1;
+set global seq_currval_before_first_nextval_return_error = 1;
+set global forbid_remote_drop_meta=on;
+show variables like 'forbid_remote_drop_meta';
+Variable_name	Value
+forbid_remote_drop_meta	ON
+create sequence seq0;
+select seq0.nextval, seq0.nextval;
+seq0.nextval	seq0.nextval
+1	1
+select seq0.nextval, SEQ0.nextval;
+seq0.nextval	SEQ0.nextval
+2	2
+drop sequence seq0;
+drop sequence seq1;
+ERROR HY000: Sequence seq1 in database test not found.
+drop sequence if exists seq1;
+Warnings:
+Note	4180	Sequence seq1 in database test not found.
+alter sequence seq1;
+ERROR HY000: Sequence seq1 in database test not found.
+create sequence seq1;
+select*from mysql.tdsql_sequences;
+db	name	curval	start	step	max_value	min_value	do_cycle	n_cache
+test	seq1	-9223372036854775808	1	1	9223372036854775807	1	0	20
+create sequence seq1;
+ERROR HY000: Sequence seq1 in database test already exists.
+create sequence if not exists seq1;
+Warnings:
+Note	4178	Sequence seq1 in database test already exists.
+show warnings;
+Level	Code	Message
+Note	4178	Sequence seq1 in database test already exists.
+select*from mysql.tdsql_sequences;
+db	name	curval	start	step	max_value	min_value	do_cycle	n_cache
+test	seq1	-9223372036854775808	1	1	9223372036854775807	1	0	20
+alter sequence seq1;
+select*from mysql.tdsql_sequences;
+db	name	curval	start	step	max_value	min_value	do_cycle	n_cache
+test	seq1	-9223372036854775808	1	1	9223372036854775807	1	0	20
+select seq1.nextval;
+seq1.nextval
+1
+select seq1.currval;
+seq1.currval
+1
+alter sequence seq1 start with 3;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'start with 3' at line 1
+alter sequence seq1 increment by 3 maxvalue 3333333 nominvalue;
+select seq1.nextval, seq1.currval;
+seq1.nextval	seq1.currval
+4	4
+select*from mysql.tdsql_sequences;
+db	name	curval	start	step	max_value	min_value	do_cycle	n_cache
+test	seq1	20	1	3	3333333	1	0	20
+alter sequence seq1 nomaxvalue nominvalue;
+select seq1.currval, seq1.nextval;
+seq1.currval	seq1.nextval
+4	7
+select*from mysql.tdsql_sequences;
+db	name	curval	start	step	max_value	min_value	do_cycle	n_cache
+test	seq1	20	1	3	9223372036854775807	1	0	20
+alter sequence seq1 increment by 123 nomaxvalue minvalue -12345678;
+select seq1.nextval, seq1.currval;
+seq1.nextval	seq1.currval
+130	130
+select*from mysql.tdsql_sequences;
+db	name	curval	start	step	max_value	min_value	do_cycle	n_cache
+test	seq1	2467	1	123	9223372036854775807	-12345678	0	20
+select seq1.currval;
+seq1.currval
+130
+drop sequence seq1;
+select seq1.currval;
+seq1.currval
+130
+drop sequence seq1;
+ERROR HY000: Sequence seq1 in database test not found.
+select seq1.nextval;
+ERROR HY000: Sequence seq1 in database test not found.
+drop sequence if exists seq1;
+Warnings:
+Note	4180	Sequence seq1 in database test not found.
+drop sequence seq1;
+ERROR HY000: Sequence seq1 in database test not found.
+create sequence seq2 increment by 2 start with 0 maxvalue 10 minvalue -4;
+ERROR HY000: Wrong sequence argument(cache) value specified: cache < (maxvalue - minvalue)/abs(step).
+create sequence seq2 increment by 2 start with 0 maxvalue 10 minvalue -4 cycle cache 4;
+select seq2.nextval, seq2.currval,seq2.nextval, seq2.currval;
+seq2.nextval	seq2.currval	seq2.nextval	seq2.currval
+0	0	0	0
+select seq2.nextval, seq2.currval,seq2.nextval, seq2.currval;
+seq2.nextval	seq2.currval	seq2.nextval	seq2.currval
+2	2	2	2
+select seq2.nextval, seq2.currval,seq2.nextval, seq2.currval;
+seq2.nextval	seq2.currval	seq2.nextval	seq2.currval
+4	4	4	4
+select seq2.nextval, seq2.currval,seq2.nextval, seq2.currval;
+seq2.nextval	seq2.currval	seq2.nextval	seq2.currval
+6	6	6	6
+select seq2.nextval, seq2.currval,seq2.nextval, seq2.currval;
+seq2.nextval	seq2.currval	seq2.nextval	seq2.currval
+8	8	8	8
+select seq2.nextval, seq2.currval,seq2.nextval, seq2.currval;
+seq2.nextval	seq2.currval	seq2.nextval	seq2.currval
+10	10	10	10
+select seq2.nextval, seq2.currval,seq2.nextval, seq2.currval;
+seq2.nextval	seq2.currval	seq2.nextval	seq2.currval
+-4	-4	-4	-4
+select seq2.nextval, seq2.currval,seq2.nextval, seq2.currval;
+seq2.nextval	seq2.currval	seq2.nextval	seq2.currval
+-2	-2	-2	-2
+select seq2.nextval, seq2.currval,seq2.nextval, seq2.currval;
+seq2.nextval	seq2.currval	seq2.nextval	seq2.currval
+0	0	0	0
+select seq2.nextval, seq2.currval,seq2.nextval, seq2.currval;
+seq2.nextval	seq2.currval	seq2.nextval	seq2.currval
+2	2	2	2
+select seq2.nextval, seq2.currval,seq2.nextval, seq2.currval;
+seq2.nextval	seq2.currval	seq2.nextval	seq2.currval
+4	4	4	4
+select seq2.nextval, seq2.currval,seq2.nextval, seq2.currval;
+seq2.nextval	seq2.currval	seq2.nextval	seq2.currval
+6	6	6	6
+select seq2.nextval, seq2.currval,seq2.nextval, seq2.currval;
+seq2.nextval	seq2.currval	seq2.nextval	seq2.currval
+8	8	8	8
+select seq2.nextval, seq2.currval,seq2.nextval, seq2.currval;
+seq2.nextval	seq2.currval	seq2.nextval	seq2.currval
+10	10	10	10
+select seq2.nextval, seq2.currval,seq2.nextval, seq2.currval;
+seq2.nextval	seq2.currval	seq2.nextval	seq2.currval
+-4	-4	-4	-4
+select seq2.nextval, seq2.currval,seq2.nextval, seq2.currval;
+seq2.nextval	seq2.currval	seq2.nextval	seq2.currval
+-2	-2	-2	-2
+select seq2.nextval, seq2.currval,seq2.nextval, seq2.currval;
+seq2.nextval	seq2.currval	seq2.nextval	seq2.currval
+0	0	0	0
+select seq2.nextval, seq2.currval,seq2.nextval, seq2.currval;
+seq2.nextval	seq2.currval	seq2.nextval	seq2.currval
+2	2	2	2
+select seq2.nextval, seq2.currval,seq2.nextval, seq2.currval;
+seq2.nextval	seq2.currval	seq2.nextval	seq2.currval
+4	4	4	4
+select seq2.nextval, seq2.currval,seq2.nextval, seq2.currval;
+seq2.nextval	seq2.currval	seq2.nextval	seq2.currval
+6	6	6	6
+create sequence seq3 increment by 3 start with 0 maxvalue 10 minvalue -10 nocycle cache 3;
+select seq3.currval;
+ERROR HY000: Incorrect usage of sequence and Use sequence.NEXTVAL first.
+select seq3.nextval;
+seq3.nextval
+0
+select seq3.currval, seq3.nextval, seq3.nextval, seq3.currval;
+seq3.currval	seq3.nextval	seq3.nextval	seq3.currval
+0	3	3	3
+select seq3.currval, seq3.nextval, seq3.nextval, seq3.currval;
+seq3.currval	seq3.nextval	seq3.nextval	seq3.currval
+3	6	6	6
+select seq3.currval, seq3.nextval, seq3.nextval, seq3.currval;
+seq3.currval	seq3.nextval	seq3.nextval	seq3.currval
+6	9	9	9
+select seq3.nextval;
+ERROR HY000: Sequence seq3 (step 3) in database test is not cyclic and has reached its min/max value 10.
+create sequence seq4 increment by 13 start with -100 maxvalue 200 minvalue -200 cache 10;
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+-100	-100	-100	-100
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+-87	-87	-87	-87
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+-74	-74	-74	-74
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+-61	-61	-61	-61
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+-48	-48	-48	-48
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+-35	-35	-35	-35
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+-22	-22	-22	-22
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+-9	-9	-9	-9
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+4	4	4	4
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+17	17	17	17
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+30	30	30	30
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+43	43	43	43
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+56	56	56	56
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+69	69	69	69
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+82	82	82	82
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+95	95	95	95
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+108	108	108	108
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+121	121	121	121
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+134	134	134	134
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+147	147	147	147
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+160	160	160	160
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+173	173	173	173
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+186	186	186	186
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+199	199	199	199
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+ERROR HY000: Sequence seq4 (step 13) in database test is not cyclic and has reached its min/max value 200.
+select*from mysql.tdsql_sequences;
+db	name	curval	start	step	max_value	min_value	do_cycle	n_cache
+test	seq2	10	0	2	10	-4	1	4
+test	seq3	9	0	3	10	-10	0	3
+test	seq4	199	-100	13	200	-200	0	10
+alter sequence seq4 increment by 17 cycle cache 20;
+select*from mysql.tdsql_sequences;
+db	name	curval	start	step	max_value	min_value	do_cycle	n_cache
+test	seq2	10	0	2	10	-4	1	4
+test	seq3	9	0	3	10	-10	0	3
+test	seq4	199	-100	17	200	-200	1	20
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+-200	-200	-200	-200
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+-183	-183	-183	-183
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+-166	-166	-166	-166
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+-149	-149	-149	-149
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+-132	-132	-132	-132
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+-115	-115	-115	-115
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+-98	-98	-98	-98
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+-81	-81	-81	-81
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+-64	-64	-64	-64
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+-47	-47	-47	-47
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+-30	-30	-30	-30
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+-13	-13	-13	-13
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+4	4	4	4
+alter sequence seq4 increment by 23 maxvalue 567 minvalue -357 cycle cache 10;
+select*from mysql.tdsql_sequences;
+db	name	curval	start	step	max_value	min_value	do_cycle	n_cache
+test	seq2	10	0	2	10	-4	1	4
+test	seq3	9	0	3	10	-10	0	3
+test	seq4	123	-100	23	567	-357	1	10
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+27	27	27	27
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+50	50	50	50
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+73	73	73	73
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+96	96	96	96
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+119	119	119	119
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+142	142	142	142
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+165	165	165	165
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+188	188	188	188
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+211	211	211	211
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+234	234	234	234
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+257	257	257	257
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+280	280	280	280
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+303	303	303	303
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+326	326	326	326
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+349	349	349	349
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+372	372	372	372
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+395	395	395	395
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+418	418	418	418
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+441	441	441	441
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+464	464	464	464
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+487	487	487	487
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+510	510	510	510
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+533	533	533	533
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+556	556	556	556
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+-357	-357	-357	-357
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+-334	-334	-334	-334
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+-311	-311	-311	-311
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+-288	-288	-288	-288
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+-265	-265	-265	-265
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+-242	-242	-242	-242
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+-219	-219	-219	-219
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+-196	-196	-196	-196
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+-173	-173	-173	-173
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+-150	-150	-150	-150
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+-127	-127	-127	-127
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+-104	-104	-104	-104
+select seq4.nextval, seq4.nextval, seq4.currval, seq4.currval;
+seq4.nextval	seq4.nextval	seq4.currval	seq4.currval
+-81	-81	-81	-81
+create sequence seq_3 increment by -1 maxvalue 10 minvalue -10 cache 10;
+select*from mysql.tdsql_sequences where name='seq_3';
+db	name	curval	start	step	max_value	min_value	do_cycle	n_cache
+test	seq_3	-9223372036854775808	10	-1	10	-10	0	10
+select seq_3.nextval, seq_3.nextval, seq_3.currval, seq_3.currval;
+seq_3.nextval	seq_3.nextval	seq_3.currval	seq_3.currval
+10	10	10	10
+select*from mysql.tdsql_sequences where name='seq_3';
+db	name	curval	start	step	max_value	min_value	do_cycle	n_cache
+test	seq_3	1	10	-1	10	-10	0	10
+select seq_3.nextval, seq_3.nextval, seq_3.currval, seq_3.currval;
+seq_3.nextval	seq_3.nextval	seq_3.currval	seq_3.currval
+9	9	9	9
+select seq_3.nextval, seq_3.nextval, seq_3.currval, seq_3.currval;
+seq_3.nextval	seq_3.nextval	seq_3.currval	seq_3.currval
+8	8	8	8
+select seq_3.nextval, seq_3.nextval, seq_3.currval, seq_3.currval;
+seq_3.nextval	seq_3.nextval	seq_3.currval	seq_3.currval
+7	7	7	7
+select seq_3.nextval, seq_3.nextval, seq_3.currval, seq_3.currval;
+seq_3.nextval	seq_3.nextval	seq_3.currval	seq_3.currval
+6	6	6	6
+select seq_3.nextval, seq_3.nextval, seq_3.currval, seq_3.currval;
+seq_3.nextval	seq_3.nextval	seq_3.currval	seq_3.currval
+5	5	5	5
+select seq_3.nextval, seq_3.nextval, seq_3.currval, seq_3.currval;
+seq_3.nextval	seq_3.nextval	seq_3.currval	seq_3.currval
+4	4	4	4
+select seq_3.nextval, seq_3.nextval, seq_3.currval, seq_3.currval;
+seq_3.nextval	seq_3.nextval	seq_3.currval	seq_3.currval
+3	3	3	3
+select seq_3.nextval, seq_3.nextval, seq_3.currval, seq_3.currval;
+seq_3.nextval	seq_3.nextval	seq_3.currval	seq_3.currval
+2	2	2	2
+select seq_3.nextval, seq_3.nextval, seq_3.currval, seq_3.currval;
+seq_3.nextval	seq_3.nextval	seq_3.currval	seq_3.currval
+1	1	1	1
+select seq_3.nextval, seq_3.nextval, seq_3.currval, seq_3.currval;
+seq_3.nextval	seq_3.nextval	seq_3.currval	seq_3.currval
+0	0	0	0
+select seq_3.nextval, seq_3.nextval, seq_3.currval, seq_3.currval;
+seq_3.nextval	seq_3.nextval	seq_3.currval	seq_3.currval
+-1	-1	-1	-1
+select seq_3.nextval, seq_3.nextval, seq_3.currval, seq_3.currval;
+seq_3.nextval	seq_3.nextval	seq_3.currval	seq_3.currval
+-2	-2	-2	-2
+select seq_3.nextval, seq_3.nextval, seq_3.currval, seq_3.currval;
+seq_3.nextval	seq_3.nextval	seq_3.currval	seq_3.currval
+-3	-3	-3	-3
+select seq_3.nextval, seq_3.nextval, seq_3.currval, seq_3.currval;
+seq_3.nextval	seq_3.nextval	seq_3.currval	seq_3.currval
+-4	-4	-4	-4
+select seq_3.nextval, seq_3.nextval, seq_3.currval, seq_3.currval;
+seq_3.nextval	seq_3.nextval	seq_3.currval	seq_3.currval
+-5	-5	-5	-5
+select seq_3.nextval, seq_3.nextval, seq_3.currval, seq_3.currval;
+seq_3.nextval	seq_3.nextval	seq_3.currval	seq_3.currval
+-6	-6	-6	-6
+select seq_3.nextval, seq_3.nextval, seq_3.currval, seq_3.currval;
+seq_3.nextval	seq_3.nextval	seq_3.currval	seq_3.currval
+-7	-7	-7	-7
+select seq_3.nextval, seq_3.nextval, seq_3.currval, seq_3.currval;
+seq_3.nextval	seq_3.nextval	seq_3.currval	seq_3.currval
+-8	-8	-8	-8
+select seq_3.nextval, seq_3.nextval, seq_3.currval, seq_3.currval;
+seq_3.nextval	seq_3.nextval	seq_3.currval	seq_3.currval
+-9	-9	-9	-9
+select seq_3.nextval, seq_3.nextval, seq_3.currval, seq_3.currval;
+seq_3.nextval	seq_3.nextval	seq_3.currval	seq_3.currval
+-10	-10	-10	-10
+select*from mysql.tdsql_sequences where name='seq_3';
+db	name	curval	start	step	max_value	min_value	do_cycle	n_cache
+test	seq_3	-10	10	-1	10	-10	0	10
+select seq_3.nextval;
+ERROR HY000: Sequence seq_3 (step -1) in database test is not cyclic and has reached its min/max value -10.
+create sequence seq_50 increment by 10 maxvalue 1000 minvalue 10 nocache;
+select * from mysql.tdsql_sequences;
+db	name	curval	start	step	max_value	min_value	do_cycle	n_cache
+test	seq2	10	0	2	10	-4	1	4
+test	seq3	9	0	3	10	-10	0	3
+test	seq4	80	-100	23	567	-357	1	10
+test	seq_3	-10	10	-1	10	-10	0	10
+test	seq_50	-9223372036854775808	10	10	1000	10	0	1
+select seq_50.nextval;
+seq_50.nextval
+10
+select seq_50.nextval;
+seq_50.nextval
+20
+select seq_50.nextval;
+seq_50.nextval
+30
+select * from mysql.tdsql_sequences;
+db	name	curval	start	step	max_value	min_value	do_cycle	n_cache
+test	seq2	10	0	2	10	-4	1	4
+test	seq3	9	0	3	10	-10	0	3
+test	seq4	80	-100	23	567	-357	1	10
+test	seq_3	-10	10	-1	10	-10	0	10
+test	seq_50	30	10	10	1000	10	0	1
+alter sequence seq_50 increment by -20;
+select * from mysql.tdsql_sequences;
+db	name	curval	start	step	max_value	min_value	do_cycle	n_cache
+test	seq2	10	0	2	10	-4	1	4
+test	seq3	9	0	3	10	-10	0	3
+test	seq4	80	-100	23	567	-357	1	10
+test	seq_3	-10	10	-1	10	-10	0	10
+test	seq_50	30	10	-20	1000	10	0	1
+select seq_50.nextval;
+seq_50.nextval
+10
+select seq_50.nextval;
+ERROR HY000: Sequence seq_50 (step -20) in database test is not cyclic and has reached its min/max value 10.
+create sequence seq_51 increment by 1 maxvalue 1000 minvalue 10 cache 100;
+select seq_51.nextval;
+seq_51.nextval
+10
+select seq_51.nextval;
+seq_51.nextval
+11
+alter sequence seq_51 increment by 5;
+select seq_51.nextval;
+seq_51.nextval
+16
+select seq_51.nextval;
+seq_51.nextval
+21
+select * from mysql.tdsql_sequences;
+db	name	curval	start	step	max_value	min_value	do_cycle	n_cache
+test	seq2	10	0	2	10	-4	1	4
+test	seq3	9	0	3	10	-10	0	3
+test	seq4	80	-100	23	567	-357	1	10
+test	seq_3	-10	10	-1	10	-10	0	10
+test	seq_50	10	10	-20	1000	10	0	1
+test	seq_51	109	10	5	1000	10	0	100
+alter sequence seq_51 increment by -5;
+select * from mysql.tdsql_sequences;
+db	name	curval	start	step	max_value	min_value	do_cycle	n_cache
+test	seq2	10	0	2	10	-4	1	4
+test	seq3	9	0	3	10	-10	0	3
+test	seq4	80	-100	23	567	-357	1	10
+test	seq_3	-10	10	-1	10	-10	0	10
+test	seq_50	10	10	-20	1000	10	0	1
+test	seq_51	109	10	-5	1000	10	0	100
+select seq_51.nextval;
+seq_51.nextval
+16
+select seq_51.nextval;
+seq_51.nextval
+11
+select seq_51.nextval;
+ERROR HY000: Sequence seq_51 (step -5) in database test is not cyclic and has reached its min/max value 10.
+select seq_51.nextval;
+ERROR HY000: Sequence seq_51 (step -5) in database test is not cyclic and has reached its min/max value 10.
+create sequence seq_52 increment by -10 maxvalue 1000 minvalue 10 nocache;
+select seq_52.nextval;
+seq_52.nextval
+1000
+select seq_52.nextval;
+seq_52.nextval
+990
+alter sequence seq_52 increment by 10;
+select seq_52.nextval;
+seq_52.nextval
+1000
+select seq_52.nextval;
+ERROR HY000: Sequence seq_52 (step 10) in database test is not cyclic and has reached its min/max value 1000.
+create sequence seq_53 increment by -10 maxvalue 1000 minvalue 10 nocache;
+select SEQ_53.nextval;
+SEQ_53.nextval
+1000
+alter sequence SEQ_53 increment by 10;
+select SEQ_53.nextval;
+SEQ_53.nextval
+1010
+drop sequence SEQ_53;
+create table sequence(sequence int primary key, CYCLE int, INCREMENT int, MINVALUE int, NOCACHE int, NOCYCLE int, NOMAXVALUE int, NOMINVALUE int, NOORDER int);
+drop table sequence;
+set global sequence_same_nextval_in_query = 0;
+create tdsql_sequence seq_53;
+create table t1(a int);
+insert into t1 values (1),(2),(3);
+select seq_53.nextval;
+seq_53.nextval
+1
+select seq_53.nextval,seq_53.nextval;
+seq_53.nextval	seq_53.nextval
+2	3
+select seq_53.nextval,seq_53.nextval, seq_53.currval;
+seq_53.nextval	seq_53.nextval	seq_53.currval
+4	5	5
+select seq_53.nextval, a from t1;
+seq_53.nextval	a
+6	1
+7	2
+8	3
+select seq_53.nextval;
+seq_53.nextval
+9
+clear sequence cache;
+select seq_53.nextval;
+seq_53.nextval
+21
+drop table t1;
+drop sequence seq_53;
+set global seq_currval_before_first_nextval_return_error = 0;
+create tdsql_sequence seq_54;
+select seq_54.currval;
+seq_54.currval
+0
+drop tdsql_sequence seq_54;
+create tdsql_sequence seq_55 tdsql_increment by 5 tdsql_maxvalue 1000 tdsql_minvalue 10 tdsql_nocache;
+select tdsql_setval(seq_55, 5);
+tdsql_setval(seq_55, 5)
+5
+select seq_55.currval;
+seq_55.currval
+0
+select tdsql_setval(seq_55, 20);
+tdsql_setval(seq_55, 20)
+20
+select seq_55.nextval;
+seq_55.nextval
+25
+select tdsql_setval(seq_55, 30, 0);
+tdsql_setval(seq_55, 30, 0)
+30
+select seq_55.nextval;
+seq_55.nextval
+30
+select tdsql_setval(seq_55, 20);
+ERROR HY000: Wrong sequence argument(set_val) value specified: set sequence value is invalid.
+select seq_55.nextval;
+seq_55.nextval
+35
+select tdsql_setval(seq_55, 500);
+tdsql_setval(seq_55, 500)
+500
+select seq_55.nextval;
+seq_55.nextval
+505
+select tdsql_setval(seq_55, 1001);
+ERROR HY000: Wrong sequence argument(set_val) value specified: set sequence value must be in [min,max] or store the next value failed.
+alter tdsql_sequence seq_55 tdsql_increment by -10;
+select test.seq_55.nextval;
+test.seq_55.nextval
+495
+select tdsql_setval(test.seq_55, 300, 1);
+tdsql_setval(test.seq_55, 300, 1)
+300
+select test.seq_55.nextval;
+test.seq_55.nextval
+290
+select tdsql_setval(test.seq_55, 400, 1);
+ERROR HY000: Wrong sequence argument(set_val) value specified: set sequence value is invalid.
+select test.seq_55.nextval;
+test.seq_55.nextval
+280
+select tdsql_setval(test.seq_55, 9, 1);
+ERROR HY000: Wrong sequence argument(set_val) value specified: set sequence value must be in [min,max] or store the next value failed.
+drop tdsql_sequence seq_55;
+show variables like 'sequence_same_nextval_in_query';
+Variable_name	Value
+sequence_same_nextval_in_query	OFF
+create table t(id int primary key, name varchar(20));
+insert into t values(1,'kz');
+insert into t values(2,'wj');
+create sequence seq_56;
+select seq_56.nextval, name from t;
+seq_56.nextval	name
+1	kz
+2	wj
+drop table t;
+drop sequence seq_56;
+set global forbid_remote_drop_meta=off;

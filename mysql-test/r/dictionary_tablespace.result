@@ -75,6 +75,7 @@ tables	mysql
 tables_priv	mysql
 tablespace_files	mysql
 tablespaces	mysql
+tdsql_sequences	mysql
 time_zone	mysql
 time_zone_leap_second	mysql
 time_zone_name	mysql
@@ -149,6 +150,7 @@ tables
 tables_priv
 tablespace_files
 tablespaces
+tdsql_sequences
 time_zone
 time_zone_leap_second
 time_zone_name

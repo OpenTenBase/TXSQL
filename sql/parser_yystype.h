@@ -339,6 +339,16 @@ struct Bipartite_name {
   LEX_CSTRING name;
 };
 
+struct Seq_ident {
+  LEX_STRING db;
+  LEX_STRING name;
+};
+
+struct Seq_attribute {
+  int64_t value;
+  bool specified;
+};
+
 // Compatibility with Bison 2.3:
 #ifndef YYSTYPE_IS_DECLARED
 #define YYSTYPE_IS_DECLARED 1
@@ -722,6 +732,9 @@ union YYSTYPE {
   } insert_update_values_reference;
   my_thread_id query_id;
   Bipartite_name bipartite_name;
+  longlong longlong_number;
+  Seq_ident seq_ident;
+  Seq_attribute seq_attribute;
 };
 
 static_assert(sizeof(YYSTYPE) <= 32, "YYSTYPE is too big");

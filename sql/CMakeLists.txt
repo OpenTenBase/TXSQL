@@ -592,6 +592,7 @@ SET(SQL_SHARED_SOURCES
   sql_rewrite.cc
   sql_select.cc
   sql_servers.cc
+  sql_seq.cc
   sql_show.cc
   sql_show_status.cc
   sql_show_processlist.cc

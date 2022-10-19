@@ -78,6 +78,7 @@
 #include "sql_const.h"
 #include "sql_string.h"
 #include "template_utils.h"
+#include "sql/sql_seq.h"
 
 #ifndef MYSQL_SERVER
 #include "client/mysqlbinlog.h"
@@ -11187,6 +11188,12 @@ int Table_map_log_event::do_apply_event(Relay_log_info const *rli) {
   if (lower_case_table_names) {
     my_casedn_str(system_charset_info, db_mem);
     my_casedn_str(system_charset_info, tname_mem);
+  }
+
+  /* If this is sequence table, increase version in memory */
+  if (strcasecmp(db_mem, "mysql") == 0 &&
+      strcasecmp(tname_mem, "tdsql_sequences") == 0) {
+    inc_seq_version();
   }
 
   /* rewrite rules changed the database */

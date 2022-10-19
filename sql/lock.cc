@@ -872,6 +872,11 @@ bool lock_object_name(THD *thd, MDL_key::enum_mdl_namespace mdl_type,
     case MDL_key::RESOURCE_GROUPS:
       dd::Resource_group::create_mdl_key(name, &mdl_key);
       break;
+   case MDL_key::SEQUENCE: {
+        MDL_REQUEST_INIT(&mdl_request,
+            mdl_type, db, name, MDL_EXCLUSIVE, MDL_TRANSACTION);
+      }
+      break;
     default:
       assert(false);
       return true;
@@ -884,8 +889,10 @@ bool lock_object_name(THD *thd, MDL_key::enum_mdl_namespace mdl_type,
                    MDL_INTENTION_EXCLUSIVE, MDL_STATEMENT);
   MDL_REQUEST_INIT(&schema_request, MDL_key::SCHEMA, db, "",
                    MDL_INTENTION_EXCLUSIVE, MDL_TRANSACTION);
-  MDL_REQUEST_INIT_BY_KEY(&mdl_request, &mdl_key, MDL_EXCLUSIVE,
-                          MDL_TRANSACTION);
+  if (mdl_type != MDL_key::SEQUENCE) {
+    MDL_REQUEST_INIT_BY_KEY(&mdl_request, &mdl_key, MDL_EXCLUSIVE,
+        MDL_TRANSACTION);
+  }
   MDL_REQUEST_INIT(&backup_lock_request, MDL_key::BACKUP_LOCK, "", "",
                    MDL_INTENTION_EXCLUSIVE, MDL_TRANSACTION);
 

@@ -1,0 +1,134 @@
+--disable_warnings
+DROP DATABASE IF EXISTS dbtest_seq_inc;
+
+DROP TDSQL_SEQUENCE IF EXISTS dbtest_seq_inc.sequence_000;
+
+DROP TDSQL_SEQUENCE IF EXISTS dbtest_seq_inc.sequence_001;
+
+DROP TDSQL_SEQUENCE IF EXISTS dbtest_seq_inc.sequence_002;
+
+DROP TDSQL_SEQUENCE IF EXISTS dbtest_seq_inc.sequence_003;
+
+DROP TDSQL_SEQUENCE IF EXISTS dbtest_seq_inc.sequence_004;
+
+--enable_warnings
+
+CREATE DATABASE dbtest_seq_inc;
+
+use dbtest_seq_inc;
+
+#default value 
+CREATE TDSQL_SEQUENCE sequence_000;
+
+CREATE TABLE t0(a int PRIMARY KEY);
+
+SELECT * from mysql.tdsql_sequences where db='dbtest_seq_inc' and name='sequence_000';
+
+INSERT INTO t0 values(sequence_000.nextval);
+INSERT INTO t0 values(sequence_000.nextval);
+INSERT INTO t0 values(sequence_000.nextval);
+INSERT INTO t0 values(sequence_000.nextval);
+INSERT INTO t0 values(sequence_000.nextval);
+INSERT INTO t0 values(sequence_000.nextval);
+INSERT INTO t0 values(sequence_000.nextval);
+INSERT INTO t0 values(sequence_000.nextval);
+INSERT INTO t0 values(sequence_000.nextval);
+INSERT INTO t0 values(sequence_000.nextval);
+
+SELECT * FROM t0 order by a;
+
+commit;
+DROP TDSQL_SEQUENCE sequence_000 ;
+
+#ascending
+CREATE TDSQL_SEQUENCE sequence_001 TDSQL_increment by 1;
+
+CREATE TABLE t1(a int PRIMARY KEY);
+
+SELECT * from mysql.tdsql_sequences where db='dbtest_seq_inc' and name='sequence_001';
+
+INSERT INTO t1 values(sequence_001.nextval);
+INSERT INTO t1 values(sequence_001.nextval);
+INSERT INTO t1 values(sequence_001.nextval);
+INSERT INTO t1 values(sequence_001.nextval);
+INSERT INTO t1 values(sequence_001.nextval);
+INSERT INTO t1 values(sequence_001.nextval);
+INSERT INTO t1 values(sequence_001.nextval);
+INSERT INTO t1 values(sequence_001.nextval);
+INSERT INTO t1 values(sequence_001.nextval);
+INSERT INTO t1 values(sequence_001.nextval);
+
+SELECT * FROM t1 order by a;
+
+commit;
+DROP TDSQL_SEQUENCE sequence_001 ;
+
+CREATE TDSQL_SEQUENCE sequence_002 TDSQL_increment by 10;
+
+SELECT * from mysql.tdsql_sequences where db='dbtest_seq_inc' and name='sequence_002';
+
+CREATE TABLE t2(a int PRIMARY KEY);
+
+INSERT INTO t2 values(sequence_002.nextval);
+INSERT INTO t2 values(sequence_002.nextval);
+INSERT INTO t2 values(sequence_002.nextval);
+INSERT INTO t2 values(sequence_002.nextval);
+INSERT INTO t2 values(sequence_002.nextval);
+INSERT INTO t2 values(sequence_002.nextval);
+INSERT INTO t2 values(sequence_002.nextval);
+INSERT INTO t2 values(sequence_002.nextval);
+INSERT INTO t2 values(sequence_002.nextval);
+INSERT INTO t2 values(sequence_002.nextval);
+
+SELECT * FROM t2 order by a;
+
+commit;
+DROP TDSQL_SEQUENCE sequence_002 ;
+
+#descending
+CREATE TDSQL_SEQUENCE sequence_003 TDSQL_increment by -1;
+
+SELECT * from mysql.tdsql_sequences where db='dbtest_seq_inc' and name='sequence_003';
+
+CREATE TABLE t3(a int PRIMARY KEY);
+
+INSERT INTO t3 values(sequence_003.nextval);
+INSERT INTO t3 values(sequence_003.nextval);
+INSERT INTO t3 values(sequence_003.nextval);
+INSERT INTO t3 values(sequence_003.nextval);
+INSERT INTO t3 values(sequence_003.nextval);
+INSERT INTO t3 values(sequence_003.nextval);
+INSERT INTO t3 values(sequence_003.nextval);
+INSERT INTO t3 values(sequence_003.nextval);
+INSERT INTO t3 values(sequence_003.nextval);
+INSERT INTO t3 values(sequence_003.nextval);
+
+SELECT * FROM t3 order by a;
+
+commit;
+DROP TDSQL_SEQUENCE sequence_003 ;
+
+CREATE TDSQL_SEQUENCE sequence_004 TDSQL_increment by -5;
+
+SELECT * from mysql.tdsql_sequences where db='dbtest_seq_inc' and name='sequence_004';
+
+CREATE TABLE t4(a int PRIMARY KEY);
+
+INSERT INTO t4 values(sequence_004.nextval);
+INSERT INTO t4 values(sequence_004.nextval);
+INSERT INTO t4 values(sequence_004.nextval);
+INSERT INTO t4 values(sequence_004.nextval);
+INSERT INTO t4 values(sequence_004.nextval);
+INSERT INTO t4 values(sequence_004.nextval);
+INSERT INTO t4 values(sequence_004.nextval);
+INSERT INTO t4 values(sequence_004.nextval);
+INSERT INTO t4 values(sequence_004.nextval);
+INSERT INTO t4 values(sequence_004.nextval);
+
+SELECT * FROM t4 order by a;
+
+commit;
+
+DROP TDSQL_SEQUENCE sequence_004 ;
+
+DROP DATABASE dbtest_seq_inc ;
