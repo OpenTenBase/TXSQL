@@ -42,7 +42,7 @@ class Sql_cmd_xa_rollback : public Sql_cmd_xa_second_phase {
 
     @param xid_arg XID of the XA transacation about to be rolled back.
    */
-  explicit Sql_cmd_xa_rollback(xid_t *xid_arg);
+  explicit Sql_cmd_xa_rollback(xid_t *xid_arg, bool force);
   virtual ~Sql_cmd_xa_rollback() override = default;
 
   /**
@@ -102,6 +102,9 @@ class Sql_cmd_xa_rollback : public Sql_cmd_xa_second_phase {
       @retval true   Failure
   */
   bool process_detached_xa_rollback(THD *thd);
+
+ private:
+  bool m_force;
 };
 
 #endif  // XA_SQL_CMD_XA_ROLLBACK
