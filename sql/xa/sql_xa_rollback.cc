@@ -22,6 +22,7 @@
 
 #include "sql/xa/sql_xa_rollback.h"  // Sql_cmd_xa_rollback
 #include "mysqld_error.h"            // Error codes
+#include "mysql/psi/mysql_transaction.h"
 #include "sql/clone_handler.h"       // Clone_handler::XA_Operation
 #include "sql/debug_sync.h"          // DEBUG_SYNC
 #include "sql/handler.h"             // commit_owned_gtids
@@ -33,14 +34,34 @@
 #include "sql/transaction.h"  // trans_reset_one_shot_chistics, trans_track_end_trx
 #include "sql/transaction_info.h"  // Transaction_ctx
 
-Sql_cmd_xa_rollback::Sql_cmd_xa_rollback(xid_t *xid_arg)
-    : Sql_cmd_xa_second_phase{xid_arg} {}
+Sql_cmd_xa_rollback::Sql_cmd_xa_rollback(xid_t *xid_arg, bool force)
+    : Sql_cmd_xa_second_phase{xid_arg}, m_force(force) {}
 
 enum_sql_command Sql_cmd_xa_rollback::sql_command_code() const {
   return SQLCOM_XA_ROLLBACK;
 }
 
 bool Sql_cmd_xa_rollback::execute(THD *thd) {
+  if (m_force) {
+    auto get_xa_txnid = [](const xid_t *xid) -> std::string {
+      return std::string(xid->get_data(), xid->get_gtrid_length());
+    };
+    std::string xa_txnid(get_xa_txnid(m_xid));
+    if (!xa_txnid.empty()) {  // if set force flag,the xid must be empty
+      my_printf_error(ER_XAER_INVAL,
+                      "xa rollback with force,the xid[%s] must empty", MYF(0),
+                      xa_txnid.c_str());
+      return true;
+    }
+    /* Note: when xa_detach_on_prepare=true, xa rollback '' force will not work
+     */
+    // init m_xid from thd xa state
+    XID_STATE *xid_state = thd->get_transaction()->xid_state();
+    if (xid_state->get_state() > XID_STATE::XA_NOTR) {  // xid state is valid
+      *m_xid = *(xid_state->get_xid());
+    }
+  }
+
   bool st = trans_xa_rollback(thd);
 
   if (!st) {
@@ -63,7 +84,7 @@ bool Sql_cmd_xa_rollback::trans_xa_rollback(THD *thd) {
 
   /* Inform clone handler of XA operation. */
   Clone_handler::XA_Operation xa_guard(thd);
-  if (!xid_state->has_same_xid(this->m_xid)) {
+  if (!xid_state->has_same_xid(this->m_xid) && !m_force) {
     return this->process_detached_xa_rollback(thd);
   }
   return this->process_attached_xa_rollback(thd);
@@ -72,6 +93,20 @@ bool Sql_cmd_xa_rollback::trans_xa_rollback(THD *thd) {
 bool Sql_cmd_xa_rollback::process_attached_xa_rollback(THD *thd) const {
   DBUG_TRACE;
   auto xid_state = thd->get_transaction()->xid_state();
+
+  if (unlikely(m_force)) {
+    if (XID_STATE::XA_NOTR == xid_state->get_state()) {  // not begin
+      return false;                                      // don't need deal
+    } else if (XID_STATE::XA_ACTIVE ==
+               xid_state->get_state()) {  // active ,need end
+      xid_state->set_state(XID_STATE::XA_IDLE);
+      MYSQL_SET_TRANSACTION_XA_STATE(thd->m_transaction_psi,
+                                     (int)xid_state->get_state());
+    }
+    thd->rpl_partial_xa_rollback(
+        true);  // if it is injected by rpl thread,will remove the gtid
+    assert(xid_state->has_same_xid(m_xid));
+  }
 
   if (xid_state->has_state(XID_STATE::XA_NOTR) ||
       xid_state->has_state(XID_STATE::XA_ACTIVE)) {

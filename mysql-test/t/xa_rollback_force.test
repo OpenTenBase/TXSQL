@@ -1,0 +1,106 @@
+xa begin 'test1';
+xa end 'test1';
+xa commit 'test1' one phase;
+
+
+xa begin 'test1';
+xa end 'test1';
+--error 1398
+xa rollback 'test1' force;
+xa rollback '' force;
+
+
+CREATE TABLE `t` (
+  `id` int NOT NULL PRIMARY KEY AUTO_INCREMENT
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+xa begin 'xa_id';
+insert into t values(0);
+insert into t values(0);
+xa rollback '' force;
+
+--echo "after rollback when active state,can't find data"
+select * from t;
+
+xa begin 'xa_id';
+insert into t values(0);
+insert into t values(0);
+xa end 'xa_id';
+xa rollback '' force;
+
+--echo "after rollback when idle state,can't find data"
+select * from t;
+
+--connect (con1, localhost, root,,)
+connection con1;
+xa begin 'xa_id_con1';
+insert into t values(0);
+insert into t values(0);
+--echo "connection con1,just insert,can read two num rows(not commit) "
+select * from t;
+
+connection default ;
+--echo "connection default,con1 has not commited,so can't read "
+select * from t;
+xa rollback '' force;
+xa rollback '' force;
+
+connection con1;
+--echo "connection con1,default rollback dont' affect con1, so can read two num rows(not commit) "
+select * from t;
+xa end 'xa_id_con1';
+xa prepare 'xa_id_con1';
+xa commit 'xa_id_con1';
+--echo "connection con1,after commit , so can read two num rows "
+select * from t;
+
+
+connection default ;
+--echo "connection default, con1 had committed , so can read two num rows "
+select * from t;
+
+connection con1;
+--echo "connection con1, con1 had committed , so can read two num rows "
+select * from t;
+
+connection default ;
+begin;
+insert into t values(0);
+insert into t values(0);
+xa rollback '' force;
+--echo "begin normal transaction,the xa rollback '' force have not meaning,can read 4 rows"
+select * from t;
+commit;
+
+connection con1;
+--echo "after  normal transaction commit,the con1 can read 4 rows"
+select * from t;
+
+connection default ;
+xa begin 'xa_id_default';
+insert into t values(0);
+insert into t values(0);
+xa end 'xa_id_default';
+xa prepare 'xa_id_default';
+select * from t;
+
+connection con1;
+--echo "con1 just can read 4 rows"
+select * from t;
+xa recover;
+
+
+connection default ;
+xa recover;
+echo in mysql8.0.30, when xa_detach_on_prepare=true, xa rollback '' force can not rollback a prepared xa transaction;
+xa rollback '' force;
+#--echo "after rollback (prepared),the default connection can just read 4 rows "
+xa rollback 'xa_id_default';
+select * from t;
+
+connection con1;
+--echo "con1 just can read 4 rows"
+xa recover;
+
+
+drop table t;
