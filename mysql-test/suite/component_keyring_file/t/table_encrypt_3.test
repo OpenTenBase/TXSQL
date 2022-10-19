@@ -1,3 +1,4 @@
+--source include/big_test.inc
 --source include/have_component_keyring_file.inc
 # InnoDB transparent tablespace data encryption
 # This test case will test basic encryption support features.
