@@ -65,6 +65,8 @@ struct _db_stack_frame_ {
 
 struct CODE_STATE;
 
+extern bool _db_reset_cur_thread_setting_point_global_setting();
+
 extern int _db_keyword_(struct CODE_STATE *, const char *, int);
 extern int _db_explain_(struct CODE_STATE *cs, char *buf, size_t len);
 extern int _db_explain_init_(char *buf, size_t len);

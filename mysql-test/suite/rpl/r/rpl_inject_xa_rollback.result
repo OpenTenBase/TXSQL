@@ -1,0 +1,122 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+call mtr.add_suppression("The slave coordinator and worker threads are stopped, possibly leaving data in inconsistent state");
+call mtr.add_suppression("Slave I/O for channel '': Master command COM_REGISTER_SLAVE failed: failed registering on master, reconnecting to try *");
+call mtr.add_suppression("Unsafe statement written to the binary log using statement format *");
+CREATE TABLE `t` (
+`id` int NOT NULL PRIMARY KEY AUTO_INCREMENT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+include/sync_slave_io_with_master.inc
+show create table t;
+Table	Create Table
+t	CREATE TABLE `t` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+set global debug='+d,crash_when_iothread_check_gtid';
+xa begin 'xa_id';
+insert into t values(0);
+insert into t values(0);
+xa end 'xa_id';
+xa commit  'xa_id' one phase;
+include/sync_slave_io_with_master.inc
+"slave will get 2 rows"
+select * from t;
+id
+1
+2
+set global debug='+d,crash_when_iothread_check_xa_start';
+xa begin 'xid';
+insert into t values(0);
+insert into t values(0);
+xa end 'xid';
+xa commit 'xid' one phase;
+include/sync_slave_io_with_master.inc
+"slave will get 4 rows"
+select * from t;
+id
+1
+2
+3
+4
+set global debug='+d,crash_when_iothread_check_xa_end';
+xa begin 'xid';
+insert into t values(0);
+insert into t values(0);
+xa end 'xid';
+xa commit 'xid' one phase;
+include/sync_slave_io_with_master.inc
+"slave will get 6 rows"
+select * from t;
+id
+1
+2
+3
+4
+5
+6
+set global debug='+d,crash_when_iothread_check_dml';
+xa begin 'xid';
+insert into t values(0);
+insert into t values(0);
+xa end 'xid';
+xa commit 'xid' one phase;
+include/sync_slave_io_with_master.inc
+"slave will get 8 rows"
+select * from t;
+id
+1
+2
+3
+4
+5
+6
+7
+8
+set global debug='+d,crash_when_iothread_check_gtid';
+begin;
+insert into t values(0);
+insert into t values(0);
+commit;
+include/sync_slave_io_with_master.inc
+"slave will get 10 rows"
+select * from t;
+id
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+set global debug='+d,crash_when_iothread_check_dml';
+begin;
+insert into t values(0);
+insert into t values(0);
+commit;
+include/sync_slave_io_with_master.inc
+"slave will get 12 rows"
+select * from t;
+id
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+set global debug='';
+drop table t;
+include/sync_slave_sql_with_master.inc
+include/rpl_end.inc

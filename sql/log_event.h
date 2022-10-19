@@ -1574,8 +1574,14 @@ class Query_log_event : public virtual binary_log::Query_event,
   */
 
   bool starts_group() const override {
-    return !strncmp(query, "BEGIN", q_len) ||
-           !strncmp(query, STRING_WITH_LEN("XA START"));
+    if (!strncmp(query, "BEGIN", q_len)) {
+      return true;
+    }
+    if (!strncmp(query, STRING_WITH_LEN("XA START"))) {
+      m_is_xa_start = true;
+      return true;
+    }
+    return false;
   }
 
   bool ends_group() const override {
@@ -1601,6 +1607,10 @@ class Query_log_event : public virtual binary_log::Query_event,
   /** Whether or not the statement represented by this event requires
       `Q_DEFAULT_TABLE_ENCRYPTION` to be logged along aside. */
   bool needs_default_table_encryption{false};
+
+ public:
+  mutable bool m_is_xa_start{false};
+  bool is_xa_start() const { return m_is_xa_start; }
 };
 
 /**

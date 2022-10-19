@@ -1,0 +1,4 @@
+--enforce-gtid_consistency=1
+--gtid-mode=1
+--master-info-repository=table
+--relay-log-info_repository=table

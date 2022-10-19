@@ -945,6 +945,14 @@ class Slave_worker : public Relay_log_info {
      Returns the index of the Channel_name field of the table repository.
   */
   static uint get_channel_field_index();
+
+ public:
+  std::string id_to_string() {
+    char buf[256];
+    snprintf(buf, sizeof(buf), "work id:%lu,thread_id:%u", id,
+             info_thd ? info_thd->thread_id() : 0);
+    return buf;
+  }
 };
 
 bool handle_slave_worker_stop(Slave_worker *worker, Slave_job_item *job_item);
