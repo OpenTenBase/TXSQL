@@ -432,6 +432,17 @@ static bool fill_trx_row(
 #ifdef HAVE_TDSQL
     row->trx_xid[0] = '\0';
     row->trx_xa_type = nullptr;
+
+    if (trx_is_started(trx) && trx->xid && !trx->xid->is_null() &&
+        (!trx->is_background || trx->is_recovered)) {
+      trx->xid->serialize(row->trx_xid);
+
+      if (trx->xid->get_my_xid() == 0) {
+        row->trx_xa_type = "external";
+      } else {
+        row->trx_xa_type = "internal";
+      }
+    }
 #endif
     goto thd_done;
   }
@@ -809,10 +820,15 @@ static bool can_cache_be_updated(trx_i_s_cache_t *cache) /*!< in: cache */
 
   ut_ad(rw_lock_own(cache->rw_lock, RW_LOCK_X));
 
+#ifdef HAVE_TDSQL
+  const std::chrono::milliseconds cache_min_idle_time{
+      srv_i_s_cache_min_idle_us};
+#else
   /** The minimum time that a cache must not be updated after it has been
   read for the last time. We use this technique to ensure that SELECTs which
   join several INFORMATION SCHEMA tables read the same version of the cache. */
   constexpr std::chrono::milliseconds cache_min_idle_time{100};
+#endif
 
   return std::chrono::steady_clock::now() - cache->last_read.load() >
          cache_min_idle_time;

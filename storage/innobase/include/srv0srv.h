@@ -1394,6 +1394,10 @@ extern Backquery_manager *backquery_manager;
 void show_backquery_time_status(THD *thd, SHOW_VAR *var, char *buff);
 
 extern uint srv_page_hash_cell_factor;
+
+#ifdef HAVE_TDSQL
+extern uint64_t srv_i_s_cache_min_idle_us;
+#endif
 /**
  Changes from txsql end.
 */

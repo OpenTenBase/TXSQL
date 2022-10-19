@@ -3747,6 +3747,14 @@ void show_backquery_time_status(THD *thd, SHOW_VAR *var, char *buff) {
 }
 
 uint srv_page_hash_cell_factor = 2;
+#ifdef HAVE_TDSQL
+/** The minimum time that a cache must not be updated after it has been
+read for the last time; measured in microseconds. We use this technique
+to ensure that SELECTs which join several INFORMATION SCHEMA tables read
+the same version of the cache. */
+uint64_t srv_i_s_cache_min_idle_us = 100000;
+#endif
+
 /**
  Changes from txsql end.
 */

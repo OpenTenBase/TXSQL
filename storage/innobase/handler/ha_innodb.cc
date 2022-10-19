@@ -23903,6 +23903,15 @@ static MYSQL_SYSVAR_ULONG(hot_update_wait_timeout, srv_hot_update_wait_timeout,
                           PLUGIN_VAR_RQCMDARG,
                           "The timeout value of hot update waiting.", NULL,
                           NULL, 1000000, 1000, 100000000, 0);
+
+#ifdef HAVE_TDSQL
+static MYSQL_SYSVAR_ULONG(
+    i_s_cache_min_idle_us, srv_i_s_cache_min_idle_us, PLUGIN_VAR_OPCMDARG,
+    "The minimum time that a cache must not be updated after it has been"
+    " read for the last time",
+    NULL, NULL, 100000, 0, 10000000 /*10s*/, 0);
+#endif
+
 /* Changes from txsql end. */
 
 static MYSQL_SYSVAR_BOOL(
@@ -24171,6 +24180,9 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(buffer_pool_recover_pct),
     MYSQL_SYSVAR(cdb_fast_shutdown),
     MYSQL_SYSVAR(quickly_stoped),
+#ifdef HAVE_TDSQL
+    MYSQL_SYSVAR(i_s_cache_min_idle_us),
+#endif
     nullptr};
 
 mysql_declare_plugin(innobase){

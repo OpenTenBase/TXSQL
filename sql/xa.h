@@ -140,6 +140,7 @@ typedef struct xid_t {
   void set(long f, const char *g, long gl, const char *b, long bl) {
     DBUG_TRACE;
     DBUG_PRINT("debug", ("SETTING XID_STATE formatID: %ld", f));
+    memset(data, 0, XIDDATASIZE);
     formatID = f;
     memcpy(data, g, gtrid_length = gl);
     bqual_length = bl;
@@ -393,7 +394,12 @@ class XID_STATE {
       rollback it explicitly, so don't start a new distributed XA until
       then.
     */
-    if (!rm_error) m_xid.null();
+    if (!rm_error) {
+      m_xid.null();
+#ifdef HAVE_TDSQL
+      m_xid_str[0] = '\0';
+#endif
+    }
   }
 
   void reset() {
@@ -401,6 +407,9 @@ class XID_STATE {
     m_xid.null();
     m_is_detached = false;
     m_is_binlogged = false;
+#ifdef HAVE_TDSQL
+    m_xid_str[0] = '\0';
+#endif
   }
 
   void start_normal_xa(const XID *xid) {
@@ -409,6 +418,9 @@ class XID_STATE {
     m_xid.set(xid);
     m_is_detached = false;
     rm_error = 0;
+#ifdef HAVE_TDSQL
+    m_xid_str[0] = '\0';
+#endif
   }
 
   void start_detached_xa(const XID *xid, bool binlogged_arg = false) {
@@ -417,6 +429,9 @@ class XID_STATE {
     m_is_detached = true;
     rm_error = 0;
     m_is_binlogged = binlogged_arg;
+#ifdef HAVE_TDSQL
+    m_xid_str[0] = '\0';
+#endif
   }
 
   bool is_detached() const { return m_is_detached; }
