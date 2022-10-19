@@ -4,6 +4,8 @@ connect(con1,localhost,root,,);
 connect(con2,localhost,root,,);
 
 connection con1;
+set @old_table_definition_cache=@@global.table_definition_cache;
+set @old_table_open_cache=@@global.table_open_cache;
 set global table_definition_cache=400;
 set global table_open_cache= 1024;
 
@@ -48,8 +50,8 @@ while($loop > 1)
 }
 
 --enable_query_log
-set global table_definition_cache=default;
-set global table_open_cache= default;
+set global table_definition_cache=@old_table_definition_cache;
+set global table_open_cache= @old_table_open_cache;
 
 disconnect con1;
 disconnect con2;

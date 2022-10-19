@@ -1385,7 +1385,8 @@ bool Log_event::write_header(Basic_ostream *ostream, size_t event_data_length) {
   /* Store number of bytes that will be written by this event */
   common_header->data_written = event_data_length + sizeof(header);
 
-  if (need_checksum()) {
+  bool do_checksum = need_checksum();
+  if (do_checksum) {
     crc = checksum_crc32(0L, nullptr, 0);
     common_header->data_written += BINLOG_CHECKSUM_LEN;
   }
@@ -1419,13 +1420,16 @@ bool Log_event::write_header(Basic_ostream *ostream, size_t event_data_length) {
     verification, the flag is dropped before computing the checksum
     too.
   */
-  if (need_checksum() &&
+  if (do_checksum &&
       (common_header->flags & LOG_EVENT_BINLOG_IN_USE_F) != 0) {
     common_header->flags &= ~LOG_EVENT_BINLOG_IN_USE_F;
     int2store(header + FLAGS_OFFSET, common_header->flags);
   }
-  crc = my_checksum(crc, header, LOG_EVENT_HEADER_LEN);
 
+  if (do_checksum) {
+    crc = my_checksum(crc, header, LOG_EVENT_HEADER_LEN);
+  }
+  
   return ret;
 }
 #endif /* MYSQL_SERVER */

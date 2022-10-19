@@ -1,3 +1,5 @@
+set @old_table_definition_cache=@@global.table_definition_cache;
+set @old_table_open_cache=@@global.table_open_cache;
 set global table_definition_cache=400;
 set global table_open_cache= 1024;
 use test;
@@ -38,5 +40,5 @@ Warnings:
 Warning	1525	Incorrect COMPRESSION value: 'zlibX'
 Level	Code	Message
 Warning	1525	Incorrect COMPRESSION value: 'zlibX'
-set global table_definition_cache=default;
-set global table_open_cache= default;
+set global table_definition_cache=@old_table_definition_cache;
+set global table_open_cache= @old_table_open_cache;
