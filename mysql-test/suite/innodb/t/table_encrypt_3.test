@@ -1,6 +1,7 @@
 # InnoDB transparent encrypted tablespace
 # This test case will test basic encryption support features.
 
+--source include/big_test.inc
 --source include/no_valgrind_without_big.inc
 --source include/have_innodb_max_16k.inc
 
