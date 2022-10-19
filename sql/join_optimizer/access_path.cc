@@ -685,7 +685,6 @@ unique_ptr_destroy_only<RowIterator> CreateIteratorFromAccessPath(
             param.table, param.key, param.key_len);
         break;
       }
-      //TODO: sort merge join.
       case AccessPath::BKA_JOIN: {
         const auto &param = path->bka_join();
         AccessPath *mrr_path =
@@ -797,9 +796,8 @@ unique_ptr_destroy_only<RowIterator> CreateIteratorFromAccessPath(
         unique_ptr_destroy_only<RowIterator> inner = CreateIteratorFromAccessPath(
             thd, path->sort_merge_join().inner, join, /*eligible_for_batch_mode=*/true);
         vector<HashJoinCondition> conditions;
-        for (Item_func_eq *cond : join_predicate->expr->equijoin_conditions) {
+        for (Item_func_eq *cond : join_predicate->expr->equijoin_conditions)
           conditions.emplace_back(HashJoinCondition(cond, thd->mem_root));
-        }
 
         JoinType join_type{JoinType::INNER};
         switch (join_predicate->expr->type) {
@@ -836,7 +834,8 @@ unique_ptr_destroy_only<RowIterator> CreateIteratorFromAccessPath(
             thd->variables.merge_join_buff_size, move(conditions),
             thd->variables.merge_join_buff_size > 0 ? true : false,
             join_type, join,
-            join_predicate->expr->join_conditions, probe_input_batch_mode);
+            join_predicate->expr->join_conditions,
+            probe_input_batch_mode);
         break;
       }
       case AccessPath::FILTER: {

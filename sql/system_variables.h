@@ -481,6 +481,11 @@ struct System_variables {
   */
   uint cdb_max_prefetch_rows;
   /**
+    @sa Sys_threshold_of_interesting_order_for_merge_join
+  */
+  uint threshold_of_interesting_order_for_merge_join;
+
+  /**
     @sa Sys_txsql_range_estimation_by_histogram
   */
   bool txsql_range_estimation_by_histogram;

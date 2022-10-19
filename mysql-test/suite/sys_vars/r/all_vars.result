@@ -300,6 +300,8 @@ thread_pool_stall_limit
 thread_pool_stall_limit
 threadpool_workaround_epoll_bug
 threadpool_workaround_epoll_bug
+threshold_of_interesting_order_for_merge_join
+threshold_of_interesting_order_for_merge_join
 tls_ciphersuites
 tls_ciphersuites
 use_secondary_engine

@@ -2081,6 +2081,19 @@ class Plan_change_watchdog {
 #endif
 };
 
+bool test_if_skip_smj_sort(TABLE *tab, ORDER_with_src &order, int keynr, bool reverse) {
+  int order_direction = 0;
+  if (keynr >= 0) {
+    // Last two parameters can be ignored
+    bool skip_quick_bool;
+    uint skip_quick = 0;
+    order_direction =
+        test_if_order_by_key(&order, tab, keynr,
+                                &skip_quick, &skip_quick_bool);
+  }
+  return (order_direction && !reverse) || (!order_direction && reverse);
+}
+
 /**
   Test if we can skip ordering by using an index.
 
