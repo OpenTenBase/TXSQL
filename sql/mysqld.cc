@@ -13061,3 +13061,7 @@ char *cdb_server_version;
 uint num_seq_threads= 4;
 bool g_sequence_same_nextval_in_query = false;
 bool g_seq_currval_before_first_nextval_return_error = false;
+ulong cdb_node_role;
+bool cdb_replica_host_detection = true;
+const char *cdb_role_names[] = {"CDB_ROLE_UNKNOWN", "CDB_ROLE_MASTER",
+                                "CDB_ROLE_SLAVE", "CDB_ROLE_RO", NullS};

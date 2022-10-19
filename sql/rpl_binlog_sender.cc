@@ -55,6 +55,7 @@
 #include "sql/mysqld.h"  // global_system_variables ...
 #include "sql/protocol.h"
 #include "sql/protocol_classic.h"
+#include "sql/replication.h"
 #include "sql/rpl_constants.h"  // BINLOG_DUMP_NON_BLOCK
 #include "sql/rpl_gtid.h"
 #include "sql/rpl_handler.h"    // RUN_HOOK
@@ -299,6 +300,13 @@ void Binlog_sender::init() {
 
   LogErr(INFORMATION_LEVEL, ER_RPL_BINLOG_STARTING_DUMP, thd->thread_id(),
          thd->server_id, m_start_file, m_start_pos);
+
+  {
+    long long int cdb_replica_role;
+    if (!get_user_var_int("cdb_replica_role", &cdb_replica_role, nullptr)) {
+      report_slave_role(thd, cdb_replica_role);
+    }
+  }
 
   if (RUN_HOOK(
           binlog_transmit, transmit_start,

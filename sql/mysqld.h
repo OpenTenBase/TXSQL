@@ -436,6 +436,16 @@ extern uint histogram_history_versions_limit;
 extern ulonglong global_conn_mem_limit;
 extern ulonglong global_conn_mem_counter;
 extern char *sql_filter_command;
+extern ulong cdb_node_role;
+// length limited by ROLENAME_CHAR_LENGTH
+enum enum_cdb_role {
+  CDB_ROLE_UNKNOWN = 0,
+  CDB_ROLE_MASTER = 1,
+  CDB_ROLE_SLAVE = 2,
+  CDB_ROLE_RO = 3
+};
+extern bool cdb_replica_host_detection;
+extern const char *cdb_role_names[];
 /**
   Variable to check if connection related options are set
   as part of keyring migration.

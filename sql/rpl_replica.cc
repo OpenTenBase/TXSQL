@@ -323,6 +323,7 @@ static int safe_reconnect(THD *thd, MYSQL *mysql, Master_info *mi,
                           const uint port = 0);
 static int get_master_version_and_clock(MYSQL *mysql, Master_info *mi);
 static int get_master_uuid(MYSQL *mysql, Master_info *mi);
+static int report_role_to_master(MYSQL *mysql, Master_info *mi);
 int io_thread_init_commands(MYSQL *mysql, Master_info *mi);
 static int terminate_slave_thread(THD *thd, mysql_mutex_t *term_lock,
                                   mysql_cond_t *term_cond,
@@ -2565,6 +2566,52 @@ static int get_master_uuid(MYSQL *mysql, Master_info *mi) {
 
   if (master_res) mysql_free_result(master_res);
   return ret;
+}
+
+/**
+  Report slave role to master.
+
+  @param  mysql MYSQL to report role.
+  @param  mi    Master_info to store error info
+
+  @return 0: Success, 1: Fatal error(skipped), 2: Transient network error.
+*/
+static int report_role_to_master(MYSQL *mysql, Master_info *mi) {
+  mi->reset_network_error();
+
+  char llbuf[DECIMAL_LONGLONG_DIGITS];
+  const char query_format[] = "SET @cdb_replica_role= %s";
+  char query[sizeof(query_format) - 2 + sizeof(llbuf)];
+  llstr((ulonglong)(cdb_node_role), llbuf);
+  sprintf(query, query_format, llbuf);
+  if (mysql_real_query(mysql, query, static_cast<ulong>(strlen(query)))) {
+    if (is_network_error(mysql_errno(mysql))) {
+      mi->report(WARNING_LEVEL, mysql_errno(mysql),
+                 "SET @cdb_replica_role to master failed with network error: %s",
+                 mysql_error(mysql));
+      mysql_free_result(mysql_store_result(mysql));
+      mi->set_network_error();
+      return 2;
+    } else {
+      /*
+        The LOGBUS does not support setting user-defined variables (@cdb_replica_role).
+        All in all, whether it is a logbus error or not, we need to skip the error to
+        avoid affecting the RPL process.
+        To ensure that the MySQL state is correct after an error occurs, we return 2
+        for re-calling try_to_reconnect function.
+      */
+      const char *errmsg =
+        "a fatal error is encountered "
+        "when it tries to SET @cdb_replica_role to master.";
+      mi->report(WARNING_LEVEL, ER_SLAVE_FATAL_ERROR,
+               ER_THD(current_thd, ER_SLAVE_FATAL_ERROR), errmsg);
+      mysql_free_result(mysql_store_result(mysql));
+      return 2;
+    }
+  }
+  mysql_free_result(mysql_store_result(mysql));
+
+  return 0;
 }
 
 /*
@@ -5283,6 +5330,7 @@ extern "C" void *handle_slave_io(void *arg) {
   uint retry_count;
   bool suppress_warnings;
   int ret;
+  bool reported_role = false;
   Global_THD_manager *thd_manager = Global_THD_manager::get_instance();
   // needs to call my_thread_init(), otherwise we get a coredump in DBUG_ stuff
   my_thread_init();
@@ -5409,6 +5457,13 @@ extern "C" void *handle_slave_io(void *arg) {
       ret = Async_conn_failover_manager::get_source_quorum_status(mysql, mi);
     }
 
+    if (!ret && !reported_role) {
+      ret = report_role_to_master(mysql, mi);
+      if (ret)
+        /* error path is executed only once */
+        reported_role = true;
+    }
+
     if (ret == 1) /* Fatal error */
       goto err;
 
@@ -5427,6 +5482,8 @@ extern "C" void *handle_slave_io(void *arg) {
         goto err;
       goto connected;
     }
+
+    reported_role = false;
 
     /*
       Register ourselves with the master.
