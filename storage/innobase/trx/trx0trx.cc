@@ -221,6 +221,12 @@ static void trx_init(trx_t *trx) {
 
   trx->error_index = nullptr;
 
+#ifdef HAVE_TDSQL
+  if (trx->xid) {
+    trx->xid->reset();
+  }
+#endif
+
   /* During asynchronous rollback, we should reset forced rollback flag
   only after rollback is complete to avoid race with the thread owning
   the transaction. */
@@ -527,6 +533,10 @@ trx_t *trx_allocate_for_background(void) {
 
   trx->sess = trx_dummy_sess;
 
+#ifdef HAVE_TDSQL
+  trx->is_background = true;
+#endif
+
   return (trx);
 }
 
@@ -543,6 +553,10 @@ trx_t *trx_allocate_for_mysql(void) {
   UT_LIST_ADD_FIRST(trx_sys->mysql_trx_list, trx);
 
   trx_sys_mutex_exit();
+
+#ifdef HAVE_TDSQL
+  trx->is_background = false;
+#endif
 
   return (trx);
 }

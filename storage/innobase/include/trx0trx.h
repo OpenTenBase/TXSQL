@@ -760,6 +760,14 @@ struct trx_t {
               this transaction must abort when
               it can */
 
+#ifdef HAVE_TDSQL
+  /** True if it's created for background and not added to
+  mysql_trx_list. If it's not added to list, we shouldn't create
+  read view for it. As purge thread relies on mysql_trx_list to
+  build purge view. */
+  bool is_background;
+#endif
+
   trx_id_t id; /*!< transaction id */
 
   trx_id_t no; /*!< transaction serialization number:
