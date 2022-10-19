@@ -3,7 +3,7 @@
 # Test that transaction data is correctly "visualized" in
 # INFORMATION_SCHEMA.INNODB_TRX
 #
---source include/have_no_tdsql_root.inc
+--source include/have_tdsql_root.inc
 # Make sure the locks keep waiting until they are released,
 # even on a busy system.
 SET GLOBAL innodb_lock_wait_timeout=600;

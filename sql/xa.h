@@ -353,6 +353,9 @@ class XID_STATE {
         m_xa_type(XA_INTERNAL),
         prepare_state_time(0) {
     m_xid.null();
+#ifdef HAVE_TDSQL
+    m_xid_str[0] = '\0';
+#endif
   }
 
   void set_xa_type(xa_types t) { m_xa_type = t; }
@@ -484,11 +487,41 @@ class XID_STATE {
  private:
   time_t prepare_state_time;
 
-public:
- void set_prepare_state_time(time_t prepaer_time) {
-   prepare_state_time = prepaer_time;
- }
- time_t get_prepare_state_time() { return prepare_state_time; }
+ public:
+  void set_prepare_state_time(time_t prepaer_time) {
+    prepare_state_time = prepaer_time;
+  }
+  time_t get_prepare_state_time() { return prepare_state_time; }
+
+#ifdef HAVE_TDSQL
+ private:
+  mutable char m_xid_str[XID::ser_buf_size + 16];
+
+ public:
+  const char *get_xa_type_str() const {
+    const char *res = NULL;
+    switch (m_xa_type) {
+      case XID_STATE::XA_INTERNAL:
+        res = "internal";
+        break;
+      case XID_STATE::XA_EXTERNAL:
+        res = "external";
+        break;
+      default:
+        break;
+    }
+
+    return res;
+  }
+
+  const char *get_xa_xid() const {
+    if (m_xid_str[0] == '\0') {
+      m_xid.serialize(m_xid_str);
+    }
+
+    return m_xid_str;
+  }
+#endif
 };
 
 /**

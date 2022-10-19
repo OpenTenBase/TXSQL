@@ -528,6 +528,20 @@ static ST_FIELD_INFO innodb_trx_fields_info[] = {
      STRUCT_FLD(field_flags, MY_I_S_UNSIGNED | MY_I_S_MAYBE_NULL),
      STRUCT_FLD(old_name, ""), STRUCT_FLD(open_method, 0)},
 
+#ifdef HAVE_TDSQL
+#define IDX_TRX_XID 25
+    {STRUCT_FLD(field_name, "trx_xid"), STRUCT_FLD(field_length, 300),
+     STRUCT_FLD(field_type, MYSQL_TYPE_STRING), STRUCT_FLD(value, 0),
+     STRUCT_FLD(field_flags, MY_I_S_MAYBE_NULL), STRUCT_FLD(old_name, ""),
+     STRUCT_FLD(open_method, 0)},
+
+#define IDX_TRX_TYPE 26
+    {STRUCT_FLD(field_name, "trx_xa_type"), STRUCT_FLD(field_length, 16),
+     STRUCT_FLD(field_type, MYSQL_TYPE_STRING), STRUCT_FLD(value, 0),
+     STRUCT_FLD(field_flags, MY_I_S_MAYBE_NULL), STRUCT_FLD(old_name, ""),
+     STRUCT_FLD(open_method, 0)},
+#endif
+
     END_OF_ST_FIELD_INFO};
 
 /** Read data from cache buffer and fill the INFORMATION_SCHEMA.innodb_trx
@@ -662,6 +676,18 @@ static int fill_innodb_trx_from_cache(
     } else {
       fields[IDX_TRX_SCHEDULE_WEIGHT]->set_null();
     }
+
+#ifdef HAVE_TDSQL
+    const char *trx_xid = row->trx_xid;
+    if (trx_xid[0] == '\0') {
+      trx_xid = NULL;
+    }
+
+    const char *trx_xa_type = row->trx_xa_type;
+
+    OK(field_store_string(fields[IDX_TRX_XID], trx_xid));
+    OK(field_store_string(fields[IDX_TRX_TYPE], trx_xa_type));
+#endif
 
     OK(schema_table_store_record(thd, table));
   }
