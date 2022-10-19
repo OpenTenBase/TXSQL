@@ -161,6 +161,7 @@
 #include "storage/perfschema/pfs_histogram.h"  // MAX_NUMBER_OF_BUCKETS
 #endif /* WITH_PERFSCHEMA_STORAGE_ENGINE */
 #include "sql/dd/dd_schema.h"                // dd::Schema_MDL_locker
+#include "sql/sql_seq.h"
 
 #define MAX_CONNECTIONS 100000
 /* Changes from txsql end. */
@@ -8271,6 +8272,56 @@ static Sys_var_enum Sys_cdb_instance_mode(
     cdb_instance_mode_names, DEFAULT(CDB_INSTANCEMODE_READWRITE),
     NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(0),
     ON_UPDATE(update_cdb_instance_mode));
+
+static uint old_num_seq_threads= 0;
+static bool check_num_seq_threads(sys_var *self, THD *thd, set_var *var)
+{
+  old_num_seq_threads = num_seq_threads;
+  return false;
+}
+
+static bool fix_num_seq_threads(sys_var *self, THD *thd, enum_var_type type)
+{
+  int err= 0;
+  uint i = alter_seq_thds(old_num_seq_threads, num_seq_threads, &err);
+  if (i != 0) {
+    if (i == (uint)-1 || i >= MAX_SEQ_WORKER_THDS) {
+      my_error(ER_UNKNOWN_ERROR, MYF(0)); // this could not happen here.
+      num_seq_threads= old_num_seq_threads;
+      return true;
+    }
+
+    sql_print_warning("alter_seq_thds(%u, %u): Got error %d while creating some "
+        "squence worker threads, now we have %u such threads.",
+        old_num_seq_threads, num_seq_threads, err, i+1);
+    num_seq_threads = i+1;
+
+    return true;
+  }
+
+  return false;
+}
+
+static Sys_var_uint Sys_num_seq_threads(
+    "num_seq_threads",
+    "Number of sequence worker threads.",
+    GLOBAL_VAR(num_seq_threads),
+    CMD_LINE(OPT_ARG),
+    VALID_RANGE(1, MAX_SEQ_WORKER_THDS), DEFAULT(4), BLOCK_SIZE(1),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(check_num_seq_threads),
+    ON_UPDATE(fix_num_seq_threads));
+
+static Sys_var_bool Sys_sequence_same_nextval_in_query(
+    "sequence_same_nextval_in_query",
+    "Same nextval in one statement if setting to true",
+    GLOBAL_VAR(g_sequence_same_nextval_in_query),
+    CMD_LINE(OPT_ARG), DEFAULT(false));
+
+static Sys_var_bool Sys_currval_before_first_nextval_return_error(
+    "seq_currval_before_first_nextval_return_error",
+    "Currval before first nextval return error if setting to true",
+    GLOBAL_VAR(g_seq_currval_before_first_nextval_return_error),
+    CMD_LINE(OPT_ARG), DEFAULT(false));
 
 #ifdef HAVE_TDSQL
 static Sys_var_bool Sys_threadpool_eager_mode(

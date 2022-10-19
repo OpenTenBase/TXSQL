@@ -112,6 +112,10 @@
 #include "violite.h"
 #include "sql/opt_statistics.h"
 
+/* Changes from TXSQL start. */
+#include "sql/sql_seq.h"
+/* Changes from TXSQL end. */
+
 enum enum_check_fields : int;
 enum enum_tx_isolation : int;
 enum ha_notification_type : int;
@@ -969,6 +973,29 @@ struct hash_key {
   inline size_t operator()(const lock_id_t &id) const { return (id.line); }
 };
 
+class Sequence;
+class THD_seq {
+  Sequence *seq;
+  query_id_t query_id;
+  Sequence::seq_val_t m_curval;
+  bool has_cur_val;// nextval() has to be run once in this session to make this true.
+  public:
+  THD_seq(Sequence *seq0) : seq(seq0), query_id(0), has_cur_val(false) {
+    init();
+  }
+
+  ~THD_seq() {
+    if (seq) {
+      close_sequence(seq);
+      seq= 0;
+    }
+  }
+  void init();
+  bool cur_val(Sequence::seq_val_t &out) const;
+  bool next_val(const THD *thd, Sequence::seq_val_t &curval);
+  Sequence *get_seq_obj() { return seq; }
+  void set_seq_obj(Sequence *s) { seq= s; }
+};
 /* Changes from txsql end. */
 
 /**
@@ -4784,6 +4811,27 @@ private:
 
   /* Thread LOCK stats */
   std::unordered_map<lock_id_t, lock_info_t, hash_key> lock_status;
+   /* sequence */
+  typedef std::map<std::string, THD_seq*> Thd_seq_name_map;
+  typedef std::map<std::string, Thd_seq_name_map> Thd_seq_db_map;
+
+  Thd_seq_db_map seq_dbs;
+  uint64_t stored_seq_cache_version;
+  bool thd_seq_next_val(const std::string&db,
+                        const std::string&name,
+                        Sequence::seq_val_t &out);
+  bool thd_seq_cur_val(const std::string&db,
+                       const std::string&name,
+                       Sequence::seq_val_t &out);
+  THD_seq* get_thd_seq(const std::string&db,
+                       const std::string&name,
+                       bool update_ref);
+  void release_seq_refs();
+  bool release_seq_refs(const char *db0, const char *seq0);
+  bool ending_internal_txn;
+  bool thd_seq_set_val(const std::string &db, const std::string &name,
+                       Sequence::seq_val_t set_val, bool next, Sequence::seq_val_t &out);
+
  public:
   /** If true, current statement is marked as backquery. */
   bool backquery_flag;

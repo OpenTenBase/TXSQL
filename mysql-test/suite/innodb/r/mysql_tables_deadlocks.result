@@ -122,6 +122,10 @@ Preparing deadlock scenario for mysql.slave_worker_info
 ROLLBACK;
 ERROR 40001: Deadlock found when trying to get lock; try restarting transaction
 ROLLBACK;
+Preparing deadlock scenario for mysql.tdsql_sequences
+ROLLBACK;
+ERROR 40001: Deadlock found when trying to get lock; try restarting transaction
+ROLLBACK;
 Preparing deadlock scenario for mysql.time_zone
 ROLLBACK;
 ERROR 40001: Deadlock found when trying to get lock; try restarting transaction

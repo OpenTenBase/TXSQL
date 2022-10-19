@@ -1,0 +1,23 @@
+--disable_warnings
+DROP DATABASE IF EXISTS dbtest_seq_cac_err;
+--enable_warnings
+
+CREATE DATABASE dbtest_seq_cac_err;
+
+use dbtest_seq_cac_err;
+
+--error ER_WRONG_SEQ_ARGS
+CREATE TDSQL_SEQUENCE sequence_000 TDSQL_MAXVALUE 1000 TDSQL_minvalue 100 TDSQL_CACHE 10000;
+
+--error ER_WRONG_SEQ_ARGS
+CREATE TDSQL_SEQUENCE sequence_000 TDSQL_MAXVALUE 1000 TDSQL_minvalue 100 TDSQL_CACHE 1;
+
+--error ER_WRONG_SEQ_ARGS
+CREATE TDSQL_SEQUENCE sequence_000 TDSQL_MAXVALUE 1000 TDSQL_minvalue 100 TDSQL_CACHE 0;
+
+--error ER_PARSE_ERROR
+CREATE TDSQL_SEQUENCE sequence_000 TDSQL_MAXVALUE 1000 TDSQL_minvalue 100 TDSQL_CACHE -10;
+
+commit;
+
+DROP DATABASE dbtest_seq_cac_err ;

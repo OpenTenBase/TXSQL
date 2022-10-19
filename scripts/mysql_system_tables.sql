@@ -318,6 +318,14 @@ PREPARE stmt FROM @str;
 EXECUTE stmt;
 DROP PREPARE stmt;
 
+SET @tmp = "CREATE TABLE IF NOT EXISTS tdsql_sequences ( db varchar(128) NOT NULL, name varchar(128)";
+-- if lower_case_table_names <> 1 the casesensitive seq_name can be written to system table so use the collation utf8_bin
+SET @cmd = IF(@@lower_case_table_names <> 1, CONCAT(@tmp, " CHARSET utf8 COLLATE utf8_bin NOT NULL, curval bigint NOT NULL, start bigint NOT NULL, step int NOT NULL, max_value bigint NOT NULL, min_value bigint NOT NULL, do_cycle bool NOT NULL, n_cache int unsigned NOT NULL, primary key(db,name))  CHARACTER SET utf8  ROW_FORMAT=DYNAMIC TABLESPACE=mysql"), CONCAT(@tmp, " NOT NULL, curval bigint NOT NULL, start bigint NOT NULL, step int NOT NULL, max_value bigint NOT NULL, min_value bigint NOT NULL, do_cycle bool NOT NULL, n_cache int unsigned NOT NULL, primary key(db,name))  CHARACTER SET utf8  ROW_FORMAT=DYNAMIC TABLESPACE=mysql"));
+SET @str = CONCAT(@cmd, " ENCRYPTION='", @is_mysql_encrypted, "'");
+
+PREPARE stmt FROM @str;
+EXECUTE stmt;
+DROP PREPARE stmt;
 
 
 SET @cmd = "CREATE TABLE IF NOT EXISTS time_zone_leap_second (   Transition_time bigint signed NOT NULL, Correction int signed NOT NULL, PRIMARY KEY TranTime (Transition_time) ) engine=INNODB STATS_PERSISTENT=0 CHARACTER SET utf8   comment='Leap seconds information for time zones' ROW_FORMAT=DYNAMIC TABLESPACE=mysql";

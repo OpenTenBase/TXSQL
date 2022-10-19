@@ -176,6 +176,10 @@ MYSQL.TABLES_PRIV
 ERROR
 Storage engine 'MyISAM' does not support system tables. [mysql.tables_priv]
 @table_name
+MYSQL.TDSQL_SEQUENCES
+ERROR
+Storage engine 'MyISAM' does not support system tables. [mysql.tdsql_sequences]
+@table_name
 MYSQL.TIME_ZONE
 ERROR
 Storage engine 'MyISAM' does not support system tables. [mysql.time_zone]
@@ -317,6 +321,8 @@ SEVERITY	ERRNO	MESSAGE
 Warning	1726	Storage engine 'MyISAM' does not support system tables. [mysql.slave_worker_info]
 SEVERITY	ERRNO	MESSAGE
 Warning	1726	Storage engine 'MyISAM' does not support system tables. [mysql.tables_priv]
+SEVERITY	ERRNO	MESSAGE
+Warning	1726	Storage engine 'MyISAM' does not support system tables. [mysql.tdsql_sequences]
 SEVERITY	ERRNO	MESSAGE
 Warning	1726	Storage engine 'MyISAM' does not support system tables. [mysql.time_zone]
 SEVERITY	ERRNO	MESSAGE

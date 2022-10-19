@@ -466,6 +466,22 @@ enum sub_select_type {
   OLAP_TYPE
 };
 
+struct Sequence_info {
+  enum Optype { CREATE, ALTER };
+  Sequence_info() {
+    memset(this, 0, sizeof(*this));
+  }
+
+  Optype optype;
+  int64_t start;
+  Seq_ident ident;
+  Seq_attribute cache;
+  Seq_attribute cycle;
+  Seq_attribute max;
+  Seq_attribute min;
+  Seq_attribute step;
+};
+
 /*
   String names used to print a statement with index hints.
   Keep in sync with index_hint_type.
@@ -3889,6 +3905,7 @@ struct LEX : public Query_tables_list {
   Server_options server_options;
   USER_RESOURCES mqh;
   LEX_RESET_SLAVE reset_slave_info;
+  Sequence_info sequence_info;
   ulong type;
   /**
     This field is used as a work field during resolving to validate

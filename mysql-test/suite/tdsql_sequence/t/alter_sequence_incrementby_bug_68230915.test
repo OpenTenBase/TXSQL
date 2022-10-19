@@ -1,0 +1,79 @@
+--disable_warnings
+DROP DATABASE IF EXISTS dbtest_seq_alter_inc_bug;
+
+commit;
+DROP TDSQL_SEQUENCE IF EXISTS dbtest_seq_alter_inc_bug.sequence_000;
+
+commit;
+DROP TDSQL_SEQUENCE IF EXISTS dbtest_seq_alter_inc_bug.sequence_001;
+--enable_warnings
+
+CREATE DATABASE dbtest_seq_alter_inc_bug;
+
+use dbtest_seq_alter_inc_bug;
+
+#TDSQL_increment by 1
+CREATE TDSQL_SEQUENCE sequence_000 TDSQL_increment by 1 TDSQL_MAXVALUE 1000 TDSQL_minvalue 1 TDSQL_nocache;
+
+CREATE TABLE t0(a int PRIMARY KEY);
+
+SELECT step from mysql.tdsql_sequences where db='dbtest_seq_alter_inc_bug' and name='sequence_000';
+
+INSERT INTO t0 values(sequence_000.nextval);
+INSERT INTO t0 values(sequence_000.nextval);
+INSERT INTO t0 values(sequence_000.nextval);
+
+SELECT * FROM t0 order by a;
+
+#TDSQL_increment by -1 
+ALTER TDSQL_SEQUENCE sequence_000 TDSQL_increment by -1;
+
+SELECT step from mysql.tdsql_sequences where db='dbtest_seq_alter_inc_bug' and name='sequence_000';
+
+--error 1062
+INSERT INTO t0 values(sequence_000.nextval);
+
+SELECT * FROM t0 order by a;
+
+commit;
+DROP TDSQL_SEQUENCE sequence_000 ;
+
+#TDSQL_increment by -1
+CREATE TDSQL_SEQUENCE sequence_001 TDSQL_increment by -1 TDSQL_MAXVALUE 1000 TDSQL_minvalue 1 TDSQL_nocache;
+
+CREATE TABLE t1(a int PRIMARY KEY);
+
+SELECT step from mysql.tdsql_sequences where db='dbtest_seq_alter_inc_bug' and name='sequence_001';
+
+INSERT INTO t1 values(sequence_001.nextval);
+INSERT INTO t1 values(sequence_001.nextval);
+INSERT INTO t1 values(sequence_001.nextval);
+
+SELECT * FROM t1 order by a;
+
+#TDSQL_increment by -2
+ALTER TDSQL_SEQUENCE sequence_001 TDSQL_increment by -2;
+
+SELECT step from mysql.tdsql_sequences where db='dbtest_seq_alter_inc_bug' and name='sequence_001';
+
+INSERT INTO t1 values(sequence_001.nextval);
+INSERT INTO t1 values(sequence_001.nextval);
+INSERT INTO t1 values(sequence_001.nextval);
+
+SELECT * FROM t1 order by a;
+
+#TDSQL_increment by 10
+ALTER TDSQL_SEQUENCE sequence_001 TDSQL_increment by 10;
+
+SELECT step from mysql.tdsql_sequences where db='dbtest_seq_alter_inc_bug' and name='sequence_001';
+
+INSERT INTO t1 values(sequence_001.nextval);
+--error ER_NON_CYCLIC_SEQUENCE_CONSUMED
+INSERT INTO t1 values(sequence_001.nextval);
+
+SELECT * FROM t1 order by a;
+
+commit;
+DROP TDSQL_SEQUENCE sequence_001 ;
+
+DROP DATABASE dbtest_seq_alter_inc_bug  ;

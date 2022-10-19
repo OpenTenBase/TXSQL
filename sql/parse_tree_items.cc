@@ -391,6 +391,16 @@ bool PTI_simple_ident_q_3d::itemize(Parse_context *pc, Item **res) {
   const char *schema =
       thd->get_protocol()->has_client_capability(CLIENT_NO_SCHEMA) ? nullptr
                                                                    : db;
+  if (strcasecmp(field, "nextval") == 0) {
+    *res = new (pc->mem_root) Item_seq_value(POS(), schema, table, 1);
+    goto end;
+  }
+
+  if (strcasecmp(field, "currval") == 0) {
+    *res = new (pc->mem_root) Item_seq_value(POS(), schema, table, 0);
+    goto end;
+  }
+
   if (pc->select->no_table_names_allowed) {
     my_error(ER_TABLENAME_NOT_ALLOWED_HERE, MYF(0), table, thd->where);
     return true;
@@ -401,8 +411,8 @@ bool PTI_simple_ident_q_3d::itemize(Parse_context *pc, Item **res) {
   } else {
     *res = new (pc->mem_root) Item_ref(POS(), schema, table, field);
   }
-  if (*res == nullptr) return true;
-  return (*res)->itemize(pc, res);
+end:
+  return (*res == nullptr || (*res)->itemize(pc, res));
 }
 
 bool PTI_simple_ident_q_2d::itemize(Parse_context *pc, Item **res) {

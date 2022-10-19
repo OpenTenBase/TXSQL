@@ -1,0 +1,38 @@
+create database db_a;
+use db_a;
+create table t0 (a int);
+CREATE TDSQL_SEQUENCE sequence_000 TDSQL_MAXVALUE 1000 TDSQL_minvalue 100;
+
+set session autocommit = 1;
+
+#default is row mode
+show variables like 'binlog_format';
+INSERT INTO t0 values(sequence_000.nextval);
+
+# Set to mixed mode
+SET SESSION binlog_format = "MIXED";
+--error ER_SEQUENCE_NOT_ROW_UNSAFE
+INSERT INTO t0 values(sequence_000.nextval);
+SELECT sequence_000.nextval;
+
+# Set to statement mode
+SET SESSION binlog_format = "STATEMENT";
+--error ER_BINLOG_STMT_MODE_AND_ROW_ENGINE
+INSERT INTO t0 values(sequence_000.nextval);
+
+# change isolation to rr so can use statement mode
+SET SESSION transaction_isolation = "REPEATABLE-READ";
+
+--error ER_SEQUENCE_NOT_ROW_UNSAFE
+INSERT INTO t0 values(sequence_000.nextval);
+
+SELECT sequence_000.nextval;
+
+# Set to row mode
+SET SESSION binlog_format = "ROW";
+INSERT INTO t0 values(sequence_000.nextval);
+
+SELECT * FROM t0;
+
+#cleanup
+DROP DATABASE db_a;

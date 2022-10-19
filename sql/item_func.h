@@ -4097,6 +4097,38 @@ class Item_func_reinterpret_int : public Item_int_func {
   const char *func_name() const override { return "reinterpret_int"; }
 };
 
+class Item_seq_value : public Item_int_func {
+  std::string db, name;
+  bool next; // true: NEXTVAL, FALSE: CURRVAL
+  public:
+  Item_seq_value(const POS& pos, const LEX_STRING&db_, const LEX_STRING&name_,
+      int is_next)
+    :Item_int_func(pos), db(db_.str, db_.length), name(name_.str, name_.length),
+    next(is_next ? true: false)
+  {}
+  Item_seq_value(const POS& pos, const char*db0, const char*name0,
+      int is_next)
+    :Item_int_func(pos), db(db0?db0:""), name(name0),
+    next(is_next ? true: false)
+    {}
+  longlong val_int() override;
+  const char *func_name() const override;
+};
+
+class Item_func_tdsql_setval : public Item_int_func {
+  std::string db, name;
+  longlong set_val;
+  uint next; // if 1 set the nextval with input val + step
+public:
+  Item_func_tdsql_setval(const POS& pos, const LEX_STRING &db_,
+      const LEX_STRING &name_, longlong val, uint is_next)
+    :Item_int_func(pos), db(db_.str, db_.length),
+    name(name_.str, name_.length), set_val(val), next(is_next)
+  {}
+  longlong val_int() override;
+  const char *func_name() const override { return "TDSQL_SETVAL"; }
+};
+
 /* Changes from TXSQL end. */
 
 #endif /* ITEM_FUNC_INCLUDED */

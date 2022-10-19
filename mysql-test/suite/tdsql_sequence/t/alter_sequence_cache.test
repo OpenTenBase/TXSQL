@@ -1,0 +1,136 @@
+--disable_warnings
+DROP DATABASE IF EXISTS dbtest_seq_alter_cac;
+
+--disable_warnings
+DROP TDSQL_SEQUENCE IF EXISTS dbtest_seq_alter_cac.sequence_000;
+--enable_warnings
+
+CREATE DATABASE dbtest_seq_alter_cac;
+
+use dbtest_seq_alter_cac;
+
+#default:cache 20
+CREATE TDSQL_SEQUENCE sequence_000 TDSQL_MAXVALUE 1000 TDSQL_minvalue 100;
+
+CREATE TABLE t0(a int PRIMARY KEY);
+
+SELECT curval,n_cache from mysql.tdsql_sequences where name='sequence_000';
+
+INSERT INTO t0 values(sequence_000.nextval);
+INSERT INTO t0 values(sequence_000.nextval);
+INSERT INTO t0 values(sequence_000.nextval);
+INSERT INTO t0 values(sequence_000.nextval);
+INSERT INTO t0 values(sequence_000.nextval);
+INSERT INTO t0 values(sequence_000.nextval);
+INSERT INTO t0 values(sequence_000.nextval);
+INSERT INTO t0 values(sequence_000.nextval);
+INSERT INTO t0 values(sequence_000.nextval);
+INSERT INTO t0 values(sequence_000.nextval);
+
+SELECT curval,n_cache from mysql.tdsql_sequences where name='sequence_000';
+
+INSERT INTO t0 values(sequence_000.nextval);
+INSERT INTO t0 values(sequence_000.nextval);
+INSERT INTO t0 values(sequence_000.nextval);
+INSERT INTO t0 values(sequence_000.nextval);
+INSERT INTO t0 values(sequence_000.nextval);
+INSERT INTO t0 values(sequence_000.nextval);
+INSERT INTO t0 values(sequence_000.nextval);
+INSERT INTO t0 values(sequence_000.nextval);
+INSERT INTO t0 values(sequence_000.nextval);
+INSERT INTO t0 values(sequence_000.nextval);
+
+SELECT curval,n_cache from mysql.tdsql_sequences where name='sequence_000';
+
+INSERT INTO t0 values(sequence_000.nextval);
+INSERT INTO t0 values(sequence_000.nextval);
+INSERT INTO t0 values(sequence_000.nextval);
+INSERT INTO t0 values(sequence_000.nextval);
+INSERT INTO t0 values(sequence_000.nextval);
+INSERT INTO t0 values(sequence_000.nextval);
+INSERT INTO t0 values(sequence_000.nextval);
+INSERT INTO t0 values(sequence_000.nextval);
+INSERT INTO t0 values(sequence_000.nextval);
+INSERT INTO t0 values(sequence_000.nextval);
+
+ALTER TDSQL_SEQUENCE sequence_000 TDSQL_nocache;
+
+INSERT INTO t0 values(sequence_000.nextval);
+INSERT INTO t0 values(sequence_000.nextval);
+INSERT INTO t0 values(sequence_000.nextval);
+INSERT INTO t0 values(sequence_000.nextval);
+
+SELECT curval,n_cache from mysql.tdsql_sequences where name='sequence_000';
+
+INSERT INTO t0 values(sequence_000.nextval);
+INSERT INTO t0 values(sequence_000.nextval);
+INSERT INTO t0 values(sequence_000.nextval);
+INSERT INTO t0 values(sequence_000.nextval);
+
+SELECT curval,n_cache from mysql.tdsql_sequences where name='sequence_000';
+
+INSERT INTO t0 values(sequence_000.nextval);
+INSERT INTO t0 values(sequence_000.nextval);
+INSERT INTO t0 values(sequence_000.nextval);
+INSERT INTO t0 values(sequence_000.nextval);
+
+SELECT curval,n_cache from mysql.tdsql_sequences where name='sequence_000';
+
+INSERT INTO t0 values(sequence_000.nextval);
+SELECT curval,n_cache from mysql.tdsql_sequences where name='sequence_000';
+
+INSERT INTO t0 values(sequence_000.nextval);
+SELECT curval,n_cache from mysql.tdsql_sequences where name='sequence_000';
+
+INSERT INTO t0 values(sequence_000.nextval);
+SELECT curval,n_cache from mysql.tdsql_sequences where name='sequence_000';
+
+INSERT INTO t0 values(sequence_000.nextval);
+SELECT curval,n_cache from mysql.tdsql_sequences where name='sequence_000';
+
+ALTER TDSQL_SEQUENCE sequence_000 TDSQL_CACHE 5;
+
+SELECT curval,n_cache from mysql.tdsql_sequences where name='sequence_000';
+
+INSERT INTO t0 values(sequence_000.nextval);
+
+SELECT curval,n_cache from mysql.tdsql_sequences where name='sequence_000';
+
+INSERT INTO t0 values(sequence_000.nextval);
+
+SELECT curval,n_cache from mysql.tdsql_sequences where name='sequence_000';
+
+INSERT INTO t0 values(sequence_000.nextval);
+
+SELECT curval,n_cache from mysql.tdsql_sequences where name='sequence_000';
+
+INSERT INTO t0 values(sequence_000.nextval);
+
+SELECT curval,n_cache from mysql.tdsql_sequences where name='sequence_000';
+
+SELECT curval,n_cache from mysql.tdsql_sequences where name='sequence_000';
+
+INSERT INTO t0 values(sequence_000.nextval);
+
+SELECT curval,n_cache from mysql.tdsql_sequences where name='sequence_000';
+
+INSERT INTO t0 values(sequence_000.nextval);
+
+SELECT curval,n_cache from mysql.tdsql_sequences where name='sequence_000';
+
+INSERT INTO t0 values(sequence_000.nextval);
+
+SELECT curval,n_cache from mysql.tdsql_sequences where name='sequence_000';
+
+INSERT INTO t0 values(sequence_000.nextval);
+
+SELECT curval,n_cache from mysql.tdsql_sequences where name='sequence_000';
+
+SELECT * FROM t0 order by a;
+
+commit;
+
+DROP TDSQL_SEQUENCE sequence_000;
+
+DROP DATABASE dbtest_seq_alter_cac  ;
+

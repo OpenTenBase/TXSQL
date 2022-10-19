@@ -116,6 +116,7 @@
 
 /* Changes from TXSQL start. */
 #include "rpl_handler.h"
+#include "sql/sql_seq.h"
 /* Changes from TXSQL end. */
 
 class Parse_tree_root;
@@ -876,6 +877,9 @@ THD::THD(bool enable_plugins)
   m_backquery_info.clear();
 
   read_mask = READ_MASK_UNINIT;
+
+  ending_internal_txn = false;
+  stored_seq_cache_version = 0;
   /**
     Changes from txsql end.
   */
@@ -1310,6 +1314,8 @@ void THD::cleanup(void) {
   */
   release_all_locking_service_locks(this);
 
+  release_seq_refs(nullptr, nullptr);
+
   /*
     If Backup Lock was acquired it must be released on disconnect.
   */
@@ -1516,6 +1522,14 @@ THD::~THD() {
   }
 
   m_thd_life_cycle_stage = enum_thd_life_cycle_stages::DISPOSED;
+
+  for (Thd_seq_db_map::iterator i = seq_dbs.begin(); i != seq_dbs.end(); ++i) {
+    for (Thd_seq_name_map::iterator j = i->second.begin(); j != i->second.end(); ++j) {
+      delete j->second;
+    }
+
+    i->second.clear();
+  }
 }
 
 /**
@@ -3321,6 +3335,227 @@ void Transactional_ddl_context::init(dd::String_type db,
   m_tablename = tablename;
   m_hton = hton;
 }
+
+THD_seq*THD::get_thd_seq(const std::string&db,const std::string&name,
+                         bool update_ref) {
+  if (stored_seq_cache_version != seq_cache_version) {
+    /* Version changed, clear all local elements */
+    for (auto& elem : seq_dbs) {
+      for (auto& seq_elem : elem.second) {
+        delete seq_elem.second;
+      }
+
+      elem.second.clear();
+    }
+
+    seq_dbs.clear();
+    stored_seq_cache_version = seq_cache_version;
+  }
+
+  std::string seq_name = name;
+  if (1 == lower_case_table_names) {
+    std::transform(seq_name.begin(), seq_name.end(), seq_name.begin(), ::tolower);
+  }
+
+  Thd_seq_db_map::iterator i = seq_dbs.find(db);
+  Thd_seq_name_map::iterator j;
+  Sequence *seq = nullptr;//get_sequence(db, name);
+  if (i == seq_dbs.end() || (j= i->second.find(seq_name)) == i->second.end() ||
+      (j->second->get_seq_obj() == nullptr && update_ref)) {
+    seq = get_sequence(this, db, name, true/* acquire lock */); // Open the sequence.
+
+    if (!seq) {
+      return 0;
+    }
+
+    /* Can't put to THD::mem_root because it's cleared at end of a stmt. */
+    THD_seq *thdseq = 0;
+    if (i == seq_dbs.end() || j == i->second.end()) {
+      thdseq = new THD_seq(seq);
+    } else {
+      assert(j->second->get_seq_obj() == NULL);
+      thdseq = j->second;
+    }
+
+    if (i == seq_dbs.end()) {
+      Thd_seq_name_map seq_names;
+      seq_names.insert(std::make_pair(seq_name, thdseq));
+      seq_dbs.insert(std::make_pair(db, seq_names));
+    } else if (j == i->second.end()) {
+      i->second.insert(std::make_pair(seq_name, thdseq));
+    } else {
+      j->second->set_seq_obj(seq);
+    }
+    return thdseq;
+  }
+
+  return j->second;
+}
+
+bool THD::thd_seq_next_val(const std::string&db,const std::string&name,
+    Sequence::seq_val_t &out) {
+  while (true) {
+    /*
+       Slaves should never increment a sequence value in worker thread; and they
+       should not replicate SBR stmts either otherwise slave data can go different
+       rom master data.
+    */
+    if (check_readonly(this, true)) {
+      return true;
+    }
+
+    if (this->system_thread != NON_SYSTEM_THREAD) {
+      my_error(ER_UNSUPPORTED_BY_REPLICATION_THREAD, MYF(0), "use sequence in SBR");
+      return true;
+    }
+
+    if (seq_need_reload()) {
+      clear_sequence_cache(true);
+    }
+
+    Partitioned_rwlock_read_guard guard(&seq_cache_lock, thread_id());
+
+    if (unlikely(seq_need_reload())) {
+      continue;
+    }
+
+    THD_seq*seq = get_thd_seq(db, name, true);
+
+    if (seq == 0) {
+      if (!is_error()) {
+        my_error(ER_SEQUENCE_NOT_FOUND, MYF(0), name.c_str(), db.c_str());
+      }
+
+      return true;
+    }
+
+    return seq->next_val(this, out);
+  }
+
+  return false;
+}
+
+bool THD::thd_seq_cur_val(const std::string&db,const std::string&name,
+    Sequence::seq_val_t &out) {
+
+  while (true) {
+    /* It has no meaning to select current value of sequence on slave. */
+    if (check_readonly(this, true)) {
+      return true;
+    }
+
+    if (seq_need_reload()) {
+      clear_sequence_cache(true);
+    }
+
+    Partitioned_rwlock_read_guard guard(&seq_cache_lock, thread_id());
+
+    if (unlikely(seq_need_reload())) {
+      continue;
+    }
+
+    THD_seq*seq = get_thd_seq(db, name, false);
+
+    if (seq == 0) {
+      if (!is_error()) {
+        my_error(ER_SEQUENCE_NOT_FOUND, MYF(0), name.c_str(), db.c_str());
+      }
+      return true;
+    }
+
+    return seq->cur_val(out);
+  }
+
+  return false;
+}
+
+bool THD_seq::cur_val(Sequence::seq_val_t &out) const {
+  if (!has_cur_val) {
+    if (g_seq_currval_before_first_nextval_return_error) {
+      my_error(ER_WRONG_USAGE, MYF(0), "sequence", "Use sequence.NEXTVAL first.");
+      return true;
+    } else {
+      out= 0;
+      return false;
+    }
+  } else {
+    out = m_curval;
+    return false;
+  }
+}
+
+bool THD_seq::next_val(const THD *thd, Sequence::seq_val_t &curval) {
+  if (g_sequence_same_nextval_in_query && (query_id == thd->query_id)) {
+    curval= m_curval;
+    return false;
+  }
+
+  has_cur_val= true;
+  if (seq->get_next_val(m_curval)) {
+    return true;
+  }
+
+  query_id = thd->query_id;
+  curval = m_curval;
+  return false;
+}
+
+void THD_seq::init() {
+  m_curval = Sequence::InvalidSeqValue;
+}
+
+/**
+  Set the specified seq (identified by (db,name)) value
+  THD_seq object, report error if no such sequence.
+  @param db [in] target sequence's owner db
+  @param name [in] target sequence's name
+  @param set_value [in] the set value
+  @param out [out] takes out sequence next value
+  @retval true on error, false on ok.out is intact on error return.
+*/
+bool THD::thd_seq_set_val(const std::string &db,const std::string &name,
+                          Sequence::seq_val_t set_value, bool next,
+                          Sequence::seq_val_t &out) {
+  /*
+    Slaves should never increment a sequence value in worker thread; and they
+    should not replicate SBR stmts either otherwise slave data can go different
+    from master data.
+  */
+  if (check_readonly(this, true))
+    return true;
+
+  if (this->system_thread != NON_SYSTEM_THREAD) {
+    my_error(ER_UNSUPPORTED_BY_REPLICATION_THREAD, MYF(0),
+             "use sequence in SBR");
+    return true;
+  }
+
+  THD_seq*seq= get_thd_seq(db, name, true);
+
+  if (seq == nullptr) {
+    if (!is_error())
+      my_error(ER_SEQUENCE_NOT_FOUND, MYF(0), name.c_str(), db.c_str());
+    return true;
+  }
+
+  assert(seq->get_seq_obj());
+  if (seq->get_seq_obj()->set_next_val(set_value, next, out)) {
+    if (out == 0) {
+      my_error(ER_WRONG_SEQ_ARGS, MYF(0), "set_val",
+          "set sequence value is invalid");
+    } else if (out == set_value) {
+      my_error(ER_WRONG_SEQ_ARGS, MYF(0), "set_val",
+          "set sequence value must be in [min,max] or store the next value failed");
+    }
+    return true;
+  }
+
+  return false;
+}
+
+/**
+  Changes from txsql end.
+*/
 
 /**
   Remove the table share used while creating the table, if the transaction

@@ -1,0 +1,47 @@
+--disable_warnings
+DROP DATABASE IF EXISTS dbtest_seq_max;
+
+DROP TDSQL_SEQUENCE IF EXISTS dbtest_seq_max.sequence_001;
+
+DROP TDSQL_SEQUENCE IF EXISTS dbtest_seq_max.sequence_002;
+
+DROP TDSQL_SEQUENCE IF EXISTS dbtest_seq_max.sequence_003;
+
+--enable_warnings
+
+CREATE DATABASE dbtest_seq_max;
+
+USE dbtest_seq_max;
+
+CREATE TDSQL_SEQUENCE sequence_001 TDSQL_increment by 1 TDSQL_nomaxvalue;
+
+CREATE TDSQL_SEQUENCE sequence_002 TDSQL_increment by -1 TDSQL_nomaxvalue;
+
+SELECT max_value FROM  mysql.tdsql_sequences where db='dbtest_seq_max' and name='sequence_001';
+
+SELECT max_value FROM  mysql.tdsql_sequences where db='dbtest_seq_max' and name='sequence_002';
+
+DROP TDSQL_SEQUENCE sequence_001;
+
+DROP TDSQL_SEQUENCE sequence_002;
+
+CREATE TDSQL_SEQUENCE sequence_003 start with 9 TDSQL_MAXVALUE 10 TDSQL_nocache;
+
+CREATE TABLE t0(a int PRIMARY KEY);
+
+INSERT INTO t0 values(sequence_003.nextval);
+INSERT INTO t0 values(sequence_003.nextval);
+--error ER_NON_CYCLIC_SEQUENCE_CONSUMED
+INSERT INTO t0 values(sequence_003.nextval);
+
+commit;
+
+DROP TDSQL_SEQUENCE sequence_003;
+
+--error 1064
+CREATE TDSQL_SEQUENCE sequence_004 TDSQL_increment by 1 TDSQL_MAXVALUE 99999999999999999999999999999;
+
+--error 1064
+CREATE TDSQL_SEQUENCE sequence_005 TDSQL_increment by 50 TDSQL_MAXVALUE '99';
+
+DROP DATABASE dbtest_seq_max ;

@@ -214,6 +214,7 @@ int process_xa_prepare(THD *thd) {
       */
       Commit_order_manager::wait_and_finish(thd, error);
       gtid_state_commit_or_rollback(thd, need_clear_owned_gtid, !error);
+      thd->release_seq_refs();
     });
 
     if (gtid_error) {
@@ -239,6 +240,8 @@ int process_xa_prepare(THD *thd) {
       return error;
 
     assert(thd->get_transaction()->xid_state()->has_state(XID_STATE::XA_IDLE));
+  } else {
+    thd->release_seq_refs();
   }
 
   return error;

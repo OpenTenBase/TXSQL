@@ -1,0 +1,78 @@
+--disable_warnings
+DROP DATABASE IF EXISTS dbtest_seq_dml;
+--disable_warnings
+DROP TDSQL_SEQUENCE IF EXISTS dbtest_seq_dml.sequence_000;
+--enable_warnings
+
+CREATE DATABASE dbtest_seq_dml;
+
+CREATE TABLE dbtest_seq_dml.t0(a int(64) PRIMARY KEY, b int(64) ,c char(64));
+
+CREATE TDSQL_SEQUENCE dbtest_seq_dml.sequence_000 TDSQL_minvalue 1 TDSQL_nocache;
+
+SELECT * FROM mysql.tdsql_sequences WHERE db='dbtest_seq_dml';
+
+USE dbtest_seq_dml;
+
+INSERT INTO dbtest_seq_dml.t0(a, b, c) values(dbtest_seq_dml.sequence_000.nextval, sequence_000.nextval, '57babb2c175128a0683b902b1364e7cb');
+
+INSERT INTO dbtest_seq_dml.t0 set a=dbtest_seq_dml.sequence_000.nextval, b=dbtest_seq_dml.sequence_000.nextval, c='57babb2c175128a0683b902b1364e7cb';
+
+INSERT INTO dbtest_seq_dml.t0 set a=dbtest_seq_dml.sequence_000.nextval, b=dbtest_seq_dml.sequence_000.currval, c='57babb2c175128a0683b902b1364e7cb';
+
+UPDATE dbtest_seq_dml.t0 SET b=dbtest_seq_dml.sequence_000.nextval where b=dbtest_seq_dml.sequence_000.currval;
+
+SELECT * FROM dbtest_seq_dml.t0 order by a;
+
+SELECT sequence_000.nextval;
+
+SELECT sequence_000.nextval;
+
+SELECT sequence_000.nextval;
+
+ALTER TDSQL_SEQUENCE sequence_000 TDSQL_INCREMENT BY 10;
+
+SELECT sequence_000.nextval;
+
+SELECT sequence_000.nextval;
+
+SELECT sequence_000.nextval;
+
+INSERT INTO dbtest_seq_dml.t0(a, b, c) values(dbtest_seq_dml.sequence_000.currval, sequence_000.nextval, '57babb2c175128a0683b902b1364e7cb');
+
+INSERT INTO dbtest_seq_dml.t0(a, b, c) values(dbtest_seq_dml.sequence_000.currval, dbtest_seq_dml.sequence_000.nextval, '57babb2c175128a0683b902b1364e7cb');
+
+INSERT INTO dbtest_seq_dml.t0(a, b, c) values(sequence_000.currval, sequence_000.nextval, '57babb2c175128a0683b902b1364e7cb');
+
+INSERT INTO dbtest_seq_dml.t0 SET a=dbtest_seq_dml.sequence_000.currval, b=sequence_000.currval, c='57babb2c175128a0683b902b1364e7cb';
+
+SELECT * FROM dbtest_seq_dml.t0 ORDER BY a;
+
+SELECT sequence_000.currval;
+
+SELECT sequence_000.currval;
+
+SELECT sequence_000.currval;
+
+UPDATE dbtest_seq_dml.t0 SET b=dbtest_seq_dml.sequence_000.currval;
+
+SELECT * FROM dbtest_seq_dml.t0 ORDER BY a;
+
+DELETE FROM dbtest_seq_dml.t0 WHERE a=dbtest_seq_dml.sequence_000.currval;
+
+SELECT * FROM dbtest_seq_dml.t0 ORDER BY a;
+
+--error ER_SEQUENCE_NOT_FOUND
+INSERT INTO dbtest_seq_dml.t0 SET a=sequence_not_exist.nextval, b=RAND() * 10000, c='57babb2c175128a0683b902b1364e7cb';
+
+--error ER_SEQUENCE_NOT_FOUND
+INSERT INTO dbtest_seq_dml.t0 SET a=sequence_not_exist.currval, b=RAND() * 10000, c='57babb2c175128a0683b902b1364e7cb';
+
+commit;
+
+DROP TDSQL_SEQUENCE dbtest_seq_dml.sequence_000;
+
+DROP DATABASE dbtest_seq_dml ;
+
+
+

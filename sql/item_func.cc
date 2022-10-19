@@ -10316,4 +10316,66 @@ longlong Item_func_reinterpret_int::val_int() {
 
   return value;
 }
+
+longlong Item_seq_value::val_int() {
+  int64_t v;
+  THD *thd = current_thd;
+  if (db == "") {
+    const char *dbstr = thd->db().str;
+    if (dbstr == 0) {
+      my_error(ER_NO_DB_ERROR, MYF(0));
+      return error_int();
+    }
+
+    db= dbstr;
+  }
+
+  if ((sql_command_flags[thd->lex->sql_command] & CF_CHANGES_DATA) &&
+      thd->variables.binlog_format != BINLOG_FORMAT_ROW) {
+    my_error(ER_SEQUENCE_NOT_ROW_UNSAFE, MYF(0));
+    return error_int();
+  }
+
+  if (next && current_thd->thd_seq_next_val(db, name, v)) {
+    return error_int();
+  }
+
+  if (!next && current_thd->thd_seq_cur_val(db, name, v)) {
+    return error_int();
+  }
+
+  null_value= false;
+  return v;
+}
+
+const char *Item_seq_value::func_name() const {
+  if (next) {
+    return "NEXTVAL";
+  } else {
+    return "CURRVAL";
+  }
+}
+
+longlong Item_func_tdsql_setval::val_int()
+{
+  int64_t out= 0;
+
+  if (db == "") {
+    const char *dbstr= current_thd->db().str;
+    if (dbstr == 0) {
+      my_error(ER_NO_DB_ERROR, MYF(0));
+      return error_int();
+    }
+    db= dbstr;
+  }
+
+  if (current_thd->thd_seq_set_val(db, name, set_val, next, out)) {
+    null_value= true;
+    return error_int();
+  }
+  null_value= false;
+
+  return out;
+}
+
 /* Changes from TXSQL end. */

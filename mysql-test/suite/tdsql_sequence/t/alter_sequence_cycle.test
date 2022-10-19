@@ -1,0 +1,206 @@
+--disable_warnings
+DROP DATABASE IF EXISTS dbtest_seq_alter_cyc;
+--enable_warnings
+
+--disable_warnings
+DROP TDSQL_SEQUENCE IF EXISTS dbtest_seq_alter_cyc.sequence_000;
+--enable_warnings
+
+CREATE DATABASE dbtest_seq_alter_cyc;
+
+use dbtest_seq_alter_cyc;
+
+CREATE TDSQL_SEQUENCE sequence_000 TDSQL_increment by 1 TDSQL_MAXVALUE 50 TDSQL_minvalue 0 TDSQL_nocycle;
+
+CREATE TABLE t0(id int PRIMARY KEY AUTO_INCREMENT,a int);
+
+SELECT do_cycle from mysql.tdsql_sequences where db='dbtest_seq_alter_cyc' and name='sequence_000';
+
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+--error ER_NON_CYCLIC_SEQUENCE_CONSUMED 
+INSERT INTO t0(a) values(sequence_000.nextval);
+
+SELECT * FROM t0 order by id;
+
+ALTER TDSQL_SEQUENCE sequence_000 TDSQL_cycle;
+
+SELECT do_cycle from mysql.tdsql_sequences where db='dbtest_seq_alter_cyc' and name='sequence_000';
+
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+
+SELECT * FROM t0 order by id;
+
+ALTER TDSQL_SEQUENCE sequence_000 TDSQL_nocycle;
+
+SELECT curval,do_cycle from mysql.tdsql_sequences where db='dbtest_seq_alter_cyc' and name='sequence_000';
+
+--error ER_NON_CYCLIC_SEQUENCE_CONSUMED
+INSERT INTO t0(a) values(sequence_000.nextval);
+
+ALTER TDSQL_SEQUENCE sequence_000 TDSQL_cycle;
+
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+INSERT INTO t0(a) values(sequence_000.nextval);
+
+SELECT * FROM t0 order by id desc limit 10; 
+
+commit;
+
+DROP TDSQL_SEQUENCE sequence_000 ;
+
+DROP DATABASE dbtest_seq_alter_cyc  ;

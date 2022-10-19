@@ -41,3 +41,7 @@ DROP DATABASE Foo;
 USE test;
 
 --echo # End of 5.6 tests
+
+CREATE SEQUENCE seq1;
+CREATE SEQUENCE SEQ1;
+SELECT name FROM mysql.tdsql_sequences;

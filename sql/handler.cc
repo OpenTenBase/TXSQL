@@ -1693,6 +1693,10 @@ end:
     thd->tx_priority = 0;
   }
 
+  if (all) {
+    thd->release_seq_refs();
+  }
+
   if (need_clear_owned_gtid) {
     thd->server_status &= ~SERVER_STATUS_IN_TRANS;
     /*
@@ -2011,7 +2015,10 @@ int ha_rollback_trans(THD *thd, bool all) {
     thd->tx_priority = 0;
   }
 
-  if (all) thd->transaction_rollback_request = false;
+  if (all) {
+    thd->release_seq_refs();
+    thd->transaction_rollback_request = false;
+  }
 
   /*
     Only call gtid_rollback(THD*), which will purge thd->owned_gtid, if
@@ -2100,6 +2107,8 @@ int ha_commit_attachable(THD *thd) {
 
   /* Free resources and perform other cleanup even for 'empty' transactions. */
   trn_ctx->cleanup();
+
+  thd->release_seq_refs();
 
   return (error);
 }

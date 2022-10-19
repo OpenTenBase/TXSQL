@@ -95,7 +95,9 @@ bool System_table_access::open_table(THD *thd, std::string dbstr,
       Safety: this can only happen if someone started the server and then
       altered the table.
     */
+    thd->ending_internal_txn = true;
     ha_rollback_trans(thd, false);
+    thd->ending_internal_txn = false;
     close_thread_tables(thd);
     thd->restore_backup_open_tables_state(backup);
     thd->lex->restore_backup_query_tables_list(&query_tables_list_backup);
@@ -121,6 +123,7 @@ bool System_table_access::close_table(THD *thd, TABLE *table,
   DBUG_TRACE;
 
   if (table) {
+    thd->ending_internal_txn = true;
     if (error)
       res = ha_rollback_trans(thd, false);
     else {
@@ -141,6 +144,8 @@ bool System_table_access::close_table(THD *thd, TABLE *table,
         res = ha_commit_trans(thd, true, true) || res;
       }
     }
+
+    thd->ending_internal_txn = false;
     /*
       In order not to break execution of current statement we have to
       backup/reset/restore Query_tables_list part of LEX, which is

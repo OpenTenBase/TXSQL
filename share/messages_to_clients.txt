@@ -7347,7 +7347,7 @@ ER_ILLEGAL_USER_VAR 42000 S1009
 ER_GTID_MODE_OFF
   eng "Cannot %s when GTID_MODE = OFF."
 
-OBSOLETE_ER_UNSUPPORTED_BY_REPLICATION_THREAD
+ER_UNSUPPORTED_BY_REPLICATION_THREAD
   eng "Cannot %s from a replication slave thread."
 
 ER_INCORRECT_TYPE
@@ -9921,6 +9921,30 @@ ER_REINTERPRET_INT_BYTES_TRUNCATED
 
 ER_VERSION_LENGTH_EXCEED_LIMIT
   eng "The length specified for %.64s is too long."
+
+ER_SEQUENCE_EXISTS
+  eng "Sequence %s in database %s already exists."
+
+ER_SEQUENCE_EXISTS_ONLY_IN_TABLE
+  eng "Sequence %s in database %s only exists in tdsql_sequences table, not in cache. This sequence can only be used after mysqld restarts."
+
+ER_SEQUENCE_NOT_FOUND
+  eng "Sequence %s in database %s not found."
+
+ER_NON_CYCLIC_SEQUENCE_CONSUMED
+  eng "Sequence %s (step %d) in database %s is not cyclic and has reached its min/max value %lld."
+
+ER_SEQUENCE_ASYNC_BG_WORKER_ERROR
+  eng "Background sequence worker thread (%u, %d) got error (%d, %s) while executing task %s on sequence %s.%s."
+
+ER_WRONG_SEQ_ARGS
+  eng "Wrong sequence argument(%s) value specified: %s."
+
+ER_SEQUENCE_IN_USE
+  eng "Sequence(%s, %s) in use, can't be dropped or altered."
+
+ER_SEQUENCE_NOT_ROW_UNSAFE
+  eng "Refenrence to sequence using mixed/statement mode is not safe"
 
 ################################################################################
 # them for other error messages.
