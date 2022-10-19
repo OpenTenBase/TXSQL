@@ -1832,6 +1832,10 @@ The following options may be given as the first argument:
  Workaround Linux kernel bug: missing events in epollm if
  EPOLL_CTL_MOD is used.The bug if fiexed in the newest 3.x
  kernel series
+ --threshold-of-interesting-order-for-merge-join[=#] 
+ For the two paths involved in the join, the VAR describes
+ the ratio of disordered path to ordered path (interesting
+ order). Sort Merge Join is not used below the threshold.
  --tls-ciphersuites=name 
  --tmp-table-size=#  If an internal in-memory temporary table in the MEMORY or
  TempTable storage engine exceeds this size, MySQL will
@@ -2411,6 +2415,7 @@ thread-pool-size ####
 thread-pool-stall-limit 500
 thread-stack 1048576
 threadpool-workaround-epoll-bug FALSE
+threshold-of-interesting-order-for-merge-join 10
 tls-ciphersuites (No default value)
 tmp-table-size 16777216
 transaction-alloc-block-size 8192

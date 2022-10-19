@@ -2141,6 +2141,164 @@ static AccessPath *CreateHashJoinAccessPath(
   return path;
 }
 
+/**
+  Test whether the sort expression order of parent and child nodes
+  is consistent on the QEP.
+
+  @param expected_order   expected order for the join
+  @param left             left path order of SMJ operator
+  @param right            right path order of SMJ operator
+
+  @retval
+    true    with consistent order
+  @retval
+    false   without consistent order
+*/
+bool consistent_expression_order(
+    ORDER *expected_order, ORDER *left, ORDER *right) {
+  for (; expected_order && (left || right);
+      expected_order = expected_order->next) {
+    assert(left);
+    /*
+      Since only fields can be indexed, ORDER BY <something> that is
+      not a field cannot be resolved by using an index.
+    */
+    Item *real_itm = (*expected_order->item)->real_item();
+    if (real_itm->type() != Item::FIELD_ITEM) return false;
+    const Field *field = down_cast<const Item_field *>(real_itm)->field;
+    Item *real_itm_l = (*left->item)->real_item();
+    const Field *field_l = down_cast<const Item_field *>(real_itm_l)->field;
+
+    if (right) {
+      Item *real_itm_r = (*right->item)->real_item();
+      const Field *field_r = down_cast<const Item_field *>(real_itm_r)->field;
+      if (field != field_l && field != field_r) {
+        return false;
+      }
+      right = right->next;
+    }
+    else if (field != field_l){
+      return false;
+    }
+    left = left->next;
+  }
+  if (!expected_order) return true;
+  return false;
+}
+
+/**
+  Tell wether or not the given path provides expected order.
+
+  The path might be one to use an index that provides ordering (base table),
+  or one already with ordering (intermediate table). In these cases, SMJ will
+  not add sort operator any more.
+
+For example:
+  SELECT t3.*
+  FROM
+    T1
+  JOIN T2 ON T1.c1 = T2.c2
+  JOIN T3 on T1.c1 = T3.c3;
+
+  Query Tree:
+                 SMJ
+               /      \
+      SORT(T1.c1)[3]  SORT(T3.c3)[4]
+            /            \
+  SMJ(T1.c1 = T2.c2)    SCAN(T3)
+      /          \
+SORT(T1.c1)[1]  SORT(T2.c2)[2]
+     |            |
+  SCAN(T1)   INDEX SCAN(idx(c2) of T2)
+
+  Because index scan can provide interesting order,
+  for "INDEX SCAN(idx(c2) of T2)" which has order on T2.c2,
+  we can omit "SORT(T2.c2)[2]". (func test_if_skip_smj_sort)
+  Similarly, SMJ can also provide interesting order,
+  for "SMJ(T1.c1 = T2.c2)" which provides order on T1.c1 and T2.c2,
+  we can omit "SORT(T1.c1)[3]". (func consistent_expression_order)
+
+  When there are multiple join expressions for one SMJ, we need compare
+  them in sequence. (consistent expression order)
+  At the same time, the desired sort order must be included in the
+  interesting order of child nodes. (subset or proper subset)
+  For example:
+  (1)SELECT t3.*
+    FROM
+      T1
+    JOIN T2 ON T1.c2[1] = T2.c1
+    JOIN T3 on T1.c1[2] = T3.c3;
+  inconsistent expression order: T1.c2[1] VS T1.c1[2],
+  func consistent_expression_order return false.
+  (2)SELECT t3.*
+    FROM
+      T1
+    JOIN T2 ON T1.c1[1] = T2.c2 and T1.c2[2] = T2.c3
+    JOIN T3 on T1.c1[3] = T3.c3;
+  consistent expression order: (T1.c1[1],T1.c2[2]) VS T1.c1[3],
+  & subset: T1.c1[3] VS (T1.c1[1],T1.c2[2]),
+  func consistent_expression_order return true.
+
+  @param path             left or right path of the join
+  @param table_size       tables of the path
+  @param tab              Table to sort
+  @param expected_order   expected order for the join
+
+  @retval
+    1   have interesting order
+  @retval
+    0   sorting cannot be omitted
+*/
+bool test_if_skip_smj_sort(
+    AccessPath *path, int table_size,
+    TABLE *tab, ORDER *expected_order) {
+  AccessPath::Type path_type = path->type;
+  if (path_type == AccessPath::FILTER) {
+    AccessPath *child_path = path->filter().child;
+    while (child_path->type == AccessPath::FILTER) {
+      child_path = child_path->filter().child;
+    }
+    path_type = child_path->type;
+    /* Sorting a single row can always be skipped */
+    if (table_size == 1 &&
+        (path_type == AccessPath::INDEX_SCAN ||
+         path_type == AccessPath::INDEX_RANGE_SCAN)) {
+      ORDER_with_src order(expected_order, ESC_ORDER_BY);
+      if (path_type == AccessPath::INDEX_SCAN)
+        return test_if_skip_smj_sort(tab, order,
+                 child_path->index_scan().idx,
+                 child_path->index_scan().reverse);
+      if (path_type == AccessPath::INDEX_RANGE_SCAN)
+        return test_if_skip_smj_sort(tab, order,
+                 child_path->index_range_scan().index,
+                 child_path->index_range_scan().reverse);
+    } else if (table_size > 1 && path_type == AccessPath::SORT_MERGE_JOIN) {
+      return consistent_expression_order(expected_order,
+                child_path->sort_merge_join().left_sort_order,
+                child_path->sort_merge_join().right_sort_order);
+    }
+  } else {
+    if (table_size == 1 &&
+        (path_type == AccessPath::INDEX_SCAN ||
+         path_type == AccessPath::INDEX_RANGE_SCAN)) {
+      ORDER_with_src order(expected_order, ESC_ORDER_BY);
+      if (path_type == AccessPath::INDEX_SCAN)
+        return test_if_skip_smj_sort(tab, order,
+                  path->index_scan().idx,
+                  path->index_scan().reverse);
+      if (path_type == AccessPath::INDEX_RANGE_SCAN)
+        return test_if_skip_smj_sort(tab, order,
+                  path->index_range_scan().index,
+                  path->index_range_scan().reverse);
+    } else if (table_size > 1 && path_type == AccessPath::SORT_MERGE_JOIN) {
+      return consistent_expression_order(expected_order,
+                  path->sort_merge_join().left_sort_order,
+                  path->sort_merge_join().right_sort_order);
+    }
+  }
+  return false;
+}
+
 // Create a sort merge join iterator with the given outer and inner input. We will
 // move conditions from the argument "join_conditions" into two separate lists;
 // one list for equi-join conditions that will be used as normal join conditions
@@ -2155,20 +2313,18 @@ static AccessPath *CreateHashJoinAccessPath(
 // ANALYZE, where we can see whether the condition was expensive.
 // This information is lost when we attach conditions as extra conditions inside
 // sort merge join.
-static AccessPath *CreateSortMergeJoinAccessPath(
+static bool CreateSortMergeJoinAccessPath(
     THD *thd, QEP_TAB *qep_tab, AccessPath *left_path,
     qep_tab_map left_tables, AccessPath *right_path, qep_tab_map right_tables,
     JoinType join_type, vector<Item *> *join_conditions,
-    table_map *conditions_depend_on_outer_tables) {
+    table_map *conditions_depend_on_outer_tables,
+    AccessPath *&smj_path) {
+  bool left_with_order = false;
+  bool right_with_order = false;
   table_map left_table_map =
       ConvertQepTabMapToTableMap(qep_tab->join(), left_tables);
   table_map right_table_map =
       ConvertQepTabMapToTableMap(qep_tab->join(), right_tables);
-
-
-
-
-
   // Move out equi-join conditions and non-equi-join conditions, so we can
   // attach them as join condition and extra conditions in hash join.
   vector<HashJoinCondition> hash_join_conditions;
@@ -2342,9 +2498,9 @@ static AccessPath *CreateSortMergeJoinAccessPath(
       break;
     } else {
       ORDER *ord_left = (ORDER *)thd->mem_calloc(sizeof(ORDER));
-      if (!ord_left) return nullptr;
+      if (!ord_left) return false;
       ORDER *ord_right = (ORDER *)thd->mem_calloc(sizeof(ORDER));
-      if (!ord_right) return nullptr;
+      if (!ord_right) return false;
       if (condition.left_uses_any_table(left_table_map)) {
         assert(!condition.right_uses_any_table(left_table_map));
         ord_left->item = &condition.join_condition()->arguments()[0];
@@ -2376,23 +2532,49 @@ static AccessPath *CreateSortMergeJoinAccessPath(
     for (QEP_TAB *tab : TablesContainedIn(qep_tab->join(), right_tables)) {
       r_tables.push_back(tab->table());
     }
+    // if without sort order, we can use SMJ directly
     if (left_sort_order != nullptr && right_sort_order != nullptr) {
       assert(l_tables.size()>0);
       assert(r_tables.size()>0);
-      left_filesort = new (thd->mem_root)
-          Filesort(thd, move(l_tables), /*keep_buffers=*/false,
-              left_sort_order, HA_POS_ERROR,
-              /*remove_duplicates=*/false, force_sort_positions,
-              /*unwrap_rollup=*/false);
-      right_filesort = new (thd->mem_root)
-          Filesort(thd, move(r_tables), /*keep_buffers=*/false,
-              right_sort_order, HA_POS_ERROR,
-              /*remove_duplicates=*/false, force_sort_positions,
-              /*unwrap_rollup=*/false);
-      left_path = NewSortAccessPath(thd, left_path, left_filesort,
+      left_with_order =
+          test_if_skip_smj_sort(left_path, l_tables.size(),
+                                    *l_tables.begin(), left_sort_order);
+      right_with_order =
+          test_if_skip_smj_sort(right_path, r_tables.size(),
+                                    *r_tables.begin(), right_sort_order);
+
+      if (!left_with_order && !right_with_order) return false;
+      else if (!left_with_order) {
+        //sort merge join is not used below the threshold
+        double unordered_rows = left_path->num_output_rows > 0?
+            left_path->num_output_rows : 1.0;
+        if(right_path->num_output_rows / unordered_rows <
+            thd->variables.threshold_of_interesting_order_for_merge_join)
+          return false;
+
+        left_filesort = new (thd->mem_root)
+            Filesort(thd, std::move(l_tables), /*keep_buffers=*/false,
+                left_sort_order, HA_POS_ERROR,
+                /*remove_duplicates=*/false, force_sort_positions,
+                /*unwrap_rollup=*/false);
+        left_path = NewSortAccessPath(thd, left_path, left_filesort,
                       /*count_examined_rows=*/true);
-      right_path = NewSortAccessPath(thd, right_path, right_filesort,
-                      /*count_examined_rows=*/true);
+      } else if (!right_with_order) {
+        //sort merge join is not used below the threshold
+        double unordered_rows = right_path->num_output_rows > 0?
+            right_path->num_output_rows : 1.0;
+        if(left_path->num_output_rows / unordered_rows <
+            thd->variables.threshold_of_interesting_order_for_merge_join)
+          return false;
+
+        right_filesort = new (thd->mem_root)
+            Filesort(thd, std::move(r_tables), /*keep_buffers=*/false,
+                right_sort_order, HA_POS_ERROR,
+                /*remove_duplicates=*/false, force_sort_positions,
+                /*unwrap_rollup=*/false);
+        right_path = NewSortAccessPath(thd, right_path, right_filesort,
+                        /*count_examined_rows=*/true);
+      }
     }
   }
   AccessPath *path = new (thd->mem_root) AccessPath;
@@ -2400,11 +2582,19 @@ static AccessPath *CreateSortMergeJoinAccessPath(
   path->sort_merge_join().outer = right_path;
   path->sort_merge_join().inner = left_path;
   path->sort_merge_join().join_predicate = pred;
+  //natural join can also keep left & right order
+  path->sort_merge_join().left_sort_order = left_sort_order;
+  if (join_type == JoinType::INNER) {
+    path->sort_merge_join().right_sort_order = right_sort_order;
+  } else {
+    path->sort_merge_join().right_sort_order = nullptr;
+  }
   // Will be set later if we get a weedout access path as parent.
   path->sort_merge_join().store_rowids = false;
   path->sort_merge_join().tables_to_get_rowid_for = 0;
   SetCostOnSortMergeJoinAccessPath(*thd->cost_model(), qep_tab->position(), path);
-  return path;
+  smj_path = path;
+  return true;
 }
 
 // Move all the join conditions from the vector "predicates" over to the
@@ -2875,10 +3065,22 @@ AccessPath *ConnectJoins(plan_idx upper_first_idx, plan_idx first_idx,
                                      qep_tab->table(), qep_tab->table_ref,
                                      &qep_tab->ref(), join_type);
         } else if (replace_with_sort_merge_join) {
+          //keep init status
+          QEP_TAB::enum_op_type last_op_type = qep_tab->op_type;
           qep_tab->op_type = QEP_TAB::OT_SMJ;
-          path = CreateSortMergeJoinAccessPath(
+          vector<Item *> last_join_conditions;
+          for (Item *item : join_conditions) {
+            last_join_conditions.push_back(item);
+          }
+          bool have_interesting_order = CreateSortMergeJoinAccessPath(
               thd, qep_tab, subtree_path, right_tables, path, left_tables,
-              join_type, &join_conditions, conditions_depend_on_outer_tables);
+              join_type, &join_conditions, conditions_depend_on_outer_tables, path);
+          if (!have_interesting_order) {
+            qep_tab->op_type = last_op_type;
+            path = CreateHashJoinAccessPath(
+              thd, qep_tab, subtree_path, right_tables, path, left_tables,
+              join_type, &last_join_conditions, conditions_depend_on_outer_tables);
+          }
         } else {
           path = CreateHashJoinAccessPath(
               thd, qep_tab, subtree_path, right_tables, path, left_tables,
@@ -3118,11 +3320,26 @@ AccessPath *ConnectJoins(plan_idx upper_first_idx, plan_idx first_idx,
                                    qep_tab->table_ref, &qep_tab->ref(),
                                    JoinType::INNER);
       } else if(replace_with_hash_join && replace_with_sort_merge_join) {
+        //keep init status
+        QEP_TAB::enum_op_type last_op_type = qep_tab->op_type;
         qep_tab->op_type = QEP_TAB::OT_SMJ;
-        path = CreateSortMergeJoinAccessPath(thd, qep_tab, path, left_tables,
+        vector<Item *> last_join_conditions;
+        for (Item *item : join_conditions) {
+          last_join_conditions.push_back(item);
+        }
+        bool have_interesting_order = CreateSortMergeJoinAccessPath(
+                                        thd, qep_tab, path, left_tables,
                                         table_path, right_tables,
                                         JoinType::INNER, &join_conditions,
+                                        conditions_depend_on_outer_tables,
+                                        path);
+        if (!have_interesting_order) {
+          qep_tab->op_type = last_op_type;
+          path = CreateHashJoinAccessPath(thd, qep_tab, path, left_tables,
+                                        table_path, right_tables,
+                                        JoinType::INNER, &last_join_conditions,
                                         conditions_depend_on_outer_tables);
+        }
         // Attach any remaining non-equi-join conditions as a filter after the
         // join.
         path = PossiblyAttachFilter(path, join_conditions, thd,

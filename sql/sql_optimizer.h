@@ -66,6 +66,23 @@ class Item_equal;
 template <class T>
 class mem_root_deque;
 
+/**
+  Test if sort merge join(SMJ) can skip ordering by using the index.
+
+  The path must cover all fields in @<order@>, or it will not meeting requirements.
+
+  @param tab           NULL or TABLE of the accessed table
+  @param order         Linked list of ORDER BY arguments
+  @param keynr         Number of index selected
+  @param reverse       whether reverse order
+
+  @retval
+    0    We have to use filesort to do the sorting
+  @retval
+    1    We can skip sorting.
+*/
+bool test_if_skip_smj_sort(TABLE *tab, ORDER_with_src &order, int keynr, bool reverse);
+
 // Key_use has a trivial destructor, no need to run it from Mem_root_array.
 typedef Mem_root_array<Key_use> Key_use_array;
 

@@ -1072,6 +1072,7 @@ struct AccessPath {
       bool store_rowids;  // Whether we are below a weedout or not.
       bool rewrite_semi_to_inner;
       table_map tables_to_get_rowid_for;
+      ORDER *left_sort_order, *right_sort_order;
     } sort_merge_join;
     struct {
       AccessPath *outer, *inner;
@@ -1234,7 +1235,7 @@ static_assert(std::is_trivially_destructible<AccessPath>::value,
               "on the MEM_ROOT and not wrapped in unique_ptr_destroy_only"
               "(because multiple candidates during planning could point to "
               "the same access paths, and refcounting would be expensive)");
-static_assert(sizeof(AccessPath) <= 136,
+static_assert(sizeof(AccessPath) <= 152,
               "We are creating a lot of access paths in the join "
               "optimizer, so be sure not to bloat it without noticing. "
               "(96 bytes for the base, 40 bytes for the variant.)");

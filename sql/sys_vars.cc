@@ -2337,8 +2337,10 @@ static Sys_var_ulong Sys_join_buffer_size(
     VALID_RANGE(128, ULONG_MAX), DEFAULT(256 * 1024), BLOCK_SIZE(128));
 
 static Sys_var_ulong Sys_merge_join_buffer_size(
-    "merge_join_buffer_size", "The size of the buffer that is used for the sort merge join",
-    HINT_UPDATEABLE SESSION_VAR(merge_join_buff_size), CMD_LINE(REQUIRED_ARG),
+    "merge_join_buffer_size",
+    "The size of the buffer that is used for the sort merge join",
+    HINT_UPDATEABLE SESSION_VAR(merge_join_buff_size),
+    CMD_LINE(REQUIRED_ARG),
     VALID_RANGE(128, ULONG_MAX), DEFAULT(256 * 1024), BLOCK_SIZE(128));
 
 static Sys_var_keycache Sys_key_buffer_size(
@@ -7928,6 +7930,15 @@ static Sys_var_uint Sys_cdb_max_prefetch_rows(
     "0 means turn off the limit.",
     SESSION_VAR(cdb_max_prefetch_rows), CMD_LINE(OPT_ARG),
     VALID_RANGE(0, UINT_MAX32), DEFAULT(0), BLOCK_SIZE(1),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(nullptr));
+
+static Sys_var_uint Sys_threshold_of_interesting_order_for_merge_join (
+    "threshold_of_interesting_order_for_merge_join",
+    "For the two paths involved in the join, the VAR describes the ratio of "
+    "disordered path to ordered path (interesting order). "
+    "Sort Merge Join is not used below the threshold.",
+    SESSION_VAR(threshold_of_interesting_order_for_merge_join),
+    CMD_LINE(OPT_ARG), VALID_RANGE(0, UINT_MAX32), DEFAULT(10), BLOCK_SIZE(1),
     NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(nullptr));
 
 static bool check_cdb_sql_filter_syntax(sys_var *,
