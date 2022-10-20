@@ -8546,4 +8546,9 @@ static Sys_var_charptr Sys_tencent_version("version", "Server version",
                                            DEFAULT(server_version),
                                            NO_MUTEX_GUARD, NOT_IN_BINLOG,
                                            ON_CHECK(check_cdb_server_version));
+
+static Sys_var_bool Sys_semi_read_for_select_update(
+    "select_update_enable_semi_read",
+    "Enable semi-read for statement like select for update",
+    SESSION_VAR(enable_select_semi_read), CMD_LINE(OPT_ARG), DEFAULT(false));
 /* Changes from txsql end. */

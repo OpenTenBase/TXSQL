@@ -489,6 +489,7 @@ struct System_variables {
     @sa Sys_txsql_range_estimation_by_histogram
   */
   bool txsql_range_estimation_by_histogram;
+  bool enable_select_semi_read;
   /* Changes from txsql end. */
 };
 

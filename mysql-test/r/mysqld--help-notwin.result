@@ -1548,6 +1548,8 @@ The following options may be given as the first argument:
  The delay in milliseconds after each buffer sync for
  SELECT INTO OUTFILE/DUMPFILE. Requires
  select_into_sync_disk = ON.
+ --select-update-enable-semi-read 
+ Enable semi-read for statement like select for update
  --server-id=#       Uniquely identifies the server instance in the community
  of replication partners
  --server-id-bits=#  Set number of significant bits in server-id
@@ -2342,6 +2344,7 @@ secondary-engine-cost-threshold 100000
 select-into-buffer-size 131072
 select-into-disk-sync FALSE
 select-into-disk-sync-delay 0
+select-update-enable-semi-read FALSE
 server-id 1
 server-id-bits 32
 session-track-gtids OFF

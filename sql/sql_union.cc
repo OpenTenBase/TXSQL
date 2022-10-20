@@ -1211,6 +1211,27 @@ bool Query_expression::ExecuteIteratorQuery(THD *thd) {
 
   set_executed();
 
+  /* Get the table object to be read from */
+  TABLE *table = nullptr;
+  /* Only support semi-read on simple table reading */
+  if (thd->variables.enable_select_semi_read &&
+      first_query_block() != nullptr &&
+      first_query_block()->next == nullptr) {
+    TABLE_LIST *table_list = first_query_block()->get_table_list();
+    if (table_list != nullptr &&
+        table_list->next_global == nullptr &&
+        table_list->table != nullptr) {
+      table = table_list->table;
+      /* We cares only select with row lock, and complex query is also
+      not supported */
+      if (table->reginfo.lock_type < TL_READ_NO_INSERT ||
+          first_query_block()->having_cond() != nullptr ||
+          first_query_block()->is_grouped()) {
+        table = nullptr;
+      }
+    }
+  }
+
   // Hand over the query to the secondary engine if needed.
   if (first_query_block()->join->override_executor_func != nullptr) {
     thd->current_found_rows = 0;
@@ -1286,6 +1307,12 @@ bool Query_expression::ExecuteIteratorQuery(THD *thd) {
 
     PFSBatchMode pfs_batch_mode(m_root_iterator.get());
 
+    if (table) {
+      table->file->try_semi_consistent_read(true);
+    }
+    auto end_semi_consistent_read = create_scope_guard(
+        [table] { if (table != nullptr) table->file->try_semi_consistent_read(false); });
+
     for (;;) {
       int error = m_root_iterator->Read();
       DBUG_EXECUTE_IF("bug13822652_1", thd->killed = THD::KILL_QUERY;);
@@ -1300,6 +1327,10 @@ bool Query_expression::ExecuteIteratorQuery(THD *thd) {
         return true;
       }
 
+      if (table && table->file->was_semi_consistent_read()) {
+        continue; /* repeat the read of the same row if it still exists */
+      }
+
       ++*send_records_ptr;
 
       if (query_result->send_data(thd, *fields)) {
@@ -1308,6 +1339,7 @@ bool Query_expression::ExecuteIteratorQuery(THD *thd) {
       thd->get_stmt_da()->inc_current_row_for_condition();
     }
 
+    end_semi_consistent_read.rollback();
     // NOTE: join_cleanup must be done before we send EOF, so that we get the
     // row counts right.
   }
