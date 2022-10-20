@@ -3025,8 +3025,10 @@ Slave_worker *Log_event::get_slave_worker(Relay_log_info *rli) {
       assert((!ends_group() ||
               (get_type_code() == binary_log::TRANSACTION_PAYLOAD_EVENT) ||
               (get_type_code() == binary_log::QUERY_EVENT &&
-               static_cast<Query_log_event *>(this)->is_query_prefix_match(
-                   STRING_WITH_LEN("XA ROLLBACK")))) ||
+               (static_cast<Query_log_event *>(this)->is_query_prefix_match(
+                    STRING_WITH_LEN("XA ROLLBACK")) ||
+                static_cast<Query_log_event *>(this)->is_query_prefix_match(
+                    STRING_WITH_LEN("XA COMMIT"))))) ||
              empty_group_with_gtids ||
              (rli->mts_end_group_sets_max_dbs &&
               (begin_load_query_event || delete_file_event)));
