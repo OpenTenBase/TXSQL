@@ -226,6 +226,12 @@ select_into_disk_sync
 select_into_disk_sync
 select_into_disk_sync_delay
 select_into_disk_sync_delay
+select_update_enable_semi_read
+select_update_enable_semi_read
+session_track_lock
+session_track_lock
+session_track_udf_var
+session_track_udf_var
 skip_replica_start
 skip_replica_start
 skip_slave_start
