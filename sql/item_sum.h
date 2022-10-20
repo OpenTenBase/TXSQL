@@ -1275,9 +1275,9 @@ class Item_sum_histogram final : public Item_sum_json {
   /// The deduced element type.
   histograms::Value_map_type m_value_map_type;
   /// The container for histogram construction.
-  histograms::Value_map_base *m_value_map;
+  histograms::Value_map_base *m_value_map{nullptr};
   /// Alternative container for histogram construction, allowing random access.
-  histograms::Value_vector_base *m_value_vector;
+  histograms::Value_vector_base *m_value_vector{nullptr};
 
  public:
   Item_sum_histogram(const POS &pos, Item *item_par, int num_buckets,
