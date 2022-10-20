@@ -6211,7 +6211,16 @@ Item_sum_histogram::Item_sum_histogram(
       m_json_object(std::move(object)), m_num_buckets(num_buckets),
       m_seed(seed), m_default_seed(default_seed) {}
 
-Item_sum_histogram::~Item_sum_histogram() = default;
+Item_sum_histogram::~Item_sum_histogram() {
+  if (m_value_map) {
+    delete m_value_map;
+    m_value_map = nullptr;
+  }
+  if (m_value_vector) {
+    delete m_value_vector;
+    m_value_vector = nullptr;
+  }
+}
 
 bool Item_sum_histogram::resolve_type(THD *thd) {
   if (param_type_is_default(thd, 0, -1)) return true;
@@ -6256,6 +6265,7 @@ bool Item_sum_histogram::add() {
           throw std::runtime_error("Out of memory"); /* purecov: deadcode */
         } else {
           delete m_value_map;
+          m_value_map = nullptr;
         }
 
         size_t row_size_bytes = 0;
@@ -6287,6 +6297,13 @@ bool Item_sum_histogram::add() {
 void Item_sum_histogram::clear() {
   set_nullable(true);
   m_json_object->clear();
+
+  if (m_value_map) {
+    delete m_value_map;
+  }
+  if (m_value_vector) {
+    delete m_value_vector;
+  }
 
   m_value_map = nullptr;
   m_value_vector = nullptr;
@@ -6401,6 +6418,7 @@ bool Item_sum_histogram::val_json(Json_wrapper *wr) {
                                    m_value_vector->num_processed());
     m_value_vector->clean();
     delete m_value_vector;
+    m_value_vector = nullptr;
   }
 
   if (thd->is_error()) return true; /* purecov: deadcode */
@@ -6414,6 +6432,9 @@ bool Item_sum_histogram::val_json(Json_wrapper *wr) {
         histogram->histogram_to_json(object) ||
         m_wrapper->empty()) {
       throw std::runtime_error("Out of memory"); /* purecov: deadcode */
+    } else {
+      delete m_value_map;
+      m_value_map = nullptr;
     }
 
     *wr = Json_wrapper(m_wrapper->clone_dom());
