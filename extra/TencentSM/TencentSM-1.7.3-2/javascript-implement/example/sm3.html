@@ -1,0 +1,20 @@
+<html>
+    <head>
+        <script src="../dist/sm3.js"></script>
+        <script>
+            let SM3 = window.SM3Lib.SM3
+            let utils = window.SM3Lib.utils
+            const sm3 = new SM3
+            var begin =new Date().getTime();
+            for(let i = 0;i < 1000;i++){
+                let result = sm3.hashForUTF8String('This website stores cookies on your computer. These cookies are used to collect information about how you interact with our website and allow us to remember you. We use this information in order to improve and customize your browsing experience and for analytics and metrics about our visitors both on this website and other media. To find out more about the cookies we use, see our Privacy Policy.');
+            }
+            var end =new Date().getTime();
+            var diff = end - begin;
+            var performance = 1000.0/(diff/1000.0);
+            console.log(performance);
+        </script>
+    </head> 
+    <body>
+    </body>
+</html>

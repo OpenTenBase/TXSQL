@@ -1,0 +1,1079 @@
+//
+//  main.m
+//  QCLOUD_SM_DEMO
+//
+//  Created by medivhwu on 2021/4/13.
+//  Copyright © 2021 tencent.com. All rights reserved.
+//
+
+#import <UIKit/UIKit.h>
+#import "AppDelegate.h"
+
+#include "sm.h"
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <assert.h>
+#include <time.h>
+#include <unistd.h>
+#include <iostream>
+#include <pthread.h>
+
+#define RET_OK 0
+#define RET_ERR -1
+#define SM4_KEYBYTE_LENGTH 16
+#define SM4_IV_LENGTH 16
+
+void printf_hex(const unsigned char *buffer, size_t len,const char* title)
+{
+    char outbuf[10240] = {0};
+    size_t outbuflen = 10240;
+  
+    const static char hexdig[] = "0123456789ABCDEF";
+    char *q = NULL;
+    const unsigned char *p = NULL;
+    int i = 0;
+    
+    if (outbuflen < len * 2 + 1)
+    {
+        return;
+    }
+    
+    q = outbuf;
+    for (i = 0, p = buffer; i < len; i++, p++) {
+        *q++ = hexdig[(*p >> 4) & 0xf];
+        *q++ = hexdig[*p & 0xf];
+    }
+    *q = 0;
+  
+  printf("%s:%s\n",title,outbuf);
+}
+
+void random_content(size_t len, unsigned char *out)
+{
+  
+  for (size_t i = 0; i < len; ++i)
+  {
+    srand((unsigned int)time(NULL) + (unsigned int)i);
+    out[i] = rand()%256;
+  }
+}
+
+unsigned long get_tick_count()
+{
+  struct timespec ts;
+  
+  clock_gettime(CLOCK_MONOTONIC, &ts);
+  
+  return (ts.tv_sec * 1000 + ts.tv_nsec / 1000000);
+}
+
+int test_SM4_ECB_Encrypt_Decrypt_NoPadding(void) {
+  const unsigned char SM4_ECB_PLAIN[16] = {0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef,
+                                             0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10};
+  const unsigned char SM4_ECB_KEY[SM4_KEYBYTE_LENGTH] = {0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef,
+                                           0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10};
+  const unsigned char SM4_ECB_CIPHER[16] = {0x68, 0x1e, 0xdf, 0x34, 0xd2, 0x06, 0x96, 0x5e,
+                                              0x86, 0xb3, 0xe9, 0x4f, 0x53, 0x6e, 0x42, 0x46};
+  int ret = RET_OK;
+  size_t size = sizeof(SM4_ECB_PLAIN) / sizeof(unsigned char);
+  size_t txtlen = size;
+    
+  unsigned char cipher[txtlen];
+  memset(cipher, 0x00, txtlen);
+    
+  SM4_ECB_Encrypt_NoPadding((const unsigned char*)SM4_ECB_PLAIN, size, cipher, &txtlen,
+                            (const unsigned char*)SM4_ECB_KEY);
+  if ((size != txtlen) || (memcmp(SM4_ECB_CIPHER, cipher, txtlen))) {
+    ret = RET_ERR;
+  }
+    
+  unsigned char plain[txtlen];
+  memset(plain, 0x00, txtlen);
+    
+  SM4_ECB_Decrypt_NoPadding((const unsigned char*)cipher, txtlen, plain, &txtlen,
+                            (const unsigned char*)SM4_ECB_KEY);
+  if ((size != txtlen) || (memcmp(SM4_ECB_PLAIN, plain, txtlen))) {
+    ret |= RET_ERR;
+  }
+
+  return ret;
+}
+
+int test_SM4_ECB_Encrypt_Decrypt(void) {
+  const unsigned char SM4_PLAIN[16] = {0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef,
+                                         0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10};
+  const unsigned char SM4_KEY[SM4_KEYBYTE_LENGTH] = {0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef,
+                                       0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10};
+  const unsigned char SM4_CIPHER[32] = {0x68, 0x1e, 0xdf, 0x34, 0xd2, 0x06, 0x96, 0x5e,
+                                       0x86, 0xb3, 0xe9, 0x4f, 0x53, 0x6e, 0x42, 0x46,
+                                       0x00, 0x2a, 0x8a, 0x4e, 0xfa, 0x86, 0x3c, 0xca,
+                                       0xd0, 0x24, 0xac, 0x03, 0x00, 0xbb, 0x40, 0xd2};
+  int ret = RET_OK;
+  size_t size = sizeof(SM4_PLAIN) / sizeof(unsigned char);
+  size_t txtlen = (size / 16 + 1) * 16;
+    
+  unsigned char cipher[txtlen];
+  memset(cipher, 0x00, txtlen);
+    
+  SM4_ECB_Encrypt((const unsigned char*)SM4_PLAIN, size, cipher, &txtlen,
+                  (const unsigned char*)SM4_KEY);
+  if (((size / 16 + 1) * 16 != txtlen) || (memcmp(SM4_CIPHER, cipher, txtlen))) {
+    ret = RET_ERR;
+  }
+
+  unsigned char plain[txtlen];
+  memset(plain, 0x00, txtlen);
+    
+  SM4_ECB_Decrypt((const unsigned char*)cipher, txtlen, plain, &txtlen,
+                    (const unsigned char*)SM4_KEY);
+    
+  if ((size != txtlen) || (memcmp(SM4_PLAIN, plain, txtlen))) {
+    ret |= RET_ERR;
+  }
+  return ret;
+}
+
+int test_SM4_CBC_Encrypt_Decrypt_NoPadding(void) {
+  const unsigned char SM4_CBC_PLAIN[16] = {0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef,
+                                           0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10};
+  const unsigned char SM4_CBC_KEY[SM4_KEYBYTE_LENGTH] = {0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef,
+                                           0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10};
+  const unsigned char SM4_CBC_IV[SM4_IV_LENGTH] = {0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef,
+                                           0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10};
+  const unsigned char SM4_CBC_CIPHER[16] = {0x26, 0x77, 0xf4, 0x6b, 0x09, 0xc1, 0x22, 0xcc,
+                                            0x97, 0x55, 0x33, 0x10, 0x5b, 0xd4, 0xa2, 0x2a};
+  int ret = RET_OK;
+  size_t size = sizeof(SM4_CBC_PLAIN) / sizeof(unsigned char);
+  size_t txtlen = size;
+      
+  unsigned char cipher[txtlen];
+  memset(cipher, 0x00, txtlen);
+      
+  SM4_CBC_Encrypt_NoPadding((const unsigned char*)SM4_CBC_PLAIN, size, cipher, &txtlen,
+                            (const unsigned char*)SM4_CBC_KEY, (const unsigned char*)SM4_CBC_IV);
+  if ((size != txtlen) || (memcmp(SM4_CBC_CIPHER, cipher, txtlen))) {
+    ret = RET_ERR;
+  }
+      
+  unsigned char plain[txtlen];
+  memset(plain, 0x00, txtlen);
+      
+  SM4_CBC_Decrypt_NoPadding((const unsigned char*)cipher, txtlen, plain, &txtlen,
+                            (const unsigned char*)SM4_CBC_KEY, (const unsigned char*)SM4_CBC_IV);
+  if ((size != txtlen) || (memcmp(SM4_CBC_PLAIN, plain, txtlen))) {
+    ret |= RET_ERR;
+  }
+
+  return ret;
+}
+
+int test_SM4_CBC_Encrypt_Decrypt(void) {
+  const unsigned char SM4_PLAIN[16] = {0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef,
+                                       0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10};
+  const unsigned char SM4_KEY[SM4_KEYBYTE_LENGTH] = {0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef,
+                                       0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10};
+  const unsigned char SM4_IV[SM4_IV_LENGTH] = {0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef,
+                                       0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10};
+  const unsigned char SM4_CIPHER[32] = {0x26, 0x77, 0xf4, 0x6b, 0x09, 0xc1, 0x22, 0xcc,
+                                       0x97, 0x55, 0x33, 0x10, 0x5b, 0xd4, 0xa2, 0x2a,
+                                       0x3b, 0x88, 0x0e, 0x68, 0x67, 0x77, 0x25, 0x22,
+                                       0xae, 0x55, 0xd2, 0xf0, 0xae, 0x74, 0x78, 0xae};
+  int ret = RET_OK;
+  size_t size = sizeof(SM4_PLAIN) / sizeof(unsigned char);
+  size_t txtlen = (size / 16 + 1) * 16;
+    
+  unsigned char cipher[txtlen];
+  memset(cipher, 0x00, txtlen);
+    
+  SM4_CBC_Encrypt((const unsigned char*)SM4_PLAIN, size, cipher, &txtlen,
+                  (const unsigned char*)SM4_KEY,(const unsigned char*)SM4_IV);
+  if (((size / 16 + 1) * 16 != txtlen) || (memcmp(SM4_CIPHER, cipher, txtlen))) {
+    ret = RET_ERR;
+  }
+
+  unsigned char plain[txtlen];
+  memset(plain, 0x00, txtlen);
+
+  SM4_CBC_Decrypt((const unsigned char*)cipher, txtlen, plain, &txtlen,
+                  (const unsigned char*)SM4_KEY,(const unsigned char*)SM4_IV);
+    
+  if ((size != txtlen) || (memcmp(SM4_PLAIN, plain, txtlen))) {
+    ret |= RET_ERR;
+  }
+    
+  return ret;
+}
+
+int test_SM4_GCM_Encrypt_Decrypt_NoPadding(void) {
+  const unsigned char SM4_GCM_KEY[SM4_KEYBYTE_LENGTH] = {0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef,
+                                              0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10};
+  const unsigned char SM4_GCM_IV[8] = {0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef};
+  const unsigned char SM4_GCM_PLAIN[64] = {
+    0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10,
+    0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10,
+    0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10,
+    0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10};
+  const unsigned char SM4_GCM_CIPHER[64] = {
+    0x9C, 0x6C, 0xA8, 0xBC, 0x56, 0x78, 0x5E, 0xF6, 0x56, 0xDB, 0x0E, 0x1C, 0xDB, 0xF9, 0x63, 0xFD,
+    0xE1, 0x41, 0xAB, 0x56, 0x17, 0xD2, 0xE1, 0xD7, 0x95, 0x86, 0x70, 0x35, 0x3F, 0x37, 0x59, 0x82,
+    0xFF, 0xB1, 0xC8, 0x5F, 0xAD, 0x11, 0x17, 0xC8, 0x48, 0xE2, 0x6D, 0x45, 0x7D, 0xF5, 0x77, 0xEC,
+    0x82, 0xEB, 0xF9, 0x64, 0x55, 0xA7, 0xD0, 0x06, 0x70, 0xEA, 0xC1, 0x93, 0x9D, 0xCF, 0x7F, 0xB8};
+  const unsigned char SM4_GCM_AAD[16] = {0x26, 0x77, 0xF4, 0x6B, 0x09, 0xC1, 0x22, 0xCC,
+                                            0x97, 0x55, 0x33, 0x10, 0x5B, 0xD4, 0xA2, 0x2A};
+  const unsigned char SM4_GCM_TAG[16] = {
+    0x52, 0x93, 0xFA, 0xA2, 0xE8, 0xC9, 0xA6, 0x7E, 0x77, 0xF8, 0x77, 0xC7, 0xAD, 0x34, 0x9D, 0x8C};
+    
+  unsigned char tag[16] = {0};
+  size_t taglen = 16;
+
+  int ret = RET_OK;
+  size_t aadlen = 16;
+  size_t size = sizeof(SM4_GCM_PLAIN) / sizeof(unsigned char);
+  size_t txtlen = size;
+
+  unsigned char cipher[txtlen];
+  memset(cipher, 0x00, txtlen);
+
+  ret = SM4_GCM_Encrypt_NoPadding((unsigned char *)SM4_GCM_PLAIN, size, cipher, &txtlen, tag, &taglen,
+                            (const unsigned char*)SM4_GCM_KEY, (const unsigned char*)SM4_GCM_IV,
+                            (unsigned char *)SM4_GCM_AAD, aadlen);
+  if ((size != txtlen) || (memcmp(SM4_GCM_CIPHER, cipher, txtlen) != 0) ||
+    (memcmp(SM4_GCM_TAG, tag, taglen) != 0)) {
+    ret |= RET_ERR;
+  }
+
+  unsigned char plain[txtlen];
+  memset(plain, 0x00, txtlen);
+
+  ret |= SM4_GCM_Decrypt_NoPadding(cipher, txtlen, plain, &txtlen, tag, taglen,
+                            (const unsigned char*)SM4_GCM_KEY, (const unsigned char*)SM4_GCM_IV,
+                            (unsigned char *)SM4_GCM_AAD, aadlen);
+  if ((size != txtlen) || (memcmp(SM4_GCM_PLAIN, plain, txtlen) != 0)) {
+    ret |= RET_ERR;
+  }
+   
+  return ret;
+}
+
+int test_SM4_GCM_Encrypt_Decrypt(void) {
+  const unsigned char SM4_KEY[SM4_KEYBYTE_LENGTH] = {0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef,
+                                              0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10};
+  const unsigned char SM4_IV[8] = {0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef};
+  const unsigned char SM4_PLAIN[64] = {
+    0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10,
+    0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10,
+    0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10,
+    0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10};
+  const unsigned char SM4_CIPHER[80] = {
+    0x9C, 0x6C, 0xA8, 0xBC, 0x56, 0x78, 0x5E, 0xF6, 0x56, 0xDB, 0x0E, 0x1C, 0xDB, 0xF9, 0x63, 0xFD,
+    0xE1, 0x41, 0xAB, 0x56, 0x17, 0xD2, 0xE1, 0xD7, 0x95, 0x86, 0x70, 0x35, 0x3F, 0x37, 0x59, 0x82,
+    0xFF, 0xB1, 0xC8, 0x5F, 0xAD, 0x11, 0x17, 0xC8, 0x48, 0xE2, 0x6D, 0x45, 0x7D, 0xF5, 0x77, 0xEC,
+    0x82, 0xEB, 0xF9, 0x64, 0x55, 0xA7, 0xD0, 0x06, 0x70, 0xEA, 0xC1, 0x93, 0x9D, 0xCF, 0x7F, 0xB8,
+    0x77, 0x36, 0x8F, 0xB2, 0xB3, 0x03, 0x47, 0x86, 0x14, 0x0F, 0x58, 0x8B, 0x83, 0x69, 0x3F, 0x24
+  };
+  const unsigned char SM4_AAD[16] = {0x26, 0x77, 0xF4, 0x6B, 0x09, 0xC1, 0x22, 0xCC,
+                                            0x97, 0x55, 0x33, 0x10, 0x5B, 0xD4, 0xA2, 0x2A};
+  const unsigned char SM4_TAG[16] = {
+    0xD5, 0x48, 0xE8, 0x4C, 0x7E, 0xB4, 0xB3, 0xAF, 0xC4, 0xC3, 0x87, 0x03, 0x39, 0x99, 0x0D, 0xE1};
+
+  unsigned char tag[16] = {0};
+  size_t taglen = 16;
+
+  int ret = RET_OK;
+  size_t aadlen = 16;
+  size_t size = sizeof(SM4_PLAIN) / sizeof(unsigned char);
+  size_t txtlen = (size / 16 + 1) * 16;
+
+  unsigned char cipher[txtlen];
+  memset(cipher, 0x00, txtlen);
+
+  ret = SM4_GCM_Encrypt((unsigned char *)SM4_PLAIN, size, cipher, &txtlen, tag, &taglen,
+                        (const unsigned char*)SM4_KEY, (const unsigned char*)SM4_IV,
+                        (unsigned char *)SM4_AAD, aadlen);
+  if (((size / 16 + 1) * 16 != txtlen) || (memcmp(SM4_CIPHER, cipher, txtlen) != 0) ||
+    (memcmp(SM4_TAG, tag, taglen) != 0)) {
+    ret |= RET_ERR;
+  }
+
+  unsigned char plain[txtlen];
+  memset(plain, 0x00, txtlen);
+
+  ret |= SM4_GCM_Decrypt(cipher, txtlen, plain, &txtlen, tag, taglen,
+                        (const unsigned char*)SM4_KEY, (const unsigned char*)SM4_IV,
+                        (unsigned char *)SM4_AAD, aadlen);
+  if ((size != txtlen) || (memcmp(SM4_PLAIN, plain, txtlen) != 0)) {
+    ret |= RET_ERR;
+  }
+
+  return ret;
+}
+
+int test_SM4_GCM_Encrypt_Decrypt_NoPadding_NIST_SP800_38D(void) {
+  const unsigned char SM4_GCM_KEY[SM4_KEYBYTE_LENGTH] = {0xfe, 0xff, 0xe9, 0x92, 0x86, 0x65, 0x73, 0x1c,
+                                              0x6d, 0x6a, 0x8f, 0x94, 0x67, 0x30, 0x83, 0x08};
+  const unsigned char SM4_GCM_IV[60] = {
+    0x93, 0x13, 0x22, 0x5d, 0xf8, 0x84, 0x06, 0xe5, 0x55, 0x90, 0x9c, 0x5a, 0xff, 0x52, 0x69, 0xaa,
+    0x6a, 0x7a, 0x95, 0x38, 0x53, 0x4f, 0x7d, 0xa1, 0xe4, 0xc3, 0x03, 0xd2, 0xa3, 0x18, 0xa7, 0x28,
+    0xc3, 0xc0, 0xc9, 0x51, 0x56, 0x80, 0x95, 0x39, 0xfc, 0xf0, 0xe2, 0x42, 0x9a, 0x6b, 0x52, 0x54,
+    0x16, 0xae, 0xdb, 0xf5, 0xa0, 0xde, 0x6a, 0x57, 0xa6, 0x37, 0xb3, 0x9b
+  };
+  const unsigned char SM4_GCM_PLAIN[60] = {
+    0xd9, 0x31, 0x32, 0x25, 0xf8, 0x84, 0x06, 0xe5, 0xa5, 0x59, 0x09, 0xc5, 0xaf, 0xf5, 0x26, 0x9a,
+    0x86, 0xa7, 0xa9, 0x53, 0x15, 0x34, 0xf7, 0xda, 0x2e, 0x4c, 0x30, 0x3d, 0x8a, 0x31, 0x8a, 0x72,
+    0x1c, 0x3c, 0x0c, 0x95, 0x95, 0x68, 0x09, 0x53, 0x2f, 0xcf, 0x0e, 0x24, 0x49, 0xa6, 0xb5, 0x25,
+    0xb1, 0x6a, 0xed, 0xf5, 0xaa, 0x0d, 0xe6, 0x57, 0xba, 0x63, 0x7b, 0x39
+  };
+  const unsigned char SM4_GCM_CIPHER[64] = {
+    0x9a, 0x05, 0xc6, 0x8e, 0x20, 0x8a, 0x75, 0x51, 0x31, 0x51, 0x7d, 0x0a, 0xe2, 0xf2, 0xeb, 0x82,
+    0x1f, 0x4b, 0x14, 0x12, 0x24, 0xd2, 0xb9, 0xf8, 0x73, 0xc6, 0x4a, 0xd0, 0x85, 0x41, 0x76, 0xdb,
+    0xef, 0x27, 0xae, 0x96, 0xfd, 0x90, 0x40, 0x9f, 0x4e, 0xe2, 0x02, 0xba, 0x6e, 0x04, 0xd7, 0x34,
+    0x5b, 0x55, 0x14, 0x86, 0x65, 0x02, 0xdd, 0x68, 0x8a, 0x06, 0xb2, 0xba
+  };
+  const unsigned char SM4_GCM_AAD[20] = {
+    0xfe, 0xed, 0xfa, 0xce, 0xde, 0xad, 0xbe, 0xef, 0xfe, 0xed, 0xfa, 0xce, 0xde, 0xad, 0xbe, 0xef,
+    0xab, 0xad, 0xda, 0xd2
+  };
+  const unsigned char SM4_GCM_TAG[16] = {
+    0x4f, 0x78, 0xdf, 0x5d, 0x96, 0xdf, 0x6d, 0xd6, 0x4e, 0x8c, 0xd8, 0x25, 0x1c, 0xc6, 0x7d, 0x31};
+
+  unsigned char tag[16] = {0};
+  size_t taglen = 16;
+
+  int ret = RET_OK;
+  size_t ivlen = 60;
+  size_t aadlen = 20;
+  size_t size = sizeof(SM4_GCM_PLAIN) / sizeof(unsigned char);
+  size_t txtlen = size;
+
+  unsigned char cipher[txtlen];
+  memset(cipher, 0x00, txtlen);
+
+  ret = SM4_GCM_Encrypt_NoPadding_NIST_SP800_38D((unsigned char *)SM4_GCM_PLAIN, size, cipher, &txtlen, tag, &taglen,
+                            (const unsigned char*)SM4_GCM_KEY, (const unsigned char*)SM4_GCM_IV, ivlen,
+                            (unsigned char *)SM4_GCM_AAD, aadlen);
+  if ((size != txtlen) || (memcmp(SM4_GCM_CIPHER, cipher, txtlen) != 0) ||
+    (memcmp(SM4_GCM_TAG, tag, taglen) != 0)) {
+    ret |= RET_ERR;
+  }
+
+  unsigned char plain[txtlen];
+  memset(plain, 0x00, txtlen);
+
+  ret |= SM4_GCM_Decrypt_NoPadding_NIST_SP800_38D(cipher, txtlen, plain, &txtlen, tag, taglen,
+                            (const unsigned char*)SM4_GCM_KEY, (const unsigned char*)SM4_GCM_IV, ivlen,
+                            (unsigned char *)SM4_GCM_AAD, aadlen);
+  if ((size != txtlen) || (memcmp(SM4_GCM_PLAIN, plain, txtlen) != 0)) {
+    ret |= RET_ERR;
+  }
+   
+  return ret;
+}
+
+int test_SM4_GCM_Encrypt_Decrypt_NIST_SP800_38D(void) {
+  const unsigned char SM4_GCM_KEY[SM4_KEYBYTE_LENGTH] = {0xfe, 0xff, 0xe9, 0x92, 0x86, 0x65, 0x73, 0x1c,
+                                              0x6d, 0x6a, 0x8f, 0x94, 0x67, 0x30, 0x83, 0x08};
+  const unsigned char SM4_GCM_IV[60] = {
+    0x93, 0x13, 0x22, 0x5d, 0xf8, 0x84, 0x06, 0xe5, 0x55, 0x90, 0x9c, 0x5a, 0xff, 0x52, 0x69, 0xaa,
+    0x6a, 0x7a, 0x95, 0x38, 0x53, 0x4f, 0x7d, 0xa1, 0xe4, 0xc3, 0x03, 0xd2, 0xa3, 0x18, 0xa7, 0x28,
+    0xc3, 0xc0, 0xc9, 0x51, 0x56, 0x80, 0x95, 0x39, 0xfc, 0xf0, 0xe2, 0x42, 0x9a, 0x6b, 0x52, 0x54,
+    0x16, 0xae, 0xdb, 0xf5, 0xa0, 0xde, 0x6a, 0x57, 0xa6, 0x37, 0xb3, 0x9b
+  };
+  const unsigned char SM4_GCM_PLAIN[60] = {
+    0xd9, 0x31, 0x32, 0x25, 0xf8, 0x84, 0x06, 0xe5, 0xa5, 0x59, 0x09, 0xc5, 0xaf, 0xf5, 0x26, 0x9a,
+    0x86, 0xa7, 0xa9, 0x53, 0x15, 0x34, 0xf7, 0xda, 0x2e, 0x4c, 0x30, 0x3d, 0x8a, 0x31, 0x8a, 0x72,
+    0x1c, 0x3c, 0x0c, 0x95, 0x95, 0x68, 0x09, 0x53, 0x2f, 0xcf, 0x0e, 0x24, 0x49, 0xa6, 0xb5, 0x25,
+    0xb1, 0x6a, 0xed, 0xf5, 0xaa, 0x0d, 0xe6, 0x57, 0xba, 0x63, 0x7b, 0x39
+  };
+  const unsigned char SM4_GCM_CIPHER[64] = {
+    0x9a, 0x05, 0xc6, 0x8e, 0x20, 0x8a, 0x75, 0x51, 0x31, 0x51, 0x7d, 0x0a, 0xe2, 0xf2, 0xeb, 0x82,
+    0x1f, 0x4b, 0x14, 0x12, 0x24, 0xd2, 0xb9, 0xf8, 0x73, 0xc6, 0x4a, 0xd0, 0x85, 0x41, 0x76, 0xdb,
+    0xef, 0x27, 0xae, 0x96, 0xfd, 0x90, 0x40, 0x9f, 0x4e, 0xe2, 0x02, 0xba, 0x6e, 0x04, 0xd7, 0x34,
+    0x5b, 0x55, 0x14, 0x86, 0x65, 0x02, 0xdd, 0x68, 0x8a, 0x06, 0xb2, 0xba, 0x7e, 0xd4, 0xb0, 0x93
+  };
+  const unsigned char SM4_GCM_AAD[20] = {
+    0xfe, 0xed, 0xfa, 0xce, 0xde, 0xad, 0xbe, 0xef, 0xfe, 0xed, 0xfa, 0xce, 0xde, 0xad, 0xbe, 0xef,
+    0xab, 0xad, 0xda, 0xd2
+  };
+  const unsigned char SM4_GCM_TAG[16] = {
+    0xff, 0xa6, 0xc2, 0x3e, 0x97, 0xe6, 0xa7, 0x2b, 0x28, 0xd5, 0x5c, 0x9a, 0xdd, 0x13, 0x2b, 0x1d
+  };
+
+  unsigned char tag[16] = {0};
+  size_t taglen = 16;
+
+  int ret = RET_OK;
+  size_t ivlen = 60;
+  size_t aadlen = 20;
+  size_t size = sizeof(SM4_GCM_PLAIN) / sizeof(unsigned char);
+  size_t txtlen = (size / 16 + 1) * 16;
+
+  unsigned char cipher[txtlen];
+  memset(cipher, 0x00, txtlen);
+
+  ret = SM4_GCM_Encrypt_NIST_SP800_38D((unsigned char *)SM4_GCM_PLAIN, size, cipher, &txtlen, tag, &taglen,
+                            (const unsigned char*)SM4_GCM_KEY, (const unsigned char*)SM4_GCM_IV, ivlen,
+                            (unsigned char *)SM4_GCM_AAD, aadlen);
+  if ((size / 16 + 1) * 16 != txtlen || (memcmp(SM4_GCM_CIPHER, cipher, txtlen) != 0) ||
+    (memcmp(SM4_GCM_TAG, tag, taglen) != 0)) {
+    ret |= RET_ERR;
+  }
+
+  unsigned char plain[txtlen];
+  memset(plain, 0x00, txtlen);
+
+  ret |= SM4_GCM_Decrypt_NIST_SP800_38D(cipher, txtlen, plain, &txtlen, tag, taglen,
+                            (const unsigned char*)SM4_GCM_KEY, (const unsigned char*)SM4_GCM_IV, ivlen,
+                            (unsigned char *)SM4_GCM_AAD, aadlen);
+  if ((size != txtlen) || (memcmp(SM4_GCM_PLAIN, plain, txtlen) != 0)) {
+    ret |= RET_ERR;
+  }
+  
+  return ret;
+}
+
+int test_SM3(void) {
+  const unsigned char SM3_DIGEST[SM3_DIGEST_LENGTH] = {
+    0x52,0xfd,0x81,0x24,0xe9,0x26,0x75,0xe4,0xd9,0x27,0x20,0x8a,0x8c,0x7c,0x49,0xec,
+    0xb3,0xfb,0xa6,0x9d,0x2d,0x9e,0x9d,0x17,0x96,0x74,0x1c,0x2d,0xe5,0xf7,0xa0,0xb2};
+    
+  const unsigned char SM3_MSG[41] = {
+    0x4e,0xbe,0x3f,0x83,0x70,0x76,0xb3,0xbf,0x9a,0xf1,0x8c,0xd3,0x9c,0xdf,0x64,0xce,
+    0x83,0xe9,0x5f,0x4c,0xae,0xbe,0x57,0x67,0x68,0x35,0x62,0x75,0xe1,0x6a,0x7b,0xf7,
+    0xb7,0x14,0x7f,0x15,0x39,0x06,0xfb,0xc2,0x37};
+
+  int ret = RET_OK;
+  size_t size = sizeof(SM3_MSG) / sizeof(unsigned char);
+
+  unsigned char digest[SM3_DIGEST_LENGTH];
+  memset(digest, 0x00, SM3_DIGEST_LENGTH);
+
+  SM3((const unsigned char*)SM3_MSG, size, digest);
+  if(memcmp(digest, SM3_DIGEST, SM3_DIGEST_LENGTH)) {
+    ret = RET_ERR;
+  }
+  return ret;
+}
+
+int test_SM3_Steps(void) {
+  const unsigned char SM3_DIGEST[SM3_DIGEST_LENGTH] = {
+    0x52,0xfd,0x81,0x24,0xe9,0x26,0x75,0xe4,0xd9,0x27,0x20,0x8a,0x8c,0x7c,0x49,0xec,
+    0xb3,0xfb,0xa6,0x9d,0x2d,0x9e,0x9d,0x17,0x96,0x74,0x1c,0x2d,0xe5,0xf7,0xa0,0xb2};
+    
+  const unsigned char SM3_MSG[41] = {
+    0x4e,0xbe,0x3f,0x83,0x70,0x76,0xb3,0xbf,0x9a,0xf1,0x8c,0xd3,0x9c,0xdf,0x64,0xce,
+    0x83,0xe9,0x5f,0x4c,0xae,0xbe,0x57,0x67,0x68,0x35,0x62,0x75,0xe1,0x6a,0x7b,0xf7,
+    0xb7,0x14,0x7f,0x15,0x39,0x06,0xfb,0xc2,0x37};
+
+  int ret = RET_OK;
+  size_t size = sizeof(SM3_MSG) / sizeof(unsigned char);
+
+  unsigned char digest[SM3_DIGEST_LENGTH];
+  memset(digest, 0x00, SM3_DIGEST_LENGTH);
+
+  sm3_ctx_t *ctx = (sm3_ctx_t*)malloc(SM3CtxSize());
+  if(NULL != ctx) {
+    SM3Init(ctx);
+    SM3Update(ctx, (const unsigned char *)SM3_MSG, 10);
+    SM3Update(ctx, (const unsigned char *)(SM3_MSG + 10), 20);
+    SM3Update(ctx, (const unsigned char *)(SM3_MSG + 10 + 20), size - (10 + 20));
+    SM3Final(ctx, digest);
+    free(ctx);
+    ctx = NULL;
+    if(memcmp(digest, SM3_DIGEST, SM3_DIGEST_LENGTH) != 0) {
+      ret = RET_ERR;
+    }
+  } else {
+      ret = RET_ERR;
+  }
+  return ret;
+}
+
+int test_SM3_HMAC(void) {
+  const unsigned char SM3_MAC[SM3_HMAC_SIZE] = {
+    0x13,0xc1,0xd5,0xa3,0xe2,0x46,0x2f,0xe0,0x66,0xa7,0xad,0xc0,0x6b,0x78,0xd5,0xea,
+    0xc4,0x3c,0xb3,0x40,0x4b,0xd3,0xef,0x85,0x5f,0x95,0x51,0x68,0x5d,0x5d,0x70,0xa3};
+  
+  const unsigned char SM3_KEY[16] = {
+    0x01,0x23,0x45,0x67,0x89,0xab,0xcd,0xef,0xfe,0xdc,0xba,0x98,0x76,0x54,0x32,0x10};
+
+  const unsigned char SM3_MSG[41] = {
+    0x4e,0xbe,0x3f,0x83,0x70,0x76,0xb3,0xbf,0x9a,0xf1,0x8c,0xd3,0x9c,0xdf,0x64,0xce,
+    0x83,0xe9,0x5f,0x4c,0xae,0xbe,0x57,0x67,0x68,0x35,0x62,0x75,0xe1,0x6a,0x7b,0xf7,
+    0xb7,0x14,0x7f,0x15,0x39,0x06,0xfb,0xc2,0x37};
+
+  int ret = RET_OK;
+  size_t size = sizeof(SM3_MSG) / sizeof(unsigned char);
+  size_t keylen = 16;
+
+  unsigned char mac[SM3_HMAC_SIZE];
+  memset(mac, 0x00, SM3_HMAC_SIZE);
+
+  ret = SM3_HMAC((const unsigned char*)SM3_MSG, size, (const unsigned char*)SM3_KEY, keylen, mac);
+  if(memcmp(mac, SM3_MAC, SM3_HMAC_SIZE)) {
+    ret |= RET_ERR;
+  }
+  return ret;
+}
+
+int test_SM3_HMAC_Steps(void) {
+  const unsigned char SM3_MAC[SM3_HMAC_SIZE] = {
+    0x13,0xc1,0xd5,0xa3,0xe2,0x46,0x2f,0xe0,0x66,0xa7,0xad,0xc0,0x6b,0x78,0xd5,0xea,
+    0xc4,0x3c,0xb3,0x40,0x4b,0xd3,0xef,0x85,0x5f,0x95,0x51,0x68,0x5d,0x5d,0x70,0xa3};
+
+  const unsigned char SM3_KEY[16] = {
+    0x01,0x23,0x45,0x67,0x89,0xab,0xcd,0xef,0xfe,0xdc,0xba,0x98,0x76,0x54,0x32,0x10};
+
+  const unsigned char SM3_MSG[41] = {
+    0x4e,0xbe,0x3f,0x83,0x70,0x76,0xb3,0xbf,0x9a,0xf1,0x8c,0xd3,0x9c,0xdf,0x64,0xce,
+    0x83,0xe9,0x5f,0x4c,0xae,0xbe,0x57,0x67,0x68,0x35,0x62,0x75,0xe1,0x6a,0x7b,0xf7,
+    0xb7,0x14,0x7f,0x15,0x39,0x06,0xfb,0xc2,0x37};
+
+  int ret = RET_OK;
+  size_t size = sizeof(SM3_MSG) / sizeof(unsigned char);
+  size_t keylen = 16;
+
+  unsigned char mac[SM3_HMAC_SIZE];
+  memset(mac, 0x00, SM3_HMAC_SIZE);
+
+  TstHmacSm3Ctx *ctx = SM3_HMAC_Init((const unsigned char *)SM3_KEY, keylen);
+  if(NULL != ctx) {
+    ret |= SM3_HMAC_Update(ctx, (const unsigned char *)SM3_MSG, 10);
+    ret |= SM3_HMAC_Update(ctx, (const unsigned char *)(SM3_MSG + 10), 20);
+    ret |= SM3_HMAC_Update(ctx, (const unsigned char *)(SM3_MSG + 10 + 20), size - (10 + 20));
+    ret |= SM3_HMAC_Final(ctx, mac);
+    if(memcmp(mac, SM3_MAC, SM3_HMAC_SIZE) != 0) {
+      ret |= RET_ERR;
+    }
+  } else {
+      ret = RET_ERR;
+  }
+  return ret;
+}
+
+int test_SM2_Generate_Key(void) {
+  int ret = RET_OK;
+  char pri[256] = {0};
+  char outbuf[256] = {0};
+  char outpubbuf[256] = {0};
+  sm2_ctx_t pctx;
+  SM2InitCtx(&pctx);
+  if (generateKeyPair(&pctx, pri, outbuf) != 0) {
+    ret = RET_ERR;
+    goto END;
+  }
+  if (generatePublicKey(&pctx, pri, outpubbuf) != 0) {
+    ret = RET_ERR;
+    goto END;
+  }
+  if (strcmp(outbuf, outpubbuf) != 0) {
+    ret = RET_ERR;
+    goto END;
+  }
+
+END:
+  SM2FreeCtx(&pctx);
+  return ret;
+}
+
+int test_SM2_Encrypt_Decrypt(void) {
+  int ret = RET_OK;
+  sm2_ctx_t ctx;
+
+  const char *pub =
+      "04323A83A37A469E4D7DB5093A68441D2B426B868E9E26CD48725A078DA98067F132073BB718531AE18E29B8A57F"
+      "CFD76FCD16F30DA5BBA19FC7F35682551888C2";
+  const char *pri = "DC78C9E7EB5389B4562AC554E33897E2D6E36E5BDF928D7D0C0AD0726D8F9039";
+
+  SM2InitCtxWithPubKey(&ctx, pub);
+
+  const unsigned char SM2_PLAIN[41] = {
+        0x99,0x5B,0x94,0x98,0x69,0xF8,0x0F,0xA1,0x46,0x5A,0x9D,0x8B,0x6F,0xA7,0x59,0xEC,
+        0x65,0xC3,0x02,0x0D,0x59,0xC2,0x62,0x46,0x62,0xBD,0xFF,0x05,0x9B,0xDF,0x19,0xB3,
+        0x69,0xBB,0x84,0xA8,0xBC,0x83,0x0C,0x9F,0xD4
+  };
+    
+  size_t size = sizeof(SM2_PLAIN) / sizeof(unsigned char);
+    
+  size_t txtlen = size + 200;
+  unsigned char cipher[txtlen];
+  memset(cipher, 0x00, txtlen);
+    
+  ret = SM2Encrypt(&ctx, SM2_PLAIN, size, pub, 130, cipher, &txtlen);
+  if ((size + 96)  == txtlen) {
+    ret |= RET_ERR;
+  }
+
+  unsigned char plain[size];
+  memset(plain, 0x00, size);
+
+  ret |= SM2Decrypt(&ctx, (const unsigned char*)cipher, txtlen, (const char*)pri, 64, plain, &txtlen);
+  if ((size != txtlen) || (memcmp(SM2_PLAIN, plain, txtlen))) {
+    ret |= RET_ERR;
+  }
+    
+  SM2FreeCtx(&ctx);
+  return 0;
+}
+
+int test_SM2_Encrypt_Decrypt_WithMode_C1C3C2_ASN1(void) {
+  int ret = RET_OK;
+  sm2_ctx_t ctx;
+
+  const char *pub =
+      "04323A83A37A469E4D7DB5093A68441D2B426B868E9E26CD48725A078DA98067F132073BB718531AE18E29B8A57F"
+      "CFD76FCD16F30DA5BBA19FC7F35682551888C2";
+  const char *pri = "DC78C9E7EB5389B4562AC554E33897E2D6E36E5BDF928D7D0C0AD0726D8F9039";
+
+  SM2InitCtxWithPubKey(&ctx, pub);
+
+  const unsigned char SM2_PLAIN[41] = {
+        0x99,0x5B,0x94,0x98,0x69,0xF8,0x0F,0xA1,0x46,0x5A,0x9D,0x8B,0x6F,0xA7,0x59,0xEC,
+        0x65,0xC3,0x02,0x0D,0x59,0xC2,0x62,0x46,0x62,0xBD,0xFF,0x05,0x9B,0xDF,0x19,0xB3,
+        0x69,0xBB,0x84,0xA8,0xBC,0x83,0x0C,0x9F,0xD4
+  };
+    
+  size_t size = sizeof(SM2_PLAIN) / sizeof(unsigned char);
+    
+  size_t txtlen = size + 200;
+  unsigned char cipher[txtlen];
+  memset(cipher, 0x00, txtlen);
+    
+  ret = SM2EncryptWithMode(&ctx, SM2_PLAIN, size, pub, 130, cipher, &txtlen, SM2CipherMode_C1C3C2_ASN1);
+  if ((size + 96)  == txtlen) {
+    ret |= RET_ERR;
+  }
+
+  unsigned char plain[size];
+  memset(plain, 0x00, size);
+
+  ret |= SM2DecryptWithMode(&ctx, (const unsigned char*)cipher, txtlen, (const char*)pri, 64, plain, \
+                            &txtlen, SM2CipherMode_C1C3C2_ASN1);
+  if ((size != txtlen) || (memcmp(SM2_PLAIN, plain, txtlen))) {
+    ret |= RET_ERR;
+  }
+    
+  SM2FreeCtx(&ctx);
+  return 0;
+}
+
+
+int test_SM2_Encrypt_Decrypt_WithMode_C1C3C2(void) {
+  int ret = RET_OK;
+  sm2_ctx_t ctx;
+
+  const char *pub =
+      "04323A83A37A469E4D7DB5093A68441D2B426B868E9E26CD48725A078DA98067F132073BB718531AE18E29B8A57F"
+      "CFD76FCD16F30DA5BBA19FC7F35682551888C2";
+  const char *pri = "DC78C9E7EB5389B4562AC554E33897E2D6E36E5BDF928D7D0C0AD0726D8F9039";
+
+  SM2InitCtxWithPubKey(&ctx, pub);
+
+  const unsigned char SM2_PLAIN[41] = {
+        0x99,0x5B,0x94,0x98,0x69,0xF8,0x0F,0xA1,0x46,0x5A,0x9D,0x8B,0x6F,0xA7,0x59,0xEC,
+        0x65,0xC3,0x02,0x0D,0x59,0xC2,0x62,0x46,0x62,0xBD,0xFF,0x05,0x9B,0xDF,0x19,0xB3,
+        0x69,0xBB,0x84,0xA8,0xBC,0x83,0x0C,0x9F,0xD4
+  };
+    
+  size_t size = sizeof(SM2_PLAIN) / sizeof(unsigned char);
+    
+  size_t txtlen = size + 200;
+  unsigned char cipher[txtlen];
+  memset(cipher, 0x00, txtlen);
+    
+  ret = SM2EncryptWithMode(&ctx, SM2_PLAIN, size, pub, 130, cipher, &txtlen, SM2CipherMode_C1C3C2);
+  if ((size + 96)  != txtlen) {
+    ret |= RET_ERR;
+  }
+
+  unsigned char plain[size];
+  memset(plain, 0x00, size);
+
+  ret |= SM2DecryptWithMode(&ctx, (const unsigned char*)cipher, txtlen, (const char*)pri, 64, plain, \
+                            &txtlen, SM2CipherMode_C1C3C2);
+  if ((size != txtlen) || (memcmp(SM2_PLAIN, plain, txtlen))) {
+    ret |= RET_ERR;
+  }
+    
+  SM2FreeCtx(&ctx);
+  return 0;
+}
+
+
+int test_SM2_Encrypt_Decrypt_WithMode_C1C2C3_ASN1(void) {
+  int ret = RET_OK;
+  sm2_ctx_t ctx;
+
+  const char *pub =
+      "04323A83A37A469E4D7DB5093A68441D2B426B868E9E26CD48725A078DA98067F132073BB718531AE18E29B8A57F"
+      "CFD76FCD16F30DA5BBA19FC7F35682551888C2";
+  const char *pri = "DC78C9E7EB5389B4562AC554E33897E2D6E36E5BDF928D7D0C0AD0726D8F9039";
+
+  SM2InitCtxWithPubKey(&ctx, pub);
+
+  const unsigned char SM2_PLAIN[41] = {
+        0x99,0x5B,0x94,0x98,0x69,0xF8,0x0F,0xA1,0x46,0x5A,0x9D,0x8B,0x6F,0xA7,0x59,0xEC,
+        0x65,0xC3,0x02,0x0D,0x59,0xC2,0x62,0x46,0x62,0xBD,0xFF,0x05,0x9B,0xDF,0x19,0xB3,
+        0x69,0xBB,0x84,0xA8,0xBC,0x83,0x0C,0x9F,0xD4
+  };
+    
+  size_t size = sizeof(SM2_PLAIN) / sizeof(unsigned char);
+    
+  size_t txtlen = size + 200;
+  unsigned char cipher[txtlen];
+  memset(cipher, 0x00, txtlen);
+    
+  ret = SM2EncryptWithMode(&ctx, SM2_PLAIN, size, pub, 130, cipher, &txtlen, SM2CipherMode_C1C2C3_ASN1);
+  if ((size + 96)  == txtlen) {
+    ret |= RET_ERR;
+  }
+
+  unsigned char plain[size];
+  memset(plain, 0x00, size);
+
+  ret |= SM2DecryptWithMode(&ctx, (const unsigned char*)cipher, txtlen, (const char*)pri, 64, plain, \
+                            &txtlen, SM2CipherMode_C1C2C3_ASN1);
+  if ((size != txtlen) || (memcmp(SM2_PLAIN, plain, txtlen))) {
+    ret |= RET_ERR;
+  }
+    
+  SM2FreeCtx(&ctx);
+  return 0;
+}
+
+
+int test_SM2_Encrypt_Decrypt_WithMode_C1C2C3(void) {
+  int ret = RET_OK;
+  sm2_ctx_t ctx;
+
+  const char *pub =
+      "04323A83A37A469E4D7DB5093A68441D2B426B868E9E26CD48725A078DA98067F132073BB718531AE18E29B8A57F"
+      "CFD76FCD16F30DA5BBA19FC7F35682551888C2";
+  const char *pri = "DC78C9E7EB5389B4562AC554E33897E2D6E36E5BDF928D7D0C0AD0726D8F9039";
+
+  SM2InitCtxWithPubKey(&ctx, pub);
+
+  const unsigned char SM2_PLAIN[41] = {
+      0x99,0x5B,0x94,0x98,0x69,0xF8,0x0F,0xA1,0x46,0x5A,0x9D,0x8B,0x6F,0xA7,0x59,0xEC,
+      0x65,0xC3,0x02,0x0D,0x59,0xC2,0x62,0x46,0x62,0xBD,0xFF,0x05,0x9B,0xDF,0x19,0xB3,
+      0x69,0xBB,0x84,0xA8,0xBC,0x83,0x0C,0x9F,0xD4
+  };
+    
+  size_t size = sizeof(SM2_PLAIN) / sizeof(unsigned char);
+    
+  size_t txtlen = size + 200;
+  unsigned char cipher[txtlen];
+  memset(cipher, 0x00, txtlen);
+    
+  ret = SM2EncryptWithMode(&ctx, SM2_PLAIN, size, pub, 130, cipher, &txtlen, SM2CipherMode_C1C2C3);
+  if ((size + 96)  != txtlen) {
+    ret |= RET_ERR;
+  }
+
+  unsigned char plain[size];
+  memset(plain, 0x00, size);
+
+  ret |= SM2DecryptWithMode(&ctx, (const unsigned char*)cipher, txtlen, (const char*)pri, 64, plain, \
+                            &txtlen, SM2CipherMode_C1C2C3);
+  if ((size != txtlen) || (memcmp(SM2_PLAIN, plain, txtlen))) {
+    ret |= RET_ERR;
+  }
+    
+  SM2FreeCtx(&ctx);
+  return 0;
+}
+
+int test_SM2_Sign_Verify(void) {
+  int ret = RET_OK;
+  sm2_ctx_t ctx;
+
+  const char *pub =
+      "041D9E2952A06C913BAD21CCC358905ADB3A8097DB6F2F87EB5F393284EC2B7208C30B4D9834D0120216D6F1A731"
+      "64FDA11A87B0A053F63D992BFB0E4FC1C5D9AD";
+  const char *pri = "3B03B35C2F26DBC56F6D33677F1B28AF15E45FE9B594A6426BDCAD4A69FF976B";
+
+  SM2InitCtxWithPubKey(&ctx, pub);
+
+  const unsigned char SM2_MESSAGE[37] = {
+      0x40,0x03,0x60,0x7F,0x75,0xBE,0xEE,0x81,0xA0,0x27,0xBB,0x6D,0x26,0x5B,0xA1,0x49,
+      0x9E,0x71,0xD5,0xD7,0xCD,0x88,0x46,0x39,0x6E,0x11,0x91,0x61,0xA5,0x7E,0x01,0xEE,
+      0xB9,0x1B,0xF8,0xC9,0xFE
+  };
+
+  size_t size = sizeof(SM2_MESSAGE) / sizeof(unsigned char);
+
+  size_t id_len = 16;
+  const char *id_str = "1234567812345678";
+
+  size_t sig_len = 80;
+  unsigned char sig[80];
+  memset(sig, 0x00, sig_len);
+
+  ret = SM2Sign(&ctx, SM2_MESSAGE, size, id_str, id_len, pub, 130, pri, 64, sig, &sig_len);
+  if (64 == sig_len) {
+    ret |= RET_ERR;
+  }
+
+  ret |= SM2Verify(&ctx, SM2_MESSAGE, size, id_str, id_len, sig, sig_len, pub, 130);
+
+  SM2FreeCtx(&ctx);
+  return ret;
+}
+
+int test_SM2_Sign_Verify_WithMode_RS(void) {
+  int ret = RET_OK;
+  sm2_ctx_t ctx;
+
+  const char *pub =
+      "041D9E2952A06C913BAD21CCC358905ADB3A8097DB6F2F87EB5F393284EC2B7208C30B4D9834D0120216D6F1A731"
+      "64FDA11A87B0A053F63D992BFB0E4FC1C5D9AD";
+  const char *pri = "3B03B35C2F26DBC56F6D33677F1B28AF15E45FE9B594A6426BDCAD4A69FF976B";
+
+  SM2InitCtxWithPubKey(&ctx, pub);
+ 
+  const unsigned char SM2_MESSAGE[37] = {
+      0x40,0x03,0x60,0x7F,0x75,0xBE,0xEE,0x81,0xA0,0x27,0xBB,0x6D,0x26,0x5B,0xA1,0x49,
+      0x9E,0x71,0xD5,0xD7,0xCD,0x88,0x46,0x39,0x6E,0x11,0x91,0x61,0xA5,0x7E,0x01,0xEE,
+      0xB9,0x1B,0xF8,0xC9,0xFE
+  };
+    
+  size_t size = sizeof(SM2_MESSAGE) / sizeof(unsigned char);
+
+  size_t id_len = 16;
+  const char *id_str = "1234567812345678";
+    
+  size_t sig_len = 80;
+  unsigned char sig[80];
+  memset(sig, 0x00, sig_len);
+
+  ret = SM2SignWithMode(&ctx, SM2_MESSAGE, size, id_str, id_len, pub, 130, pri, 64, sig, \
+                        &sig_len, SM2SignMode_RS);
+  if (64 != sig_len) {
+    ret |= RET_ERR;
+  }
+
+  ret |= SM2VerifyWithMode(&ctx, SM2_MESSAGE, size, id_str, id_len, sig, sig_len, pub, \
+                           130, SM2SignMode_RS);
+
+  SM2FreeCtx(&ctx);
+  return ret;
+}
+
+int test_SM2_Sign_Verify_WithMode_RS_ASN1(void) {
+  int ret = RET_OK;
+  sm2_ctx_t ctx;
+
+  const char *pub =
+      "041D9E2952A06C913BAD21CCC358905ADB3A8097DB6F2F87EB5F393284EC2B7208C30B4D9834D0120216D6F1A731"
+      "64FDA11A87B0A053F63D992BFB0E4FC1C5D9AD";
+  const char *pri = "3B03B35C2F26DBC56F6D33677F1B28AF15E45FE9B594A6426BDCAD4A69FF976B";
+
+  SM2InitCtxWithPubKey(&ctx, pub);
+ 
+  const unsigned char SM2_MESSAGE[37] = {
+      0x40,0x03,0x60,0x7F,0x75,0xBE,0xEE,0x81,0xA0,0x27,0xBB,0x6D,0x26,0x5B,0xA1,0x49,
+      0x9E,0x71,0xD5,0xD7,0xCD,0x88,0x46,0x39,0x6E,0x11,0x91,0x61,0xA5,0x7E,0x01,0xEE,
+      0xB9,0x1B,0xF8,0xC9,0xFE
+  };
+    
+  size_t size = sizeof(SM2_MESSAGE) / sizeof(unsigned char);
+
+  size_t id_len = 16;
+  const char *id_str = "1234567812345678";
+    
+  size_t sig_len = 80;
+  unsigned char sig[80];
+  memset(sig, 0x00, sig_len);
+
+  ret = SM2SignWithMode(&ctx, SM2_MESSAGE, size, id_str, id_len, pub, 130, pri, 64, sig, \
+                        &sig_len, SM2SignMode_RS_ASN1);
+  if (64 == sig_len) {
+    ret |= RET_ERR;
+  }
+
+  ret |= SM2VerifyWithMode(&ctx, SM2_MESSAGE, size, id_str, id_len, sig, sig_len, pub, \
+                           130, SM2SignMode_RS_ASN1);
+
+  SM2FreeCtx(&ctx);
+  return ret;
+}
+
+int test_sm2_sign_verify_inner(int times,size_t data_length,int precompute)
+{
+  sm2_ctx_t ctx;
+  int ret = RET_OK;
+  
+  const char *pub = "0409F9DF311E5421A150DD7D161E4BC5C672179FAD1833FC076BB08FF356F35020CCEA490CE26775A52DC6EA718CC1AA600AED05FBF35E084A6632F6072DA9AD13";
+  const char *pri = "3945208F7B2144B13F36E38AC6D39F95889393692860B51A42FB81EF4DF7C5B8";
+  
+  if (precompute != 0) {
+    SM2InitCtxWithPubKey(&ctx, pub);
+  }else{
+    SM2InitCtx(&ctx);
+  }
+  
+  unsigned long random_content_time = 0;
+  unsigned long sign_time = 0;
+  unsigned long verify_time = 0;
+  
+  for (int i = 0; i < times; ++i)
+  {
+    unsigned long timestamp_random_begin = get_tick_count();
+    
+    size_t random_len = data_length;
+    
+    unsigned char *msg = new unsigned char[random_len];
+    random_content(random_len, msg);
+    
+    size_t id_len = 16;
+    const char *id_str = "1234567812345678";
+    
+    unsigned char *sig = new unsigned char[80];
+    memset(sig, 0, 80);
+    size_t outlen = 80;
+    
+    unsigned long timestamp_random_end = get_tick_count();
+    random_content_time += timestamp_random_end - timestamp_random_begin;
+    
+    ret = SM2Sign(&ctx, msg, random_len, (char *)id_str, id_len, pub, 130, pri, 64, sig, &outlen);
+    if (ret != 0)
+    {
+      printf("test sm2 sign failed.\n");
+      delete[] msg;
+      delete[] sig;
+      ret = RET_ERR;
+      break;
+    }
+    
+    unsigned long timestamp_sign_end = get_tick_count();
+    sign_time += timestamp_sign_end - timestamp_random_end;
+    
+    ret = SM2Verify(&ctx, msg, random_len, id_str, id_len, sig, outlen, pub, 130);
+    if (ret != 0)
+    {
+      printf("test sm2 verify failed.\n");
+      delete[] msg;
+      delete[] sig;
+      ret = RET_ERR;
+      break;
+    }
+    
+    unsigned long timestamp_verify_end = get_tick_count();
+    verify_time += timestamp_verify_end - timestamp_sign_end;
+
+    delete[] msg;
+    delete[] sig;
+  }
+  
+  double sign_count_per_second = (float)times/(sign_time/1000.0);
+  printf("SM2 sign perf:[precompute:%d][block size:%lu][tps :%lu]\n",
+         precompute,data_length,(long)sign_count_per_second);
+  
+  double verify_count_per_second = (float)times/(verify_time/1000.0);
+  printf("SM2 verify perf:[precompute:%d][block size:%lu][tps :%lu]\n",
+         precompute,data_length,(long)verify_count_per_second);
+  
+  SM2FreeCtx(&ctx);
+  return ret;
+}
+
+int test_sm2_sign_verify(int times,size_t data_length)
+{
+  int ret = 0;
+  ret = test_sm2_sign_verify_inner(times, data_length, 0);
+  if (ret != 0) {
+    return ret;
+  }
+  
+  ret = test_sm2_sign_verify_inner(times, data_length, 1);
+  if (ret != 0) {
+    return ret;
+  }
+  return ret;
+}
+
+int test(void) {
+
+  printf("\n\n--------------SM2 TEST--------------\n");
+  int ret = test_SM2_Generate_Key();
+  printf("\n test_SM2_Generate_Key ret=%d\n",ret);
+
+  ret = test_SM2_Encrypt_Decrypt();
+  printf("\n test_SM2_Encrypt_Decrypt ret=%d\n",ret);
+  
+  ret = test_SM2_Encrypt_Decrypt_WithMode_C1C3C2_ASN1();
+  printf("\n test_SM2_Encrypt_Decrypt_WithMode_C1C3C2_ASN1 ret=%d\n",ret);
+  
+  ret = test_SM2_Encrypt_Decrypt_WithMode_C1C3C2();
+  printf("\n test_SM2_Encrypt_Decrypt_WithMode_C1C3C2 ret=%d\n",ret);
+
+  ret = test_SM2_Encrypt_Decrypt_WithMode_C1C2C3_ASN1();
+  printf("\n test_SM2_Encrypt_Decrypt_WithMode_C1C2C3_ASN1 ret=%d\n",ret);
+
+  ret = test_SM2_Encrypt_Decrypt_WithMode_C1C2C3();
+  printf("\n test_SM2_Encrypt_Decrypt_WithMode_C1C2C3 ret=%d\n",ret);
+
+  ret = test_SM2_Sign_Verify();
+  printf("\n test_SM2_Sign_Verify ret=%d\n",ret);
+
+  ret = test_SM2_Sign_Verify_WithMode_RS();
+  printf("\n test_SM2_Sign_Verify_WithMode_RS ret=%d\n",ret);
+
+  ret = test_SM2_Sign_Verify_WithMode_RS_ASN1();
+  printf("\n test_SM2_Sign_Verify_WithMode_RS_ASN1 ret=%d\n",ret);
+
+  printf("\n\n--------------SM3 TEST--------------\n");
+  ret = test_SM3();
+  printf("\n test_SM3 ret=%d\n",ret);
+
+  ret = test_SM3_Steps();
+  printf("\n test_SM3_Steps ret=%d\n",ret);
+  
+  ret = test_SM3_HMAC();
+  printf("\n test_SM3_HMAC ret=%d\n",ret);
+
+  ret = test_SM3_HMAC_Steps();
+  printf("\n test_SM3_HMAC_Steps ret=%d\n",ret);
+ 
+  printf("\n\n--------------SM4 TEST--------------\n");
+  ret = test_SM4_ECB_Encrypt_Decrypt_NoPadding();
+  printf("\n test_SM4_ECB_Encrypt_Decrypt_NoPadding ret=%d\n",ret);
+  
+  ret = test_SM4_ECB_Encrypt_Decrypt();
+  printf("\n test_SM4_ECB_Encrypt_Decrypt ret=%d\n",ret);
+  
+  ret = test_SM4_CBC_Encrypt_Decrypt_NoPadding();
+  printf("\n test_SM4_CBC_Encrypt_Decrypt_NoPadding ret=%d\n",ret);
+  
+  ret = test_SM4_CBC_Encrypt_Decrypt();
+  printf("\n test_SM4_CBC_Encrypt_Decrypt ret=%d\n",ret);
+  
+  ret = test_SM4_GCM_Encrypt_Decrypt_NoPadding();
+  printf("\n test_SM4_GCM_Encrypt_Decrypt_NoPadding ret=%d\n",ret);
+
+  ret = test_SM4_GCM_Encrypt_Decrypt();
+  printf("\n test_SM4_GCM_Encrypt_Decrypt ret=%d\n",ret);
+
+   ret = test_SM4_GCM_Encrypt_Decrypt_NoPadding_NIST_SP800_38D();
+   printf("\n test_SM4_GCM_Encrypt_Decrypt_NoPadding_NIST_SP800_38D ret=%d\n",ret);
+
+   ret = test_SM4_GCM_Encrypt_Decrypt_NIST_SP800_38D();
+   printf("\n test_SM4_GCM_Encrypt_Decrypt_NIST_SP800_38D ret=%d\n",ret);
+  
+  
+  test_sm2_sign_verify(3000,256);
+
+  return 0;
+}
+
+
+int main(int argc, char * argv[]) {
+  NSString * appDelegateClassName;
+  @autoreleasepool {
+      // Setup code that might create autoreleased objects goes here.
+    appDelegateClassName = NSStringFromClass([AppDelegate class]);
+    
+    test();
+  }
+  return UIApplicationMain(argc, argv, nil, appDelegateClassName);
+}

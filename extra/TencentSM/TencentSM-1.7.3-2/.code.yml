@@ -1,0 +1,8 @@
+source:
+  third_party_source:
+    filepath_regex: [".*/lite/include/.*",".*/lite/build/.*",".*/lite/libtasn1/.*",".*/lite/test/.*",".*/lite/source/include/.*",".*/lite/python/.*",".*/lite/gmp/.*"]
+
+
+hookman:
+    features:
+        - angular-commit-check

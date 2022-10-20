@@ -1,0 +1,400 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 50;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		FE3BC586231CEA8C00A74551 /* main.mm in Sources */ = {isa = PBXBuildFile; fileRef = FE3BC585231CEA8C00A74551 /* main.mm */; };
+		FE3BC598231CEB0000A74551 /* libTencentSM.a in Frameworks */ = {isa = PBXBuildFile; fileRef = FE3BC591231CEA9D00A74551 /* libTencentSM.a */; };
+		FE491D4A2593311800CC138F /* libtasn1.a in Frameworks */ = {isa = PBXBuildFile; fileRef = FE329F76245A89FF00A29331 /* libtasn1.a */; };
+		FE491D5B25A461AD00CC138F /* test_sm4_perf.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FE491D5A25A461AD00CC138F /* test_sm4_perf.cpp */; };
+		FEC7623024206C31002E4B65 /* utils.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FEC7622824206C31002E4B65 /* utils.cpp */; };
+		FEC7623324206C31002E4B65 /* test_ability.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FEC7622E24206C31002E4B65 /* test_ability.cpp */; };
+		FEC7623424206C31002E4B65 /* sm_interface.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FEC7622F24206C31002E4B65 /* sm_interface.cpp */; };
+		FEF1290925E4DEBF0085B4D9 /* test_sm2_perf.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FEF1290725E4DEBF0085B4D9 /* test_sm2_perf.cpp */; };
+		FEF1290C25E503090085B4D9 /* test_sm3_perf.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FEF1290A25E503090085B4D9 /* test_sm3_perf.cpp */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		FE3BC590231CEA9D00A74551 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FE3BC58C231CEA9D00A74551 /* TencentSM.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = FE3BC519231CEA4100A74551;
+			remoteInfo = TencentSM;
+		};
+		FE3BC595231CEAFD00A74551 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FE3BC58C231CEA9D00A74551 /* TencentSM.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = FE3BC518231CEA4100A74551;
+			remoteInfo = TencentSM;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		FE3BC580231CEA8C00A74551 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		FE329F76245A89FF00A29331 /* libtasn1.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libtasn1.a; path = ../../../libtasn1/product/lib/libtasn1.a; sourceTree = "<group>"; };
+		FE3BC582231CEA8C00A74551 /* TencentSM_Demo */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = TencentSM_Demo; sourceTree = BUILT_PRODUCTS_DIR; };
+		FE3BC585231CEA8C00A74551 /* main.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = main.mm; sourceTree = "<group>"; };
+		FE3BC58C231CEA9D00A74551 /* TencentSM.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = TencentSM.xcodeproj; path = ../../TencentSM/TencentSM.xcodeproj; sourceTree = "<group>"; };
+		FE491D5A25A461AD00CC138F /* test_sm4_perf.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = test_sm4_perf.cpp; sourceTree = "<group>"; };
+		FE491D5C25A4624000CC138F /* test_sm4_perf.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = test_sm4_perf.h; sourceTree = "<group>"; };
+		FEC7622824206C31002E4B65 /* utils.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = utils.cpp; sourceTree = "<group>"; };
+		FEC7622A24206C31002E4B65 /* CMakeLists.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CMakeLists.txt; sourceTree = "<group>"; };
+		FEC7622B24206C31002E4B65 /* test_global.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = test_global.hpp; sourceTree = "<group>"; };
+		FEC7622E24206C31002E4B65 /* test_ability.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = test_ability.cpp; sourceTree = "<group>"; };
+		FEC7622F24206C31002E4B65 /* sm_interface.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = sm_interface.cpp; sourceTree = "<group>"; };
+		FEF1290725E4DEBF0085B4D9 /* test_sm2_perf.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = test_sm2_perf.cpp; sourceTree = "<group>"; };
+		FEF1290825E4DEBF0085B4D9 /* test_sm2_perf.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = test_sm2_perf.h; sourceTree = "<group>"; };
+		FEF1290A25E503090085B4D9 /* test_sm3_perf.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = test_sm3_perf.cpp; sourceTree = "<group>"; };
+		FEF1290B25E503090085B4D9 /* test_sm3_perf.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = test_sm3_perf.h; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		FE3BC57F231CEA8C00A74551 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FE3BC598231CEB0000A74551 /* libTencentSM.a in Frameworks */,
+				FE491D4A2593311800CC138F /* libtasn1.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		FE3BC579231CEA8C00A74551 = {
+			isa = PBXGroup;
+			children = (
+				FE3BC584231CEA8C00A74551 /* TencentSM_Demo */,
+				FE3BC583231CEA8C00A74551 /* Products */,
+				FE3BC597231CEB0000A74551 /* Frameworks */,
+			);
+			sourceTree = "<group>";
+		};
+		FE3BC583231CEA8C00A74551 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				FE3BC582231CEA8C00A74551 /* TencentSM_Demo */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		FE3BC584231CEA8C00A74551 /* TencentSM_Demo */ = {
+			isa = PBXGroup;
+			children = (
+				FEC7622624206C31002E4B65 /* test */,
+				FE3BC58C231CEA9D00A74551 /* TencentSM.xcodeproj */,
+				FE3BC585231CEA8C00A74551 /* main.mm */,
+			);
+			path = TencentSM_Demo;
+			sourceTree = "<group>";
+		};
+		FE3BC58D231CEA9D00A74551 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				FE3BC591231CEA9D00A74551 /* libTencentSM.a */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		FE3BC597231CEB0000A74551 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				FE329F76245A89FF00A29331 /* libtasn1.a */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		FEC7622624206C31002E4B65 /* test */ = {
+			isa = PBXGroup;
+			children = (
+				FEC7622824206C31002E4B65 /* utils.cpp */,
+				FEC7622A24206C31002E4B65 /* CMakeLists.txt */,
+				FEC7622B24206C31002E4B65 /* test_global.hpp */,
+				FEC7622E24206C31002E4B65 /* test_ability.cpp */,
+				FEC7622F24206C31002E4B65 /* sm_interface.cpp */,
+				FE491D5C25A4624000CC138F /* test_sm4_perf.h */,
+				FE491D5A25A461AD00CC138F /* test_sm4_perf.cpp */,
+				FEF1290825E4DEBF0085B4D9 /* test_sm2_perf.h */,
+				FEF1290725E4DEBF0085B4D9 /* test_sm2_perf.cpp */,
+				FEF1290A25E503090085B4D9 /* test_sm3_perf.cpp */,
+				FEF1290B25E503090085B4D9 /* test_sm3_perf.h */,
+			);
+			name = test;
+			path = ../../../../test;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		FE3BC581231CEA8C00A74551 /* TencentSM_Demo */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FE3BC589231CEA8C00A74551 /* Build configuration list for PBXNativeTarget "TencentSM_Demo" */;
+			buildPhases = (
+				FE3BC57E231CEA8C00A74551 /* Sources */,
+				FE3BC57F231CEA8C00A74551 /* Frameworks */,
+				FE3BC580231CEA8C00A74551 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				FE3BC596231CEAFD00A74551 /* PBXTargetDependency */,
+			);
+			name = TencentSM_Demo;
+			productName = TencentSM_Demo;
+			productReference = FE3BC582231CEA8C00A74551 /* TencentSM_Demo */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		FE3BC57A231CEA8C00A74551 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 1030;
+				ORGANIZATIONNAME = TSM;
+				TargetAttributes = {
+					FE3BC581231CEA8C00A74551 = {
+						CreatedOnToolsVersion = 10.3;
+					};
+				};
+			};
+			buildConfigurationList = FE3BC57D231CEA8C00A74551 /* Build configuration list for PBXProject "TencentSM_Demo" */;
+			compatibilityVersion = "Xcode 9.3";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = FE3BC579231CEA8C00A74551;
+			productRefGroup = FE3BC583231CEA8C00A74551 /* Products */;
+			projectDirPath = "";
+			projectReferences = (
+				{
+					ProductGroup = FE3BC58D231CEA9D00A74551 /* Products */;
+					ProjectRef = FE3BC58C231CEA9D00A74551 /* TencentSM.xcodeproj */;
+				},
+			);
+			projectRoot = "";
+			targets = (
+				FE3BC581231CEA8C00A74551 /* TencentSM_Demo */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXReferenceProxy section */
+		FE3BC591231CEA9D00A74551 /* libTencentSM.a */ = {
+			isa = PBXReferenceProxy;
+			fileType = archive.ar;
+			path = libTencentSM.a;
+			remoteRef = FE3BC590231CEA9D00A74551 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+/* End PBXReferenceProxy section */
+
+/* Begin PBXSourcesBuildPhase section */
+		FE3BC57E231CEA8C00A74551 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FE3BC586231CEA8C00A74551 /* main.mm in Sources */,
+				FEF1290925E4DEBF0085B4D9 /* test_sm2_perf.cpp in Sources */,
+				FEC7623024206C31002E4B65 /* utils.cpp in Sources */,
+				FEF1290C25E503090085B4D9 /* test_sm3_perf.cpp in Sources */,
+				FEC7623324206C31002E4B65 /* test_ability.cpp in Sources */,
+				FE491D5B25A461AD00CC138F /* test_sm4_perf.cpp in Sources */,
+				FEC7623424206C31002E4B65 /* sm_interface.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		FE3BC596231CEAFD00A74551 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = TencentSM;
+			targetProxy = FE3BC595231CEAFD00A74551 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		FE3BC587231CEA8C00A74551 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.14;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		FE3BC588231CEA8C00A74551 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.14;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		FE3BC58A231CEA8C00A74551 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				HEADER_SEARCH_PATHS = (
+					"\"$(SRCROOT)/../../../source\"/**",
+					"\"$(SRCROOT)/../../../test\"/**",
+				);
+				LIBRARY_SEARCH_PATHS = "\"$(SRCROOT)/../../../libtasn1/product/lib\"";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				VALID_ARCHS = "i386 x86_64";
+			};
+			name = Debug;
+		};
+		FE3BC58B231CEA8C00A74551 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				HEADER_SEARCH_PATHS = (
+					"\"$(SRCROOT)/../../../source\"/**",
+					"\"$(SRCROOT)/../../../test\"/**",
+				);
+				LIBRARY_SEARCH_PATHS = "\"$(SRCROOT)/../../../libtasn1/product/lib\"";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				VALID_ARCHS = "i386 x86_64";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		FE3BC57D231CEA8C00A74551 /* Build configuration list for PBXProject "TencentSM_Demo" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FE3BC587231CEA8C00A74551 /* Debug */,
+				FE3BC588231CEA8C00A74551 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FE3BC589231CEA8C00A74551 /* Build configuration list for PBXNativeTarget "TencentSM_Demo" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FE3BC58A231CEA8C00A74551 /* Debug */,
+				FE3BC58B231CEA8C00A74551 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = FE3BC57A231CEA8C00A74551 /* Project object */;
+}

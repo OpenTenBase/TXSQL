@@ -278,6 +278,7 @@ build_type="debug"
 dest_dir="/usr/local/mysql"
 server_suffix="txsql"
 boost_dir="$pwd/"
+tsmdir="$pwd/extra/TencentSM/TencentSM-1.7.3-2"
 build_action=1
 kms_action=1
 valgrind=0      # Default, turn-ed off
@@ -384,6 +385,7 @@ if [ $optimize -eq 0 ];then
     -DWITH_SSL_PATH=/usr/local/ssl              \
     -DWITH_ZLIB=bundled                         \
     -DWITH_BOOST="$boost_dir/boost/"            \
+    -DWITH_TSM=${tsmdir}                        \
     -DWITH_INNOBASE_STORAGE_ENGINE=1            \
     -DWITH_ROCKSDB_SE_STORAGE_ENGINE=$with_rocksdb  \
     -DWITH_ARCHIVE_STORAGE_ENGINE=1             \
@@ -431,7 +433,8 @@ else
     -DWITH_ENTERPRISE_ENCRYPTION=1              \
     -DWITH_SSL_PATH=/usr/local/ssl              \
     -DWITH_ZLIB=bundled                         \
-    -DWITH_BOOST="$boost_dir"            \
+    -DWITH_BOOST="$boost_dir"                   \
+    -DWITH_TSM=${tsmdir}                        \
     -DWITH_INNOBASE_STORAGE_ENGINE=1            \
     -DWITH_ROCKSDB_SE_STORAGE_ENGINE=$with_rocksdb  \
     -DWITH_ARCHIVE_STORAGE_ENGINE=1             \

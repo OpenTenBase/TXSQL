@@ -1,0 +1,20 @@
+
+# Created by https://www.gitignore.io/api/maven
+# Edit at https://www.gitignore.io/?templates=maven
+
+### Maven ###
+JNA/TencentSM/target/
+JNA/TencentSM/pom.xml.tag
+JNA/TencentSM/pom.xml.releaseBackup
+JNA/TencentSM/pom.xml.versionsBackup
+JNA/TencentSM/pom.xml.next
+JNA/TencentSM/release.properties
+JNA/TencentSM/dependency-reduced-pom.xml
+JNA/TencentSM/buildNumber.properties
+JNA/TencentSM/.mvn/timing.properties
+JNA/TencentSM/.mvn/wrapper/maven-wrapper.jar
+
+# End of https://www.gitignore.io/api/maven
+
+lite/demo/MacOS/TencentSM_Demo/TencentSM_Demo.xcodeproj/project.xcworkspace/xcuserdata
+.idea
