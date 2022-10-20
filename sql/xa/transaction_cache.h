@@ -37,9 +37,22 @@
 #include "sql/psi_memory_key.h"    // key_memory_xa_recovered_transactions
 #include "sql/xa_aux.h"            // serialize_xid
 
+#define XID_CACHE_INSTANCE  128
+
+/** CPU cache line size */
+#ifdef __powerpc__
+#define CACHE_LINE_SIZE  128
+#else
+#define CACHE_LINE_SIZE  64
+#endif /* __powerpc__ */
+
 class Transaction_ctx;
 
 namespace xa {
+
+struct AlignedMutex{
+  alignas(CACHE_LINE_SIZE) mysql_mutex_t mutex;
+};
 
 /**
   @class Transaction_cache
@@ -148,8 +161,8 @@ class Transaction_cache {
   static void dispose();
 
  private:
-  /** A lock to serialize the access to `m_transaction_cache` */
-  mysql_mutex_t m_LOCK_transaction_cache;
+  /** Locks to serialize the access to `m_transaction_cache` */
+  AlignedMutex m_LOCK_transaction_cache[XID_CACHE_INSTANCE];
 #ifdef HAVE_PSI_INTERFACE
   /** The PSI key for the above lock */
   PSI_mutex_key m_key_LOCK_transaction_cache;
@@ -159,7 +172,7 @@ class Transaction_cache {
        PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME}};
 #endif
   /** A map holding the cached transaction context, indexed by XID */
-  unordered_map m_transaction_cache;
+  unordered_map *m_transaction_cache[XID_CACHE_INSTANCE];
 
   /**
    Class constructor.

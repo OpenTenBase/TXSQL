@@ -90,7 +90,7 @@ count(name)
 select count(name) from mutex_instances
 where name like "wait/synch/mutex/sql/LOCK_transaction_cache";
 count(name)
-1
+128
 select count(name) from mutex_instances
 where name like "wait/synch/mutex/sql/LOCK_plugin";
 count(name)

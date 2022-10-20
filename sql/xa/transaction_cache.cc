@@ -63,12 +63,19 @@
 #include "sql_string.h"
 #include "template_utils.h"
 #include "thr_mutex.h"
+#include "my_murmur3.h"
 
 #include <iostream>
 
 // Used to create keys for the map
 static std::string to_string(XID const &xid) {
   return std::string(pointer_cast<const char *>(xid.key()), xid.key_length());
+}
+
+static uint32_t get_instance_no(XID *xid) {
+  uint32_t hash_val = murmur3_32(xid->key(), xid->key_length(), 0);
+
+  return hash_val % XID_CACHE_INSTANCE;
 }
 
 struct transaction_free_hash {
@@ -79,19 +86,30 @@ struct transaction_free_hash {
 };
 
 #ifdef HAVE_PSI_INTERFACE
-xa::Transaction_cache::Transaction_cache()
-    : m_key_LOCK_transaction_cache{},
-      m_transaction_cache{m_key_LOCK_transaction_cache} {
+xa::Transaction_cache::Transaction_cache() {
   const char *category = "sql";
   mysql_mutex_register(category, this->m_transaction_cache_mutexes, 1);
-  mysql_mutex_init(this->m_key_LOCK_transaction_cache,
-                   &this->m_LOCK_transaction_cache, MY_MUTEX_INIT_FAST);
+  for (uint64_t i = 0; i < XID_CACHE_INSTANCE; i++) {
+    mysql_mutex_init(this->m_key_LOCK_transaction_cache,
+                     &(this->m_LOCK_transaction_cache[i].mutex),
+                     MY_MUTEX_INIT_FAST);
+    m_transaction_cache[i] =
+        new malloc_unordered_map<std::string, std::shared_ptr<Transaction_ctx>>(
+            key_memory_xa_transaction_contexts);
+    m_transaction_cache[i]->clear();
+  }
 }
 #else
-xa::Transaction_cache::Transaction_cache()
-    : m_transaction_cache{PSI_INSTRUMENT_ME} {
-  mysql_mutex_init(PSI_INSTRUMENT_ME, &this->m_LOCK_transaction_cache,
-                   MY_MUTEX_INIT_FAST);
+xa::Transaction_cache::Transaction_cache() {
+  for (uint64_t i = 0; i < XID_CACHE_INSTANCE; i++) {
+    mysql_mutex_init(PSI_INSTRUMENT_ME,
+                     &(this->m_LOCK_transaction_cache[i].mutex),
+                     MY_MUTEX_INIT_FAST);
+    m_transaction_cache[i] =
+        new malloc_unordered_map<std::string, std::shared_ptr<Transaction_ctx>>(
+            PSI_INSTRUMENT_ME);
+    m_transaction_cache[i]->clear();
+  }
 }
 #endif /* HAVE_PSI_INTERFACE */
 
@@ -101,14 +119,16 @@ bool xa::Transaction_cache::detach(Transaction_ctx *transaction) {
   XID xid = *(xs->get_xid());
   time_t prepare_state_time = xs->get_prepare_state_time();
   bool was_logged = xs->is_binlogged();
+  uint32_t instance_no = get_instance_no(&xid);
 
   assert(xs->has_state(XID_STATE::XA_PREPARED));
 
   auto &instance = xa::Transaction_cache::instance();
-  MUTEX_LOCK(mutex_guard, &instance.m_LOCK_transaction_cache);
+  MUTEX_LOCK(mutex_guard,
+             &instance.m_LOCK_transaction_cache[instance_no].mutex);
 
-  assert(instance.m_transaction_cache.count(to_string(xid)) != 0);
-  instance.m_transaction_cache.erase(to_string(xid));
+  assert(instance.m_transaction_cache[instance_no]->count(to_string(xid)) != 0);
+  instance.m_transaction_cache[instance_no]->erase(to_string(xid));
   res = xa::Transaction_cache::create_and_insert_new_transaction(
       &xid, was_logged, transaction, prepare_state_time);
 
@@ -117,21 +137,26 @@ bool xa::Transaction_cache::detach(Transaction_ctx *transaction) {
 
 void xa::Transaction_cache::remove(Transaction_ctx *transaction) {
   auto &instance = xa::Transaction_cache::instance();
-  MUTEX_LOCK(mutex_guard, &instance.m_LOCK_transaction_cache);
-  const auto it = instance.m_transaction_cache.find(
+  uint32_t instance_no = get_instance_no(transaction->xid_state()->get_xid());
+  MUTEX_LOCK(mutex_guard,
+             &instance.m_LOCK_transaction_cache[instance_no].mutex);
+  const auto it = instance.m_transaction_cache[instance_no]->find(
       to_string(*transaction->xid_state()->get_xid()));
-  if (it != instance.m_transaction_cache.end() &&
+  if (it != instance.m_transaction_cache[instance_no]->end() &&
       it->second.get() == transaction)
-    instance.m_transaction_cache.erase(it);
+    instance.m_transaction_cache[instance_no]->erase(it);
 }
 
 bool xa::Transaction_cache::insert(XID *xid, Transaction_ctx *transaction) {
   auto &instance = xa::Transaction_cache::instance();
+  uint32_t instance_no = get_instance_no(xid);
   bool res{false};
   {
-    MUTEX_LOCK(mutex_guard, &instance.m_LOCK_transaction_cache);
+    MUTEX_LOCK(mutex_guard,
+               &instance.m_LOCK_transaction_cache[instance_no].mutex);
     std::shared_ptr<Transaction_ctx> ptr{transaction, transaction_free_hash{}};
-    res = !instance.m_transaction_cache.emplace(to_string(*xid), std::move(ptr))
+    res = !instance.m_transaction_cache[instance_no]
+               ->emplace(to_string(*xid), std::move(ptr))
                .second;
   }
   if (res) {
@@ -142,8 +167,11 @@ bool xa::Transaction_cache::insert(XID *xid, Transaction_ctx *transaction) {
 
 bool xa::Transaction_cache::insert(XID *xid) {
   auto &instance = xa::Transaction_cache::instance();
-  MUTEX_LOCK(mutex_guard, &instance.m_LOCK_transaction_cache);
-  if (instance.m_transaction_cache.count(to_string(*xid))) return false;
+  uint32_t instance_no = get_instance_no(xid);
+  MUTEX_LOCK(mutex_guard,
+             &instance.m_LOCK_transaction_cache[instance_no].mutex);
+  if (instance.m_transaction_cache[instance_no]->count(to_string(*xid)))
+    return false;
 
   /*
     It's assumed that XA transaction was binlogged before the server
@@ -160,9 +188,11 @@ bool xa::Transaction_cache::insert(XID *xid) {
 std::shared_ptr<Transaction_ctx> xa::Transaction_cache::find(
     XID *xid, filter_predicate_t filter) {
   auto &instance = xa::Transaction_cache::instance();
-  MUTEX_LOCK(mutex_guard, &instance.m_LOCK_transaction_cache);
-  auto found = instance.m_transaction_cache.find(to_string(*xid));
-  if (found == instance.m_transaction_cache.end()) return nullptr;
+  uint32_t instance_no = get_instance_no(xid);
+  MUTEX_LOCK(mutex_guard,
+             &instance.m_LOCK_transaction_cache[instance_no].mutex);
+  auto found = instance.m_transaction_cache[instance_no]->find(to_string(*xid));
+  if (found == instance.m_transaction_cache[instance_no]->end()) return nullptr;
   if (!found->second->xid_state()->get_xid()->eq(xid)) return nullptr;
   if (filter != nullptr && !filter(found->second)) return nullptr;
   return found->second;
@@ -171,8 +201,13 @@ std::shared_ptr<Transaction_ctx> xa::Transaction_cache::find(
 xa::Transaction_cache::list xa::Transaction_cache::get_cached_transactions() {
   auto &instance = xa::Transaction_cache::instance();
   list to_return;
-  MUTEX_LOCK(mutex_guard, &instance.m_LOCK_transaction_cache);
-  for (auto [_, trx] : instance.m_transaction_cache) to_return.push_back(trx);
+  for (uint64_t i = 0; i < XID_CACHE_INSTANCE; i++) {
+    {
+      MUTEX_LOCK(mutex_guard, &instance.m_LOCK_transaction_cache[i].mutex);
+      for (auto [_, trx] : *instance.m_transaction_cache[i])
+        to_return.push_back(trx);
+    }
+  }
   return to_return;
 }
 
@@ -180,7 +215,12 @@ void xa::Transaction_cache::initialize() { xa::Transaction_cache::instance(); }
 
 void xa::Transaction_cache::dispose() {
   auto &instance = xa::Transaction_cache::instance();
-  mysql_mutex_destroy(&instance.m_LOCK_transaction_cache);
+  for (uint64_t i = 0; i < XID_CACHE_INSTANCE; i++) {
+    instance.m_transaction_cache[i]->clear();
+    delete instance.m_transaction_cache[i];
+    instance.m_transaction_cache[i] = nullptr;
+    mysql_mutex_destroy(&instance.m_LOCK_transaction_cache[i].mutex);
+  }
 }
 
 xa::Transaction_cache &xa::Transaction_cache::instance() {
@@ -193,6 +233,7 @@ bool xa::Transaction_cache::create_and_insert_new_transaction(
     time_t prepare_state_time) {
   Transaction_ctx *transaction = new (std::nothrow) Transaction_ctx();
   XID_STATE *xs;
+  uint32_t instance_no;
 
   if (!transaction) {
     my_error(ER_OUTOFMEMORY, MYF(ME_FATALERROR), sizeof(Transaction_ctx));
@@ -210,11 +251,12 @@ bool xa::Transaction_cache::create_and_insert_new_transaction(
   xs = transaction->xid_state();
   xs->start_detached_xa(xid, is_binlogged_arg);
   xs->set_prepare_state_time(prepare_state_time);
+  instance_no = get_instance_no(xid);
 
   auto &instance = xa::Transaction_cache::instance();
-  return !instance.m_transaction_cache
-              .emplace(to_string(*xs->get_xid()),
-                       std::shared_ptr<Transaction_ctx>{
-                           transaction, transaction_free_hash{}})
+  return !instance.m_transaction_cache[instance_no]
+              ->emplace(to_string(*xs->get_xid()),
+                        std::shared_ptr<Transaction_ctx>{
+                            transaction, transaction_free_hash{}})
               .second;
 }
