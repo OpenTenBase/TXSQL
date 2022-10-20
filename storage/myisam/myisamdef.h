@@ -362,6 +362,7 @@ struct MI_SORT_PARAM {
   MEM_ROOT wordroot;
   uchar *record;
   MY_TMPDIR *tmpdir;
+  bool forbid_write;
   int (*key_cmp)(void *, uchar *, uchar *);
   int (*key_read)(MI_SORT_PARAM *, void *);
   int (*key_write)(MI_SORT_PARAM *, const void *);

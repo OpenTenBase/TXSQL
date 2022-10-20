@@ -28,7 +28,6 @@
 #include <sys/types.h>
 #include <algorithm>
 
-#include "sql/mysqld.h"  // cdb_instance_mode
 #include "my_compiler.h"
 #include "my_dbug.h"
 #include "my_inttypes.h"
@@ -298,8 +297,7 @@ static int write_keys(MI_SORT_PARAM *info, uchar **sort_keys, uint count,
   uint sort_length = info->key_length;
   DBUG_TRACE;
 
-  if (cdb_instance_mode == CDB_INSTANCEMODE_LOCKWRITE)
-    return 1;
+  if (info->forbid_write) return 1;
 
   std::sort(sort_keys, sort_keys + count, [info](uchar *a, uchar *b) {
     return info->key_cmp(info, pointer_cast<unsigned char *>(&a),

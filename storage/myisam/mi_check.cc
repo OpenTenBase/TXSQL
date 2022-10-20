@@ -2012,7 +2012,7 @@ err:
 */
 
 int mi_repair_by_sort(MI_CHECK *param, MI_INFO *info, const char *name,
-                      int rep_quick, bool no_copy_stat) {
+                      int rep_quick, bool no_copy_stat, bool lock_w) {
   int got_error;
   uint i;
   ulong length;
@@ -2126,6 +2126,7 @@ int mi_repair_by_sort(MI_CHECK *param, MI_INFO *info, const char *name,
   sort_param.sort_info = &sort_info;
   sort_param.fix_datafile = (bool)(!rep_quick);
   sort_param.master = true;
+  sort_param.forbid_write = lock_w;
 
   del = info->state->del;
   param->glob_crc = 0;
