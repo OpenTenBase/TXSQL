@@ -411,7 +411,7 @@ int mi_repair(MI_CHECK *param, MI_INFO *info, char *name, int rep_quick,
 int mi_sort_index(MI_CHECK *param, MI_INFO *info, char *name,
                   bool no_copy_stat);
 int mi_repair_by_sort(MI_CHECK *param, MI_INFO *info, const char *name,
-                      int rep_quick, bool no_copy_stat);
+                      int rep_quick, bool no_copy_stat, bool lock_w = false);
 int change_to_newfile(const char *filename, const char *old_ext,
                       const char *new_ext, myf myflags);
 int lock_file(MI_CHECK *param, File file, int lock_type, const char *filetype,

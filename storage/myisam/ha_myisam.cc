@@ -1051,7 +1051,8 @@ int ha_myisam::repair(THD *thd, MI_CHECK &param, bool do_optimize) {
         copying file stats from old to new.
       */
       error = mi_repair_by_sort(&param, file, fixed_name,
-                                param.testflag & T_QUICK, true);
+                param.testflag & T_QUICK, true,
+                cdb_instance_mode == CDB_INSTANCEMODE_LOCKWRITE);
     } else {
       thd_proc_info(thd, "Repair with keycache");
       param.testflag &= ~T_REP_BY_SORT;
