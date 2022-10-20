@@ -1,0 +1,515 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 50;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		FE5DF251262594310073FF47 /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = FE5DF250262594310073FF47 /* AppDelegate.m */; };
+		FE5DF254262594310073FF47 /* SceneDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = FE5DF253262594310073FF47 /* SceneDelegate.m */; };
+		FE5DF257262594310073FF47 /* ViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = FE5DF256262594310073FF47 /* ViewController.m */; };
+		FE5DF25A262594310073FF47 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = FE5DF258262594310073FF47 /* Main.storyboard */; };
+		FE5DF25C262594330073FF47 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FE5DF25B262594330073FF47 /* Assets.xcassets */; };
+		FE5DF25F262594330073FF47 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = FE5DF25D262594330073FF47 /* LaunchScreen.storyboard */; };
+		FE5DF262262594330073FF47 /* main.mm in Sources */ = {isa = PBXBuildFile; fileRef = FE5DF261262594330073FF47 /* main.mm */; };
+		FE5DF26C262594330073FF47 /* QCLOUD_SM_DEMOUITests.m in Sources */ = {isa = PBXBuildFile; fileRef = FE5DF26B262594330073FF47 /* QCLOUD_SM_DEMOUITests.m */; };
+		FE5DF27C2625949C0073FF47 /* libtasn1.a in Frameworks */ = {isa = PBXBuildFile; fileRef = FE5DF2772625949C0073FF47 /* libtasn1.a */; };
+		FE5DF27D2625949C0073FF47 /* libTencentSM.a in Frameworks */ = {isa = PBXBuildFile; fileRef = FE5DF2792625949C0073FF47 /* libTencentSM.a */; };
+		FE5DF27F26259C9E0073FF47 /* libgmp.a in Frameworks */ = {isa = PBXBuildFile; fileRef = FE5DF27E26259C9E0073FF47 /* libgmp.a */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		FE5DF268262594330073FF47 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FE5DF244262594310073FF47 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FE5DF24B262594310073FF47;
+			remoteInfo = QCLOUD_SM_DEMO;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		FE5DF24C262594310073FF47 /* QCLOUD_SM_DEMO.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = QCLOUD_SM_DEMO.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		FE5DF24F262594310073FF47 /* AppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
+		FE5DF250262594310073FF47 /* AppDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AppDelegate.m; sourceTree = "<group>"; };
+		FE5DF252262594310073FF47 /* SceneDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SceneDelegate.h; sourceTree = "<group>"; };
+		FE5DF253262594310073FF47 /* SceneDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = SceneDelegate.m; sourceTree = "<group>"; };
+		FE5DF255262594310073FF47 /* ViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ViewController.h; sourceTree = "<group>"; };
+		FE5DF256262594310073FF47 /* ViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ViewController.m; sourceTree = "<group>"; };
+		FE5DF259262594310073FF47 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
+		FE5DF25B262594330073FF47 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		FE5DF25E262594330073FF47 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
+		FE5DF260262594330073FF47 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		FE5DF261262594330073FF47 /* main.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = main.mm; sourceTree = "<group>"; };
+		FE5DF267262594330073FF47 /* QCLOUD_SM_DEMOUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = QCLOUD_SM_DEMOUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		FE5DF26B262594330073FF47 /* QCLOUD_SM_DEMOUITests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = QCLOUD_SM_DEMOUITests.m; sourceTree = "<group>"; };
+		FE5DF26D262594330073FF47 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		FE5DF2772625949C0073FF47 /* libtasn1.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libtasn1.a; sourceTree = "<group>"; };
+		FE5DF2792625949C0073FF47 /* libTencentSM.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libTencentSM.a; sourceTree = "<group>"; };
+		FE5DF27B2625949C0073FF47 /* sm.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = sm.h; sourceTree = "<group>"; };
+		FE5DF27E26259C9E0073FF47 /* libgmp.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libgmp.a; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		FE5DF249262594310073FF47 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FE5DF27C2625949C0073FF47 /* libtasn1.a in Frameworks */,
+				FE5DF27F26259C9E0073FF47 /* libgmp.a in Frameworks */,
+				FE5DF27D2625949C0073FF47 /* libTencentSM.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FE5DF264262594330073FF47 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		FE5DF243262594310073FF47 = {
+			isa = PBXGroup;
+			children = (
+				FE5DF24E262594310073FF47 /* QCLOUD_SM_DEMO */,
+				FE5DF26A262594330073FF47 /* QCLOUD_SM_DEMOUITests */,
+				FE5DF24D262594310073FF47 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		FE5DF24D262594310073FF47 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				FE5DF24C262594310073FF47 /* QCLOUD_SM_DEMO.app */,
+				FE5DF267262594330073FF47 /* QCLOUD_SM_DEMOUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		FE5DF24E262594310073FF47 /* QCLOUD_SM_DEMO */ = {
+			isa = PBXGroup;
+			children = (
+				FE5DF2762625949C0073FF47 /* dependencies */,
+				FE5DF27A2625949C0073FF47 /* include */,
+				FE5DF2782625949C0073FF47 /* static */,
+				FE5DF24F262594310073FF47 /* AppDelegate.h */,
+				FE5DF250262594310073FF47 /* AppDelegate.m */,
+				FE5DF252262594310073FF47 /* SceneDelegate.h */,
+				FE5DF253262594310073FF47 /* SceneDelegate.m */,
+				FE5DF255262594310073FF47 /* ViewController.h */,
+				FE5DF256262594310073FF47 /* ViewController.m */,
+				FE5DF258262594310073FF47 /* Main.storyboard */,
+				FE5DF25B262594330073FF47 /* Assets.xcassets */,
+				FE5DF25D262594330073FF47 /* LaunchScreen.storyboard */,
+				FE5DF260262594330073FF47 /* Info.plist */,
+				FE5DF261262594330073FF47 /* main.mm */,
+			);
+			path = QCLOUD_SM_DEMO;
+			sourceTree = "<group>";
+		};
+		FE5DF26A262594330073FF47 /* QCLOUD_SM_DEMOUITests */ = {
+			isa = PBXGroup;
+			children = (
+				FE5DF26B262594330073FF47 /* QCLOUD_SM_DEMOUITests.m */,
+				FE5DF26D262594330073FF47 /* Info.plist */,
+			);
+			path = QCLOUD_SM_DEMOUITests;
+			sourceTree = "<group>";
+		};
+		FE5DF2762625949C0073FF47 /* dependencies */ = {
+			isa = PBXGroup;
+			children = (
+				FE5DF27E26259C9E0073FF47 /* libgmp.a */,
+				FE5DF2772625949C0073FF47 /* libtasn1.a */,
+			);
+			path = dependencies;
+			sourceTree = "<group>";
+		};
+		FE5DF2782625949C0073FF47 /* static */ = {
+			isa = PBXGroup;
+			children = (
+				FE5DF2792625949C0073FF47 /* libTencentSM.a */,
+			);
+			path = static;
+			sourceTree = "<group>";
+		};
+		FE5DF27A2625949C0073FF47 /* include */ = {
+			isa = PBXGroup;
+			children = (
+				FE5DF27B2625949C0073FF47 /* sm.h */,
+			);
+			path = include;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		FE5DF24B262594310073FF47 /* QCLOUD_SM_DEMO */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FE5DF270262594330073FF47 /* Build configuration list for PBXNativeTarget "QCLOUD_SM_DEMO" */;
+			buildPhases = (
+				FE5DF248262594310073FF47 /* Sources */,
+				FE5DF249262594310073FF47 /* Frameworks */,
+				FE5DF24A262594310073FF47 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = QCLOUD_SM_DEMO;
+			productName = QCLOUD_SM_DEMO;
+			productReference = FE5DF24C262594310073FF47 /* QCLOUD_SM_DEMO.app */;
+			productType = "com.apple.product-type.application";
+		};
+		FE5DF266262594330073FF47 /* QCLOUD_SM_DEMOUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FE5DF273262594330073FF47 /* Build configuration list for PBXNativeTarget "QCLOUD_SM_DEMOUITests" */;
+			buildPhases = (
+				FE5DF263262594330073FF47 /* Sources */,
+				FE5DF264262594330073FF47 /* Frameworks */,
+				FE5DF265262594330073FF47 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				FE5DF269262594330073FF47 /* PBXTargetDependency */,
+			);
+			name = QCLOUD_SM_DEMOUITests;
+			productName = QCLOUD_SM_DEMOUITests;
+			productReference = FE5DF267262594330073FF47 /* QCLOUD_SM_DEMOUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		FE5DF244262594310073FF47 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 1170;
+				ORGANIZATIONNAME = tencent.com;
+				TargetAttributes = {
+					FE5DF24B262594310073FF47 = {
+						CreatedOnToolsVersion = 11.7;
+					};
+					FE5DF266262594330073FF47 = {
+						CreatedOnToolsVersion = 11.7;
+						TestTargetID = FE5DF24B262594310073FF47;
+					};
+				};
+			};
+			buildConfigurationList = FE5DF247262594310073FF47 /* Build configuration list for PBXProject "QCLOUD_SM_DEMO" */;
+			compatibilityVersion = "Xcode 9.3";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = FE5DF243262594310073FF47;
+			productRefGroup = FE5DF24D262594310073FF47 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				FE5DF24B262594310073FF47 /* QCLOUD_SM_DEMO */,
+				FE5DF266262594330073FF47 /* QCLOUD_SM_DEMOUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		FE5DF24A262594310073FF47 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FE5DF25F262594330073FF47 /* LaunchScreen.storyboard in Resources */,
+				FE5DF25C262594330073FF47 /* Assets.xcassets in Resources */,
+				FE5DF25A262594310073FF47 /* Main.storyboard in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FE5DF265262594330073FF47 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		FE5DF248262594310073FF47 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FE5DF257262594310073FF47 /* ViewController.m in Sources */,
+				FE5DF251262594310073FF47 /* AppDelegate.m in Sources */,
+				FE5DF262262594330073FF47 /* main.mm in Sources */,
+				FE5DF254262594310073FF47 /* SceneDelegate.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FE5DF263262594330073FF47 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FE5DF26C262594330073FF47 /* QCLOUD_SM_DEMOUITests.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		FE5DF269262594330073FF47 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FE5DF24B262594310073FF47 /* QCLOUD_SM_DEMO */;
+			targetProxy = FE5DF268262594330073FF47 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin PBXVariantGroup section */
+		FE5DF258262594310073FF47 /* Main.storyboard */ = {
+			isa = PBXVariantGroup;
+			children = (
+				FE5DF259262594310073FF47 /* Base */,
+			);
+			name = Main.storyboard;
+			sourceTree = "<group>";
+		};
+		FE5DF25D262594330073FF47 /* LaunchScreen.storyboard */ = {
+			isa = PBXVariantGroup;
+			children = (
+				FE5DF25E262594330073FF47 /* Base */,
+			);
+			name = LaunchScreen.storyboard;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
+
+/* Begin XCBuildConfiguration section */
+		FE5DF26E262594330073FF47 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 13.7;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+			};
+			name = Debug;
+		};
+		FE5DF26F262594330073FF47 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 13.7;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		FE5DF271262594330073FF47 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				HEADER_SEARCH_PATHS = "\"$(SRCROOT)/QCLOUD_SM_DEMO/include\"";
+				INFOPLIST_FILE = QCLOUD_SM_DEMO/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/QCLOUD_SM_DEMO/dependencies",
+					"$(PROJECT_DIR)/QCLOUD_SM_DEMO/static",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com..QCLOUD-SM-DEMO";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		FE5DF272262594330073FF47 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				HEADER_SEARCH_PATHS = "\"$(SRCROOT)/QCLOUD_SM_DEMO/include\"";
+				INFOPLIST_FILE = QCLOUD_SM_DEMO/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/QCLOUD_SM_DEMO/dependencies",
+					"$(PROJECT_DIR)/QCLOUD_SM_DEMO/static",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com..QCLOUD-SM-DEMO";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		FE5DF274262594330073FF47 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				INFOPLIST_FILE = QCLOUD_SM_DEMOUITests/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com..QCLOUD-SM-DEMOUITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = QCLOUD_SM_DEMO;
+			};
+			name = Debug;
+		};
+		FE5DF275262594330073FF47 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				INFOPLIST_FILE = QCLOUD_SM_DEMOUITests/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com..QCLOUD-SM-DEMOUITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = QCLOUD_SM_DEMO;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		FE5DF247262594310073FF47 /* Build configuration list for PBXProject "QCLOUD_SM_DEMO" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FE5DF26E262594330073FF47 /* Debug */,
+				FE5DF26F262594330073FF47 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FE5DF270262594330073FF47 /* Build configuration list for PBXNativeTarget "QCLOUD_SM_DEMO" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FE5DF271262594330073FF47 /* Debug */,
+				FE5DF272262594330073FF47 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FE5DF273262594330073FF47 /* Build configuration list for PBXNativeTarget "QCLOUD_SM_DEMOUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FE5DF274262594330073FF47 /* Debug */,
+				FE5DF275262594330073FF47 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = FE5DF244262594310073FF47 /* Project object */;
+}

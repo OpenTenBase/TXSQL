@@ -1,0 +1,657 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 50;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		FE329F692452DBAC00A29331 /* b64_encode.c in Sources */ = {isa = PBXBuildFile; fileRef = FE329F662452DBAC00A29331 /* b64_encode.c */; };
+		FE329F6A2452DBAC00A29331 /* b64_decode.c in Sources */ = {isa = PBXBuildFile; fileRef = FE329F672452DBAC00A29331 /* b64_decode.c */; };
+		FE329F6F245568B200A29331 /* b64.h in Headers */ = {isa = PBXBuildFile; fileRef = FE329F6C245568B200A29331 /* b64.h */; };
+		FE375AE924DBB3CC00AAA0B2 /* tc_sha1.c in Sources */ = {isa = PBXBuildFile; fileRef = FE375AE824DBB3CC00AAA0B2 /* tc_sha1.c */; };
+		FE375AEB24DBB3DB00AAA0B2 /* tc_sha1.h in Headers */ = {isa = PBXBuildFile; fileRef = FE375AEA24DBB3DB00AAA0B2 /* tc_sha1.h */; };
+		FE3BC51D231CEA4100A74551 /* TencentSM.h in Headers */ = {isa = PBXBuildFile; fileRef = FE3BC51C231CEA4100A74551 /* TencentSM.h */; };
+		FE3BC51F231CEA4100A74551 /* TencentSM.m in Sources */ = {isa = PBXBuildFile; fileRef = FE3BC51E231CEA4100A74551 /* TencentSM.m */; };
+		FE3BC575231CEA5600A74551 /* gmp.h in Headers */ = {isa = PBXBuildFile; fileRef = FE3BC574231CEA5600A74551 /* gmp.h */; };
+		FE3BC578231CEA6100A74551 /* libgmp.a in Frameworks */ = {isa = PBXBuildFile; fileRef = FE3BC577231CEA6100A74551 /* libgmp.a */; };
+		FE7C7259243DA06A00472875 /* tc_naf.c in Sources */ = {isa = PBXBuildFile; fileRef = FE7C7206243DA06900472875 /* tc_naf.c */; };
+		FE7C725B243DA06A00472875 /* tc_utils.c in Sources */ = {isa = PBXBuildFile; fileRef = FE7C7209243DA06900472875 /* tc_utils.c */; };
+		FE7C725D243DA06A00472875 /* tc_str.c in Sources */ = {isa = PBXBuildFile; fileRef = FE7C720B243DA06900472875 /* tc_str.c */; };
+		FE7C725E243DA06A00472875 /* fmemopen.c in Sources */ = {isa = PBXBuildFile; fileRef = FE7C720C243DA06900472875 /* fmemopen.c */; };
+		FE7C725F243DA06A00472875 /* tc_bn.c in Sources */ = {isa = PBXBuildFile; fileRef = FE7C720D243DA06900472875 /* tc_bn.c */; };
+		FE7C7260243DA06A00472875 /* tc_rand.c in Sources */ = {isa = PBXBuildFile; fileRef = FE7C720E243DA06900472875 /* tc_rand.c */; };
+		FE7C7266243DA06A00472875 /* tc_asn1.c in Sources */ = {isa = PBXBuildFile; fileRef = FE7C7218243DA06900472875 /* tc_asn1.c */; };
+		FE7C726B243DA06A00472875 /* tc_modes.h in Headers */ = {isa = PBXBuildFile; fileRef = FE7C721E243DA06900472875 /* tc_modes.h */; };
+		FE7C726C243DA06A00472875 /* tc.h in Headers */ = {isa = PBXBuildFile; fileRef = FE7C721F243DA06900472875 /* tc.h */; };
+		FE7C726D243DA06A00472875 /* sm_jni.h in Headers */ = {isa = PBXBuildFile; fileRef = FE7C7220243DA06900472875 /* sm_jni.h */; };
+		FE7C726E243DA06A00472875 /* libtasn1.h in Headers */ = {isa = PBXBuildFile; fileRef = FE7C7221243DA06900472875 /* libtasn1.h */; };
+		FE7C726F243DA06A00472875 /* tasn1_ctype.h in Headers */ = {isa = PBXBuildFile; fileRef = FE7C7222243DA06900472875 /* tasn1_ctype.h */; };
+		FE7C7270243DA06A00472875 /* tc_sm3.h in Headers */ = {isa = PBXBuildFile; fileRef = FE7C7223243DA06900472875 /* tc_sm3.h */; };
+		FE7C7272243DA06A00472875 /* tc_kms.h in Headers */ = {isa = PBXBuildFile; fileRef = FE7C7225243DA06900472875 /* tc_kms.h */; };
+		FE7C7273243DA06A00472875 /* tc_ec_mul.h in Headers */ = {isa = PBXBuildFile; fileRef = FE7C7226243DA06900472875 /* tc_ec_mul.h */; };
+		FE7C7274243DA06A00472875 /* tasn1_minmax.h in Headers */ = {isa = PBXBuildFile; fileRef = FE7C7227243DA06900472875 /* tasn1_minmax.h */; };
+		FE7C7275243DA06A00472875 /* tc_sm4_lcl.h in Headers */ = {isa = PBXBuildFile; fileRef = FE7C7228243DA06900472875 /* tc_sm4_lcl.h */; };
+		FE7C7276243DA06A00472875 /* tc_str.h in Headers */ = {isa = PBXBuildFile; fileRef = FE7C7229243DA06900472875 /* tc_str.h */; };
+		FE7C7277243DA06A00472875 /* tasn1_limits.h in Headers */ = {isa = PBXBuildFile; fileRef = FE7C722A243DA06900472875 /* tasn1_limits.h */; };
+		FE7C7278243DA06A00472875 /* tc_sm4.h in Headers */ = {isa = PBXBuildFile; fileRef = FE7C722B243DA06900472875 /* tc_sm4.h */; };
+		FE7C7279243DA06A00472875 /* tasn1_config.h in Headers */ = {isa = PBXBuildFile; fileRef = FE7C722C243DA06900472875 /* tasn1_config.h */; };
+		FE7C727A243DA06A00472875 /* tc_rand.h in Headers */ = {isa = PBXBuildFile; fileRef = FE7C722D243DA06900472875 /* tc_rand.h */; };
+		FE7C727B243DA06A00472875 /* tasn1_int.h in Headers */ = {isa = PBXBuildFile; fileRef = FE7C722E243DA06900472875 /* tasn1_int.h */; };
+		FE7C727C243DA06A00472875 /* tasn1_parser_aux.h in Headers */ = {isa = PBXBuildFile; fileRef = FE7C722F243DA06900472875 /* tasn1_parser_aux.h */; };
+		FE7C727E243DA06A00472875 /* tc_naf.h in Headers */ = {isa = PBXBuildFile; fileRef = FE7C7231243DA06900472875 /* tc_naf.h */; };
+		FE7C727F243DA06A00472875 /* tasn1_gstr.h in Headers */ = {isa = PBXBuildFile; fileRef = FE7C7232243DA06900472875 /* tasn1_gstr.h */; };
+		FE7C7280243DA06A00472875 /* tc_err.h in Headers */ = {isa = PBXBuildFile; fileRef = FE7C7233243DA06900472875 /* tc_err.h */; };
+		FE7C7281243DA06A00472875 /* tc_kdf.h in Headers */ = {isa = PBXBuildFile; fileRef = FE7C7234243DA06900472875 /* tc_kdf.h */; };
+		FE7C7282243DA06A00472875 /* tasn1_structure.h in Headers */ = {isa = PBXBuildFile; fileRef = FE7C7235243DA06900472875 /* tasn1_structure.h */; };
+		FE7C7283243DA06A00472875 /* tasn1_element.h in Headers */ = {isa = PBXBuildFile; fileRef = FE7C7236243DA06900472875 /* tasn1_element.h */; };
+		FE7C7284243DA06A00472875 /* tc_utils.h in Headers */ = {isa = PBXBuildFile; fileRef = FE7C7237243DA06900472875 /* tc_utils.h */; };
+		FE7C7285243DA06A00472875 /* tc_digest.h in Headers */ = {isa = PBXBuildFile; fileRef = FE7C7238243DA06900472875 /* tc_digest.h */; };
+		FE7C7286243DA06A00472875 /* tc_asn1.h in Headers */ = {isa = PBXBuildFile; fileRef = FE7C7239243DA06900472875 /* tc_asn1.h */; };
+		FE7C7287243DA06A00472875 /* tc_global.h in Headers */ = {isa = PBXBuildFile; fileRef = FE7C723A243DA06900472875 /* tc_global.h */; };
+		FE7C7288243DA06A00472875 /* tasn1_intprops.h in Headers */ = {isa = PBXBuildFile; fileRef = FE7C723B243DA06900472875 /* tasn1_intprops.h */; };
+		FE7C7289243DA06A00472875 /* ecp_sm2z256_macro.h in Headers */ = {isa = PBXBuildFile; fileRef = FE7C723C243DA06900472875 /* ecp_sm2z256_macro.h */; };
+		FE7C728A243DA06A00472875 /* sm.h in Headers */ = {isa = PBXBuildFile; fileRef = FE7C723D243DA06900472875 /* sm.h */; };
+		FE7C728B243DA06A00472875 /* tc_sm2.h in Headers */ = {isa = PBXBuildFile; fileRef = FE7C723E243DA06900472875 /* tc_sm2.h */; };
+		FE7C728C243DA06A00472875 /* ecp_sm2z256.c in Sources */ = {isa = PBXBuildFile; fileRef = FE7C7241243DA06900472875 /* ecp_sm2z256.c */; };
+		FE7C728D243DA06A00472875 /* tc_ec.c in Sources */ = {isa = PBXBuildFile; fileRef = FE7C7243243DA06900472875 /* tc_ec.c */; };
+		FE7C728E243DA06A00472875 /* tc_sm2.c in Sources */ = {isa = PBXBuildFile; fileRef = FE7C7244243DA06900472875 /* tc_sm2.c */; };
+		FE7C728F243DA06A00472875 /* ecp_sm2z256_table.c in Sources */ = {isa = PBXBuildFile; fileRef = FE7C7246243DA06900472875 /* ecp_sm2z256_table.c */; };
+		FE7C7290243DA06A00472875 /* ecp_sm2z256-x86_64.s in Sources */ = {isa = PBXBuildFile; fileRef = FE7C7247243DA06900472875 /* ecp_sm2z256-x86_64.s */; };
+		FE7C7291243DA06A00472875 /* tc_ec_mul.c in Sources */ = {isa = PBXBuildFile; fileRef = FE7C7248243DA06900472875 /* tc_ec_mul.c */; };
+		FE7C7292243DA06A00472875 /* tc_kdf.c in Sources */ = {isa = PBXBuildFile; fileRef = FE7C724A243DA06A00472875 /* tc_kdf.c */; };
+		FE7C7293243DA06A00472875 /* tc_digest.c in Sources */ = {isa = PBXBuildFile; fileRef = FE7C724C243DA06A00472875 /* tc_digest.c */; };
+		FE7C7294243DA06A00472875 /* tc_sm3.c in Sources */ = {isa = PBXBuildFile; fileRef = FE7C724D243DA06A00472875 /* tc_sm3.c */; settings = {COMPILER_FLAGS = "-march=native"; }; };
+		FE7C7295243DA06A00472875 /* tc_sm4_ecb.c in Sources */ = {isa = PBXBuildFile; fileRef = FE7C724F243DA06A00472875 /* tc_sm4_ecb.c */; };
+		FE7C7296243DA06A00472875 /* tc_sm4_enc.c in Sources */ = {isa = PBXBuildFile; fileRef = FE7C7251243DA06A00472875 /* tc_sm4_enc.c */; settings = {COMPILER_FLAGS = "-march=native"; }; };
+		FE7C7297243DA06A00472875 /* tc_modes.c in Sources */ = {isa = PBXBuildFile; fileRef = FE7C7252243DA06A00472875 /* tc_modes.c */; };
+		FE7C7298243DA06A00472875 /* tc_sm4_setkey.c in Sources */ = {isa = PBXBuildFile; fileRef = FE7C7253243DA06A00472875 /* tc_sm4_setkey.c */; };
+		FE7C7299243DA06A00472875 /* tc_sm4_common.c in Sources */ = {isa = PBXBuildFile; fileRef = FE7C7254243DA06A00472875 /* tc_sm4_common.c */; };
+		FE7C729A243DA06A00472875 /* tc_sm4_cbc.c in Sources */ = {isa = PBXBuildFile; fileRef = FE7C7255243DA06A00472875 /* tc_sm4_cbc.c */; };
+		FE7C729B243DA06A00472875 /* tc_kms.c in Sources */ = {isa = PBXBuildFile; fileRef = FE7C7257243DA06A00472875 /* tc_kms.c */; };
+		FE7C729C243DA06A00472875 /* sm.c in Sources */ = {isa = PBXBuildFile; fileRef = FE7C7258243DA06A00472875 /* sm.c */; };
+		FE8B323E24F6601B00E4B843 /* tc_gcm128_mode.c in Sources */ = {isa = PBXBuildFile; fileRef = FE8B323C24F6601B00E4B843 /* tc_gcm128_mode.c */; settings = {COMPILER_FLAGS = "-march=native"; }; };
+		FE8B324224F7A9FE00E4B843 /* tc_sm4_gcm.c in Sources */ = {isa = PBXBuildFile; fileRef = FE8B324024F7A9FE00E4B843 /* tc_sm4_gcm.c */; };
+		FE8B324424F7AADE00E4B843 /* tc_gcm128_mode.h in Headers */ = {isa = PBXBuildFile; fileRef = FE8B324324F7AADE00E4B843 /* tc_gcm128_mode.h */; };
+		FEF2CA8E248744C000370628 /* hmac_sm3.c in Sources */ = {isa = PBXBuildFile; fileRef = FEF2CA8D248744C000370628 /* hmac_sm3.c */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		FE329F662452DBAC00A29331 /* b64_encode.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = b64_encode.c; sourceTree = "<group>"; };
+		FE329F672452DBAC00A29331 /* b64_decode.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = b64_decode.c; sourceTree = "<group>"; };
+		FE329F6C245568B200A29331 /* b64.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = b64.h; sourceTree = "<group>"; };
+		FE329F74245A89E400A29331 /* libtasn1.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libtasn1.a; path = ../../../libtasn1/product/lib/libtasn1.a; sourceTree = "<group>"; };
+		FE375AE824DBB3CC00AAA0B2 /* tc_sha1.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tc_sha1.c; sourceTree = "<group>"; };
+		FE375AEA24DBB3DB00AAA0B2 /* tc_sha1.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tc_sha1.h; sourceTree = "<group>"; };
+		FE3BC519231CEA4100A74551 /* libTencentSM.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libTencentSM.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		FE3BC51C231CEA4100A74551 /* TencentSM.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = TencentSM.h; sourceTree = "<group>"; };
+		FE3BC51E231CEA4100A74551 /* TencentSM.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TencentSM.m; sourceTree = "<group>"; };
+		FE3BC574231CEA5600A74551 /* gmp.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = gmp.h; sourceTree = "<group>"; };
+		FE3BC577231CEA6100A74551 /* libgmp.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libgmp.a; path = ../../../gmp/lib/MacOS/libgmp.a; sourceTree = "<group>"; };
+		FE7C7206243DA06900472875 /* tc_naf.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tc_naf.c; sourceTree = "<group>"; };
+		FE7C7208243DA06900472875 /* CMakeLists.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CMakeLists.txt; sourceTree = "<group>"; };
+		FE7C7209243DA06900472875 /* tc_utils.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tc_utils.c; sourceTree = "<group>"; };
+		FE7C720B243DA06900472875 /* tc_str.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tc_str.c; sourceTree = "<group>"; };
+		FE7C720C243DA06900472875 /* fmemopen.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = fmemopen.c; sourceTree = "<group>"; };
+		FE7C720D243DA06900472875 /* tc_bn.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tc_bn.c; sourceTree = "<group>"; };
+		FE7C720E243DA06900472875 /* tc_rand.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tc_rand.c; sourceTree = "<group>"; };
+		FE7C7214243DA06900472875 /* CMakeLists.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CMakeLists.txt; sourceTree = "<group>"; };
+		FE7C7218243DA06900472875 /* tc_asn1.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tc_asn1.c; sourceTree = "<group>"; };
+		FE7C721E243DA06900472875 /* tc_modes.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tc_modes.h; sourceTree = "<group>"; };
+		FE7C721F243DA06900472875 /* tc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tc.h; sourceTree = "<group>"; };
+		FE7C7220243DA06900472875 /* sm_jni.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = sm_jni.h; sourceTree = "<group>"; };
+		FE7C7221243DA06900472875 /* libtasn1.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = libtasn1.h; sourceTree = "<group>"; };
+		FE7C7222243DA06900472875 /* tasn1_ctype.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tasn1_ctype.h; sourceTree = "<group>"; };
+		FE7C7223243DA06900472875 /* tc_sm3.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tc_sm3.h; sourceTree = "<group>"; };
+		FE7C7225243DA06900472875 /* tc_kms.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tc_kms.h; sourceTree = "<group>"; };
+		FE7C7226243DA06900472875 /* tc_ec_mul.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tc_ec_mul.h; sourceTree = "<group>"; };
+		FE7C7227243DA06900472875 /* tasn1_minmax.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tasn1_minmax.h; sourceTree = "<group>"; };
+		FE7C7228243DA06900472875 /* tc_sm4_lcl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tc_sm4_lcl.h; sourceTree = "<group>"; };
+		FE7C7229243DA06900472875 /* tc_str.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tc_str.h; sourceTree = "<group>"; };
+		FE7C722A243DA06900472875 /* tasn1_limits.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tasn1_limits.h; sourceTree = "<group>"; };
+		FE7C722B243DA06900472875 /* tc_sm4.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tc_sm4.h; sourceTree = "<group>"; };
+		FE7C722C243DA06900472875 /* tasn1_config.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tasn1_config.h; sourceTree = "<group>"; };
+		FE7C722D243DA06900472875 /* tc_rand.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tc_rand.h; sourceTree = "<group>"; };
+		FE7C722E243DA06900472875 /* tasn1_int.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tasn1_int.h; sourceTree = "<group>"; };
+		FE7C722F243DA06900472875 /* tasn1_parser_aux.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tasn1_parser_aux.h; sourceTree = "<group>"; };
+		FE7C7231243DA06900472875 /* tc_naf.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tc_naf.h; sourceTree = "<group>"; };
+		FE7C7232243DA06900472875 /* tasn1_gstr.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tasn1_gstr.h; sourceTree = "<group>"; };
+		FE7C7233243DA06900472875 /* tc_err.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tc_err.h; sourceTree = "<group>"; };
+		FE7C7234243DA06900472875 /* tc_kdf.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tc_kdf.h; sourceTree = "<group>"; };
+		FE7C7235243DA06900472875 /* tasn1_structure.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tasn1_structure.h; sourceTree = "<group>"; };
+		FE7C7236243DA06900472875 /* tasn1_element.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tasn1_element.h; sourceTree = "<group>"; };
+		FE7C7237243DA06900472875 /* tc_utils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tc_utils.h; sourceTree = "<group>"; };
+		FE7C7238243DA06900472875 /* tc_digest.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tc_digest.h; sourceTree = "<group>"; };
+		FE7C7239243DA06900472875 /* tc_asn1.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tc_asn1.h; sourceTree = "<group>"; };
+		FE7C723A243DA06900472875 /* tc_global.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tc_global.h; sourceTree = "<group>"; };
+		FE7C723B243DA06900472875 /* tasn1_intprops.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tasn1_intprops.h; sourceTree = "<group>"; };
+		FE7C723C243DA06900472875 /* ecp_sm2z256_macro.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ecp_sm2z256_macro.h; sourceTree = "<group>"; };
+		FE7C723D243DA06900472875 /* sm.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = sm.h; sourceTree = "<group>"; };
+		FE7C723E243DA06900472875 /* tc_sm2.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tc_sm2.h; sourceTree = "<group>"; };
+		FE7C7240243DA06900472875 /* x86_64-xlate.pl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.perl; path = "x86_64-xlate.pl"; sourceTree = "<group>"; };
+		FE7C7241243DA06900472875 /* ecp_sm2z256.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ecp_sm2z256.c; sourceTree = "<group>"; };
+		FE7C7242243DA06900472875 /* CMakeLists.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CMakeLists.txt; sourceTree = "<group>"; };
+		FE7C7243243DA06900472875 /* tc_ec.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tc_ec.c; sourceTree = "<group>"; };
+		FE7C7244243DA06900472875 /* tc_sm2.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tc_sm2.c; sourceTree = "<group>"; };
+		FE7C7245243DA06900472875 /* ecp_sm2z256-x86_64.pl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.perl; path = "ecp_sm2z256-x86_64.pl"; sourceTree = "<group>"; };
+		FE7C7246243DA06900472875 /* ecp_sm2z256_table.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ecp_sm2z256_table.c; sourceTree = "<group>"; };
+		FE7C7247243DA06900472875 /* ecp_sm2z256-x86_64.s */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.asm; path = "ecp_sm2z256-x86_64.s"; sourceTree = "<group>"; };
+		FE7C7248243DA06900472875 /* tc_ec_mul.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tc_ec_mul.c; sourceTree = "<group>"; };
+		FE7C724A243DA06A00472875 /* tc_kdf.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tc_kdf.c; sourceTree = "<group>"; };
+		FE7C724B243DA06A00472875 /* CMakeLists.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CMakeLists.txt; sourceTree = "<group>"; };
+		FE7C724C243DA06A00472875 /* tc_digest.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tc_digest.c; sourceTree = "<group>"; };
+		FE7C724D243DA06A00472875 /* tc_sm3.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tc_sm3.c; sourceTree = "<group>"; };
+		FE7C724F243DA06A00472875 /* tc_sm4_ecb.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tc_sm4_ecb.c; sourceTree = "<group>"; };
+		FE7C7250243DA06A00472875 /* CMakeLists.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CMakeLists.txt; sourceTree = "<group>"; };
+		FE7C7251243DA06A00472875 /* tc_sm4_enc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tc_sm4_enc.c; sourceTree = "<group>"; };
+		FE7C7252243DA06A00472875 /* tc_modes.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tc_modes.c; sourceTree = "<group>"; };
+		FE7C7253243DA06A00472875 /* tc_sm4_setkey.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tc_sm4_setkey.c; sourceTree = "<group>"; };
+		FE7C7254243DA06A00472875 /* tc_sm4_common.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tc_sm4_common.c; sourceTree = "<group>"; };
+		FE7C7255243DA06A00472875 /* tc_sm4_cbc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tc_sm4_cbc.c; sourceTree = "<group>"; };
+		FE7C7256243DA06A00472875 /* CMakeLists.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CMakeLists.txt; sourceTree = "<group>"; };
+		FE7C7257243DA06A00472875 /* tc_kms.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tc_kms.c; sourceTree = "<group>"; };
+		FE7C7258243DA06A00472875 /* sm.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = sm.c; sourceTree = "<group>"; };
+		FE8B323C24F6601B00E4B843 /* tc_gcm128_mode.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = tc_gcm128_mode.c; sourceTree = "<group>"; };
+		FE8B324024F7A9FE00E4B843 /* tc_sm4_gcm.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = tc_sm4_gcm.c; sourceTree = "<group>"; };
+		FE8B324324F7AADE00E4B843 /* tc_gcm128_mode.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tc_gcm128_mode.h; sourceTree = "<group>"; };
+		FEF2CA8D248744C000370628 /* hmac_sm3.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = hmac_sm3.c; path = ../hmac/hmac_sm3.c; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		FE3BC517231CEA4100A74551 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FE3BC578231CEA6100A74551 /* libgmp.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		FE3BC510231CEA4100A74551 = {
+			isa = PBXGroup;
+			children = (
+				FE3BC573231CEA5600A74551 /* include */,
+				FE3BC525231CEA4F00A74551 /* source */,
+				FE3BC51B231CEA4100A74551 /* TencentSM */,
+				FE3BC51A231CEA4100A74551 /* Products */,
+				FE3BC576231CEA6100A74551 /* Frameworks */,
+			);
+			sourceTree = "<group>";
+		};
+		FE3BC51A231CEA4100A74551 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				FE3BC519231CEA4100A74551 /* libTencentSM.a */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		FE3BC51B231CEA4100A74551 /* TencentSM */ = {
+			isa = PBXGroup;
+			children = (
+				FE3BC51C231CEA4100A74551 /* TencentSM.h */,
+				FE3BC51E231CEA4100A74551 /* TencentSM.m */,
+			);
+			path = TencentSM;
+			sourceTree = "<group>";
+		};
+		FE3BC525231CEA4F00A74551 /* source */ = {
+			isa = PBXGroup;
+			children = (
+				FE7C7212243DA06900472875 /* asn1 */,
+				FE7C7256243DA06A00472875 /* CMakeLists.txt */,
+				FE7C7205243DA06900472875 /* common */,
+				FE7C721D243DA06900472875 /* include */,
+				FE7C7258243DA06A00472875 /* sm.c */,
+				FE7C723F243DA06900472875 /* sm2 */,
+				FE7C7249243DA06A00472875 /* sm3 */,
+				FE7C724E243DA06A00472875 /* sm4 */,
+				FE7C7257243DA06A00472875 /* tc_kms.c */,
+			);
+			name = source;
+			path = ../../../source;
+			sourceTree = "<group>";
+		};
+		FE3BC573231CEA5600A74551 /* include */ = {
+			isa = PBXGroup;
+			children = (
+				FE3BC574231CEA5600A74551 /* gmp.h */,
+			);
+			name = include;
+			path = ../../../gmp/include;
+			sourceTree = "<group>";
+		};
+		FE3BC576231CEA6100A74551 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				FE329F74245A89E400A29331 /* libtasn1.a */,
+				FE3BC577231CEA6100A74551 /* libgmp.a */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		FE7C7205243DA06900472875 /* common */ = {
+			isa = PBXGroup;
+			children = (
+				FE375AE824DBB3CC00AAA0B2 /* tc_sha1.c */,
+				FE329F672452DBAC00A29331 /* b64_decode.c */,
+				FE329F662452DBAC00A29331 /* b64_encode.c */,
+				FE7C7206243DA06900472875 /* tc_naf.c */,
+				FE7C7208243DA06900472875 /* CMakeLists.txt */,
+				FE7C7209243DA06900472875 /* tc_utils.c */,
+				FE7C720B243DA06900472875 /* tc_str.c */,
+				FE7C720C243DA06900472875 /* fmemopen.c */,
+				FE7C720D243DA06900472875 /* tc_bn.c */,
+				FE7C720E243DA06900472875 /* tc_rand.c */,
+			);
+			path = common;
+			sourceTree = "<group>";
+		};
+		FE7C7212243DA06900472875 /* asn1 */ = {
+			isa = PBXGroup;
+			children = (
+				FE7C7214243DA06900472875 /* CMakeLists.txt */,
+				FE7C7218243DA06900472875 /* tc_asn1.c */,
+			);
+			path = asn1;
+			sourceTree = "<group>";
+		};
+		FE7C721D243DA06900472875 /* include */ = {
+			isa = PBXGroup;
+			children = (
+				FE8B324324F7AADE00E4B843 /* tc_gcm128_mode.h */,
+				FE375AEA24DBB3DB00AAA0B2 /* tc_sha1.h */,
+				FE329F6C245568B200A29331 /* b64.h */,
+				FE7C721E243DA06900472875 /* tc_modes.h */,
+				FE7C721F243DA06900472875 /* tc.h */,
+				FE7C7220243DA06900472875 /* sm_jni.h */,
+				FE7C7221243DA06900472875 /* libtasn1.h */,
+				FE7C7222243DA06900472875 /* tasn1_ctype.h */,
+				FE7C7223243DA06900472875 /* tc_sm3.h */,
+				FE7C7225243DA06900472875 /* tc_kms.h */,
+				FE7C7226243DA06900472875 /* tc_ec_mul.h */,
+				FE7C7227243DA06900472875 /* tasn1_minmax.h */,
+				FE7C7228243DA06900472875 /* tc_sm4_lcl.h */,
+				FE7C7229243DA06900472875 /* tc_str.h */,
+				FE7C722A243DA06900472875 /* tasn1_limits.h */,
+				FE7C722B243DA06900472875 /* tc_sm4.h */,
+				FE7C722C243DA06900472875 /* tasn1_config.h */,
+				FE7C722D243DA06900472875 /* tc_rand.h */,
+				FE7C722E243DA06900472875 /* tasn1_int.h */,
+				FE7C722F243DA06900472875 /* tasn1_parser_aux.h */,
+				FE7C7231243DA06900472875 /* tc_naf.h */,
+				FE7C7232243DA06900472875 /* tasn1_gstr.h */,
+				FE7C7233243DA06900472875 /* tc_err.h */,
+				FE7C7234243DA06900472875 /* tc_kdf.h */,
+				FE7C7235243DA06900472875 /* tasn1_structure.h */,
+				FE7C7236243DA06900472875 /* tasn1_element.h */,
+				FE7C7237243DA06900472875 /* tc_utils.h */,
+				FE7C7238243DA06900472875 /* tc_digest.h */,
+				FE7C7239243DA06900472875 /* tc_asn1.h */,
+				FE7C723A243DA06900472875 /* tc_global.h */,
+				FE7C723B243DA06900472875 /* tasn1_intprops.h */,
+				FE7C723C243DA06900472875 /* ecp_sm2z256_macro.h */,
+				FE7C723D243DA06900472875 /* sm.h */,
+				FE7C723E243DA06900472875 /* tc_sm2.h */,
+			);
+			path = include;
+			sourceTree = "<group>";
+		};
+		FE7C723F243DA06900472875 /* sm2 */ = {
+			isa = PBXGroup;
+			children = (
+				FE7C7240243DA06900472875 /* x86_64-xlate.pl */,
+				FE7C7241243DA06900472875 /* ecp_sm2z256.c */,
+				FE7C7242243DA06900472875 /* CMakeLists.txt */,
+				FE7C7243243DA06900472875 /* tc_ec.c */,
+				FE7C7244243DA06900472875 /* tc_sm2.c */,
+				FE7C7245243DA06900472875 /* ecp_sm2z256-x86_64.pl */,
+				FE7C7246243DA06900472875 /* ecp_sm2z256_table.c */,
+				FE7C7247243DA06900472875 /* ecp_sm2z256-x86_64.s */,
+				FE7C7248243DA06900472875 /* tc_ec_mul.c */,
+			);
+			path = sm2;
+			sourceTree = "<group>";
+		};
+		FE7C7249243DA06A00472875 /* sm3 */ = {
+			isa = PBXGroup;
+			children = (
+				FEF2CA8D248744C000370628 /* hmac_sm3.c */,
+				FE7C724A243DA06A00472875 /* tc_kdf.c */,
+				FE7C724B243DA06A00472875 /* CMakeLists.txt */,
+				FE7C724C243DA06A00472875 /* tc_digest.c */,
+				FE7C724D243DA06A00472875 /* tc_sm3.c */,
+			);
+			path = sm3;
+			sourceTree = "<group>";
+		};
+		FE7C724E243DA06A00472875 /* sm4 */ = {
+			isa = PBXGroup;
+			children = (
+				FE7C724F243DA06A00472875 /* tc_sm4_ecb.c */,
+				FE7C7250243DA06A00472875 /* CMakeLists.txt */,
+				FE7C7251243DA06A00472875 /* tc_sm4_enc.c */,
+				FE7C7252243DA06A00472875 /* tc_modes.c */,
+				FE7C7253243DA06A00472875 /* tc_sm4_setkey.c */,
+				FE7C7254243DA06A00472875 /* tc_sm4_common.c */,
+				FE7C7255243DA06A00472875 /* tc_sm4_cbc.c */,
+				FE8B323C24F6601B00E4B843 /* tc_gcm128_mode.c */,
+				FE8B324024F7A9FE00E4B843 /* tc_sm4_gcm.c */,
+			);
+			path = sm4;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		FE3BC515231CEA4100A74551 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FE7C728A243DA06A00472875 /* sm.h in Headers */,
+				FE7C727C243DA06A00472875 /* tasn1_parser_aux.h in Headers */,
+				FE7C7279243DA06A00472875 /* tasn1_config.h in Headers */,
+				FE7C7285243DA06A00472875 /* tc_digest.h in Headers */,
+				FE7C7274243DA06A00472875 /* tasn1_minmax.h in Headers */,
+				FE329F6F245568B200A29331 /* b64.h in Headers */,
+				FE7C7277243DA06A00472875 /* tasn1_limits.h in Headers */,
+				FE7C7275243DA06A00472875 /* tc_sm4_lcl.h in Headers */,
+				FE7C726E243DA06A00472875 /* libtasn1.h in Headers */,
+				FE7C726D243DA06A00472875 /* sm_jni.h in Headers */,
+				FE7C7283243DA06A00472875 /* tasn1_element.h in Headers */,
+				FE3BC575231CEA5600A74551 /* gmp.h in Headers */,
+				FE375AEB24DBB3DB00AAA0B2 /* tc_sha1.h in Headers */,
+				FE7C7288243DA06A00472875 /* tasn1_intprops.h in Headers */,
+				FE7C727E243DA06A00472875 /* tc_naf.h in Headers */,
+				FE7C728B243DA06A00472875 /* tc_sm2.h in Headers */,
+				FE7C7284243DA06A00472875 /* tc_utils.h in Headers */,
+				FE7C727A243DA06A00472875 /* tc_rand.h in Headers */,
+				FE7C726C243DA06A00472875 /* tc.h in Headers */,
+				FE7C727B243DA06A00472875 /* tasn1_int.h in Headers */,
+				FE7C7287243DA06A00472875 /* tc_global.h in Headers */,
+				FE7C727F243DA06A00472875 /* tasn1_gstr.h in Headers */,
+				FE7C7278243DA06A00472875 /* tc_sm4.h in Headers */,
+				FE7C726F243DA06A00472875 /* tasn1_ctype.h in Headers */,
+				FE7C7286243DA06A00472875 /* tc_asn1.h in Headers */,
+				FE7C726B243DA06A00472875 /* tc_modes.h in Headers */,
+				FE8B324424F7AADE00E4B843 /* tc_gcm128_mode.h in Headers */,
+				FE7C7282243DA06A00472875 /* tasn1_structure.h in Headers */,
+				FE3BC51D231CEA4100A74551 /* TencentSM.h in Headers */,
+				FE7C7289243DA06A00472875 /* ecp_sm2z256_macro.h in Headers */,
+				FE7C7270243DA06A00472875 /* tc_sm3.h in Headers */,
+				FE7C7273243DA06A00472875 /* tc_ec_mul.h in Headers */,
+				FE7C7281243DA06A00472875 /* tc_kdf.h in Headers */,
+				FE7C7280243DA06A00472875 /* tc_err.h in Headers */,
+				FE7C7272243DA06A00472875 /* tc_kms.h in Headers */,
+				FE7C7276243DA06A00472875 /* tc_str.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		FE3BC518231CEA4100A74551 /* TencentSM */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FE3BC522231CEA4100A74551 /* Build configuration list for PBXNativeTarget "TencentSM" */;
+			buildPhases = (
+				FE3BC515231CEA4100A74551 /* Headers */,
+				FE3BC516231CEA4100A74551 /* Sources */,
+				FE3BC517231CEA4100A74551 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = TencentSM;
+			productName = TencentSM;
+			productReference = FE3BC519231CEA4100A74551 /* libTencentSM.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		FE3BC511231CEA4100A74551 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 1030;
+				ORGANIZATIONNAME = TSM;
+				TargetAttributes = {
+					FE3BC518231CEA4100A74551 = {
+						CreatedOnToolsVersion = 10.3;
+					};
+				};
+			};
+			buildConfigurationList = FE3BC514231CEA4100A74551 /* Build configuration list for PBXProject "TencentSM" */;
+			compatibilityVersion = "Xcode 9.3";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = FE3BC510231CEA4100A74551;
+			productRefGroup = FE3BC51A231CEA4100A74551 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				FE3BC518231CEA4100A74551 /* TencentSM */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		FE3BC516231CEA4100A74551 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FE7C728F243DA06A00472875 /* ecp_sm2z256_table.c in Sources */,
+				FE7C7290243DA06A00472875 /* ecp_sm2z256-x86_64.s in Sources */,
+				FE7C729A243DA06A00472875 /* tc_sm4_cbc.c in Sources */,
+				FE7C7294243DA06A00472875 /* tc_sm3.c in Sources */,
+				FE7C729B243DA06A00472875 /* tc_kms.c in Sources */,
+				FEF2CA8E248744C000370628 /* hmac_sm3.c in Sources */,
+				FE375AE924DBB3CC00AAA0B2 /* tc_sha1.c in Sources */,
+				FE7C725E243DA06A00472875 /* fmemopen.c in Sources */,
+				FE7C7259243DA06A00472875 /* tc_naf.c in Sources */,
+				FE7C725B243DA06A00472875 /* tc_utils.c in Sources */,
+				FE7C7266243DA06A00472875 /* tc_asn1.c in Sources */,
+				FE7C7297243DA06A00472875 /* tc_modes.c in Sources */,
+				FE329F692452DBAC00A29331 /* b64_encode.c in Sources */,
+				FE7C728D243DA06A00472875 /* tc_ec.c in Sources */,
+				FE7C729C243DA06A00472875 /* sm.c in Sources */,
+				FE7C7299243DA06A00472875 /* tc_sm4_common.c in Sources */,
+				FE7C7296243DA06A00472875 /* tc_sm4_enc.c in Sources */,
+				FE7C728C243DA06A00472875 /* ecp_sm2z256.c in Sources */,
+				FE7C7295243DA06A00472875 /* tc_sm4_ecb.c in Sources */,
+				FE7C725D243DA06A00472875 /* tc_str.c in Sources */,
+				FE7C7292243DA06A00472875 /* tc_kdf.c in Sources */,
+				FE7C725F243DA06A00472875 /* tc_bn.c in Sources */,
+				FE7C7291243DA06A00472875 /* tc_ec_mul.c in Sources */,
+				FE8B324224F7A9FE00E4B843 /* tc_sm4_gcm.c in Sources */,
+				FE7C7293243DA06A00472875 /* tc_digest.c in Sources */,
+				FE8B323E24F6601B00E4B843 /* tc_gcm128_mode.c in Sources */,
+				FE3BC51F231CEA4100A74551 /* TencentSM.m in Sources */,
+				FE329F6A2452DBAC00A29331 /* b64_decode.c in Sources */,
+				FE7C7260243DA06A00472875 /* tc_rand.c in Sources */,
+				FE7C7298243DA06A00472875 /* tc_sm4_setkey.c in Sources */,
+				FE7C728E243DA06A00472875 /* tc_sm2.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		FE3BC520231CEA4100A74551 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.14;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		FE3BC521231CEA4100A74551 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.14;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		FE3BC523231CEA4100A74551 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				EXECUTABLE_PREFIX = lib;
+				HEADER_SEARCH_PATHS = (
+					"\"$(SRCROOT)/../../../source/include\"",
+					"\"$(SRCROOT)/../../../gmp/include\"",
+				);
+				LIBRARY_SEARCH_PATHS = (
+					"\"$(SRCROOT)/../../../gmp/lib/MacOS\"",
+					"\"$(SRCROOT)/../../../libtasn1/product/lib\"",
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+			};
+			name = Debug;
+		};
+		FE3BC524231CEA4100A74551 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				EXECUTABLE_PREFIX = lib;
+				HEADER_SEARCH_PATHS = (
+					"\"$(SRCROOT)/../../../source/include\"",
+					"\"$(SRCROOT)/../../../gmp/include\"",
+				);
+				LIBRARY_SEARCH_PATHS = (
+					"\"$(SRCROOT)/../../../gmp/lib/MacOS\"",
+					"\"$(SRCROOT)/../../../libtasn1/product/lib\"",
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		FE3BC514231CEA4100A74551 /* Build configuration list for PBXProject "TencentSM" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FE3BC520231CEA4100A74551 /* Debug */,
+				FE3BC521231CEA4100A74551 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FE3BC522231CEA4100A74551 /* Build configuration list for PBXNativeTarget "TencentSM" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FE3BC523231CEA4100A74551 /* Debug */,
+				FE3BC524231CEA4100A74551 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = FE3BC511231CEA4100A74551 /* Project object */;
+}

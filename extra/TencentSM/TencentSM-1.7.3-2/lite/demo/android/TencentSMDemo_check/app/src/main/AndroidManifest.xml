@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+          package="com.tenpay.tencentsmdemo">
+
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:supportsRtl="true">
+        <activity
+            android:name=".EntryActivity"
+            android:screenOrientation="portrait"
+            android:theme="@style/ActivityTheme"
+            >
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
+        <activity android:name=".MainActivity"
+                  android:screenOrientation="portrait"
+            >
+        </activity>
+        <activity android:name=".ModuleListActivity"
+                  android:screenOrientation="portrait"
+                  android:theme="@style/ActivityTheme"
+            >
+        </activity>
+        <activity android:name=".CryptListActivity"
+                  android:screenOrientation="portrait"
+                  android:theme="@style/ActivityTheme"
+            >
+        </activity>
+        <activity android:name=".KeyManListActivity"
+                  android:screenOrientation="portrait"
+                  android:theme="@style/ActivityTheme"
+            >
+        </activity>
+        <activity android:name=".GenKeySM2KeyActivity"
+                  android:screenOrientation="portrait"
+                  android:theme="@style/ActivityTheme"
+            >
+        </activity>
+        <activity android:name=".ExportSM2KeyActivity"
+                  android:screenOrientation="portrait"
+                  android:theme="@style/ActivityTheme"
+            >
+        </activity>
+        <activity android:name=".ImportSM2KeyActivity"
+                  android:screenOrientation="portrait"
+                  android:theme="@style/ActivityTheme"
+                  android:windowSoftInputMode="adjustPan|stateHidden"
+            >
+        </activity>
+        <activity android:name=".DestroySM2KeyActivity"
+                  android:screenOrientation="portrait"
+                  android:theme="@style/ActivityTheme"
+                  android:windowSoftInputMode="adjustPan|stateHidden"
+            >
+        </activity>
+        <activity android:name=".GenSM4KeyActivity"
+                  android:screenOrientation="portrait"
+                  android:theme="@style/ActivityTheme"
+                  android:windowSoftInputMode="adjustPan|stateHidden"
+            >
+        </activity>
+        <activity android:name=".ImportSM4KeyActivity"
+                  android:screenOrientation="portrait"
+                  android:theme="@style/ActivityTheme"
+                  android:windowSoftInputMode="adjustPan|stateHidden"
+            >
+        </activity>
+        <activity android:name=".ExportSM4KeyActivity"
+                  android:screenOrientation="portrait"
+                  android:theme="@style/ActivityTheme"
+                  android:windowSoftInputMode="adjustPan|stateHidden"
+            >
+        </activity>
+        <activity android:name=".DestroySM4KeyActivity"
+                  android:screenOrientation="portrait"
+                  android:theme="@style/ActivityTheme"
+                  android:windowSoftInputMode="adjustPan|stateHidden"
+            >
+        </activity>
+        <activity android:name=".SelectDescActivity"
+                  android:screenOrientation="portrait"
+                  android:theme="@style/ActivityTheme"
+                  android:windowSoftInputMode="adjustPan|stateHidden"
+            >
+        </activity>
+        <activity android:name=".SM2CryptActivity"
+                  android:screenOrientation="portrait"
+                  android:theme="@style/ActivityTheme"
+                  android:windowSoftInputMode="adjustPan|stateHidden"
+            >
+        </activity>
+        <activity android:name=".SM2DecryptActivity"
+                  android:screenOrientation="portrait"
+                  android:theme="@style/ActivityTheme"
+                  android:windowSoftInputMode="adjustPan|stateHidden"
+            >
+        </activity>
+        <activity android:name=".SM2SignActivity"
+                  android:screenOrientation="portrait"
+                  android:theme="@style/ActivityTheme"
+                  android:windowSoftInputMode="adjustPan|stateHidden"
+            >
+        </activity>
+        <activity android:name=".SM2VerifyActivity"
+                  android:screenOrientation="portrait"
+                  android:theme="@style/ActivityTheme"
+                  android:windowSoftInputMode="adjustPan|stateHidden"
+            >
+        </activity>
+        <activity android:name=".SM3HashActivity"
+                  android:screenOrientation="portrait"
+                  android:theme="@style/ActivityTheme"
+                  android:windowSoftInputMode="adjustPan|stateHidden"
+            >
+        </activity>
+        <activity android:name=".SM4CBCEnCryptActivity"
+                  android:screenOrientation="portrait"
+                  android:theme="@style/ActivityTheme"
+                  android:windowSoftInputMode="adjustPan|stateHidden"
+            >
+        </activity>
+        <activity android:name=".SM4CBCDecryptActivity"
+                  android:screenOrientation="portrait"
+                  android:theme="@style/ActivityTheme"
+                  android:windowSoftInputMode="adjustPan|stateHidden"
+            >
+        </activity>
+        <activity android:name=".SM4ECBEnCryptActivity"
+                  android:screenOrientation="portrait"
+                  android:theme="@style/ActivityTheme"
+                  android:windowSoftInputMode="adjustPan|stateHidden"
+            >
+        </activity>
+        <activity android:name=".SM4ECBDecryptActivity"
+                  android:screenOrientation="portrait"
+                  android:theme="@style/ActivityTheme"
+                  android:windowSoftInputMode="adjustPan|stateHidden"
+            >
+        </activity>
+    </application>
+
+</manifest>

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="40dp"
+    android:orientation="horizontal"
+    android:paddingLeft="15dp"
+    android:paddingRight="15dp"
+    android:background="@android:color/white"
+    >
+    <android.support.v7.widget.AppCompatTextView
+        android:id="@+id/tv_item_left"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="15sp"
+        android:textSize="15sp"
+        android:textColor="@android:color/black"
+        android:layout_centerVertical="true"
+        />
+    <ImageView
+        android:id="@+id/iv_item_right"
+        android:layout_width="20dp"
+        android:layout_height="20dp"
+        android:layout_centerVertical="true"
+        android:src="@mipmap/ic_confirm"
+        android:layout_alignParentRight="true"
+        />
+
+</RelativeLayout>

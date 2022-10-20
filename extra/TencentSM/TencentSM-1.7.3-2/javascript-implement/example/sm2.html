@@ -1,0 +1,40 @@
+<html>
+  <head>
+    <script src="../dist/sm2.js"></script>
+    <script>
+      let SM2 = window.SM2Lib.SM2;
+      console.log(SM2);
+      let utils = window.SM2Lib.utils;
+      const sm2 = new SM2();
+      let msgByteArray = utils.stringToByteArrayInUtf8(
+        'Navigate your code with ease. Click on function and method calls to jump to their definitions or references in the same repository.',
+      );
+      let idByteArray = utils.stringToByteArrayInUtf8('1234567812345678');
+
+      let cipher = sm2.encrypt(
+        '0409F9DF311E5421A150DD7D161E4BC5C672179FAD1833FC076BB08FF356F35020CCEA490CE26775A52DC6EA718CC1AA600AED05FBF35E084A6632F6072DA9AD13',
+        msgByteArray,
+      );
+      let plainByteArray = sm2.decrypt('3945208F7B2144B13F36E38AC6D39F95889393692860B51A42FB81EF4DF7C5B8', cipher);
+
+      let sign = sm2.sign(
+        '041D9E2952A06C913BAD21CCC358905ADB3A8097DB6F2F87EB5F393284EC2B7208C30B4D9834D0120216D6F1A73164FDA11A87B0A053F63D992BFB0E4FC1C5D9AD',
+        '3B03B35C2F26DBC56F6D33677F1B28AF15E45FE9B594A6426BDCAD4A69FF976B',
+        msgByteArray,
+        idByteArray,
+      );
+      console.log(sign);
+
+      let ret = sm2.verify(
+        '041D9E2952A06C913BAD21CCC358905ADB3A8097DB6F2F87EB5F393284EC2B7208C30B4D9834D0120216D6F1A73164FDA11A87B0A053F63D992BFB0E4FC1C5D9AD',
+        msgByteArray,
+        idByteArray,
+        sign,
+      );
+      console.log(ret);
+      const keyPair = sm2.genKeyPair();
+      console.log(keyPair);
+    </script>
+  </head>
+  <body></body>
+</html>

@@ -1,0 +1,76 @@
+<resources>
+    <string name="app_name">TencentSMDemo</string>
+
+    <string name="main_title">腾讯移动终端安全密码模块演示</string>
+    <string name="module_title">功能演示</string>
+    <string name="module_authority">秘钥管理</string>
+    <string name="module_crypt">密码功能</string>
+    <string name="input_fator">输入授权因子</string>
+    <string name="author_input_note">腾讯移动终端安全密码模块的访问控制是基于多因子授权策略，请初始化您的ID和PINCODE因子，授权后可使用完整的秘钥管理和面膜功能。</string>
+    <string name="str_id">ID</string>
+    <string name="str_pincode">PIN CODE</string>
+    <string name="authority_enter">授权进入</string>
+    <string name="sm2">SM2</string>
+    <string name="gen_keypair">生成秘钥对</string>
+    <string name="import_keypair">导入秘钥对</string>
+    <string name="export_keypair">导出秘钥对</string>
+    <string name="del_keypair">销毁秘钥对</string>
+    <string name="sm4">SM4</string>
+    <string name="gen_key">生成秘钥</string>
+    <string name="import_key">导入秘钥</string>
+    <string name="export_key">导出秘钥</string>
+    <string name="del_key">销毁秘钥</string>
+    <string name="sm3">SM3</string>
+    <string name="en_decrypt">加密解密</string>
+    <string name="sign_check">签名验签</string>
+    <string name="gen_hash">生成Hash</string>
+    <string name="cbc_en_decrypt">CBC加密解密</string>
+    <string name="ecb_en_decrypt">ECB加密解密</string>
+    <string name="gcm_en_decrypt">GCM加密解密</string>
+    <string name="back">返回</string>
+    <string name="save_secretkey">保存秘钥</string>
+    <string name="export_review">导出查看</string>
+    <string name="recreate">重新生成</string>
+    <string name="input_desc">请输入秘钥描述符</string>
+    <string name="input_desc_note">秘钥描述符用于标识秘钥，例如：可命名"电子邮件签名秘钥"</string>
+    <string name="public_key">公钥</string>
+    <string name="private_key">私钥</string>
+    <string name="import_public_key">请输入您要导入的公钥</string>
+    <string name="import_private_key">请输入您要导入的私钥，没有可不填</string>
+    <string name="sm4_key">SM4秘钥</string>
+    <string name="secret_key">秘钥</string>
+    <string name="failed">失败</string>
+    <string name="input_key_desc">请输入你需要导入的秘钥</string>
+
+    <string name="start_crypt">开始加密</string>
+    <string name="start_sign">开始签名</string>
+    <string name="sel_keypair">选择SM2秘钥对</string>
+    <string name="sel_keydesc">选择SM4秘钥</string>
+    <string name="sm2_pub_encrypt">SM2公钥加密</string>
+    <string name="sm2_pri_decrypt">SM2私钥加密</string>
+    <string name="go_entry_page">返回首页</string>
+    <string name="plaintext">加密内容</string>
+    <string name="ciphertext">加密结果</string>
+    <string name="decrypt_res">解密结果</string>
+    <string name="ciphertxt">密文</string>
+    <string name="use_key_desc">使用秘钥描述符</string>
+    <string name="reencrypt">重新加密</string>
+    <string name="start_decrypt">开始解密</string>
+
+    <string name="msg_forsigned">签名的消息内容</string>
+    <string name="sm2_sign">SM2签名</string>
+    <string name="sm2_resign">重新签名</string>
+    <string name="sm2_verigy">SM2签名验证</string>
+    <string name="id">ID</string>
+    <string name="signed_data">签名数据</string>
+    <string name="str_forhash">需要散列计算的数据</string>
+    <string name="str_forhash_hint">请输入您需要hash的字符串</string>
+    <string name="hash_data">散列数据</string>
+
+    <string name="cbc_encrypt">CBC加密</string>
+    <string name="iv_vector">iv向量</string>
+    <string name="cbc_decrypt">CBC解密</string>
+    <string name="ecb_encrypt">ECB加密</string>
+    <string name="ecb_decrypt">ecb解密</string>
+
+</resources>

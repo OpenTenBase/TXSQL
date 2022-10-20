@@ -1,0 +1,31 @@
+<html>
+    <head>
+        <script src="../dist/sm4.js"></script>
+        <script>
+            let SM4 = window.SM4Lib.SM4
+            let utils = window.SM4Lib.utils
+            let sm4keyArray = utils.stringToByteArrayInUtf8('JeF8U9wHFOMfs2Y8');
+            let sm4ivArray = utils.stringToByteArrayInUtf8('UISwD9fW6cFh9SNS');
+
+            let sm4Config = {
+                // encrypt/decypt main key; cannot be omitted
+                key: sm4keyArray,
+                // optional; can be 'cbc' or 'ecb'
+                mode: 'cbc',
+                iv: sm4ivArray, // default is null
+            }
+
+            let sm4 = new SM4(sm4Config);
+            let sm4plainArray = utils.stringToByteArrayInUtf8('中国国密加解密算法');
+
+            let sm4Cipher = sm4.encrypt(sm4plainArray);
+            let sm4Plain = sm4.decrypt(sm4Cipher);
+            console.log('sm4Cipher', sm4Cipher)
+            console.log('sm4Plain', sm4Plain)
+
+
+        </script>
+    </head> 
+    <body>
+    </body>
+</html>

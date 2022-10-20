@@ -1,0 +1,7 @@
+*.log
+.x509.config
+out
+demo/windows/TencentSMdemo/bin
+target
+jna/.vscode
+tmp
