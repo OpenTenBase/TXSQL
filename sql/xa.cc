@@ -81,6 +81,7 @@
 #include "sql_string.h"
 #include "template_utils.h"
 #include "thr_mutex.h"
+#include "tztime.h"
 
 const char *XID_STATE::xa_state_names[] = {"NON-EXISTING", "ACTIVE", "IDLE",
                                            "PREPARED", "ROLLBACK ONLY"};
@@ -472,8 +473,8 @@ void XID_STATE::set_error(THD *thd) {
   if (xa_state != XA_NOTR) rm_error = thd->get_stmt_da()->mysql_errno();
 }
 
-void XID_STATE::store_xid_info(Protocol *protocol,
-                               bool print_xid_as_hex) const {
+void XID_STATE::store_xid_info(Protocol *protocol, bool print_xid_as_hex,
+                               bool print_xid_prepare_time) const {
   protocol->store_longlong(static_cast<longlong>(m_xid.formatID), false);
   protocol->store_longlong(static_cast<longlong>(m_xid.gtrid_length), false);
   protocol->store_longlong(static_cast<longlong>(m_xid.bqual_length), false);
@@ -496,6 +497,11 @@ void XID_STATE::store_xid_info(Protocol *protocol,
   } else {
     protocol->store_string(m_xid.data, m_xid.gtrid_length + m_xid.bqual_length,
                            &my_charset_bin);
+  }
+  if (print_xid_prepare_time) {
+    MYSQL_TIME ltime;
+    my_tz_SYSTEM->gmt_sec_to_TIME(&ltime, prepare_state_time);
+    protocol->store_datetime(ltime, 0);
   }
 }
 

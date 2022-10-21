@@ -333,7 +333,11 @@ class XID_STATE {
   bool m_is_binlogged;
 
  public:
-  XID_STATE() : xa_state(XA_NOTR), rm_error(0), m_is_binlogged(false) {
+  XID_STATE()
+      : xa_state(XA_NOTR),
+        rm_error(0),
+        m_is_binlogged(false),
+        prepare_state_time(0) {
     m_xid.null();
   }
 
@@ -402,7 +406,8 @@ class XID_STATE {
 
   void unset_binlogged() { m_is_binlogged = false; }
 
-  void store_xid_info(Protocol *protocol, bool print_xid_as_hex) const;
+  void store_xid_info(Protocol *protocol, bool print_xid_as_hex,
+                      bool print_xid_prepare_time) const;
 
   /**
      Mark a XA transaction as rollback-only if the RM unilaterally
@@ -457,6 +462,15 @@ class XID_STATE {
   */
 
   bool check_in_xa(bool report_error) const;
+
+ private:
+  time_t prepare_state_time;
+
+public:
+ void set_prepare_state_time(time_t prepaer_time) {
+   prepare_state_time = prepaer_time;
+ }
+ time_t get_prepare_state_time() { return prepare_state_time; }
 };
 
 /**
