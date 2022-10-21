@@ -2343,6 +2343,7 @@ static struct slave_job_item *pop_jobs_item(Slave_worker *worker,
       thd->ENTER_COND(&worker->jobs_cond, &worker->jobs_lock,
                       &stage_replica_waiting_event_from_coordinator,
                       &old_stage);
+      thd->set_command(COM_CONNECT);
       mysql_cond_wait(&worker->jobs_cond, &worker->jobs_lock);
       mysql_mutex_unlock(&worker->jobs_lock);
       thd->EXIT_COND(&old_stage);
