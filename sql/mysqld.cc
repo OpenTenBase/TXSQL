@@ -11526,9 +11526,24 @@ static int get_options(int *argc_ptr, char ***argv_ptr) {
 #define MYSQL_SERVER_SUFFIX_STR MYSQL_SERVER_SUFFIX_DEF
 #endif
 
+#ifdef HAVE_TDSQL
+char *g_tdsql_sub_version = NULL;
+#endif
+
 static void set_server_version(void) {
+#ifdef HAVE_TDSQL
+  char *end MY_ATTRIBUTE((unused)) = NULL;
+  if (NULL != g_tdsql_sub_version && 0 != strlen(g_tdsql_sub_version)) {
+    end = strxmov(server_version, "8.0.", g_tdsql_sub_version,
+                  MYSQL_SERVER_SUFFIX_STR, NullS);
+  } else {
+    end = strxmov(server_version, MYSQL_SERVER_VERSION, MYSQL_SERVER_SUFFIX_STR,
+                  NullS);
+  }
+#else
   char *end [[maybe_unused]] = strxmov(server_version, MYSQL_SERVER_VERSION,
                                        MYSQL_SERVER_SUFFIX_STR, NullS);
+#endif
 #ifndef NDEBUG
   if (!strstr(MYSQL_SERVER_SUFFIX_STR, "-debug"))
     end = my_stpcpy(end, "-debug");
@@ -12995,3 +13010,4 @@ ulong cdb_recycle_scheduler_interval = 0;
 const char *recyle_bin_startup_modes[] = {"NON", "CDB", "TXSQL", NullS};
 long recycle_bin_startup_mode = RECYCLE_BIN_NON;
 bool cdb_more_gtid_feature_supported = false;
+char *cdb_server_version;

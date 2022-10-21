@@ -5323,11 +5323,12 @@ static Sys_var_ulonglong Sys_tmp_table_size(
     VALID_RANGE(1024, std::numeric_limits<ulonglong>::max()),
     DEFAULT(16 * 1024 * 1024), BLOCK_SIZE(1));
 
+/* real mysql version */
 static char *server_version_ptr;
 static Sys_var_version Sys_version(
-    "version", "Server version",
-    READ_ONLY NON_PERSIST GLOBAL_VAR(server_version_ptr), NO_CMD_LINE,
-    IN_SYSTEM_CHARSET, DEFAULT(server_version));
+    "cdb_mysql_version", "Server version",
+    READ_ONLY NON_PERSIST GLOBAL_VAR(server_version_ptr),
+    NO_CMD_LINE, IN_SYSTEM_CHARSET, DEFAULT(server_version));
 
 static char *server_version_comment_ptr;
 static Sys_var_charptr Sys_version_comment(
@@ -8312,6 +8313,13 @@ static Sys_var_uint Sys_threadpool_queue_congest_threshold(
     " process, the queue is seen as congested.",
     GLOBAL_VAR(threadpool_queue_congest_threshold), CMD_LINE(REQUIRED_ARG),
     VALID_RANGE(1, 1024), DEFAULT(5), BLOCK_SIZE(1));
+
+// TDSQL: used to modify the MySQL version number
+extern char *g_tdsql_sub_version;
+static Sys_var_charptr Sys_tdsql_sub_version(
+    "tdsql_sub_version", "tdsql reserved fields for special scenarios",
+    READ_ONLY GLOBAL_VAR(g_tdsql_sub_version), CMD_LINE(REQUIRED_ARG),
+    IN_SYSTEM_CHARSET, DEFAULT(""));
 #endif /* HAVE_TDSQL */
 
 static Sys_var_bool Sys_cdb_more_gtid_feature_supported(
@@ -8320,4 +8328,33 @@ static Sys_var_bool Sys_cdb_more_gtid_feature_supported(
     GLOBAL_VAR(cdb_more_gtid_feature_supported), CMD_LINE(OPT_ARG),
     DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr),
     ON_UPDATE(nullptr));
+
+static bool check_cdb_server_version(sys_var *self, THD *thd, set_var *var) {
+  if (!thd->security_context()->check_access(SUPER_ACL)) {  // user is not tencent root
+    my_error(ER_INCORRECT_GLOBAL_LOCAL_VAR, MYF(0), self->name.str,
+             "read only");
+    return true;
+  }
+  if (check_not_null(self, thd, var)) {  // null value is not allowed
+    return true;
+  }
+  if (var->save_result.string_value.length >= SERVER_VERSION_LENGTH) {
+    // var is too long
+    my_error(ER_VERSION_LENGTH_EXCEED_LIMIT, MYF(0), self->name.str);
+    return true;
+  }
+  return false;
+}
+
+/*
+  Configurable server version, display for user
+  real mysql version should show variables 'cdb_mysql_version',
+  cdb_mysql_version can only be seen by tencent_root.
+*/
+static Sys_var_charptr Sys_tencent_version("version", "Server version",
+                                           GLOBAL_VAR(cdb_server_version),
+                                           NO_CMD_LINE, IN_SYSTEM_CHARSET,
+                                           DEFAULT(server_version),
+                                           NO_MUTEX_GUARD, NOT_IN_BINLOG,
+                                           ON_CHECK(check_cdb_server_version));
 /* Changes from txsql end. */

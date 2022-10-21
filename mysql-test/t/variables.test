@@ -316,7 +316,7 @@ set character_set_client=NULL;
 set collation_connection=NULL;
 --error ER_INCORRECT_GLOBAL_LOCAL_VAR
 select @@global.timestamp;
---error ER_INCORRECT_GLOBAL_LOCAL_VAR 
+--error ER_GLOBAL_VARIABLE
 set @@version='';
 --error ER_GLOBAL_VARIABLE
 set @@concurrent_insert=1;

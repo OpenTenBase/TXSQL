@@ -9919,6 +9919,9 @@ ER_CDB_RECYCLE_BIN_DATABASE_DUPLICATE
 ER_REINTERPRET_INT_BYTES_TRUNCATED
   eng "reinterpret_int bytes truncated"
 
+ER_VERSION_LENGTH_EXCEED_LIMIT
+  eng "The length specified for %.64s is too long."
+
 ################################################################################
 # them for other error messages.
 ################################################################################

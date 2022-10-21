@@ -102,8 +102,6 @@ innodb_buffer_pool_transmit_enabled
 innodb_buffer_pool_transmit_enabled
 innodb_buffer_pool_transmit_interval
 innodb_buffer_pool_transmit_interval
-innodb_cdb_fast_shutdown
-innodb_cdb_fast_shutdown
 innodb_cdb_page_cleaner_priority
 innodb_cdb_page_cleaner_priority
 innodb_dedicated_server
@@ -132,8 +130,6 @@ innodb_page_hash_cell_factor
 innodb_page_hash_cell_factor
 innodb_page_reserve_factor
 innodb_page_reserve_factor
-innodb_quickly_stoped
-innodb_quickly_stoped
 innodb_stats_skip_adjustment_for_primary_key
 innodb_stats_skip_adjustment_for_primary_key
 innodb_txsql_ddl_buffer_size
@@ -272,6 +268,7 @@ sql_slave_skip_counter
 sql_slave_skip_counter
 sync_master_info
 sync_master_info
+tdsql_allow_access_internal_table
 tdsql_compat_oracle_mode
 tdsql_compat_oracle_mode
 tdsql_hide_partitions

@@ -1749,6 +1749,8 @@ The following options may be given as the first argument:
  --tc-heuristic-recover=name 
  Decision to use in heuristic recover process. Possible
  values are OFF, COMMIT or ROLLBACK.
+ --tdsql-allow-access-internal-table 
+ allow current user to access tdsql internal table
  --tdsql-compat-oracle-mode 
  Keep tdsql compatible with oracle if it's set.
  --tdsql-hide-partitions[=name] 
@@ -2397,6 +2399,7 @@ table-encryption-privilege-check FALSE
 table-open-cache-instances 16
 tablespace-definition-cache 256
 tc-heuristic-recover OFF
+tdsql-allow-access-internal-table FALSE
 tdsql-compat-oracle-mode FALSE
 tdsql-hide-partitions 
 temptable-max-mmap 1073741824
