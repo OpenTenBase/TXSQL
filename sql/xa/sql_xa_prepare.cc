@@ -174,6 +174,7 @@ bool Sql_cmd_xa_prepare::trans_xa_prepare(THD *thd) {
     return true;
 
   xid_state->set_state(XID_STATE::XA_PREPARED);
+  xid_state->set_prepare_state_time(std::time(nullptr));
   MYSQL_SET_TRANSACTION_XA_STATE(thd->m_transaction_psi,
                                  (int)xid_state->get_state());
   if (thd->rpl_thd_ctx.session_gtids_ctx().notify_after_xa_prepare(thd))

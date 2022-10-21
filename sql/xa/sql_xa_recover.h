@@ -41,7 +41,8 @@ class Sql_cmd_xa_recover : public Sql_cmd {
 
     @param print_xid_as_hex Whether or not to print the XID as hexdecimal.
    */
-  explicit Sql_cmd_xa_recover(bool print_xid_as_hex);
+  explicit Sql_cmd_xa_recover(bool print_xid_as_hex,
+                              bool print_xid_prepare_time);
   virtual ~Sql_cmd_xa_recover() override = default;
 
   /**
@@ -93,6 +94,9 @@ class Sql_cmd_xa_recover : public Sql_cmd {
     @retval true   A user doesn't have a privilege to perform XA RECOVER
   */
   bool check_xa_recover_privilege(THD *thd) const;
+
+ private:
+  bool m_print_xid_prepare_time;
 };
 
 #endif  // XA_SQL_CMD_XA_RECOVER

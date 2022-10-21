@@ -29,8 +29,10 @@
 #include "sql/transaction_info.h"      // Transaction_ctx
 #include "sql/xa/transaction_cache.h"  // xa::Transaction_cache
 
-Sql_cmd_xa_recover::Sql_cmd_xa_recover(bool print_xid_as_hex)
-    : m_print_xid_as_hex(print_xid_as_hex) {}
+Sql_cmd_xa_recover::Sql_cmd_xa_recover(bool print_xid_as_hex,
+                                       bool print_xid_prepare_time)
+    : m_print_xid_as_hex(print_xid_as_hex),
+      m_print_xid_prepare_time(print_xid_prepare_time) {}
 
 enum_sql_command Sql_cmd_xa_recover::sql_command_code() const {
   return SQLCOM_XA_RECOVER;
@@ -58,6 +60,10 @@ bool Sql_cmd_xa_recover::trans_xa_recover(THD *thd) {
                                     MY_INT32_NUM_DECIMAL_DIGITS));
   field_list.push_back(new Item_empty_string("data", XIDDATASIZE * 2 + 2));
 
+  if (m_print_xid_prepare_time)
+    field_list.push_back(new Item_temporal(MYSQL_TYPE_DATETIME,
+                                           NAME_STRING("prepare_time"), 0, 0));
+
   if (thd->send_result_metadata(field_list,
                                 Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF))
     return true;
@@ -67,7 +73,8 @@ bool Sql_cmd_xa_recover::trans_xa_recover(THD *thd) {
     XID_STATE *xs = transaction->xid_state();
     if (xs->has_state(XID_STATE::XA_PREPARED)) {
       protocol->start_row();
-      xs->store_xid_info(protocol, m_print_xid_as_hex);
+      xs->store_xid_info(protocol, m_print_xid_as_hex,
+                         m_print_xid_prepare_time);
 
       if (protocol->end_row()) {
         return true;

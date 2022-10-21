@@ -99,6 +99,7 @@ bool xa::Transaction_cache::detach(Transaction_ctx *transaction) {
   bool res = false;
   XID_STATE *xs = transaction->xid_state();
   XID xid = *(xs->get_xid());
+  time_t prepare_state_time = xs->get_prepare_state_time();
   bool was_logged = xs->is_binlogged();
 
   assert(xs->has_state(XID_STATE::XA_PREPARED));
@@ -109,7 +110,7 @@ bool xa::Transaction_cache::detach(Transaction_ctx *transaction) {
   assert(instance.m_transaction_cache.count(to_string(xid)) != 0);
   instance.m_transaction_cache.erase(to_string(xid));
   res = xa::Transaction_cache::create_and_insert_new_transaction(
-      &xid, was_logged, transaction);
+      &xid, was_logged, transaction, prepare_state_time);
 
   return res;
 }
@@ -150,8 +151,8 @@ bool xa::Transaction_cache::insert(XID *xid) {
     COMMIT or XA ROLLBACK of this transaction may be logged alone into
     the binary log.
   */
-  bool res = xa::Transaction_cache::create_and_insert_new_transaction(xid, true,
-                                                                      nullptr);
+  bool res = xa::Transaction_cache::create_and_insert_new_transaction(
+      xid, true, nullptr, 0);
 
   return res;
 }
@@ -188,7 +189,8 @@ xa::Transaction_cache &xa::Transaction_cache::instance() {
 }
 
 bool xa::Transaction_cache::create_and_insert_new_transaction(
-    XID *xid, bool is_binlogged_arg, const Transaction_ctx *src) {
+    XID *xid, bool is_binlogged_arg, const Transaction_ctx *src,
+    time_t prepare_state_time) {
   Transaction_ctx *transaction = new (std::nothrow) Transaction_ctx();
   XID_STATE *xs;
 
@@ -207,6 +209,7 @@ bool xa::Transaction_cache::create_and_insert_new_transaction(
 
   xs = transaction->xid_state();
   xs->start_detached_xa(xid, is_binlogged_arg);
+  xs->set_prepare_state_time(prepare_state_time);
 
   auto &instance = xa::Transaction_cache::instance();
   return !instance.m_transaction_cache

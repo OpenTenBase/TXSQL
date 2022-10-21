@@ -188,7 +188,8 @@ class Transaction_cache {
     @return false if the pair was successfully inserted, true otherwise.
    */
   static bool create_and_insert_new_transaction(XID *xid, bool is_binlogged_arg,
-                                                const Transaction_ctx *src);
+                                                const Transaction_ctx *src,
+                                                time_t prepare_state_time);
 };
 }  // namespace xa
 #endif  // XA_TRANSACTION_CACHE_H_INCLUDED
