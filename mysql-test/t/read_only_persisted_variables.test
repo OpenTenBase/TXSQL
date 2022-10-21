@@ -348,8 +348,9 @@ SET @@persist_only.innodb_force_load_corrupted= "";
 --error ER_INCORRECT_GLOBAL_LOCAL_VAR
 SET @@persist_only.innodb_page_size= "";
 --error ER_INCORRECT_GLOBAL_LOCAL_VAR
-SET @@persist_only.version= "";
---error ER_INCORRECT_GLOBAL_LOCAL_VAR
+# TXSQL: Can dynamically set version now.
+#SET @@persist_only.version= "";
+#--error ER_INCORRECT_GLOBAL_LOCAL_VAR
 SET @@persist_only.version_comment= "";
 --error ER_INCORRECT_GLOBAL_LOCAL_VAR
 SET @@persist_only.version_compile_machine= "";

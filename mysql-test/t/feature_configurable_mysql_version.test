@@ -1,0 +1,69 @@
+connect(conn_tencent,localhost,tencentroot,,);
+let $CDB_MYSQL_VERSION = `select @@global.cdb_mysql_version`;
+let $VERSION = `select version()`;
+--disable_query_log
+eval select "$CDB_MYSQL_VERSION" = "$VERSION" into @mysql_version_is_equal;
+--enable_query_log
+select @mysql_version_is_equal;
+
+create user 'xx1'@'%';
+connect(conn_xx1, localhost, xx1,,);
+--error ER_GLOBAL_VARIABLE
+set session version = '5.7.12';
+--error ER_SPECIFIC_ACCESS_DENIED_ERROR
+set global version = '5.7.12';
+
+connection conn_tencent;
+set global version = '5.6.34'; 
+select version();
+show variables like 'version';
+let $NEW_CDB_MYSQL_VERSION = `select @@global.cdb_mysql_version`;
+--disable_query_log
+eval select "$CDB_MYSQL_VERSION" = "$NEW_CDB_MYSQL_VERSION" into @mysql_version_is_equal;
+--enable_query_log
+select @mysql_version_is_equal;
+
+connection conn_xx1;
+select version();
+show variables like 'version';
+
+# try to set length of version = 60.
+connection conn_tencent;
+--error ER_VERSION_LENGTH_EXCEED_LIMIT
+set global version = '5.7.32333333333333333333333333333333333333333333333333333334';
+
+# set length of version < 60 is ok.
+set global version = '5.7.3233333333333333333333333333333333333333333333333333333';
+select version();
+show variables like 'version';
+
+# try to make a new connections.
+connect(conn_xx2, localhost, xx1,,);
+connection conn_xx2;
+select version();
+show variables like 'version';
+
+# only tencent root can change version.
+connect(conn_root,localhost,root,,);
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+set global version = '5.7.233';
+
+# set version = default is ok.
+connection conn_tencent;
+set global version = default;
+let $DEFAULT_VERSION = `select version()`;
+--disable_query_log
+eval select "$CDB_MYSQL_VERSION" = "$DEFAULT_VERSION" into @mysql_version_is_equal;
+--enable_query_log
+select @mysql_version_is_equal;
+
+# set version = null is not allowed.
+--error ER_WRONG_VALUE_FOR_VAR
+set global version = null;
+
+connection conn_tencent;
+drop user 'xx1'@'%';
+--disable_query_log
+eval set global version = "$VERSION";
+--enable_query_log
+select 1;

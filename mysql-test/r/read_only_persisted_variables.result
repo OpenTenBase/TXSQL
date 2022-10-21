@@ -311,8 +311,6 @@ SET @@persist_only.innodb_force_load_corrupted= "";
 ERROR HY000: Variable 'innodb_force_load_corrupted' is a non persistent read only variable
 SET @@persist_only.innodb_page_size= "";
 ERROR HY000: Variable 'innodb_page_size' is a non persistent read only variable
-SET @@persist_only.version= "";
-ERROR HY000: Variable 'version' is a non persistent read only variable
 SET @@persist_only.version_comment= "";
 ERROR HY000: Variable 'version_comment' is a non persistent read only variable
 SET @@persist_only.version_compile_machine= "";

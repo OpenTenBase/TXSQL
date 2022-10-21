@@ -937,8 +937,8 @@ enum enum_cdb_instance_mode {
   CDB_INSTANCEMODE_LOCKWRITE = 1,
   CDB_INSTANCEMODE_LOCKREAD = 2
 };
-
 extern std::atomic<ulong> cdb_instance_mode;
+extern char *cdb_server_version;
 
 /* Changes from txsql end. */
 #endif /* MYSQLD_INCLUDED */

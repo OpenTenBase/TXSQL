@@ -9962,8 +9962,8 @@ longlong Item_func_internal_tablespace_data_free::val_int() {
 }
 
 Item_func_version::Item_func_version(const POS &pos)
-    : Item_static_string_func(pos, NAME_STRING("version()"), server_version,
-                              strlen(server_version), system_charset_info,
+    : Item_static_string_func(pos, NAME_STRING("version()"), cdb_server_version,
+                              strlen(cdb_server_version), system_charset_info,
                               DERIVATION_SYSCONST) {}
 
 /*
