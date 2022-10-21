@@ -226,6 +226,7 @@ Log_event *Rpl_applier_reader::read_next_event(
       if (m_rli->ign_master_log_name_end[0]) return generate_rotate_event();
 
       stage_controller.enter_stage();
+      m_rli->info_thd->set_command(COM_CONNECT);
       if (sql_slave_killed(m_rli->info_thd, m_rli)) return nullptr;
 
       if (wait_for_new_event()) return nullptr;
