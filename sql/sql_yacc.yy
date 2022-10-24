@@ -1411,6 +1411,7 @@ void warn_about_deprecated_binary(THD *thd)
 %token<lexer.keyword> CLEAR_SYM 1295
 %token<lexer.keyword> STATISTICS_TASKS_SYM 1296
 %token<lexer.keyword> STATISTICS_NODE_SYM 1297
+%token TXSQL_RETURNING_SYM 1298
 /* Changes from txsql end. */
 
 /*
@@ -1858,7 +1859,7 @@ void warn_about_deprecated_binary(THD *thd)
 
 %type <select_var_ident> select_var_ident
 
-%type <select_var_list> select_var_list
+%type <select_var_list> select_var_list into_var_clause
 
 %type <query_primary>
         as_create_query_expression
@@ -13320,6 +13321,14 @@ into_destination:
         | select_var_list { $$= $1; }
         ;
 
+into_var_clause:
+       { $$ = NULL; /*empty rule*/ }
+       | INTO select_var_list
+       {
+          $$= $2;
+       }
+       ;
+
 /*
   DO statement
 */
@@ -14109,9 +14118,10 @@ update_stmt:
           opt_order_clause      /* #8 */
           opt_simple_limit      /* #9 */
           opt_returning_clause  /* #11 */
+          into_var_clause       /* #12 */
           {
             $$= NEW_PTN PT_update($1, $2, $3, $4, $5, $7.column_list, $7.value_list,
-                                  $8, $9, $10, $11);
+                                  $8, $9, $10, $11, $12);
           }
         ;
 
@@ -14168,8 +14178,9 @@ delete_stmt:
           opt_order_clause
           opt_simple_limit
           opt_returning_clause
+          into_var_clause
           {
-            $$= NEW_PTN PT_delete($1, $2, $3, $5, to_lex_cstring($7), $9, $8, $10, $11, $12, $13);
+            $$= NEW_PTN PT_delete($1, $2, $3, $5, to_lex_cstring($7), $9, $8, $10, $11, $12, $13, $14);
           }
         | opt_with_clause
           DELETE_SYM
@@ -14183,7 +14194,7 @@ delete_stmt:
           opt_order_clause
           opt_simple_limit
           {
-            $$= NEW_PTN PT_delete($1, $2, $3, $5, to_lex_cstring($6), $8, $7, $9, $10, $11, nullptr);
+            $$= NEW_PTN PT_delete($1, $2, $3, $5, to_lex_cstring($6), $8, $7, $9, $10, $11, nullptr, nullptr);
           }
         | opt_with_clause
           DELETE_SYM
@@ -14196,8 +14207,9 @@ delete_stmt:
           opt_order_clause
           opt_simple_limit
           opt_returning_clause
+          into_var_clause
           {
-            $$= NEW_PTN PT_delete($1, $2, $3, $5, NULL_CSTR, $7, $6, $8, $9, $10, $11);
+            $$= NEW_PTN PT_delete($1, $2, $3, $5, NULL_CSTR, $7, $6, $8, $9, $10, $11, $12);
           }
         | opt_with_clause
           DELETE_SYM
@@ -19067,6 +19079,10 @@ opt_returning_clause:
             $$ = nullptr;
          }
         | RETURNING_SYM select_item_list
+         {
+            $$ = NEW_PTN PT_returning_clause($2);
+         }
+        | TXSQL_RETURNING_SYM select_item_list
          {
             $$ = NEW_PTN PT_returning_clause($2);
          }

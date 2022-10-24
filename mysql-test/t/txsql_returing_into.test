@@ -1,0 +1,231 @@
+--disable_warnings
+
+create table t1(a int primary key, b int, c varchar(100));
+insert into t1 values (1,2,"abc"),(2,3,"bcd"),(3,4,"cde"),(4,5,"def");
+--echo get 4 lines
+select * from t1;
+
+
+create table t2(a int primary key, b int, c varchar(100));
+insert into t2 values (1,2,"abc"),(2,3,"bcd"),(3,4,"cde"),(4,5,"def");
+--echo get 4 lines
+select * from t2;
+
+#ERROR 21000: The used SELECT statements have a different number of columns
+--error 1222
+update t1 set b = b + 1 where a = 2 into @a,@b,@c;
+
+#ERROR 21000: The used SELECT statements have a different number of columns
+--error 1222
+update t1 set b = b + 1 where a = 2 txsql_returning a+1, b, c into @a,@b;
+
+
+update t1 set b = b + 1 where a = 2 txsql_returning a+1, b, c into @a,@b,@c;
+--echo org,a,b,c(2       3       bcd) =>  (3       4       bcd)
+select @a,@b,@c;
+
+update t1 set b = b + 1 where a = 2 txsql_returning * into @a,@b,@c;
+select found_rows();
+--echo get found_rows(),the result is 1, and (@a,@b,@c) => 2       5       bcd
+select @a,@b,@c;
+
+#ERROR 1172 (42000): Result consisted of more than one row
+--error 1172 
+update t1 set b = b + 1 txsql_returning * into @a,@b,@c;
+
+--echo update multiple rows,so the sql run fail ,but found_rows()  dont' change ,so the result is 1
+select found_rows();
+
+#alought the sql fail,but the variables is the first line's result ,the @a,@b,@c is (1       3       abc)
+select @a,@b,@c;
+
+
+begin;
+select * from t1;
+update t1 set b = b + 1 where a = 2 txsql_returning * into @a,@b,@c;
+select @a,@b,@c;
+select * from t1;
+#ERROR 1172 (42000): Result consisted of more than one row
+--error 1172
+update t1 set b = b + 1 txsql_returning * into @a,@b,@c;
+commit;
+select * from t1;
+
+
+
+begin;
+select * from t1;
+update t1 set b = b + 1 where a = 2 txsql_returning * into @a,@b,@c;
+select @a,@b,@c;
+select * from t1;
+#ERROR 1172 (42000): Result consisted of more than one row
+--error 1172
+update t1 set b = b + 1 txsql_returning * into @a,@b,@c;
+rollback;
+select * from t1;
+
+
+select * from t1;
+select * from t2;
+update t1 left join t2 on t1.a=t2.a set t1.b=t2.b*2 , t2.b = t2.b + 3 ;
+select * from t1;
+select * from t2;
+
+
+#ERROR 3658 (HY000): Feature txsql_returning with mult table is unsupported ().
+--error 3658
+update t1 left join t2 on t1.a=t2.a set t1.b=t2.b*2 , t2.b = t2.b + 3  txsql_returning t1.a,t1.b,t1.c;
+select * from t1;
+select * from t2;
+
+
+#test txsql_returning into by procedure.
+drop procedure if exists test_update_returing;
+delimiter $$;
+create procedure test_update_returing(
+
+    in arg_a int,
+	
+    out err int,
+    out var_a int,
+    out var_b int,
+    out var_c varchar(100),
+	out var_b11 int
+    )
+label:begin
+
+	declare exit HANDLER FOR NOT FOUND,SQLEXCEPTION
+       begin
+		set err = -1;
+		rollback;
+	end;
+	
+	start transaction;
+
+	set err = 0;
+	update t1 set b = b + 1 where a = arg_a txsql_returning a,b,c into var_a,var_b,var_c;
+	update t1 set b = b + 1 where a = arg_a txsql_returning b+10 into @tmp_b;
+	select @tmp_b into var_b11;
+	
+	if err = 0 then
+		commit;
+    end if;
+	
+end
+$$
+delimiter ;$$
+
+set @a = NULL;
+set @b = NULL;
+set @c = NULL;
+set @err=0;
+set @b11 = NULL;
+call test_update_returing(2,@err,@a,@b,@c,@b11);
+select @a,@b,@c,@b11;
+select * from t1;
+
+
+
+begin;
+select * from t1;
+delete from t1 where a <= 2 txsql_returning a,b,c,a+b;
+rollback;
+
+set @a = NULL;
+set @b = NULL;
+set @c = NULL;
+set @d = NULL;
+begin;
+select * from t1;
+delete from t1 limit 1 txsql_returning a,b,c,a+b;
+delete from t1 limit 1 txsql_returning a,b,c,a+b into @a,@b,@c,@d;
+select @a,@b,@c,@d;
+
+#ERROR 1172 (42000): Result consisted of more than one row
+--error 1172
+delete from t1 txsql_returning a,b,c,a+b into @a,@b,@c,@d;
+select found_rows();
+rollback;
+select  @a,@b,@c,@d;
+
+delete from t1 where a=10 txsql_returning a,b,c,a+b;
+select found_rows();
+
+
+drop procedure if exists test_delete_returing;
+delimiter $$;
+create procedure test_delete_returing(
+
+    in arg_a int,
+	
+    out err int,
+    out var_a int,
+    out var_b int,
+    out var_c varchar(100),
+	out var_b11 int
+    )
+label:begin
+
+	declare exit HANDLER FOR NOT FOUND,SQLEXCEPTION
+       begin
+		set err = -1;
+		rollback;
+	end;
+	
+	start transaction;
+
+	set err = 0;
+	delete from t1  where a = arg_a txsql_returning a,b,c into var_a,var_b,var_c;
+	delete from t1  where a = arg_a + 1 txsql_returning b+10 into @tmp_b;
+	select @tmp_b into var_b11;
+	
+	if err = 0 then
+		commit;
+    end if;
+	
+end
+$$
+delimiter ;$$
+
+select * from t1;
+set @a = NULL;
+set @b = NULL;
+set @c = NULL;
+set @err=0;
+set @b11 = NULL;
+call test_delete_returing(2,@err,@a,@b,@c,@b11);
+select @a,@b,@c,@b11;
+select * from t1;
+
+
+set @a = NULL;
+set @b = NULL;
+set @c = NULL;
+set @err=0;
+set @b11 = NULL;
+call test_delete_returing(3,@err,@a,@b,@c,@b11);
+select @a,@b,@c,@b11;
+select * from t1;
+
+
+--enable_warnings
+
+drop procedure test_update_returing;
+drop procedure test_delete_returing;
+drop table t1,t2;
+
+#crash with order by clause
+CREATE TABLE `t1` (
+  `no_w_id` int NOT NULL,
+  `no_d_id` tinyint NOT NULL,
+  `no_o_id` int NOT NULL,
+  PRIMARY KEY (`no_w_id`,`no_d_id`,`no_o_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin;
+
+insert into t1 values(1,1,1),(2,2,2),(3,3,3),(4,4,4),(5,5,5),(6,6,6);
+
+set @a = NULL;
+DELETE FROM t1 WHERE no_w_id = 6 AND no_d_id = 6 order by no_o_id asc limit 1 txsql_returning no_o_id into @a;
+select @a;
+
+drop table t1;

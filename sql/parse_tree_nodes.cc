@@ -889,8 +889,27 @@ Sql_cmd *PT_delete::make_cmd(THD *thd) {
     lex->set_stmt_unsafe(LEX::BINLOG_STMT_UNSAFE_LIMIT);
   }
 
-  if (opt_returning_clause && opt_returning_clause->contextualize(&pc)) {
-    return nullptr;
+  if (opt_returning_clause ) {
+    if (is_multitable()) {  // mult delete,can't support txsql_returing
+      my_error(ER_FEATURE_UNSUPPORTED, MYF(0), "returning with multi table",
+               "");
+      return nullptr;
+    }
+    if (opt_returning_clause->contextualize(&pc)) {
+      return nullptr;
+    }
+  }
+  if (unlikely(opt_select_var_list)) {
+    if (!opt_returning_clause) {
+      my_error(ER_WRONG_NUMBER_OF_COLUMNS_IN_SELECT, MYF(0));
+      return nullptr;
+    }
+    enum enum_parsing_context save_context = select->parsing_place;
+    select->parsing_place = CTX_RETURNING_CLAUSE;
+    if (opt_select_var_list->contextualize(&pc)) {
+      return nullptr;
+    }
+    select->parsing_place = save_context;
   }
 
   if (is_multitable() && multi_delete_link_tables(&pc, &delete_tables))
@@ -953,8 +972,29 @@ Sql_cmd *PT_update::make_cmd(THD *thd) {
 
   if (opt_hints != nullptr && opt_hints->contextualize(&pc)) return nullptr;
 
-  if (opt_returning_clause && opt_returning_clause->contextualize(&pc))
-    return nullptr;
+  if (opt_returning_clause) {
+    if (unlikely(is_multitable)) {  // don't support mult table update
+      my_error(ER_FEATURE_UNSUPPORTED, MYF(0), "returning with multi table",
+               "");
+      return nullptr;
+    }
+    if (opt_returning_clause->contextualize(&pc)) {
+      return nullptr;
+    }
+  }
+  if (unlikely(opt_select_var_list)) {
+    if (!opt_returning_clause) {  // dont' have returning,will report error
+      thd->current_found_rows = 0;
+      my_error(ER_WRONG_NUMBER_OF_COLUMNS_IN_SELECT, MYF(0));
+      return nullptr;
+    }
+    enum enum_parsing_context save_context = select->parsing_place;
+    select->parsing_place = CTX_RETURNING_CLAUSE;
+    if (opt_select_var_list->contextualize(&pc)) {
+      return nullptr;
+    }
+    select->parsing_place = save_context;
+  }
 
   return new (thd->mem_root) Sql_cmd_update(is_multitable, &value_list->value);
 }
