@@ -1,0 +1,10 @@
+set global innodb_page_cleaners = 4;
+--sleep 1
+set global innodb_page_cleaners = 8;
+--sleep 1
+set global innodb_page_cleaners = 65;
+--sleep 1
+set global innodb_page_cleaners = 2;
+--sleep 1
+set global innodb_page_cleaners = 4;
+--sleep 1

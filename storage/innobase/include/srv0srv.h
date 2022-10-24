@@ -66,6 +66,8 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include <future>
 
 /* Changes from txsql start. */
+#include <atomic>
+
 extern int srv_cdb_page_cleaner_priority;
 /** Trigger checkpoint initiatively in async mode.  */
 extern bool srv_async_checkpoint_now;
@@ -164,6 +166,18 @@ struct srv_stats_t {
   ulint_ctr_64_t n_sampled_pages_skipped;
 };
 
+/* Changes from txsql start. */
+/* Max number of page cleaners */
+#define MAX_PAGE_CLEANER_THREADS 64
+
+struct page_cleaner_state {
+  /** Number of page cleaner workers and size of array below. */
+  std::atomic<size_t> m_page_cleaner_workers_n;
+
+  std::atomic<bool> m_page_cleaner_ask_abort[MAX_PAGE_CLEANER_THREADS];
+};
+/* Chnages from txsql end. */
+
 /** Structure which keeps shared future objects for InnoDB background
 threads. One should use these objects to check if threads exited. */
 struct Srv_threads {
@@ -231,8 +245,8 @@ struct Srv_threads {
   /** Page cleaner coordinator (also being a worker). */
   IB_thread m_page_cleaner_coordinator;
 
-  /** Number of page cleaner workers and size of array below. */
-  size_t m_page_cleaner_workers_n;
+  /** Page cleaner state. */
+  page_cleaner_state *pc_state;
 
   /** Page cleaner workers. Note that m_page_cleaner_workers[0] is the
   same shared state as m_page_cleaner_coordinator. */

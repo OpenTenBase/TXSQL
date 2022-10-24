@@ -10,9 +10,8 @@ SELECT COUNT(@@GLOBAL.innodb_page_cleaners);
 SELECT COUNT(@@innodb_page_cleaners);
 --echo 1 Expected
 
---error ER_INCORRECT_GLOBAL_LOCAL_VAR
 SET @@GLOBAL.innodb_page_cleaners=1;
---echo Expected error 'Read-only variable'
+--echo Expected succeed
 
 --Error ER_BAD_FIELD_ERROR
 SELECT innodb_page_cleaners;

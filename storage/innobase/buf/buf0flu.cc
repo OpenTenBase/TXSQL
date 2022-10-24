@@ -81,6 +81,8 @@ static const int buf_flush_page_cleaner_priority = -20;
 #include "my_thread_os_id.h"
 #include "mysqld.h"
 #endif /* UNIV_LINUX */
+
+static ulong page_cleaner_n_created = 0;
 /* Changes from txsql end. */
 
 /** Number of pages flushed through non flush_list flushes. */
@@ -234,8 +236,9 @@ static void buf_flush_sync_datafiles() {
 As of now we'll have only one coordinator. */
 static void buf_flush_page_coordinator_thread();
 
-/** Worker thread of page_cleaner. */
-static void buf_flush_page_cleaner_thread();
+/** Worker thread of page_cleaner.
+@param[in] the i-th page cleaner thread. */
+static void buf_flush_page_cleaner_thread(size_t i);
 
 /** Increases flush_list size in bytes with the page size in inline function */
 static inline void incr_flush_list_size_in_bytes(
@@ -2857,6 +2860,10 @@ void buf_flush_page_cleaner_init() {
 
   page_cleaner->is_running = true;
 
+  /* Start coordinator thread. */
+  page_cleaner_n_created = 1;
+  srv_threads.pc_state->m_page_cleaner_workers_n = 1;
+
   srv_threads.m_page_cleaner_coordinator = os_thread_create(
       page_flush_coordinator_thread_key, 0, buf_flush_page_coordinator_thread);
 
@@ -2875,7 +2882,7 @@ static void buf_flush_page_cleaner_close(void) {
   /* Waiting for all worker threads to exit, note that worker 0 is actually
   the page cleaner coordinator itself which is calling the function which
   we are inside. */
-  for (size_t i = 1; i < srv_threads.m_page_cleaner_workers_n; ++i) {
+  for (size_t i = 1; i < page_cleaner_n_created; ++i) {
     srv_threads.m_page_cleaner_workers[i].wait();
   }
 
@@ -3188,6 +3195,71 @@ void buf_flush_page_cleaner_disabled_debug_update(THD *, SYS_VAR *, void *,
 }
 #endif /* UNIV_DEBUG */
 
+/* Changes from txsql start. */
+/** Create or exit page cleaner threads on fly */
+static void pc_thread_init_or_resize() {
+  /* Optimistic checking */
+  if (srv_threads.pc_state->m_page_cleaner_workers_n.load(
+          std::memory_order_relaxed) == srv_n_page_cleaners) {
+    return;
+  }
+
+  size_t new_size = srv_n_page_cleaners;
+  size_t old_size = srv_threads.pc_state->m_page_cleaner_workers_n.load();
+
+  ut_a(new_size > 0);
+
+  if (new_size > srv_buf_pool_instances) {
+    /* limit of page_cleaner parallelizability is number of
+    buffer pool instances. */
+    new_size = srv_n_page_cleaners = srv_buf_pool_instances;
+  }
+
+  /* double check */
+  if (new_size == old_size) {
+    return;
+  }
+
+  ib::info() << "TXSQL: Change Page cleaner number from " << old_size << " to "
+             << new_size;
+
+  page_cleaner_n_created = new_size;
+
+  if (new_size < old_size) {
+    /* Reduce number of worker threads. */
+    /* Set abort flag. */
+    for (size_t i = new_size; i < old_size; i++) {
+      srv_threads.pc_state->m_page_cleaner_ask_abort[i] = true;
+    }
+
+    /* Wakeup and wait. */
+    os_event_set(page_cleaner->is_requested);
+    for (size_t i = new_size; i < old_size; i++) {
+      srv_threads.m_page_cleaner_workers[i].wait();
+      srv_threads.m_page_cleaner_workers[i] = {};
+    }
+
+    /* Reset the event */
+    os_event_reset(page_cleaner->is_requested);
+
+  } else {
+    ut_a(new_size > old_size);
+    /* Create new threads. */
+    for (size_t i = old_size; i < new_size; i++) {
+      srv_threads.m_page_cleaner_workers[i] = os_thread_create(
+          page_flush_thread_key, 0, buf_flush_page_cleaner_thread, i);
+
+      srv_threads.m_page_cleaner_workers[i].start();
+    }
+  }
+
+  while (srv_threads.pc_state->m_page_cleaner_workers_n.load() != new_size &&
+         srv_shutdown_state.load() < SRV_SHUTDOWN_CLEANUP) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  }
+}
+/* Changes from txsql end. */
+
 /** Thread tasked with flushing dirty pages from the buffer pools.
 As of now we'll have only one coordinator.
 @param[in]      n_page_cleaners Number of page cleaner threads to create */
@@ -3221,14 +3293,7 @@ static void buf_flush_page_coordinator_thread() {
   }
 #endif /* UNIV_LINUX */
 
-  /* We start from 1 because the coordinator thread is part of the
-  same set */
-  for (size_t i = 1; i < srv_threads.m_page_cleaner_workers_n; ++i) {
-    srv_threads.m_page_cleaner_workers[i] = os_thread_create(
-        page_flush_thread_key, i, buf_flush_page_cleaner_thread);
-
-    srv_threads.m_page_cleaner_workers[i].start();
-  }
+  pc_thread_init_or_resize();
 
   while (!srv_read_only_mode &&
          srv_shutdown_state.load() < SRV_SHUTDOWN_CLEANUP &&
@@ -3282,6 +3347,9 @@ static void buf_flush_page_coordinator_thread() {
   int64_t sig_count = os_event_reset(buf_flush_event);
 
   while (srv_shutdown_state.load() < SRV_SHUTDOWN_CLEANUP) {
+    /* Check if adding/removing page cleaner threads is required. */
+    pc_thread_init_or_resize();
+
     /* We consider server active if either we have just discovered a first
     activity after a period of inactive server, or we are after the period
     of active server in which case, it could be just the beginning of the
@@ -3599,8 +3667,9 @@ thread_exit:
   destroy_internal_thd(thd);
 }
 
-/** Worker thread of page_cleaner. */
-static void buf_flush_page_cleaner_thread() {
+/** Worker thread of page_cleaner.
+@param[in] the i-th page cleaner thread. */
+static void buf_flush_page_cleaner_thread(size_t i) {
 #ifdef UNIV_LINUX
   /* linux might be able to set different setting for each thread
   worth to try to set high priority for page cleaner threads */
@@ -3619,17 +3688,25 @@ static void buf_flush_page_cleaner_thread() {
   }
 #endif /* UNIV_LINUX */
 
+  srv_threads.pc_state->m_page_cleaner_workers_n++;
+
+  srv_threads.pc_state->m_page_cleaner_ask_abort[i] = false;
+
   for (;;) {
     os_event_wait(page_cleaner->is_requested);
 
     ut_d(buf_flush_page_cleaner_disabled_loop());
 
-    if (!page_cleaner->is_running) {
+    if (!page_cleaner->is_running ||
+        srv_threads.pc_state->m_page_cleaner_ask_abort[i].load(
+            std::memory_order_relaxed)) {
       break;
     }
 
     pc_flush_slot();
   }
+
+  srv_threads.pc_state->m_page_cleaner_workers_n--;
 }
 
 void buf_flush_fsync() {

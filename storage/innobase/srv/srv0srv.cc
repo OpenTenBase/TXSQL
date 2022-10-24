@@ -1247,13 +1247,20 @@ static void srv_init(void) {
     srv_sys_sz += n_sys_threads * sizeof(*srv_sys->sys_threads);
   }
 
-  srv_threads.m_page_cleaner_coordinator = {};
+  srv_threads.pc_state = new page_cleaner_state();
 
-  srv_threads.m_page_cleaner_workers_n = srv_n_page_cleaners;
+  srv_threads.pc_state->m_page_cleaner_workers_n = 0;
+
+  for (size_t i = 0; i < MAX_PAGE_CLEANER_THREADS; i++) {
+    /* m_page_cleaner_ask_abort is used to abort page clearner threads. */
+    srv_threads.pc_state->m_page_cleaner_ask_abort[i] = false;
+  }
+
+  srv_threads.m_page_cleaner_coordinator = {};
 
   srv_threads.m_page_cleaner_workers = ut::new_arr_withkey<IB_thread>(
       UT_NEW_THIS_FILE_PSI_KEY,
-      ut::Count{srv_threads.m_page_cleaner_workers_n});
+      ut::Count{MAX_PAGE_CLEANER_THREADS});
 
   srv_sys = static_cast<srv_sys_t *>(
       ut::zalloc_withkey(UT_NEW_THIS_FILE_PSI_KEY, srv_sys_sz));
@@ -1356,8 +1363,10 @@ void srv_free(void) {
 
   srv_sys = nullptr;
 
+  delete srv_threads.pc_state;
+
   if (srv_threads.m_page_cleaner_workers != nullptr) {
-    for (size_t i = 0; i < srv_threads.m_page_cleaner_workers_n; ++i) {
+    for (size_t i = 0; i < MAX_PAGE_CLEANER_THREADS; ++i) {
       srv_threads.m_page_cleaner_workers[i] = {};
     }
     ut::delete_arr(srv_threads.m_page_cleaner_workers);
