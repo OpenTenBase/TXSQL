@@ -1754,6 +1754,8 @@ void srv_export_innodb_status(void) {
   export_vars.innodb_buffer_pool_pages_misc =
       buf_pool_get_n_pages() - LRU_len - free_len;
 
+  export_vars.innodb_change_buffer_state = ibuf ? ibuf->state.load() : 0;
+
   export_vars.innodb_page_size = UNIV_PAGE_SIZE;
 
   export_vars.innodb_log_waits = srv_stats.log_waits;
