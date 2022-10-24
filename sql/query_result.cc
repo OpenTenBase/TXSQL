@@ -743,3 +743,75 @@ bool Query_dumpvar::send_eof(THD *thd) {
   ::my_ok(thd, row_count);
   return false;
 }
+
+bool Query_result_send_buf::send_result_set_metadata(
+    THD *thd,
+    const mem_root_deque<Item *> &list,
+    uint flags)
+{
+  n_columns = CountVisibleFields(list);
+  return append_row(thd, list, true);
+}
+
+bool Query_result_send_buf::send_data(
+    THD *thd,
+    const mem_root_deque<Item *> &items) {
+  return append_row(thd, items, false);
+}
+
+bool Query_result_send_buf::append_row(
+    THD* thd,
+    const mem_root_deque<Item *> &items,
+    bool is_meta)
+{
+  char **row;
+  int column = 0;
+
+  if (!(row = (char **) thd->alloc(sizeof(char *) * n_columns)) ||
+      rows.push_back(row, thd->mem_root))
+    return true;
+
+  StringBuffer<32> tmp_buf;
+
+  for (Item *item : VisibleFields(items)) {
+    const char *data_ptr;
+    char *ptr;
+    size_t data_len;
+
+    if (is_meta) {
+      data_ptr = item->item_name.ptr();
+      data_len = item->item_name.length();
+    } else {
+      String *res = item->val_str(&tmp_buf);
+      if (item->null_value) {
+        data_ptr = "NULL";
+        data_len = 4;
+      } else {
+        data_ptr = res->c_ptr_safe();
+        data_len = res->length();
+      }
+    }
+
+    if (!(ptr = (char*) thd->memdup(data_ptr, data_len + 1)))
+      return true;
+    row[column ++] = ptr;
+  }
+  return false;
+}
+
+int Query_result_send_buf::print_data(IO_CACHE *logfile) {
+  DBUG_ENTER("Query_result_send_buf::print_data");
+
+  List_iterator<char *> it(rows);
+  char **row;
+  my_b_printf(logfile, "#\n");
+  while ((row = it++)) {
+    my_b_printf(logfile, "# explain: ");
+    for (int i = 0; i < n_columns; i ++) {
+      if (i) my_b_printf(logfile, "\t");
+      my_b_printf(logfile, "%s", row[i]);
+    }
+    my_b_printf(logfile, "#\n");
+  }
+  DBUG_RETURN(0);
+}

@@ -6151,6 +6151,36 @@ static Sys_var_bool Sys_slow_log_extra(
     NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(check_slow_log_extra),
     ON_UPDATE(nullptr));
 
+static Sys_var_uint Sys_txsql_simple_slow_logging(
+    "txsql_compute_query_time_for_slow_logging",
+    "Compute query time for slow logging by measuring from query "
+    "reception(2) or query start(1) or after locking(0) to end time.",
+    GLOBAL_VAR(g_simple_slow_logging),
+    CMD_LINE(OPT_ARG),
+    VALID_RANGE(0, 2), DEFAULT(0), BLOCK_SIZE(1),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(0), ON_UPDATE(0));
+
+static Sys_var_bool Sys_log_profile_in_slow_log(
+    "log_profile_in_slow_log",
+    "Log thd profile in slow log file",
+    SESSION_VAR(log_profile_in_slow_log), CMD_LINE(OPT_ARG),
+    DEFAULT(false));
+
+static Sys_var_uint Sys_txsql_extend_slow_log_level(
+    "txsql_extend_slow_log_level",
+    "Control the level of extended information in slow log.",
+    SESSION_VAR(txsql_extend_slow_log_level), CMD_LINE(REQUIRED_ARG),
+    VALID_RANGE(0, 1), DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD,
+    NOT_IN_BINLOG, ON_CHECK(nullptr));
+
+static const char *log_slow_verbosity_names[]= { "innodb", "query_plan",
+                                                 "explain", nullptr };
+static Sys_var_set Sys_log_slow_verbosity(
+    "log_slow_verbosity",
+    "Verbosity level for the slow log(explain/0 supported)",
+    SESSION_VAR(log_slow_verbosity), CMD_LINE(REQUIRED_ARG),
+    log_slow_verbosity_names, DEFAULT(LOG_SLOW_VERBOSITY_INIT));
+
 static bool check_not_empty_set(sys_var *, THD *, set_var *var) {
   return var->save_result.ulonglong_value == 0;
 }

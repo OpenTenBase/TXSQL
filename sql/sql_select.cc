@@ -87,11 +87,13 @@
 #include "sql/key.h"  // key_copy, key_cmp, key_cmp_if_same
 #include "sql/key_spec.h"
 #include "sql/lock.h"  // mysql_unlock_some_tables,
+#include "sql/log.h"
 #include "sql/my_decimal.h"
 #include "sql/mysqld.h"  // stage_init
 #include "sql/nested_join.h"
 #include "sql/opt_explain.h"
 #include "sql/opt_explain_format.h"
+#include "sql/opt_explain_traditional.h"
 #include "sql/opt_hints.h"  // hint_key_state()
 #include "sql/opt_trace.h"
 #include "sql/opt_trace_context.h"
@@ -869,6 +871,11 @@ bool Sql_cmd_dml::execute_inner(THD *thd) {
     if (explain_query(thd, thd, unit)) return true; /* purecov: inspected */
   } else {
     if (unit->execute(thd)) return true;
+
+    if (thd->variables.log_slow_verbosity & LOG_SLOW_VERBOSITY_EXPLAIN) {
+      if (!explain_query_pseudo(thd, thd->query_plan.get_lex()->unit))
+        return false;
+    }
   }
 
   return false;

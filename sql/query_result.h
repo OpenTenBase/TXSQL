@@ -34,6 +34,7 @@
 #include "mysql/components/services/bits/my_io_bits.h"  // File
 #include "mysqld_error.h"                               // ER_*
 #include "sql/sql_list.h"
+#include "sql_string.h"
 
 class Item;
 class Item_subselect;
@@ -292,6 +293,23 @@ class Query_result_subquery : public Query_result_interceptor {
       : Query_result_interceptor(), item(item_arg) {}
   bool send_data(THD *thd, const mem_root_deque<Item *> &items) override = 0;
   bool send_eof(THD *) override { return false; }
+};
+
+class Query_result_send_buf : public Query_result {
+  int n_columns;
+  List<char *> rows;
+  bool append_row(THD* thd, const mem_root_deque<Item *> &items, bool is_meta);
+
+  public:
+  Query_result_send_buf() : Query_result() {}
+  bool send_result_set_metadata(THD *thd, const mem_root_deque<Item *> &list,
+                                uint flags) override;
+  bool send_data(THD *thd, const mem_root_deque<Item *> &items) override;
+  int print_data(IO_CACHE *logfile);
+  bool send_eof(THD *) override { return false; }
+  bool check_simple_query_block() const override { return false; }
+  void abort_result_set(THD *) override {return ; }
+  void cleanup(THD *) override { return ; }
 };
 
 #endif  // QUERY_RESULT_INCLUDED

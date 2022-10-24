@@ -83,6 +83,7 @@
 #include "sql/field.h"
 #include "sql/handler.h"
 #include "sql/mysqld.h"
+#include "sql/opt_explain.h"
 #include "sql/protocol_classic.h"
 #include "sql/psi_memory_key.h"  // key_memory_File_query_log_name
 #include "sql/query_options.h"
@@ -93,6 +94,7 @@
 #include "sql/sql_lex.h"
 #include "sql/sql_parse.h"  // sql_command_flags
 #include "sql/sql_plugin_ref.h"
+#include "sql/sql_profile.h"
 #include "sql/sql_time.h"  // calc_time_from_sec
 #include "sql/system_variables.h"
 #include "sql/table.h"  // TABLE_FIELD_TYPE
@@ -708,6 +710,13 @@ bool File_query_log::write_slow(THD *thd, ulonglong current_utime,
       goto err;
   }
 
+  if (thd->variables.txsql_extend_slow_log_level == 1) {
+    if (my_b_printf(&log_file,
+          "# Query_id: %s\n",
+          thd->m_txsql_qid.length ? thd->m_txsql_qid.str : "0:00-00-0")
+        == (uint)-1) goto err; /* purecov: inspected */
+  }
+
   /* For slow query log */
   sprintf(query_time_buff, "%.6f", ulonglong2double(query_utime) / 1000000.0);
   sprintf(lock_time_buff, "%.6f", ulonglong2double(lock_utime) / 1000000.0);
@@ -743,7 +752,7 @@ bool File_query_log::write_slow(THD *thd, ulonglong current_utime,
 
     if (my_b_printf(
             &log_file,
-            "# Query_time: %s  Lock_time: %s"
+            "# Query_time: %s  Lock_time: %s Usecs_wait_tp_wq: %llu"
             " Rows_sent: %lu  Rows_examined: %lu"
             " Thread_id: %lu Errno: %lu Killed: %lu"
             " Bytes_received: %lu Bytes_sent: %lu"
@@ -755,7 +764,8 @@ bool File_query_log::write_slow(THD *thd, ulonglong current_utime,
             " Created_tmp_disk_tables: %lu"
             " Created_tmp_tables: %lu"
             " Start: %s End: %s\n",
-            query_time_buff, lock_time_buff, (ulong)thd->get_sent_row_count(),
+            query_time_buff, lock_time_buff, thd->usecs_in_q,
+            (ulong)thd->get_sent_row_count(),
             (ulong)thd->get_examined_row_count(), (ulong)thd->thread_id(),
             static_cast<ulong>(
                 thd->is_error() ? thd->get_stmt_da()->mysql_errno() : 0),
@@ -792,6 +802,18 @@ bool File_query_log::write_slow(THD *thd, ulonglong current_utime,
                     thd->copy_status_var_ptr->created_tmp_tables),
             start_time_buff, end_time_buff) == (uint)-1)
       goto err; /* purecov: inspected */
+  }
+
+  /* txsql: print profile to slow log */
+  if (thd->variables.log_profile_in_slow_log) {
+    thd->profiling->print_current(&log_file);
+  }
+
+  /* txsql: print explain info to slow log */
+  if (thd->variables.log_slow_verbosity & LOG_SLOW_VERBOSITY_EXPLAIN) {
+    if (thd->lex->explain_format && thd->pseudo_result_send != nullptr) {
+      thd->pseudo_result_send->print_data(&log_file);
+    }
   }
 
   if (thd->db().str && strcmp(thd->db().str, db)) {  // Database changed
@@ -1308,7 +1330,7 @@ bool Query_logger::slow_log_write(THD *thd, const char *query,
                 sctx_ip.length ? sctx_ip.str : "", "]", NullS) -
        user_host_buff);
   ulonglong current_utime = my_micro_time();
-  ulonglong query_utime, lock_utime;
+  ulonglong query_utime, lock_utime, query_start_time;
   if (aggregate) {
     query_utime = exec_usec;
     lock_utime = lock_usec;
@@ -1318,6 +1340,18 @@ bool Query_logger::slow_log_write(THD *thd, const char *query,
   } else {
     query_utime = 0;
     lock_utime = 0;
+  }
+
+  /**
+    If the slow log includes the thread pool queue waiting time.
+    We should adjuct the query_start_time and query_time.
+   */
+  query_start_time = thd->start_time.tv_sec * 1000000UL + thd->start_time.tv_usec;
+  if (g_simple_slow_logging == 2 && thd->usecs_in_q > 0) {
+    if (query_start_time >= thd->usecs_in_q) {
+      query_start_time -= thd->usecs_in_q;
+    }
+    query_utime += thd->usecs_in_q;
   }
 
   bool is_command = false;
@@ -1335,8 +1369,7 @@ bool Query_logger::slow_log_write(THD *thd, const char *query,
        *current_handler;) {
     error |= (*current_handler++)
                  ->log_slow(thd, current_utime,
-                            (thd->start_time.tv_sec * 1000000ULL) +
-                                thd->start_time.tv_usec,
+                            query_start_time,
                             user_host_buff, user_host_len, query_utime,
                             lock_utime, is_command, query, query_length);
   }

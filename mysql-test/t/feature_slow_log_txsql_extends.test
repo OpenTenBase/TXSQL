@@ -1,0 +1,38 @@
+show variables like "%log_profile_in_slow_log%";
+show variables like "long_query_time";
+show variables like "slow_query_log";
+show variables like "log_output";
+
+SET @save_sqlf=@@global.slow_query_log_file;
+--replace_result $MYSQL_TMP_DIR ...
+eval SET GLOBAL slow_query_log_file= '$MYSQL_TMP_DIR/slow_log_extends.log';
+
+let SLOW_LOG= `SELECT @@global.slow_query_log_file`;
+#record the slow log sql
+select sleep(3);
+
+--echo # Look for Errnos in slow log. There should be two,
+--echo # both SET and CREATE will be logged as slow.
+
+--perl
+my $result=0;
+open FILE, "$ENV{'SLOW_LOG'}" or die "Could not open tmp slow log file: $!";
+while (<FILE>) {
+  my $line = $_;
+  if ($line =~ /.*Profile_starting:.*/) {
+    $result=1;
+  }
+}
+if ($result == 1) {
+  print "[ PASS ] found profile data in slow log.\n";
+}
+else
+{
+  print "[ FAIL ] don't found profile data in slow log\n";
+}
+
+close (FILE);
+EOF
+
+SET @@global.slow_query_log_file=@save_sqlf;
+--remove_file $SLOW_LOG

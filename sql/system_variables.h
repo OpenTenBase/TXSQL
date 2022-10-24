@@ -491,6 +491,14 @@ struct System_variables {
   bool txsql_range_estimation_by_histogram;
   bool enable_select_semi_read;
   /* Changes from txsql end. */
+
+  /**
+    txsql:
+    print profile to slow log if enabled.
+   */
+  bool log_profile_in_slow_log;
+  uint txsql_extend_slow_log_level;
+  ulonglong log_slow_verbosity;
 };
 
 /**

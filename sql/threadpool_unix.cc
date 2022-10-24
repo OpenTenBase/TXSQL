@@ -1963,7 +1963,10 @@ static void handle_event(connection_t *connection) {
       if (!threadpool_process_request_prepare(connection->thd)) goto io;
     }
 
+    connection->thd->usecs_in_q = (connection->when_enqueued > 0 ?
+        my_micro_time() - connection->when_enqueued : 0);
     err = threadpool_process_request(connection->thd);
+    connection->thd->usecs_in_q = 0;
     connection->when_enqueued = 0;
   }
 

@@ -1,0 +1,88 @@
+--source include/not_windows.inc
+
+TRUNCATE TABLE mysql.slow_log;
+
+SET @old_log_output = @@global.log_output;
+SET @old_slow_query_log = @@global.slow_query_log;
+SET @old_slow_query_log_file = @@global.slow_query_log_file;
+SET @old_long_query_time = @@global.long_query_time;
+SET @old_txsql_extend_slow_log_level = @@global.txsql_extend_slow_log_level;
+
+################################################################################
+# Prepare 
+################################################################################
+--replace_result $MYSQLTEST_VARDIR ...
+eval SET GLOBAL slow_query_log_file = '$MYSQLTEST_VARDIR/log/qid_slow.log';
+SET GLOBAL log_output = 'FILE';
+SET GLOBAL slow_query_log = 'ON';
+SET SESSION long_query_time = 0;
+
+let MY_SLOW_LOG = `SELECT @@global.slow_query_log_file`;
+--disable_result_log
+SELECT @@global.slow_query_log_file;
+--enable_result_log
+
+SET SESSION txsql_extend_slow_log_level = 1;
+SELECT @@SESSION.txsql_extend_slow_log_level;
+
+################################################################################
+# Queries with valid format.
+################################################################################
+/*4:16777217-1656991730-1*/ select sleep(1);
+/*4:16777217-1656991730-2*/select @@version_comment limit 1;
+select /*4:16777217-1656991730-3*/ sleep(1);
+/*4:16777217-1656994730-2*/ /*sets:allsets */select @@version_comment limit 1;
+/*sets:allsets */ /*4:16777217-1656995730-2*/select @@version_comment limit 1;
+select @@version_comment limit 1;
+/*sets:allsets */ /*4:16777217-1656995731-1*/select @@version_comment limit 1;
+
+################################################################################
+# Queries with invalid format/without query id.
+################################################################################
+/*4:16777a217-1656991730-1*/ select sleep(1);
+/*4:16777217-165699999999999999999999999999999999999999999999991730-1*/ select sleep(1);
+/*4:16777a217-1656991730-*/ select sleep(1);
+/*4-16777a217:1656991730-1*/ select sleep(1);
+
+
+SET SESSION txsql_extend_slow_log_level = 0;
+SELECT @@SESSION.txsql_extend_slow_log_level;
+
+################################################################################
+# Queries with valid format.
+################################################################################
+/*4:16777217-1656991730-1*/ select sleep(1);
+/*4:16777217-1656991730-2*/select @@version_comment limit 1;
+select /*4:16777217-1656991730-3*/ sleep(1);
+
+################################################################################
+# Queries with invalid format/without query id.
+################################################################################
+/*4:16777a217-1656991730-1*/ select sleep(1);
+/*4:16777217-165699999999999999999999999999999999999999999999991730-1*/ select sleep(1);
+/*4:16777a217-1656991730-3*2*/ select sleep(1);
+/*4-16777a217:1656991730-1*/ select sleep(1);
+
+################################################################################
+# Check slow log contents
+################################################################################
+CREATE TABLE test_log (sql_text TEXT);
+--replace_result $MYSQLTEST_VARDIR ...
+eval LOAD DATA LOCAL INFILE '$MYSQLTEST_VARDIR/log/qid_slow.log'
+  INTO TABLE test_log FIELDS TERMINATED BY '\n' LINES TERMINATED BY '\n';
+
+select sql_text from test_log where sql_text like '%Query_id:%';
+
+drop table test_log;
+
+--remove_file $MYSQLTEST_VARDIR/log/qid_slow.log
+
+
+################################################################################
+# Cleanup
+################################################################################
+SET SESSION long_query_time = @old_long_query_time;
+SET GLOBAL  slow_query_log_file = @old_slow_query_log_file;
+SET GLOBAL  slow_query_log = @old_slow_query_log;
+SET GLOBAL  log_output = @old_log_output;
+SET GLOBAL  txsql_extend_slow_log_level= @old_txsql_extend_slow_log_level;

@@ -173,6 +173,7 @@ bool explain_single_table_modification(THD *explain_thd, const THD *query_thd,
                                        Query_block *select);
 bool explain_query(THD *explain_thd, const THD *query_thd,
                    Query_expression *unit);
+bool explain_query_pseudo(THD *thd, Query_expression *unit);
 bool explain_query_specification(THD *explain_thd, const THD *query_thd,
                                  Query_block *query_block,
                                  enum_parsing_context ctx);

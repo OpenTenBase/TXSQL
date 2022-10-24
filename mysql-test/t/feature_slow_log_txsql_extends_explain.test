@@ -1,0 +1,78 @@
+--source include/not_windows.inc
+
+SET @old_log_output = @@global.log_output;
+SET @old_slow_query_log = @@global.slow_query_log;
+SET @old_slow_query_log_file = @@global.slow_query_log_file;
+SET @old_long_query_time = @@global.long_query_time;
+SET @old_log_slow_verbosity = @@global.log_slow_verbosity;
+
+################################################################################
+# Prepare
+################################################################################
+--replace_result $MYSQLTEST_VARDIR ...
+eval SET GLOBAL slow_query_log_file = '$MYSQLTEST_VARDIR/log/explain_in_slow.log';
+SET GLOBAL log_output = 'FILE';
+SET GLOBAL slow_query_log = 'ON';
+SET SESSION long_query_time = 0;
+
+let MY_SLOW_LOG = `SELECT @@global.slow_query_log_file`;
+--disable_result_log
+SELECT @@global.slow_query_log_file;
+--enable_result_log
+
+# Query 1 not recorded, query 2 recorded with explain information.
+SET SESSION long_query_time = 1;
+select 1;
+select sleep(1);
+
+SET SESSION long_query_time = 0;
+SELECT @@session.log_slow_verbosity;
+set session log_slow_verbosity = "explain";
+SELECT @@session.log_slow_verbosity;
+select 1;
+select sleep(1);
+select concat("Hello", " ", "World.");
+
+# no explain infos for DDL written to slow log.
+create table t1 (a int, b int);
+create table t2 (a int, b int);
+
+# no explain infos for SHOW xxx queries
+show tables;
+show create table t1;
+
+# SELECT Scenarios
+SELECT * FROM t1 ot WHERE ot.b<0 OR ot.a IN (SELECT it.a+1 FROM t2 it);
+SELECT t1.* FROM t1 LEFT OUTER JOIN 
+        (SELECT COUNT(a) AS cnt FROM t2) AS derived
+    ON TRUE
+    WHERE t1.a > derived.cnt;
+
+
+## Read logs from slow log
+CREATE TABLE test_log (sql_text TEXT);
+--replace_result $MYSQLTEST_VARDIR ...
+eval LOAD DATA LOCAL INFILE '$MYSQLTEST_VARDIR/log/explain_in_slow.log'
+  INTO TABLE test_log FIELDS TERMINATED BY '\n' LINES TERMINATED BY '\n';
+
+select sql_text from test_log where sql_text like "# explain:%" or 
+  (sql_text not like "SET timestamp=%" and 
+    sql_text not like "# %" and 
+  (sql_text like "create%" or
+  sql_text like "select%" or
+  sql_text like "show%" or
+  sql_text like "use%" or
+  sql_text like "set%"));
+
+################################################################################
+# Cleanup
+################################################################################
+drop table t1, t2;
+drop table test_log;
+--remove_file $MYSQLTEST_VARDIR/log/explain_in_slow.log
+
+SET SESSION long_query_time = @old_long_query_time;
+SET SESSION log_slow_verbosity = @old_log_slow_verbosity;
+SET GLOBAL  slow_query_log_file = @old_slow_query_log_file;
+SET GLOBAL  slow_query_log = @old_slow_query_log;
+SET GLOBAL  log_output = @old_log_output;

@@ -1265,6 +1265,65 @@ static bool consume_comment(Lex_input_stream *lip,
   return true;
 }
 
+ /**
+  Given a stream that is advanced to the first contained character in
+  an open comment, store the content if it is the proxy query id,
+  then consume the comment.
+
+  @param   len [in/out] proxy id length we preserved. 0 if invalid.
+  @retval  Whether EOF reached before comment is closed.
+*/
+static bool consume_comment_with_qid(Lex_input_stream *lip,
+                             char *res, size_t *len,
+                             const CHARSET_INFO* cs) {
+  uchar c;
+  int colon_cnt = 0;
+  int minus_cnt = 0;
+  int char_cnt = 0;
+  bool is_valid = true;
+
+  while (!lip->eof()) {
+    c = lip->yyGet();
+    if (c == '*') {
+      if (!(minus_cnt == 2 && char_cnt > 0)) { is_valid = false; *len = 0; }
+      if (lip->yyPeek() == '/') {
+        lip->yySkip(); /* Eat slash */
+        res[*len] = '\0';
+        return false;
+      }
+    }
+
+    if (c == '\n') {
+      lip->yylineno++;
+      continue;
+    }
+
+    if (is_valid) {
+      if (my_isdigit(cs, c)) {
+        char_cnt ++;
+      } else if (c == ':' && char_cnt > 0 && minus_cnt == 0 && colon_cnt == 0) {
+        char_cnt = 0;
+        colon_cnt ++;
+      } else if (c == '-' && char_cnt > 0 && colon_cnt == 1 && minus_cnt < 2) {
+        char_cnt = 0;
+        minus_cnt ++;
+      } else {
+        is_valid = false;
+        *len = 0;
+        continue;
+      }
+
+      res[(*len)++] = c;
+      if (*len >= TXSQL_QID_MAX_LENGTH) {
+        is_valid = false;
+        *len = 0;
+      }
+    }
+  }
+
+  return true;
+}
+
 /**
   yylex() function implementation for the main parser
 
@@ -1795,6 +1854,7 @@ static int lex_one_token(Lexer_yystype *yylval, THD *thd) {
         state = MY_LEX_START;  // Try again
         break;
       case MY_LEX_LONG_COMMENT: /* Long C comment? */
+        {
         if (lip->yyPeek() != '*') {
           state = MY_LEX_CHAR;  // Probable division
           break;
@@ -1804,6 +1864,9 @@ static int lex_one_token(Lexer_yystype *yylval, THD *thd) {
         lip->yyUnget();
 
         lip->save_in_comment_state();
+
+        char p_qid[TXSQL_QID_MAX_LENGTH];
+        size_t len = 0;
 
         if (lip->yyPeekn(2) == '!') {
           lip->in_comment = DISCARD_COMMENT;
@@ -1866,7 +1929,13 @@ static int lex_one_token(Lexer_yystype *yylval, THD *thd) {
           lip->in_comment = PRESERVE_COMMENT;
           lip->yySkip();  // Accept /
           lip->yySkip();  // Accept *
-          comment_closed = !consume_comment(lip, 0);
+
+          if (thd->m_txsql_qid.length == 0 &&
+              thd->variables.txsql_extend_slow_log_level == 1)
+            comment_closed = !consume_comment_with_qid(lip, p_qid, &len, cs);
+          else
+            comment_closed = !consume_comment(lip, 0);
+
           /* regular comments can have zero comments inside. */
         }
         /*
@@ -1887,9 +1956,17 @@ static int lex_one_token(Lexer_yystype *yylval, THD *thd) {
 
         /* Unbalanced comments with a missing '*' '/' are a syntax error */
         if (!comment_closed) return (ABORT_SYM);
+
+        if (thd->m_txsql_qid.length == 0 &&
+            thd->variables.txsql_extend_slow_log_level == 1) {
+          thd->m_txsql_qid.str = thd->strmake(p_qid, len);
+          thd->m_txsql_qid.length = len;
+        }
+
         state = MY_LEX_START;  // Try again
         lip->restore_in_comment_state();
         break;
+        }
       case MY_LEX_END_LONG_COMMENT:
         if ((lip->in_comment != NO_COMMENT) && lip->yyPeek() == '/') {
           /* Reject '*' '/' */

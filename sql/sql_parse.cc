@@ -2747,6 +2747,23 @@ done:
 
   log_slow_statement(thd);
 
+  /*
+    thd->query_plan was freed at the end of execute_command().
+
+    We introduce 2 structs: lex->explain_format and thd->pseudo_result_send,
+    to maintain the explain information from the lexical tree(query_plan).
+
+    So we should clean up those 2 structs and related memories immediately alter
+    the slow log write.
+   */
+  if (thd->variables.log_slow_verbosity & LOG_SLOW_VERBOSITY_EXPLAIN) {
+    if (thd->lex->explain_format && thd->pseudo_result_send != nullptr) {
+      thd->free_items();
+      destroy(thd->pseudo_result_send);
+      thd->pseudo_result_send = nullptr;
+    }
+  }
+
   THD_STAGE_INFO(thd, stage_cleaning_up);
 
   thd->reset_query();
@@ -7742,6 +7759,12 @@ bool parse_sql(THD *thd, Parser_state *parser_state,
   thd->push_internal_handler(&poomh);
 
   thd->push_diagnostics_area(parser_da, false);
+
+
+  // Empty query id before parse
+  if (thd->m_txsql_qid.length != 0) {
+    thd->m_txsql_qid = NULL_STR;
+  }
 
   bool mysql_parse_status = thd->sql_parser();
 

@@ -187,8 +187,9 @@ static double GetTimeDiffInSeconds(FILETIME *a, FILETIME *b) {
 #endif
 
 PROF_MEASUREMENT::PROF_MEASUREMENT(QUERY_PROFILE *profile_arg,
-                                   const char *status_arg)
-    : profile(profile_arg) {
+                                   const char *status_arg,
+                                   bool log_slow_arg)
+    : profile(profile_arg), log_slow(log_slow_arg) {
   collect();
   set_label(status_arg, nullptr, nullptr, 0);
 }
@@ -196,8 +197,9 @@ PROF_MEASUREMENT::PROF_MEASUREMENT(QUERY_PROFILE *profile_arg,
 PROF_MEASUREMENT::PROF_MEASUREMENT(QUERY_PROFILE *profile_arg,
                                    const char *status_arg,
                                    const char *function_arg,
-                                   const char *file_arg, unsigned int line_arg)
-    : profile(profile_arg) {
+                                   const char *file_arg, unsigned int line_arg,
+                                   bool log_slow_arg)
+    : profile(profile_arg), log_slow(log_slow_arg) {
   collect();
   set_label(status_arg, function_arg, file_arg, line_arg);
 }
@@ -262,7 +264,9 @@ void PROF_MEASUREMENT::set_label(const char *status_arg,
 void PROF_MEASUREMENT::collect() {
   time_usecs = (double)my_getsystime() / 10.0; /* 1 sec was 1e7, now is 1e6 */
 #ifdef HAVE_GETRUSAGE
-  getrusage(RUSAGE_SELF, &rusage);
+  if (!log_slow) {
+    getrusage(RUSAGE_SELF, &rusage);
+  }
 #elif defined(_WIN32)
   FILETIME ftDummy;
   // NOTE: Get{Process|Thread}Times has a granularity of the clock interval,
@@ -272,12 +276,13 @@ void PROF_MEASUREMENT::collect() {
 #endif
 }
 
-QUERY_PROFILE::QUERY_PROFILE(PROFILING *profiling_arg, const char *status_arg)
+QUERY_PROFILE::QUERY_PROFILE(PROFILING *profiling_arg, const char *status_arg, bool log_slow_arg)
     : profiling(profiling_arg),
       profiling_query_id(0),
-      m_query_source(NULL_STR) {
+      m_query_source(NULL_STR),
+      log_slow(log_slow_arg) {
   m_seq_counter = 1;
-  PROF_MEASUREMENT *prof = new PROF_MEASUREMENT(this, status_arg);
+  PROF_MEASUREMENT *prof = new PROF_MEASUREMENT(this, status_arg, log_slow_arg);
   prof->m_seq = m_seq_counter++;
   m_start_time_usecs = prof->time_usecs;
   m_end_time_usecs = m_start_time_usecs;
@@ -315,9 +320,9 @@ void QUERY_PROFILE::new_status(const char *status_arg, const char *function_arg,
 
   if ((function_arg != nullptr) && (file_arg != nullptr))
     prof = new PROF_MEASUREMENT(this, status_arg, function_arg,
-                                base_name(file_arg), line_arg);
+                                base_name(file_arg), line_arg, log_slow);
   else
-    prof = new PROF_MEASUREMENT(this, status_arg);
+    prof = new PROF_MEASUREMENT(this, status_arg, log_slow);
 
   prof->m_seq = m_seq_counter++;
   m_end_time_usecs = prof->time_usecs;
@@ -376,12 +381,13 @@ void PROFILING::start_new_query(const char *initial_state) {
     finish_current_query();
   }
 
-  enabled = ((thd->variables.option_bits & OPTION_PROFILING) != 0);
+  enabled = ((thd->variables.option_bits & OPTION_PROFILING) != 0 ||
+              thd->variables.log_profile_in_slow_log);
 
   if (!enabled) return;
 
   assert(current == nullptr);
-  current = new QUERY_PROFILE(this, initial_state);
+  current = new QUERY_PROFILE(this, initial_state, thd->variables.log_profile_in_slow_log);
 }
 
 /**
@@ -408,7 +414,8 @@ void PROFILING::finish_current_query() {
 
     if ((enabled) && /* ON at start? */
         ((thd->variables.option_bits & OPTION_PROFILING) !=
-         0) && /* and ON at end? */
+         0 ||
+         thd->variables.log_profile_in_slow_log) && /* and ON at end? */
         (current->m_query_source.str != nullptr) &&
         (!current->entries.is_empty())) {
       current->profiling_query_id = next_profile_id(); /* assign an id */
@@ -690,6 +697,96 @@ int PROFILING::fill_statistics_info(THD *thd_arg, TABLE_LIST *tables) {
 
   return 0;
 }
+
+/**
+  For a given profile entry specified by a name and two time measurements,
+  print its normalized name (i.e. with all spaces replaced by underscores)
+  along with its wall clock and CPU time.
+ */
+void PROFILING::my_b_print_status(IO_CACHE *log_file, const char *status,
+                                  const PROF_MEASUREMENT &start,
+                                  const PROF_MEASUREMENT &stop) {
+  DBUG_ENTER("my_b_print_status");
+  assert(log_file != nullptr);
+  assert(status != nullptr);
+  char query_time_buff[22+7];
+  const char *tmp;
+
+  my_b_printf(log_file, "Profile_");
+  for(tmp = status; *tmp; tmp ++) {
+    my_b_printf(log_file, "%c", *tmp == ' ' ? '-' : *tmp);
+  }
+
+  snprintf(query_time_buff, sizeof(query_time_buff), "%.6f\n",
+      (stop.time_usecs - start.time_usecs) / (1000.0 * 1000));
+  my_b_printf(log_file, ": %s", query_time_buff);
+
+  DBUG_VOID_RETURN;
+}
+
+int PROFILING::print_current(IO_CACHE *log_file) {
+  DBUG_ENTER("PROFILING::print_current");
+  /* Get current query */
+  if (current == NULL) {
+    DBUG_RETURN(0);
+  }
+
+  my_b_printf(log_file, "# ");
+
+  ulonglong row_number = 0;
+
+  QUERY_PROFILE *const query = current;
+
+  void *entry_iterator;
+  PROF_MEASUREMENT *entry = nullptr, *previous = nullptr, *first = nullptr;
+
+  /* ... and for each query, go through all its state-change steps. */
+  for (entry_iterator = query->entries.new_iterator();
+       entry_iterator != nullptr;
+       entry_iterator = query->entries.iterator_next(entry_iterator),
+         previous = entry, row_number ++) {
+
+    entry = query->entries.iterator_value(entry_iterator);
+
+    /* Skip the first entry. We count spans of fence, not fence-posts. */
+    if (previous == nullptr) {
+      first = entry;
+      continue;
+    }
+
+    if (thd->lex->sql_command == SQLCOM_SHOW_PROFILE) {
+      /**
+        We got here via a SHOW command.
+        It means that we store the information about the query we wish to show,
+        and isn't in a WHERE clause at a higher level to filter out rows
+        to exclude.
+
+        Since it is not supported by server layer yet,
+        we should do the filter works at a wrong level.
+
+        The following routine can be ripped out once the WHERE and HAVING
+        conditions can be constructed at SQL layer.
+       */
+      if (thd->lex->show_profile_query_id == 0) { /* 0 == show final query */
+        if (query != last) continue;
+      } else {
+        if (thd->lex->show_profile_query_id != query->profiling_query_id)
+          continue;
+      }
+    }
+
+    my_b_print_status(log_file, previous->status, *previous, *entry);
+  }
+  my_b_printf(log_file, "\n");
+  if ((entry != nullptr) && (first != nullptr)) {
+    my_b_printf(log_file, "# ");
+    my_b_print_status(log_file, "total", *first, *entry);
+    my_b_printf(log_file, "\n");
+  }
+
+  DBUG_RETURN(0);
+}
+
 /**
   Clear all the profiling information.
 */
