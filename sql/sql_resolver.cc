@@ -523,8 +523,15 @@ bool Query_block::prepare(THD *thd, mem_root_deque<Item *> *insert_field_list) {
   // Setup full-text functions after resolving HAVING
   if (has_ft_funcs() && setup_ftfuncs(thd, this)) return true;
 
-  if (query_result() && query_result()->prepare(thd, fields, unit)) return true;
-
+  if (!this->has_returning()) {
+    if (query_result() && query_result()->prepare(thd, fields, unit))
+      return true;
+  } else {
+    if (returning_result() &&
+        returning_result()->prepare(thd, *this->returning_fields, unit)) {
+      return true;
+    }
+  }
   if (has_sj_candidates() && flatten_subqueries(thd)) return true;
 
   set_sj_candidates(nullptr);
@@ -4383,6 +4390,8 @@ bool find_order_in_list(THD *thd, Ref_item_array ref_item_array,
             ->walk(&Item::clean_up_after_removal, enum_walk::SUBQUERY_POSTFIX,
                    pointer_cast<uchar *>(&ctx));
       }
+      if (ref_item_array[counter] == nullptr && *select_item != nullptr)
+        ref_item_array[counter] = *select_item;
       order->item = &ref_item_array[counter];
       order->in_field_list = true;
       if (resolution == RESOLVED_AGAINST_ALIAS && from_field == not_found_field)

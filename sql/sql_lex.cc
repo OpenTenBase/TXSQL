@@ -2493,7 +2493,8 @@ bool Query_block::setup_base_ref_items(THD *thd) {
   Query_arena *arena = thd->stmt_arena;
   uint n_elems = n_sum_items + n_child_sum_items + fields.size() +
                  select_n_having_items + select_n_where_fields +
-                 order_group_num + n_scalar_subqueries;
+                 order_group_num + n_scalar_subqueries +
+                 (returning_fields ? returning_fields->size() : 0);
 
   /*
     If it is possible that we transform IN(subquery) to a join to a derived
@@ -2545,7 +2546,8 @@ bool Query_block::setup_base_ref_items(THD *thd) {
      */
     if (base_ref_items.size() >= n_elems) return false;
   }
-  Item **array = static_cast<Item **>(arena->alloc(sizeof(Item *) * n_elems));
+  Item **array =
+      static_cast<Item **>(arena->mem_calloc(sizeof(Item *) * n_elems));
   if (array == nullptr) return true;
 
   base_ref_items = Ref_item_array(array, n_elems);

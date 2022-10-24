@@ -403,8 +403,11 @@ bool Sql_cmd_delete::delete_from_single_table(THD *thd) {
             explain_single_table_modification(thd, thd, &plan, query_block);
         return err;
       }
-      my_ok(thd, 0);
-      return false;
+
+      if (!has_returning) {
+        my_ok(thd, 0);
+        return false;
+      }
     }
   }
 
@@ -447,8 +450,10 @@ bool Sql_cmd_delete::delete_from_single_table(THD *thd) {
         return err;
       }
 
-      my_ok(thd, 0);
-      return false;  // Nothing to delete
+      if (!has_returning) {
+        my_ok(thd, 0);
+        return false;  // Nothing to delete
+      }
     }
   }  // Ends scope for optimizer trace wrapper
 
@@ -484,7 +489,7 @@ bool Sql_cmd_delete::delete_from_single_table(THD *thd) {
   }
 
   // Reaching here only when table must be accessed
-  assert(!no_rows);
+  assert(!no_rows || has_returning);
 
   {
     ha_rows rows;
@@ -599,7 +604,8 @@ bool Sql_cmd_delete::delete_from_single_table(THD *thd) {
 
     // The loop that reads rows and delete those that qualify
 
-    while (!(error = iterator->Read()) && !thd->killed && !thd->is_error()) {
+    while (!no_rows && !(error = iterator->Read()) && !thd->killed &&
+           !thd->is_error()) {
       assert(!thd->is_error());
       thd->inc_examined_row_count(1);
 
@@ -706,6 +712,13 @@ cleanup:
     }
     DBUG_PRINT("info", ("%ld records deleted", (long)deleted_rows));
   }
+
+  if (likely(error <= 0)) {
+    thd->current_found_rows = deleted_rows;
+  } else {
+    thd->current_found_rows = 0;
+  }
+
   return error > 0;
 }
 
@@ -847,9 +860,13 @@ bool Sql_cmd_delete::prepare_inner(THD *thd) {
 
   if (has_returning) {
     if (select->returning_result() == nullptr) {
-      Query_result_send *qrs = new (thd->mem_root) Query_result_send;
-      if (qrs == nullptr) return true;
-      select->set_returning_result(qrs);
+      if (unlikely(lex->result)) {
+        select->set_returning_result(lex->result);
+      } else {
+        Query_result_send *qrs = new (thd->mem_root) Query_result_send;
+        if (qrs == nullptr) return true;
+        select->set_returning_result(qrs);
+      }
     }
     if (select->setup_wild_in_returning(thd)) return true;
     if (setup_fields(thd, /*want_privilege=*/SELECT_ACL,
@@ -909,9 +926,17 @@ bool Sql_cmd_delete::prepare_inner(THD *thd) {
 
   select->exclude_from_table_unique_test = false;
 
-  if (select->query_result() &&
+  if (!has_returning && select->query_result() &&
       select->query_result()->prepare(thd, select->fields, lex->unit))
     return true; /* purecov: inspected */
+
+  if (has_returning) {
+    auto returning_result = select->returning_result();
+    if (returning_result &&
+        returning_result->prepare(thd, *returning_fields, lex->unit)) {
+      return true;
+    }
+  }
 
   opt_trace_print_expanded_query(thd, select, &trace_wrapper);
 
@@ -920,7 +945,9 @@ bool Sql_cmd_delete::prepare_inner(THD *thd) {
 
   select->set_sj_candidates(nullptr);
 
-  if (select->apply_local_transforms(thd, true))
+  /* we don't do partition pruning in prepare_inner
+  if we have returning clause */
+  if (select->apply_local_transforms(thd, !has_returning))
     return true; /* purecov: inspected */
 
   if (select->is_empty_query()) set_empty_query();

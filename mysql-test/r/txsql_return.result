@@ -1,0 +1,305 @@
+create table t1(a int primary key, b int, c varchar(100));
+insert into t1 values (1,2,"abc"),(2,3,"bcd"),(3,4,"cde"),(4,5,"def");
+update t1 set b = b + 1 where a = 2 txsql_returning a;
+a
+2
+update t1 set b = b + 1 where a = 2 txsql_returning a, b;
+a	b
+2	5
+update t1 set b = b + 1 where a = 2 txsql_returning a, b, c;
+a	b	c
+2	6	bcd
+update t1 set b = b + 1 where a = 2 txsql_returning a+1, b, c;
+a+1	b	c
+3	7	bcd
+update t1 set b = b + 1 where a = 2 txsql_returning *;
+a	b	c
+2	8	bcd
+update t1 set b = b + 1 txsql_returning *;
+a	b	c
+1	3	abc
+2	9	bcd
+3	5	cde
+4	6	def
+update t1 set b = b + 1 where a = 2 and c = 'bcd' txsql_returning *;
+a	b	c
+2	10	bcd
+delete from t1 where a = 2 txsql_returning b+1,c;
+b+1	c
+11	bcd
+delete from t1 where a = 1 txsql_returning *;
+a	b	c
+1	3	abc
+delete from t1 where a = 3 and b = 4 txsql_returning *;
+a	b	c
+delete from t1 txsql_returning *;
+a	b	c
+3	5	cde
+4	6	def
+drop table t1;
+create table t1 (a int primary key, b int, c int);
+insert into t1 values(1,2,3),(3,4, 7),(5,6, 11);
+select*from t1;
+a	b	c
+1	2	3
+3	4	7
+5	6	11
+create table t2 (a int primary key, b int, c int as (a+b));
+insert into t2(a,b) values(1,2),(3,4),(5,6);
+select*from t2;
+a	b	c
+1	2	3
+3	4	7
+5	6	11
+update t1 set b=3 where a=1 txsql_returning c;
+c
+3
+select*from t1;
+a	b	c
+1	3	3
+3	4	7
+5	6	11
+update t1 set b=2 where a=1 txsql_returning *;
+a	b	c
+1	2	3
+select*from t1;
+a	b	c
+1	2	3
+3	4	7
+5	6	11
+update t1 set b=b*2 txsql_returning b, c+b as d;
+b	d
+4	7
+8	15
+12	23
+select*from t1;
+a	b	c
+1	4	3
+3	8	7
+5	12	11
+update t1 set b=b+2 txsql_returning *, c+b as d;
+a	b	c	d
+1	6	3	9
+3	10	7	17
+5	14	11	25
+select*from t1;
+a	b	c
+1	6	3
+3	10	7
+5	14	11
+update t1 set c=c+1 where 1 txsql_returning a,t.*,a,b,c;
+ERROR 42S02: Unknown table 't'
+update t1 set b=b*2 txsql_returning a, c+b as d, (select count(*) from t2) as x;
+a	d	x
+1	15	3
+3	27	3
+5	39	3
+select*from t1;
+a	b	c
+1	12	3
+3	20	7
+5	28	11
+select*from t2;
+a	b	c
+1	2	3
+3	4	7
+5	6	11
+select a,t2.*,b from t2;
+a	a	b	c	b
+1	1	2	3	2
+3	3	4	7	4
+5	5	6	11	6
+select a,*,b from t2;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '*,b from t2' at line 1
+update t2 set b=b+2 where a=5 and b>2 txsql_returning c,b,a;
+c	b	a
+13	8	5
+select*from t1;
+a	b	c
+1	12	3
+3	20	7
+5	28	11
+select*from t2;
+a	b	c
+1	2	3
+3	4	7
+5	8	13
+update t2 set b=b*c txsql_returning t2.a, *, b, c+b as d;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '*, b, c+b as d' at line 1
+select*from t2;
+a	b	c
+1	2	3
+3	4	7
+5	8	13
+update t2 set b=b*c txsql_returning t2.a, t2.*, b, c+b as d;
+a	a	b	c	b	d
+1	1	6	7	6	13
+3	3	28	31	28	59
+5	5	104	109	104	213
+select*from t2;
+a	b	c
+1	6	7
+3	28	31
+5	104	109
+update t2 set b=b*2 txsql_returning a, b, c+b as d, t2.*, (select t1.b + t1.c from t1 where t1.a=t2.a) as x;
+a	b	d	a	b	c	x
+1	12	25	1	12	13	15
+3	56	115	3	56	59	27
+5	208	421	5	208	213	39
+select*from t1;
+a	b	c
+1	12	3
+3	20	7
+5	28	11
+select*from t2;
+a	b	c
+1	12	13
+3	56	59
+5	208	213
+update t2 set b=b/2 limit 2 txsql_returning sqrt(a+sqrt(a)) as s,t2.*, (select count(*) from t1) as x;
+s	a	b	c	x
+1.4142135623730951	1	6	7	3
+2.1753277471610746	3	28	31	3
+select*from t1;
+a	b	c
+1	12	3
+3	20	7
+5	28	11
+select*from t2;
+a	b	c
+1	6	7
+3	28	31
+5	208	213
+update t1 set c=c+1 where 1 or (a=6 and b>4) txsql_returning a;
+a
+1
+3
+5
+select*from t1;
+a	b	c
+1	12	4
+3	20	8
+5	28	12
+select*from t2;
+a	b	c
+1	6	7
+3	28	31
+5	208	213
+explain update t2 set b=b*2 txsql_returning a, b, c+b as d, t2.*, (select t1.b + t1.c from t1 where t1.a=t2.a) as x;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	UPDATE	t2	NULL	index	NULL	PRIMARY	4	NULL	3	100.00	NULL
+2	DEPENDENT SUBQUERY	t1	NULL	eq_ref	PRIMARY	PRIMARY	4	test.t2.a	1	100.00	NULL
+Warnings:
+Note	1276	Field or reference 'test.t2.a' of SELECT #2 was resolved in SELECT #1
+Note	1003	update `test`.`t2` set `test`.`t2`.`b` = (`test`.`t2`.`b` * 2)
+select*from t1;
+a	b	c
+1	12	4
+3	20	8
+5	28	12
+delete from t1 where a=1 txsql_returning *;
+a	b	c
+1	12	4
+select*from t1;
+a	b	c
+3	20	8
+5	28	12
+delete from t1 where a=3 txsql_returning a+b, b-c as m;
+a+b	m
+23	12
+select*from t1;
+a	b	c
+5	28	12
+select*from t2;
+a	b	c
+1	6	7
+3	28	31
+5	208	213
+delete from t1 where a=6 and b>4 txsql_returning sqrt(a+sqrt(b)) as s, t1.*, (select count(*) from t2) as x;
+s	a	b	c	x
+select*from t1;
+a	b	c
+5	28	12
+select*from t2;
+a	b	c
+1	6	7
+3	28	31
+5	208	213
+delete from t2 limit 2 txsql_returning *,a-b;
+a	b	c	a-b
+1	6	7	-5
+3	28	31	-25
+delete from t1 limit 1 txsql_returning a,t.*,a,b,c;
+ERROR 42S02: Unknown table 't'
+select*from t1;
+a	b	c
+5	28	12
+select*from t2;
+a	b	c
+5	208	213
+delete from t1 where 1 or (a=6 and b>4) txsql_returning a;
+a
+5
+select*from t1;
+a	b	c
+explain format=json delete from t1 where a=6 and b>4 txsql_returning sqrt(a+sqrt(b)) as s, t1.*, (select count(*) from t2) as x;
+EXPLAIN
+{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "delete": true,
+      "table_name": "t1",
+      "access_type": "range",
+      "possible_keys": [
+        "PRIMARY"
+      ],
+      "key": "PRIMARY",
+      "used_key_parts": [
+        "a"
+      ],
+      "key_length": "4",
+      "ref": [
+        "const"
+      ],
+      "rows_examined_per_scan": 1,
+      "filtered": "100.00",
+      "attached_condition": "((`test`.`t1`.`a` = 6) and (`test`.`t1`.`b` > 4))"
+    },
+    "returning_list_subqueries": [
+      {
+        "dependent": false,
+        "cacheable": true,
+        "query_block": {
+          "select_id": 2,
+          "cost_info": {
+            "query_cost": "0.35"
+          },
+          "table": {
+            "table_name": "t2",
+            "access_type": "index",
+            "key": "PRIMARY",
+            "used_key_parts": [
+              "a"
+            ],
+            "key_length": "4",
+            "rows_examined_per_scan": 1,
+            "rows_produced_per_join": 1,
+            "filtered": "100.00",
+            "using_index": true,
+            "cost_info": {
+              "read_cost": "0.25",
+              "eval_cost": "0.10",
+              "prefix_cost": "0.35",
+              "data_read_per_join": "16"
+            }
+          }
+        }
+      }
+    ]
+  }
+}
+Warnings:
+Note	1003	delete from `test`.`t1` where ((`test`.`t1`.`a` = 6) and (`test`.`t1`.`b` > 4))
+drop table t1;
+drop table t2;

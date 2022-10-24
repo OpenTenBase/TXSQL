@@ -487,8 +487,10 @@ bool Sql_cmd_update::update_single_table(THD *thd) {
             explain_single_table_modification(thd, thd, &plan, query_block);
         return err;
       }
-      my_ok(thd);
-      return false;
+      if (!has_returning) {
+        my_ok(thd);
+        return false;
+      }
     }
   }
   // Initialize the cost model that will be used for this table
@@ -540,13 +542,15 @@ bool Sql_cmd_update::update_single_table(THD *thd) {
         return err;
       }
 
-      char buff[MYSQL_ERRMSG_SIZE];
-      snprintf(buff, sizeof(buff), ER_THD(thd, ER_UPDATE_INFO), 0L, 0L,
-               (long)thd->get_stmt_da()->current_statement_cond_count());
-      my_ok(thd, 0, 0, buff);
+      if (!has_returning) {
+        char buff[MYSQL_ERRMSG_SIZE];
+        snprintf(buff, sizeof(buff), ER_THD(thd, ER_UPDATE_INFO), 0L, 0L,
+                 (long)thd->get_stmt_da()->current_statement_cond_count());
+        my_ok(thd, 0, 0, buff);
 
-      DBUG_PRINT("info", ("0 records updated"));
-      return false;
+        DBUG_PRINT("info", ("0 records updated"));
+        return false;
+      }
     }
   }  // Ends scope for optimizer trace wrapper
 
@@ -758,7 +762,7 @@ bool Sql_cmd_update::update_single_table(THD *thd) {
           return true;
         }
 
-        while (!(error = iterator->Read()) && !thd->killed) {
+        while (!no_rows && !(error = iterator->Read()) && !thd->killed) {
           assert(!thd->is_error());
           thd->inc_examined_row_count(1);
 
@@ -873,13 +877,11 @@ bool Sql_cmd_update::update_single_table(THD *thd) {
     Query_result *qres = query_block->returning_result();
     assert((!qres && !has_returning) || (qres && has_returning));
     if (has_returning) {
-      qres->prepare(thd, *returning_fields,
-                    query_block->master_query_expression());
       qres->send_result_set_metadata(
           thd, *returning_fields, Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF);
     }
 
-    while (true) {
+    while (!no_rows) {
       error = iterator->Read();
       if (error || thd->killed) break;
       thd->inc_examined_row_count(1);
@@ -1003,6 +1005,15 @@ bool Sql_cmd_update::update_single_table(THD *thd) {
           error =
               table->file->ha_update_row(table->record[1], table->record[0]);
         }
+
+        /* to be compatible with tdsql, we only return the changed row */
+        if (error == 0 && has_returning) {
+          if (qres->send_data(thd, *returning_fields)) {
+            found_rows = 0;
+            error = 1;
+          }
+        }
+
         if (error == 0)
           updated_rows++;
         else if (error == HA_ERR_RECORD_IS_THE_SAME)
@@ -1020,12 +1031,6 @@ bool Sql_cmd_update::update_single_table(THD *thd) {
       if (!error && has_after_triggers &&
           table->triggers->process_triggers(thd, TRG_EVENT_UPDATE,
                                             TRG_ACTION_AFTER, true)) {
-        error = 1;
-        break;
-      }
-
-      if (error == 0 && has_returning &&
-          qres->send_data(thd, *returning_fields)) {
         error = 1;
         break;
       }
@@ -1192,6 +1197,10 @@ bool Sql_cmd_update::update_single_table(THD *thd) {
   thd->current_found_rows = found_rows;
 
   assert(CountHiddenFields(*update_value_list) == 0);
+
+  if (no_rows) {
+    return thd->is_error();
+  }
 
   // Following test is disabled, as we get RQG errors that are hard to debug
   // assert((error >= 0) == thd->is_error());
@@ -1522,9 +1531,13 @@ bool Sql_cmd_update::prepare_inner(THD *thd) {
   thd->mark_used_columns = MARK_COLUMNS_READ;
 
   if (has_returning) {
-    Query_result_send *qrs = new (thd->mem_root) Query_result_send;
-    if (qrs == nullptr) return true;
-    select->set_returning_result(qrs);
+    if (unlikely(lex->result)) {
+      select->set_returning_result(lex->result);
+    } else {
+      Query_result_send *qrs = new (thd->mem_root) Query_result_send;
+      if (qrs == nullptr) return true;
+      select->set_returning_result(qrs);
+    }
   }
 
   if (select->derived_table_count || select->table_func_count) {
@@ -1815,9 +1828,17 @@ bool Sql_cmd_update::prepare_inner(THD *thd) {
   if (select->has_ft_funcs() && setup_ftfuncs(thd, select))
     return true; /* purecov: inspected */
 
-  if (select->query_result() &&
+  if (!has_returning && select->query_result() &&
       select->query_result()->prepare(thd, select->fields, lex->unit))
     return true; /* purecov: inspected */
+
+  if (has_returning) {
+    auto returning_result = select->returning_result();
+    if (returning_result &&
+        returning_result->prepare(thd, *returning_fields, lex->unit)) {
+      return true;
+    }
+  }
 
   Opt_trace_array trace_steps(trace, "steps");
   opt_trace_print_expanded_query(thd, select, &trace_wrapper);
@@ -1827,7 +1848,9 @@ bool Sql_cmd_update::prepare_inner(THD *thd) {
 
   select->set_sj_candidates(nullptr);
 
-  if (select->apply_local_transforms(thd, true))
+  /* we don't do partition pruning in prepare_inner
+  if we have returning clause */
+  if (select->apply_local_transforms(thd, !has_returning))
     return true; /* purecov: inspected */
 
   if (select->is_empty_query()) set_empty_query();
