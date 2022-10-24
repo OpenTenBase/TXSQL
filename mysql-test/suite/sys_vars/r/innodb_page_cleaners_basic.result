@@ -7,8 +7,7 @@ COUNT(@@innodb_page_cleaners)
 1
 1 Expected
 SET @@GLOBAL.innodb_page_cleaners=1;
-ERROR HY000: Variable 'innodb_page_cleaners' is a read only variable
-Expected error 'Read-only variable'
+Expected succeed
 SELECT innodb_page_cleaners;
 ERROR 42S22: Unknown column 'innodb_page_cleaners' in 'field list'
 Expected error 'Unknown column'

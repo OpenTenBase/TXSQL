@@ -22393,10 +22393,9 @@ static MYSQL_SYSVAR_STR(log_group_home_dir, srv_log_group_home_dir,
                         "Path to InnoDB log files.", nullptr, nullptr, nullptr);
 
 static MYSQL_SYSVAR_ULONG(
-    page_cleaners, srv_n_page_cleaners,
-    PLUGIN_VAR_OPCMDARG | PLUGIN_VAR_READONLY,
+    page_cleaners, srv_n_page_cleaners, PLUGIN_VAR_OPCMDARG,
     "Page cleaner threads can be from 1 to 64. Default is 4.", nullptr, nullptr,
-    4, 1, 64, 0);
+    4, 1, MAX_PAGE_CLEANER_THREADS, 0);
 
 static MYSQL_SYSVAR_DOUBLE(max_dirty_pages_pct, srv_max_buf_pool_modified_pct,
                            PLUGIN_VAR_RQCMDARG,
