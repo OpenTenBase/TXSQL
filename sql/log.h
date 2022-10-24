@@ -144,6 +144,17 @@ int log_message(int log_type, ...);
 */
 my_thread_id log_get_thread_id(THD *thd);
 
+/* LOG_SLOW_VERBOSITY_* are used as options of log-slow-verbosity.
+   INIT/INNODB/QUERY_PLAN are placeholders to be consistent with
+   Mariadb's.
+
+   Only LOG_SLOW_VERBOSITY_EXPLAIN was implemented.
+ */
+#define LOG_SLOW_VERBOSITY_INIT       0
+#define LOG_SLOW_VERBOSITY_INNODB     1 << 0
+#define LOG_SLOW_VERBOSITY_QUERY_PLAN 1 << 1
+#define LOG_SLOW_VERBOSITY_EXPLAIN    1 << 2
+
 /** Type of the log table */
 enum enum_log_table_type {
   QUERY_LOG_NONE = 0,

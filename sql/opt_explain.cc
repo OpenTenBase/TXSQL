@@ -75,6 +75,7 @@
 #include "sql/mysqld_thd_manager.h"  // Global_THD_manager
 #include "sql/opt_costmodel.h"
 #include "sql/opt_explain_format.h"
+#include "sql/opt_explain_traditional.h"
 #include "sql/opt_trace.h"  // Opt_trace_*
 #include "sql/protocol.h"
 #include "sql/range_optimizer/group_index_skip_scan.h"
@@ -2277,6 +2278,79 @@ bool explain_query(THD *explain_thd, const THD *query_thd,
     explain_result->send_eof(explain_thd);
 
   if (other) destroy(explain_result);
+
+  return res;
+}
+
+bool explain_query_pseudo(THD *thd, Query_expression *unit) {
+  DBUG_TRACE;
+  LEX *lex = thd->lex;
+  THD::Query_plan *qp;
+  qp = &thd->query_plan;
+
+  // Attributes not supported to maintain explain information.
+  if (qp->is_ps_query() ||                          // Prepared statements
+      /*
+        Explainable commands:
+        SQLCOM_UPDATE, SQLCOM_UPDATE_MULTI, SQLCOM_INSERT, SQLCOM_INSERT_SELECT,
+        SQLCOM_DELETE_MULTI, SQLCOM_REPLACE_SELECT, SQLCOM_SELECT
+
+        Other is not explainable, so should be ignored.
+      */
+      !is_explainable_query(qp->get_command()) ||
+      qp->get_lex()->is_explain() ||              // avoid clash in EXPLAIN code
+      qp->get_lex()->sphead != nullptr)           // statements of stored routine
+    return true;
+
+ if (!lex->explain_format)
+    lex->explain_format = new(thd->mem_root) Explain_format_traditional;
+
+  if (!thd->pseudo_result_send) {
+    thd->pseudo_result_send = new(thd->mem_root) Query_result_send_buf();
+  }
+
+
+  if (lex->using_hypergraph_optimizer) {
+    my_error(ER_HYPERGRAPH_NOT_SUPPORTED_YET, MYF(0),
+        "EXPLAIN with non-tree formats");
+    return true;
+  }
+
+  Query_result *explain_result = thd->pseudo_result_send;
+
+  assert(unit->is_optimized());
+
+  lex->explain_format->send_headers(explain_result);
+  lex->unit->offset_limit_cnt = 0;
+  lex->unit->select_limit_cnt = 0;
+
+  const bool res = mysql_explain_query_expression(thd, thd, unit);
+
+  if (!res)
+  {
+    StringBuffer<1024> str;
+    /*
+      The warnings system requires input in utf8, see mysqld_show_warnings().
+    */
+
+    enum_query_type eqt =
+        enum_query_type(QT_TO_SYSTEM_CHARSET | QT_SHOW_SELECT_NUMBER);
+
+    /**
+      For DML statements use QT_NO_DATA_EXPANSION to avoid over-simplification.
+    */
+    if (qp->get_command() != SQLCOM_SELECT)
+      eqt = enum_query_type(eqt | QT_NO_DATA_EXPANSION);
+
+    unit->print(thd, &str, eqt);
+    str.append('\0');
+    push_warning(thd, Sql_condition::SL_NOTE, ER_YES, str.ptr());
+  }
+
+  if (res)
+    explain_result->abort_result_set(thd);
+  else
+    explain_result->send_eof(thd);
 
   return res;
 }

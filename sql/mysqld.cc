@@ -13114,3 +13114,4 @@ std::atomic<int32> auto_perf_node_state;
 /* Version of global privileges. */
 std::atomic<unsigned long> global_privilege_version{1};
 bool txsql_simplify_priv_check = false;
+uint g_simple_slow_logging = 0;

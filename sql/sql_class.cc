@@ -730,7 +730,8 @@ THD::THD(bool enable_plugins)
       m_inside_system_variable_global_update(false),
       bind_parameter_values(nullptr),
       bind_parameter_values_count(0),
-      m_is_local_or_admin_conn(false) {
+      m_is_local_or_admin_conn(false),
+      m_txsql_qid(NULL_STR) {
   to_thread_pool = 0;
   to_per_thread = 0;
   main_lex->reset();
@@ -851,6 +852,8 @@ THD::THD(bool enable_plugins)
 
   timer = nullptr;
   timer_cache = nullptr;
+
+  usecs_in_q = 0;
 
   m_token_array = nullptr;
   is_legal_column_encrypt_read = true;
@@ -3316,8 +3319,17 @@ void THD::inc_lock_usec(ulonglong lock_usec) {
 }
 
 void THD::update_slow_query_status() {
-  if (my_micro_time() > start_utime + variables.long_query_time)
+  ulonglong exec_time = my_micro_time() - start_utime;
+
+  if (g_simple_slow_logging == 1) {
+    exec_time -= get_lock_usec();
+  } else if (g_simple_slow_logging == 2) {
+    exec_time += usecs_in_q;
+  }
+
+  if (exec_time > variables.long_query_time) {
     server_status |= SERVER_QUERY_WAS_SLOW;
+  }
 }
 
 /**

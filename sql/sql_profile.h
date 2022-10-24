@@ -180,13 +180,15 @@ class PROF_MEASUREMENT {
   ulong m_seq;
   double time_usecs;
   char *allocated_status_memory;
+  // txsql: write profile to slow log
+  bool log_slow = {false};
 
   void set_label(const char *status_arg, const char *function_arg,
                  const char *file_arg, unsigned int line_arg);
-  PROF_MEASUREMENT(QUERY_PROFILE *profile_arg, const char *status_arg);
+  PROF_MEASUREMENT(QUERY_PROFILE *profile_arg, const char *status_arg, bool log_slow_arg);
   PROF_MEASUREMENT(QUERY_PROFILE *profile_arg, const char *status_arg,
                    const char *function_arg, const char *file_arg,
-                   unsigned int line_arg);
+                   unsigned int line_arg, bool log_slow_arg);
   ~PROF_MEASUREMENT();
   void collect();
 };
@@ -209,7 +211,10 @@ class QUERY_PROFILE {
   ulong m_seq_counter;
   Queue<PROF_MEASUREMENT> entries;
 
-  QUERY_PROFILE(PROFILING *profiling_arg, const char *status_arg);
+  // txsql: write profile to slowlog
+  bool log_slow = {false};
+
+  QUERY_PROFILE(PROFILING *profiling_arg, const char *status_arg, bool log_slow_arg);
   ~QUERY_PROFILE();
 
   void set_query_source(const char *query_source_arg, size_t query_length_arg);
@@ -262,6 +267,11 @@ class PROFILING {
 
   /* ... from INFORMATION_SCHEMA.PROFILING ... */
   int fill_statistics_info(THD *thd, TABLE_LIST *tables);
+  void my_b_print_status(IO_CACHE *log_file, const char *status,
+                         const PROF_MEASUREMENT &start,
+                         const PROF_MEASUREMENT &stop);
+  /* txsql: print profile to slow log */
+  int print_current(IO_CACHE* log_file);
   void cleanup();
 };
 

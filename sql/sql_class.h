@@ -92,6 +92,7 @@
 #include "sql/opt_trace_context.h"  // Opt_trace_context
 #include "sql/psi_memory_key.h"
 #include "sql/query_options.h"
+#include "sql/query_result.h"
 #include "sql/resourcegroups/resource_group_basic_types.h"
 #include "sql/rpl_context.h"  // Rpl_thd_context
 #include "sql/rpl_gtid.h"
@@ -1443,6 +1444,7 @@ class THD : public MDL_context_owner,
   SSL_handle m_SSL = {nullptr};
 
  public:
+  Query_result_send_buf *pseudo_result_send = nullptr;
   /**
      Query plan for EXPLAINable commands, should be locked with
      LOCK_query_plan before using.
@@ -1655,6 +1657,12 @@ class THD : public MDL_context_owner,
   void pop_lock_usec(ulonglong top) { m_lock_usec = top; }
 
   /**
+    TXSQL: microseconds the thd has been waiting in threadpool req queue before
+    its query is processed.
+   */
+  ulonglong usecs_in_q;
+
+  /**
     Type of lock to be used for all DML statements, except INSERT, in cases
     when lock is not specified explicitly.  Set to TL_WRITE or
     TL_WRITE_LOW_PRIORITY depending on whether low_priority_updates option is
@@ -1662,7 +1670,6 @@ class THD : public MDL_context_owner,
   */
   thr_lock_type update_lock_default;
   /**
-    Type of lock to be used for INSERT statement if lock is not specified
     explicitly. Set to TL_WRITE_CONCURRENT_INSERT or TL_WRITE_LOW_PRIORITY
     depending on whether low_priority_updates option is off or on.
   */
@@ -4838,6 +4845,8 @@ private:
                        Sequence::seq_val_t set_val, bool next, Sequence::seq_val_t &out);
 
  public:
+  LEX_STRING m_txsql_qid;
+
   /** If true, current statement is marked as backquery. */
   bool backquery_flag;
   /**
