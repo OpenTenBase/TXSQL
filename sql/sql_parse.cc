@@ -4329,6 +4329,7 @@ int mysql_execute_command(THD *thd, bool first_level) {
 
       /* Conditionally writes to binlog */
       if (!(res = mysql_revoke_all(thd, lex->users_list))) my_ok(thd);
+      global_privilege_version.fetch_add(1, std::memory_order_relaxed);
       break;
     }
     case SQLCOM_REVOKE:
@@ -4481,6 +4482,7 @@ int mysql_execute_command(THD *thd, bool first_level) {
               lex->dynamic_privileges, lex->all_privileges, &lex->grant_as);
         }
       }
+      global_privilege_version.fetch_add(1, std::memory_order_relaxed);
       break;
     }
     case SQLCOM_SET_OUTLINE: {

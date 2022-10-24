@@ -436,6 +436,9 @@ class Prepared_statement final {
   bool insert_parameters_from_vars(List<LEX_STRING> &varnames, String *query);
   bool insert_parameters(String *query, bool has_new_types,
                          PS_PARAM *parameters);
+
+ public:
+  unsigned long m_privilege_version{0};
 };
 
 #endif  // SQL_PREPARE_H

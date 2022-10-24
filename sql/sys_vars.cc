@@ -8551,4 +8551,21 @@ static Sys_var_bool Sys_semi_read_for_select_update(
     "select_update_enable_semi_read",
     "Enable semi-read for statement like select for update",
     SESSION_VAR(enable_select_semi_read), CMD_LINE(OPT_ARG), DEFAULT(false));
+
+static Sys_var_bool Sys_txsql_simplify_priv_check(
+    "txsql_simplify_priv_check",
+    "Enable to optimize privilege checking for prepared statement and stored "
+    "procedure.",
+    GLOBAL_VAR(txsql_simplify_priv_check), CMD_LINE(OPT_ARG),
+    DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr),
+    ON_UPDATE(nullptr));
+
+#ifdef HAVE_TDSQL
+static Sys_var_deprecated_alias Sys_simplify_priv_check(
+    "simplify_priv_check", Sys_txsql_simplify_priv_check);
+#else
+static Sys_var_deprecated_alias Sys_cdb_optimize_ps_priv_check(
+    "cdb_optimize_ps_priv_check", Sys_txsql_simplify_priv_check);
+#endif
+
 /* Changes from txsql end. */

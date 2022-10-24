@@ -968,7 +968,25 @@ bool sp_instr_stmt::exec_core(THD *thd, uint *nextp) {
 
   assert(lex->m_sql_cmd == nullptr || lex->m_sql_cmd->is_part_of_sp());
 
+  unsigned long tmp_priv_version = 0;
+  thd->skip_priv_checking = false;
+  if (txsql_simplify_priv_check) {
+    tmp_priv_version = global_privilege_version.load(std::memory_order_relaxed);
+    if (this->m_privilege_version == tmp_priv_version) {
+      thd->skip_priv_checking = true;
+    }
+  }
+
   bool rc = mysql_execute_command(thd);
+
+  if (rc == false) {
+    /* We have passed the privilege checking. */
+    this->m_privilege_version = tmp_priv_version;
+  } else {
+    /* Reset privilege version if failed to execute. */
+    this->m_privilege_version = 0;
+  }
+  thd->skip_priv_checking = false;
 
   lex->set_sp_current_parsing_ctx(nullptr);
   lex->sphead = nullptr;

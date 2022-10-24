@@ -880,6 +880,7 @@ THD::THD(bool enable_plugins)
 
   ending_internal_txn = false;
   stored_seq_cache_version = 0;
+  skip_priv_checking = false;
   /**
     Changes from txsql end.
   */

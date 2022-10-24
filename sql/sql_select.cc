@@ -620,7 +620,11 @@ bool Sql_cmd_dml::execute(THD *thd) {
 #endif
     // Bind table and field information
     if (restore_cmd_properties(thd)) return true;
-    if (check_privileges(thd)) goto err;
+
+    if (thd->skip_priv_checking == false) {
+      DBUG_PRINT("txsql_print_privilege_check", ("TXSQL: check privileges"));
+      if (check_privileges(thd)) goto err;
+    }
 
     if (m_lazy_result) {
       Prepared_stmt_arena_holder ps_arena_holder(thd);

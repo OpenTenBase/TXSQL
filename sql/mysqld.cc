@@ -13106,3 +13106,6 @@ bool auto_perf_node_request;
 char cdb_statistics_host[HOSTNAME_LENGTH + 1];
 uint cdb_statistics_port = 0;
 std::atomic<int32> auto_perf_node_state;
+/* Version of global privileges. */
+std::atomic<unsigned long> global_privilege_version{1};
+bool txsql_simplify_priv_check = false;
