@@ -511,6 +511,14 @@ void ibuf_init_at_db_start(void) {
   ibuf->empty = page_is_empty(root);
   ibuf_mtr_commit(&mtr);
 
+  if (ibuf->empty && innodb_change_buffering == IBUF_USE_NONE) {
+    ibuf->state = IBUF_DISABLED;
+  } else {
+    ibuf->state = IBUF_ENABLED;
+  }
+
+  ibuf->enter_counter = 0;
+
   ibuf->index =
       dict_mem_index_create("innodb_change_buffer", "CLUST_IND", IBUF_SPACE_ID,
                             DICT_CLUSTERED | DICT_IBUF, 1);
@@ -2382,6 +2390,8 @@ static ulint ibuf_contract(bool sync) {
   return (ibuf_merge_pages(&n_pages, sync));
 }
 
+static void ibuf_update_state();
+
 /** Contract the change buffer by reading pages to the buffer pool.
 @param[in]      full            If true, do a full contraction based
 on PCT_IO(100). If false, the size of contract batch is determined
@@ -2397,9 +2407,17 @@ ulint ibuf_merge_in_background(bool full) {
 
 #if defined UNIV_DEBUG || defined UNIV_IBUF_DEBUG
   if (srv_ibuf_disable_background_merge) {
+    ibuf->state = IBUF_ENABLED;
     return (0);
   }
 #endif /* UNIV_DEBUG || UNIV_IBUF_DEBUG */
+
+  ibuf_use_t use = static_cast<ibuf_use_t>(innodb_change_buffering);
+
+  /* Ibuf is disabled, then merge as more as possible. */
+  if (use == IBUF_USE_NONE) {
+    full = true;
+  }
 
   if (full) {
     /* Caller has requested a full batch */
@@ -2427,12 +2445,15 @@ ulint ibuf_merge_in_background(bool full) {
     n_bytes = ibuf_merge(&n_pag2, false);
 
     if (n_bytes == 0) {
+      ibuf_update_state();
       return (sum_bytes);
     }
 
     sum_bytes += n_bytes;
     sum_pages += n_pag2;
   }
+
+  ibuf_update_state();
 
   return (sum_bytes);
 }
@@ -3291,6 +3312,10 @@ bool ibuf_insert(ibuf_op_t op, const dtuple_t *entry, dict_index_t *index,
 
   ut_a(!index->is_clustered());
 
+  if (ibuf->state.load() != IBUF_ENABLED) {
+    return false;
+  }
+
   auto no_counter = use <= IBUF_USE_INSERT;
 
   switch (op) {
@@ -3375,6 +3400,12 @@ skip_watch:
     return false;
   }
 
+  ibuf->enter_counter++;
+  if (ibuf->state.load() != IBUF_ENABLED) {
+    ibuf->enter_counter--;
+    return false;
+  }
+
   err = ibuf_insert_low(BTR_MODIFY_PREV, op, no_counter, entry, entry_size,
                         index, page_id, page_size, thr);
   if (err == DB_FAIL) {
@@ -3382,6 +3413,8 @@ skip_watch:
         ibuf_insert_low(BTR_MODIFY_TREE | BTR_LATCH_FOR_INSERT, op, no_counter,
                         entry, entry_size, index, page_id, page_size, thr);
   }
+
+  ibuf->enter_counter--;
 
   if (err == DB_SUCCESS) {
     /*
@@ -3978,6 +4011,10 @@ void ibuf_merge_or_delete_for_page(buf_block_t *block, const page_id_t &page_id,
   ut_ad(block == nullptr || page_id == block->page.id);
   ut_ad(block == nullptr || block->page.is_io_fix_read());
 
+  if (ibuf && ibuf->state.load() == IBUF_DISABLED && ibuf->empty) {
+    return;
+  }
+
   if (srv_force_recovery >= SRV_FORCE_NO_IBUF_MERGE ||
       trx_sys_hdr_page(page_id) || fsp_is_system_temporary(page_id.space())) {
     return;
@@ -4554,6 +4591,44 @@ void ibuf_set_bitmap_for_bulk_load(buf_block_t *block, bool reset) {
                             IBUF_BITMAP_BUFFERED, false, &mtr);
 
   mtr_commit(&mtr);
+}
+
+static void ibuf_update_state() {
+  ibuf_use_t use = static_cast<ibuf_use_t>(innodb_change_buffering);
+
+  if (use != IBUF_USE_NONE &&
+      ibuf->state.load(std::memory_order_relaxed) != IBUF_ENABLED) {
+    ibuf->state = IBUF_ENABLED;
+    return;
+  }
+
+  if (use == IBUF_USE_NONE) {
+    /* Ibuf is disabled. */
+
+    /* The master thread is the only one that may change
+    ibuf state.  */
+    uint32_t ibuf_state = ibuf->state.load();
+
+    switch (ibuf_state) {
+      case IBUF_ENABLED:
+        ibuf->state = IBUF_PREPARE_DISABLE;
+        /* Change in next loop. */
+        break;
+      case IBUF_PREPARE_DISABLE:
+        if (ibuf->empty && ibuf->enter_counter.load() == 0) {
+          /* double check */
+          if (ibuf->empty) {
+            ibuf->state = IBUF_DISABLED;
+          }
+        }
+        break;
+      case IBUF_DISABLED:
+        break;
+      default:
+        ut_error;
+        break;
+    }
+  }
 }
 
 #endif /* !UNIV_HOTBACKUP */

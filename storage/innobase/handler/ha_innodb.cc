@@ -1215,6 +1215,8 @@ static SHOW_VAR innodb_status_variables[] = {
     {"buffer_pool_write_requests",
      (char *)&export_vars.innodb_buffer_pool_write_requests, SHOW_LONG,
      SHOW_SCOPE_GLOBAL},
+    {"change_buffer_state", (char *)&export_vars.innodb_change_buffer_state,
+     SHOW_LONG, SHOW_SCOPE_GLOBAL},
     {"data_fsyncs", (char *)&export_vars.innodb_data_fsyncs, SHOW_LONG,
      SHOW_SCOPE_GLOBAL},
     {"data_pending_fsyncs", (char *)&export_vars.innodb_data_pending_fsyncs,
@@ -1347,10 +1349,10 @@ static SHOW_VAR innodb_status_variables[] = {
      SHOW_SCOPE_GLOBAL},
     /* Changes from txsql start. */
     {"buffer_pool_snapshot_status",
-     (char*)&export_vars.innodb_buffer_pool_snapshot_status, SHOW_CHAR,
+     (char *)&export_vars.innodb_buffer_pool_snapshot_status, SHOW_CHAR,
      SHOW_SCOPE_GLOBAL},
     {"buffer_pool_recover_status",
-     (char*) &export_vars.innodb_buffer_pool_recover_status, SHOW_CHAR,
+     (char *)&export_vars.innodb_buffer_pool_recover_status, SHOW_CHAR,
      SHOW_SCOPE_GLOBAL},
     /* Changes from txsql end. */
     {NullS, NullS, SHOW_LONG, SHOW_SCOPE_GLOBAL}};
