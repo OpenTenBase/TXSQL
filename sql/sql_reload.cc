@@ -177,6 +177,7 @@ bool handle_reload_request(THD *thd, unsigned long options, TABLE_LIST *tables,
       delete tmp_thd;
       thd = nullptr;
     }
+    global_privilege_version.fetch_add(1, std::memory_order_relaxed);
   }
 
   if (options & REFRESH_LOG) {

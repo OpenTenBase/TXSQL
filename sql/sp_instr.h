@@ -472,7 +472,8 @@ class sp_instr_stmt : public sp_lex_instr {
   sp_instr_stmt(uint ip, LEX *lex, LEX_CSTRING query)
       : sp_lex_instr(ip, lex->get_sp_current_parsing_ctx(), lex, true),
         m_query(query),
-        m_valid(true) {}
+        m_valid(true),
+        m_privilege_version(0) {}
 
   /////////////////////////////////////////////////////////////////////////
   // sp_instr implementation.
@@ -518,6 +519,9 @@ class sp_instr_stmt : public sp_lex_instr {
 
   static PSI_statement_info psi_info;
 #endif
+
+ public:
+  unsigned long m_privilege_version;
 };
 
 ///////////////////////////////////////////////////////////////////////////

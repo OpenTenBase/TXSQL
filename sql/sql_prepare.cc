@@ -2299,6 +2299,7 @@ Prepared_statement::Prepared_statement(THD *thd_arg)
       main_mem_root(key_memory_prepared_statement_main_mem_root,
                     thd_arg->variables.query_alloc_block_size) {
   *last_error = '\0';
+  m_privilege_version = 0;
 }
 
 void Prepared_statement::close_cursor() {
@@ -3053,7 +3054,23 @@ reexecute:
 
   thd->push_reprepare_observer(stmt_reprepare_observer);
 
+  unsigned long tmp_priv_version = 0;
+  thd->skip_priv_checking = false;
+  if (txsql_simplify_priv_check) {
+    tmp_priv_version = global_privilege_version.load(std::memory_order_relaxed);
+    if (this->m_privilege_version == tmp_priv_version) {
+      thd->skip_priv_checking = true;
+    }
+  }
   error = execute(expanded_query, open_cursor) || thd->is_error();
+  if (error == false) {
+    /* We have passed the privilege checking. */
+    this->m_privilege_version = tmp_priv_version;
+  } else {
+    /* Reset privilege version if failed to execute. */
+    this->m_privilege_version = 0;
+  }
+  thd->skip_priv_checking = false;
 
   thd->pop_reprepare_observer();
 

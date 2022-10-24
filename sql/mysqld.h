@@ -973,5 +973,7 @@ extern uint num_seq_threads;
 extern bool g_sequence_same_nextval_in_query;
 extern bool g_seq_currval_before_first_nextval_return_error;
 
+extern std::atomic<unsigned long> global_privilege_version;
+extern bool txsql_simplify_priv_check;
 /* Changes from txsql end. */
 #endif /* MYSQLD_INCLUDED */

@@ -4892,6 +4892,9 @@ private:
   enum READ_MASK_ACL read_mask;
 
   bool can_read_mask();
+
+ public:
+  bool skip_priv_checking;
 };
 
 /**
