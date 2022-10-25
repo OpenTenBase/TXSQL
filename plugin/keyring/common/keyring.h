@@ -52,6 +52,10 @@ extern std::unique_ptr<ILogger> logger;
 extern char *keyring_file_data;
 extern bool keyring_open_mode;
 
+#ifdef HAVE_TDSQL
+extern bool keyring_use_exist_dir;
+#endif
+
 #ifdef HAVE_PSI_INTERFACE
 void keyring_init_psi_keys(void);
 #endif  // HAVE_PSI_INTERFACE

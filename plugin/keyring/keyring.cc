@@ -99,8 +99,20 @@ static MYSQL_SYSVAR_BOOL(open_mode, keyring_open_mode,
                          "Mode in which keyring file should be opened", nullptr,
                          nullptr, true);
 
-static SYS_VAR *keyring_file_system_variables[] = {
-    MYSQL_SYSVAR(data), MYSQL_SYSVAR(open_mode), nullptr};
+#ifdef HAVE_TDSQL
+static MYSQL_SYSVAR_BOOL(
+    use_exist_dir, keyring_use_exist_dir,
+    PLUGIN_VAR_INVISIBLE | PLUGIN_VAR_RQCMDARG,
+    "Use a exist dir when it can't be created in data home dir", NULL, NULL,
+    false);
+#endif
+
+static SYS_VAR *keyring_file_system_variables[] = {MYSQL_SYSVAR(data),
+                                                   MYSQL_SYSVAR(open_mode),
+#ifdef HAVE_TDSQL
+                                                   MYSQL_SYSVAR(use_exist_dir),
+#endif
+                                                   nullptr};
 
 static SERVICE_TYPE(registry) *reg_srv = nullptr;
 SERVICE_TYPE(log_builtins) *log_bi = nullptr;
