@@ -477,7 +477,12 @@ ulint btr_get_size(dict_index_t *index, /*!< in: index */
         index->table->is_intrinsic());
   ut_ad(index->page >= FSP_FIRST_INODE_PAGE_NO);
 
-  if (index->page == FIL_NULL || dict_index_is_online_ddl(index) ||
+  /* 
+    Add is_clustered() to avoid the failure of analyze table during
+    online DDL which rebuilds clustered index. 
+  */
+  if (index->page == FIL_NULL ||
+      (dict_index_is_online_ddl(index) && !(index->is_clustered())) ||
       !index->is_committed()) {
     return (ULINT_UNDEFINED);
   }

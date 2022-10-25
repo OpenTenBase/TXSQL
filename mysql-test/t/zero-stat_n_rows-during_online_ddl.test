@@ -1,0 +1,90 @@
+# BUG#98132 Zero dict_table_t::stat_n_rows during Online ALTER
+#           may lead to table scan thus bad performance.
+#
+# Note:
+#
+#   This test requires non-blocking ANALYZE. Otherwise, the ANALYZE command
+#   used to simulate async invocation of dict_stats_update() will not finish
+#   until TABLE_SHARE is released by the DDL after debug sync timeout.
+#
+# Use the non-blocking fix in MySQL 8.0.24:
+#
+# BUG#32224917: ANALYZE TABLE TAKES TABLE LOCK DURING INDEX
+# STATS UPDATE, CAUSES QUERY PILEUP
+#
+# Or the fix from Percona:
+#
+# https://www.percona.com/blog/2018/03/27/analyze-table-is-no-longer-a-blocking-operation/
+#
+# Otherwise, temporarily disable the following invocation in mysql_admin_table(), with
+#
+# SET DEBUG = '+d,skip_flush_for_analyze';
+#
+#      bool skip_flush = false;
+#      DBUG_EXECUTE_IF("skip_flush_for_analyze", { skip_flush = true; });
+#
+#      ...
+#
+#      } else if ((!skip_flush && open_for_modify) || fatal_error) {
+#        tdc_remove_table(thd, TDC_RT_REMOVE_UNUSED, table->db,
+#                         table->table_name, false);
+#      } else {
+#
+
+--source include/have_debug.inc
+--source include/have_debug_sync.inc
+
+connect (other,localhost,root,,);
+
+connection default;
+SET optimizer_trace_max_mem_size=1048576; # 1MB
+SET optimizer_trace="enabled=on,one_line=off";
+create table t1 (a int primary key auto_increment, x int, b int, c char(64), key(b));
+insert t1 values (1,1,1,'x'),(2,2,2,'x');
+insert t1(x,b,c) select x,b,c from t1 where b = 1;
+insert t1(x,b,c) select x,b,c from t1 where b = 1;
+insert t1(x,b,c) select x,b,c from t1 where b = 1;
+insert t1(x,b,c) select x,b,c from t1 where b = 1;
+insert t1(x,b,c) select x,b,c from t1 where b = 1;
+insert t1(x,b,c) select x,b,c from t1 where b = 2;
+insert t1(x,b,c) select x,b,c from t1 where b = 2;
+insert t1(x,b,c) select x,b,c from t1 where b = 2;
+insert t1(x,b,c) select x,b,c from t1 where b = 2;
+analyze table t1;
+select n_rows,clustered_index_size from mysql.innodb_table_stats where table_name = 't1';
+select index_name,stat_value,sample_size from mysql.innodb_index_stats where table_name = 't1' and stat_name = 'n_diff_pfx01';
+--echo # With correct stat_n_rows, it is range access.
+explain select * from t1 where b >= 2;
+SELECT TRACE FROM information_schema.OPTIMIZER_TRACE;
+
+connection other;
+SET DEBUG_SYNC = "innodb_inplace_alter_table_enter signal ddl_in_progress wait_for finish_ddl execute 1";
+--send alter table t1 drop column x;
+
+connection default;
+SET DEBUG_SYNC = "now wait_for ddl_in_progress";
+# Use non-blocking ANALYZE to simulate async invocation of dict_stats_update() in the background stats thread.
+# Otherwise, the next query waits the completion of the online alter which corrects the stats.
+# SET DEBUG = '+d,skip_flush_for_analyze';
+analyze table t1;
+# SET DEBUG = '-d,skip_flush_for_analyze';
+select n_rows,clustered_index_size from mysql.innodb_table_stats where table_name = 't1';
+select index_name,stat_value,sample_size from mysql.innodb_index_stats where table_name = 't1' and stat_name = 'n_diff_pfx01';
+--echo # With zero stat_n_rows, it is table scan (2.45) even if the real table might be very big.
+--echo # With correct stat_n_rows, it is range access.
+explain select * from t1 where b >= 2;
+SELECT TRACE FROM information_schema.OPTIMIZER_TRACE;
+SET DEBUG_SYNC = "now signal finish_ddl";
+
+connection other;
+--reap
+
+connection default;
+select n_rows,clustered_index_size from mysql.innodb_table_stats where table_name = 't1';
+select index_name,stat_value,sample_size from mysql.innodb_index_stats where table_name = 't1' and stat_name = 'n_diff_pfx01';
+--echo # With stat_n_rows corrected by the completion of the online alter, it is range access again.
+explain select * from t1 where b >= 2;
+
+drop table t1;
+disconnect other;
+SET DEBUG_SYNC = 'RESET';
