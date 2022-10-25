@@ -1257,7 +1257,7 @@ int main(int argc, char *argv[]) {
   delimiter_str = delimiter;
   default_prompt = my_strdup(
       PSI_NOT_INSTRUMENTED,
-      getenv("MYSQL_PS1") ? getenv("MYSQL_PS1") : "mysql> ", MYF(MY_WME));
+      getenv("MYSQL_PS1") ? getenv("MYSQL_PS1") : "txsql> ", MYF(MY_WME));
   current_prompt = my_strdup(PSI_NOT_INSTRUMENTED, default_prompt, MYF(MY_WME));
   prompt_counter = 0;
 
@@ -1359,10 +1359,10 @@ int main(int argc, char *argv[]) {
   window_resize(0);
 #endif
 
-  put_info("Welcome to the MySQL monitor.  Commands end with ; or \\g.",
+  put_info("Welcome to the TXSQL monitor.  Commands end with ; or \\g.",
            INFO_INFO);
   snprintf(glob_buffer.ptr(), glob_buffer.alloced_length(),
-           "Your MySQL connection id is %lu\nServer version: %s\n",
+           "Your TXSQL connection id is %lu\nServer version: %s\n",
            mysql_thread_id(&mysql), server_version_string(&mysql));
   put_info(glob_buffer.ptr(), INFO_INFO);
 
