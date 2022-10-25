@@ -1,0 +1,5 @@
+!include include/default_my.cnf
+
+[mysqld]
+gtid-mode=on
+enforce-gtid-consistency

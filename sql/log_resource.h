@@ -150,6 +150,7 @@ class Log_resource_mi_wrapper : public Log_resource {
 */
 class Log_resource_binlog_wrapper : public Log_resource {
   MYSQL_BIN_LOG *binlog = nullptr;
+  bool flush_trxs_finished = false;
 
  public:
   /**

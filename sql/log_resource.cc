@@ -60,6 +60,7 @@ bool Log_resource_mi_wrapper::collect_info() {
 
 void Log_resource_binlog_wrapper::lock() {
   mysql_mutex_lock(binlog->get_log_lock());
+  flush_trxs_finished = binlog->wait_for_flushed_trxs_finished();
 }
 
 void Log_resource_binlog_wrapper::unlock() {
@@ -82,6 +83,16 @@ bool Log_resource_binlog_wrapper::collect_info() {
 
     error = json_local->add_clone("binary_log_file", &json_log_file);
     if (!error) json_local->add_clone("binary_log_position", &json_log_pos);
+
+    /*
+      wait for the pipline of group commit after flush stage finish
+      can't get correct result report error
+    */
+    if (!flush_trxs_finished) {
+      Json_string json_error_msg("binlog pos and gtid are not consistent");
+      json_local->add_clone("error", &json_error_msg);
+      error = false;  // return the error msg to client
+    }
   }
   return error;
 }
