@@ -1,0 +1,49 @@
+--source include/have_debug_sync.inc
+
+connect (con1,localhost,root,,);
+connect (con2,localhost,root,,);
+connection con1;
+--let $server_uuid= `SELECT @@GLOBAL.SERVER_UUID`
+CREATE TABLE t1(c1 INT);
+
+# The transaction will not commit until it get 'continue' signal.
+SET debug_sync = "bgc_after_sync_stage_before_commit_stage SIGNAL synced WAIT_FOR continue";
+--send INSERT INTO t1 VALUES(1)
+
+#query performance_schema.log_status will return error
+connection con2;
+SET debug_sync = "now WAIT_FOR synced";
+--replace_result $server_uuid SERVER_UUID
+SELECT local FROM performance_schema.log_status;
+SET debug_sync = "now SIGNAL continue";
+
+connection con1;
+--reap
+--replace_result $server_uuid SERVER_UUID
+SELECT local FROM performance_schema.log_status;
+INSERT INTO t1 VALUES(2);
+
+SET global binlog_order_commits=OFF;
+connect (con3,localhost,root,,);
+connect (con4,localhost,root,,);
+connection con3;
+SHOW VARIABLES LIKE "%binlog_order_commits%";
+# The transaction will not commit until it get 'continue' signal.
+SET debug_sync = "bgc_after_sync_stage_before_commit_stage SIGNAL synced WAIT_FOR continue";
+--send INSERT INTO t1 VALUES(3)
+
+#query performance_schema.log_status will return error
+connection con4;
+SET debug_sync = "now WAIT_FOR synced";
+--replace_result $server_uuid SERVER_UUID
+SELECT local FROM performance_schema.log_status;
+SET debug_sync = "now SIGNAL continue";
+
+connection con3;
+--reap
+--replace_result $server_uuid SERVER_UUID
+SELECT local FROM performance_schema.log_status;
+INSERT INTO t1 VALUES(3);
+
+SET global binlog_order_commits=ON;
+DROP TABLE t1;

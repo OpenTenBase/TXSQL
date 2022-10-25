@@ -3570,8 +3570,10 @@ void MYSQL_BIN_LOG::cleanup() {
     mysql_mutex_destroy(&LOCK_sync);
     mysql_mutex_destroy(&LOCK_binlog_end_pos);
     mysql_mutex_destroy(&LOCK_xids);
+    mysql_mutex_destroy(&LOCK_clear_flush_trxs);
     mysql_cond_destroy(&update_cond);
     mysql_cond_destroy(&m_prep_xids_cond);
+    mysql_cond_destroy(&m_clear_flush_trxs_cond);
     if (!is_relay_log) {
       Commit_stage_manager::get_instance().deinit();
     }
@@ -3592,8 +3594,11 @@ void MYSQL_BIN_LOG::init_pthread_objects() {
   mysql_mutex_init(m_key_LOCK_binlog_end_pos, &LOCK_binlog_end_pos,
                    MY_MUTEX_INIT_FAST);
   mysql_mutex_init(m_key_LOCK_xids, &LOCK_xids, MY_MUTEX_INIT_FAST);
+  mysql_mutex_init(m_key_LOCK_clear_flush_trxs, &LOCK_clear_flush_trxs,
+                   MY_MUTEX_INIT_FAST);
   mysql_cond_init(m_key_update_cond, &update_cond);
   mysql_cond_init(m_key_prep_xids_cond, &m_prep_xids_cond);
+  mysql_cond_init(m_key_clear_flush_trxs_cond, &m_clear_flush_trxs_cond);
   if (!is_relay_log) {
     Commit_stage_manager::get_instance().init(
         m_key_LOCK_flush_queue, m_key_LOCK_sync_queue, m_key_LOCK_commit_queue,
@@ -8427,6 +8432,7 @@ void MYSQL_BIN_LOG::init_thd_variables(THD *thd, bool all, bool skip_commit) {
   thd->get_transaction()->m_flags.xid_written = false;
   thd->get_transaction()->m_flags.commit_low = !skip_commit;
   thd->get_transaction()->m_flags.run_hooks = !skip_commit;
+  thd->get_transaction()->m_flags.committed = false;
 #ifndef NDEBUG
   /*
      The group commit Leader may have to wait for follower whose transaction
@@ -8508,6 +8514,7 @@ int MYSQL_BIN_LOG::process_flush_stage_queue(my_off_t *total_bytes_var,
 #ifndef NDEBUG
     no_flushes++;
 #endif
+    flush_trxs++;
   }
 
   *out_queue_var = first_seen;
@@ -8590,6 +8597,8 @@ void MYSQL_BIN_LOG::process_commit_stage_queue(THD *thd, THD *first) {
   */
   gtid_state->update_commit_group(first);
 
+  int no_committed = 0;
+
   for (THD *head = first; head; head = head->next_to_commit) {
     Thd_backup_and_restore switch_thd(thd, head);
     auto all = head->get_transaction()->m_flags.real_commit;
@@ -8602,7 +8611,12 @@ void MYSQL_BIN_LOG::process_commit_stage_queue(THD *thd, THD *first) {
       among user thread, rotate thread and dump thread.
     */
     if (head->get_transaction()->m_flags.xid_written) dec_prep_xids(head);
+
+    head->get_transaction()->m_flags.committed = true;
+    no_committed++;
   }
+  m_atomic_commit_trxs.fetch_add(no_committed);
+  trx_signal_commit();
 }
 
 /**
@@ -8792,6 +8806,12 @@ int MYSQL_BIN_LOG::finish_commit(THD *thd) {
                       trx_wait_binlog_file, trx_wait_binlog_pos);
 
     thd->is_semisync_ack_error = false;
+  }
+
+  if (!thd->get_transaction()->m_flags.committed) {
+    m_atomic_commit_trxs++;
+    thd->get_transaction()->m_flags.committed = true;
+    trx_signal_commit();
   }
 
   DBUG_EXECUTE_IF("leaving_finish_commit", {
@@ -11681,3 +11701,39 @@ mysql_declare_plugin(binlog){
     nullptr, /* config options                  */
     0,
 } mysql_declare_plugin_end;
+
+void MYSQL_BIN_LOG::trx_signal_commit() {
+  if (unlikely(m_waiting_flush_trxs_finish)) {
+    if (m_atomic_commit_trxs == flush_trxs) {
+      mysql_mutex_lock(&LOCK_clear_flush_trxs);
+      mysql_cond_signal(&m_clear_flush_trxs_cond);
+      mysql_mutex_unlock(&LOCK_clear_flush_trxs);
+    }
+  }
+}
+/*
+  wait for the pipline of group commit after flush stage finished
+  avoid wait forever and wait at most 1 seconds then return timeout
+  return true : finished
+ */
+bool MYSQL_BIN_LOG::wait_for_flushed_trxs_finished() {
+  bool res = false;
+  struct timespec abstime;
+  set_timespec_nsec(&abstime, 10000000ULL);
+  int error = 0;
+  int timeout_times = 0;
+  m_waiting_flush_trxs_finish = true;
+  while (!(res = (m_atomic_commit_trxs == flush_trxs))) {
+    mysql_mutex_lock(&LOCK_clear_flush_trxs);
+    error = mysql_cond_timedwait(&m_clear_flush_trxs_cond,
+                                 &LOCK_clear_flush_trxs, &abstime);
+    mysql_mutex_unlock(&LOCK_clear_flush_trxs);
+    if (is_timeout(error)) timeout_times++;
+    if (timeout_times > 100) {
+      res = (m_atomic_commit_trxs == flush_trxs);
+      break;
+    }
+  }
+  m_waiting_flush_trxs_finish = false;
+  return res;
+}

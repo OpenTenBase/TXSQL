@@ -191,6 +191,7 @@ class Transaction_ctx {
 #ifndef NDEBUG
     bool ready_preempt{false};  // internal in MYSQL_BIN_LOG::ordered_commit
 #endif
+    bool committed;
   } m_flags;
   /* Binlog-specific logical timestamps. */
   /*
