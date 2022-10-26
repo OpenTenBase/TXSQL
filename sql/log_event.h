@@ -396,6 +396,35 @@ enum enum_base64_output_mode {
   BASE64_OUTPUT_MODE_COUNT
 };
 
+enum Binlog_query_event_handler {
+  QUERY_EVENT_ERROR,
+  QUERY_EVENT_IGNORE,
+  QUERY_EVENT_SAFE,
+  QUERY_EVENT_KEEP
+};
+
+struct st_event_filter {
+  Binlog_query_event_handler query_event_handler;
+  std::vector<std::string> statement_match_errors;
+  std::vector<std::string> statement_match_ignores;
+  std::vector<std::string> statement_match_ignores_force;
+};
+
+enum Binlog_row_field_attr {
+  FIELD_ATTR_DEFAULT = 0,
+  FIELD_IS_HEX = 2,
+  FIELD_IS_SIGNED = 4,
+  FIELD_IS_UNSIGNED = 5
+};
+
+typedef std::map<int, char *> map_one_line;
+struct st_rows_filter {
+  int cols_pos[255];  // [2, 1, 3, 4]  @2,@1,@3,@4
+  std::map<int, Binlog_row_field_attr> map_field_attr;
+  std::map<std::string, std::vector<std::map<int, std::string>>>
+      map_lines_col;  // {100: {@2:100, @1:aaa, @3:-2.0}}
+};
+
 /*
   A structure for mysqlbinlog to know how to print events
 
@@ -499,6 +528,9 @@ struct PRINT_EVENT_INFO {
     It omits the SET @@session.pseudo_thread_id printed on Query events
   */
   bool require_row_format;
+
+  st_rows_filter *rows_filter;
+  st_event_filter *event_filter;
 };
 #endif
 
@@ -895,6 +927,8 @@ class Log_event {
 #endif  // ifdef MYSQL_SERVER ... else
 
   bool is_flashback = false;
+  bool enable_filter_rows = false;
+  bool conv_event_update2write = false;
   String output_buf; // Storing the event flashback output
 
   void *operator new(size_t size);
@@ -1498,6 +1532,8 @@ class Query_log_event : public virtual binary_log::Query_event,
   void print(FILE *file, PRINT_EVENT_INFO *print_event_info) const override;
   static bool rewrite_db_in_buffer(char **buf, ulong *event_len,
                                    const Format_description_event &fde);
+  void print_handler_query(IO_CACHE *file,
+                           PRINT_EVENT_INFO *print_event_info) const;
 #endif
 
   Query_log_event();
@@ -2900,6 +2936,13 @@ class Rows_log_event : public virtual binary_log::Rows_event, public Log_event {
 #ifndef MYSQL_SERVER
   void change_to_flashback_event(PRINT_EVENT_INFO *print_event_info,
                                  uchar *rows_buff, Log_event_type ev_type);
+  std::pair<uint, bool> filter_rows_from_event(
+      PRINT_EVENT_INFO *print_event_info, uchar *rows_buff,
+      Log_event_type ev_type);
+  std::pair<uint, bool> conv_update_to_write_event(
+      PRINT_EVENT_INFO *print_event_info, uchar *rows_buff,
+      Log_event_type ev_type, bool is_after);
+
   void print_verbose(IO_CACHE *file, PRINT_EVENT_INFO *print_event_info);
   size_t print_verbose_one_row(IO_CACHE *file, table_def *td,
                                PRINT_EVENT_INFO *print_event_info,
@@ -2907,6 +2950,10 @@ class Rows_log_event : public virtual binary_log::Rows_event, public Log_event {
                                const uchar *prefix,
                                enum_row_image_type row_image_type,
                                const bool no_fill_output = false);
+
+  std::pair<size_t, bool> filter_binlog_one_row(
+      table_def *td, PRINT_EVENT_INFO *print_event_info, MY_BITMAP *cols_bitmap,
+      const uchar *ptr, enum_row_image_type row_image_type);
 #endif
 
 #ifdef MYSQL_SERVER

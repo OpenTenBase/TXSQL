@@ -1,0 +1,295 @@
+--source include/have_binlog_format_row.inc
+#--source include/have_innodb.inc
+
+SET  binlog_row_image=full;
+let $BINLOG_FORMAT= `select @@binlog_format`;
+let $BINLOG_ROW_IMAGE= `select @@binlog_row_image`;
+--echo # BINLOG_FORMAT = $BINLOG_FORMAT
+--echo # BINLOG_ROW_IMAGE = $BINLOG_ROW_IMAGE
+
+--echo #
+--echo # Preparatory cleanup.
+--echo #
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+DROP TABLE IF EXISTS t2;
+--enable_warnings
+
+--echo #
+--echo # We need a fixed timestamp to avoid varying results.
+--echo #
+SET timestamp=1000000000;
+# set global log_bin_compress = OFF;
+
+CREATE TABLE t1 (
+  c01 bigint unsigned primary key,
+  c02 tinyint,
+  c03 smallint,
+  c04 mediumint unsigned,
+  c05 int,
+  c06 bigint,
+  c07 char(10),
+  c08 varchar(20),
+  c09 varbinary(20),
+  c10 datetime,
+  c11 timestamp(3),
+  c12 float,
+  c13 decimal(10,3),
+  c14 TEXT,
+  c15 BLOB,
+  c16 JSON
+) ENGINE=InnoDB;
+show create table t1;
+
+--echo # Delete all existing binary logs.
+--echo #
+RESET MASTER;
+--echo # checksum #100
+checksum table t1;
+select * from t1;
+
+--echo # < CASE 1.1 >
+--echo # Insert to t1  (master-bin.000001)
+--echo #
+insert into t1 values(1,1,1,1,1,1,'a','aa','aaa', '2021-06-17 00:00:01','2021-06-17 00:00:01', 1.0,1.0, repeat('a', 10),repeat('a', 10),'["a"]');
+insert into t1 values(2,2,2,2,2,1,'b','bb',NULL, '2021-06-17 00:00:01','2021-06-17 00:00:01', 200.1,200.0, repeat('b', 10),repeat('b', 20),'["b"]');
+insert into t1 values(3,3,3,16777215,3,1,'c','xxx','ccc', '2021-06-17 00:00:02','2021-06-17 00:00:02.101', 3.00,3.00, repeat('c', 2000),repeat('c', 10),'["c"]');
+insert into t1 values(4,4,-4,4,4,4,'d','d d','xxx', '2021-06-16 23:59:59','2021-06-17 00:00:02.101', 4.0,4.0, repeat('d', 10),repeat('d', 10),'["d"]');
+insert into t1 values(5,5,5,5,5,5,'e','d d',unhex(6565), '2021-06-17 00:00:02','2021-06-17 00:00:02', 5.0,5.0, repeat('e', 10),repeat('e', 10),'["e"]');
+
+--echo # < CASE 1.2 >
+--echo # Test update t1
+--echo #
+update t1 set c11='2021-06-16 23:59:59.101' where c01 = 1;
+update t1 set c11='2021-06-16 01:01:01.101' where c01 = 1;
+update t1 set c11='2021-06-16 23:59:59' where c01 != 1;
+--echo # checksum #101
+checksum table t1;
+select * from t1;
+FLUSH LOGS;
+
+--echo # < CASE 2.1 >
+--echo # Test transaction  (master-bin.000002)
+--echo #
+BEGIN;
+insert into t1 values(6,6,6,6,6,1,'f','ff','xxx', '2021-06-16 23:59:59','2021-06-16 23:59:59', 6.0,6.0, '','','{}'),
+(700,7,700,700,700,700,'g','g,"g','xxx', '2021-06-16 23:59:59','2021-06-16 23:59:59', 7.0,7.0, '','','{}'),
+(800,8,800,800,800,800,'h','h,"h','yyy', '2021-06-14 23:59:59','2021-06-14 23:59:59', 8.0,8.0, '','',NULL);
+DELETE FROM t1 where c01 = 2;
+COMMIT;
+
+--echo # < CASE 2.2 >
+--echo # Test delete from t1 and log_bin_compress
+--echo #
+DELETE FROM t1 where c01 = 1;
+
+# set global log_bin_compress = ON;
+DELETE FROM t1 where c01 in (3, 4);
+# set global log_bin_compress = OFF;
+--echo # checksum #102
+checksum table t1;
+select * from t1;
+FLUSH LOGS;
+
+--echo # < CASE 3 >
+--echo # Alter t1 (master-bin.000003)
+--echo #
+CREATE TABLE t2 (
+  c01 bigint unsigned primary key,
+  c02 varchar(20)
+) ENGINE=InnoDB charset=utf8mb4;
+BEGIN;
+update t1 set c12=50.1,c13=50.1,c15='x中文x',c16='["j", "s", "o", "n"]' where c01=5;
+replace into t2 values(100, 'xxx'),(200, 'xxx'),(300, 'ccc');
+COMMIT;
+--echo # checksum #103
+checksum table t1;
+select * from t1;
+select * from t2;
+FLUSH LOGS;
+
+--echo # < CASE 4 >
+--echo # Alter t1 (master-bin.000004)
+--echo #
+update t1 set c12=50.1,c13=50.1,c15='yyyy',c16='{"type":"json"}' where c01=5;
+#alter table t1 add column c17 date;
+#alter table t1 modify c08 varchar(60);
+alter table t1 modify c01 bigint unsigned auto_increment;
+alter table t2 add index idx_c02(c02);
+update t2 set c02='' where c01=300;
+
+FLUSH LOGS;
+
+
+
+let $MYSQLD_DATADIR= `select @@datadir`;
+--replace_result $MYSQLTEST_VARDIR MYSQLTEST_VARDIR
+
+--replace_regex /SQL_LOAD_MB-[0-9]-[0-9]/SQL_LOAD_MB-#-#/ /exec_time=[0-9]*/exec_time=#/ /end_log_pos [0-9]*/end_log_pos #/ /# at [0-9]*/# at #/ /Xid = [0-9]*/Xid = #/ /thread_id=[0-9]*/thread_id=#/ /table id [0-9]*/table id #/ /mapped to number [0-9]*/mapped to number #/ /server v [^ ]*/server v #.##.##/ /CRC32 0x[0-9a-f]*/CRC32 XXX/ /collation_server=[0-9]+/collation_server=X/ /character_set_client=[0-9]+/character_set_client=X/ /collation_connection=[0-9]+/collation_connection=X/ /sql_mode=[0-9]+/sql_mode=X/ /(original_commit[a-z]*_timestamp)=[0-9]+/\1=X/ /immediate_commit_timestamp=[0-9]+/immediate_commit_timestamp=X/ /transaction_length=[0-9]+/transaction_length=X/ /[0-9]+-[0-9]+-[0-9]+ [0-9]+:[0-9]+:[0-9]+.[0-9]* GMT/X-X-X X:X:X.X GMT/ /(original_server_version)=[0-9]+/\1=X/ /(immediate_server_version)=[0-9]+/\1=X/
+# # %s/grep -Evi "(# at |#.*end_log_pos |_commit_timestamp|_server_version|SET @@session)"
+
+--echo #
+--echo # < CASE 1 >
+--echo # binlog rows filter and print it
+--echo #
+--replace_regex $BINLOG_REPLACE
+--exec $MYSQL_BINLOG --base64-output=decode-rows -v $MYSQLD_DATADIR/master-bin.000001 --tables=t1 --filter-rows="@1 1" |grep -Evi "(# at |#.*end_log_pos |_commit_timestamp|_server_version|SET @@session)"
+--exec $MYSQL_BINLOG --base64-output=decode-rows -v $MYSQLD_DATADIR/master-bin.000001 --tables=t1 --filter-rows="@8 bb bbbbb" |grep -Evi "(# at |#.*end_log_pos |_commit_timestamp|_server_version|SET @@session)"
+--exec $MYSQL_BINLOG --base64-output=decode-rows -v $MYSQLD_DATADIR/master-bin.000001 --tables=t1 --filter-rows="@4:unsigned 16777215" |grep -Evi "(# at |#.*end_log_pos |_commit_timestamp|_server_version|SET @@session)"
+--exec $MYSQL_BINLOG --base64-output=decode-rows -v $MYSQLD_DATADIR/master-bin.000001 --tables=t1 --filter-rows="@3,@7 -4,d" |grep -Evi "(# at |#.*end_log_pos |_commit_timestamp|_server_version|SET @@session)"
+--exec $MYSQL_BINLOG --base64-output=decode-rows -v $MYSQLD_DATADIR/master-bin.000001 --tables=t1 --filter-rows="@9:hex 0x6565" |grep -Evi "(# at |#.*end_log_pos |_commit_timestamp|_server_version|SET @@session)"
+--echo #
+
+--echo # flashback rows filter and print it
+--exec $MYSQL_BINLOG --base64-output=decode-rows -v $MYSQLD_DATADIR/master-bin.000001 --flashback --flashback-tables=t1 --filter-rows="@1 1" |grep -Evi "(# at |#.*end_log_pos |_commit_timestamp|_server_version|SET @@session)"
+--exec $MYSQL_BINLOG -v $MYSQLD_DATADIR/master-bin.000001 --flashback --flashback-tables=t1 --filter-rows="@1 1" > $MYSQLTEST_VARDIR/tmp/mysqlbinlog_flashback_rows_1.1.back.sql
+--exec $MYSQL_BINLOG --base64-output=decode-rows -v $MYSQLD_DATADIR/master-bin.000001 --flashback --flashback-tables=t1 --filter-rows="@8 bb bbbbb" |grep -Evi "(# at |#.*end_log_pos |_commit_timestamp|_server_version|SET @@session)"
+--exec $MYSQL_BINLOG -v $MYSQLD_DATADIR/master-bin.000001 --flashback --flashback-tables=t1 --filter-rows="@8 bb bbbbb" > $MYSQLTEST_VARDIR/tmp/mysqlbinlog_flashback_rows_1.2.back.sql
+--exec $MYSQL_BINLOG --base64-output=decode-rows -v $MYSQLD_DATADIR/master-bin.000001 --flashback --flashback-tables=t1 --filter-rows="@4:unsigned 16777215" |grep -Evi "(# at |#.*end_log_pos |_commit_timestamp|_server_version|SET @@session)"
+--exec $MYSQL_BINLOG -v $MYSQLD_DATADIR/master-bin.000001 --flashback --flashback-tables=t1 --filter-rows="@4:unsigned 16777215" > $MYSQLTEST_VARDIR/tmp/mysqlbinlog_flashback_rows_1.3.back.sql
+--exec $MYSQL_BINLOG --base64-output=decode-rows -v $MYSQLD_DATADIR/master-bin.000001 --flashback --flashback-tables=t1 --filter-rows="@3:signed,@7 -4,d" |grep -Evi "(# at |#.*end_log_pos |_commit_timestamp|_server_version|SET @@session)"
+--exec $MYSQL_BINLOG -v $MYSQLD_DATADIR/master-bin.000001 --flashback --flashback-tables=t1 --filter-rows="@3:signed,@7 -4,d" > $MYSQLTEST_VARDIR/tmp/mysqlbinlog_flashback_rows_1.4.back.sql
+--exec $MYSQL_BINLOG --base64-output=decode-rows -v $MYSQLD_DATADIR/master-bin.000001 --flashback --flashback-tables=t1 --filter-rows="@9:hex 0x6565" |grep -Evi "(# at |#.*end_log_pos |_commit_timestamp|_server_version|SET @@session)"
+--exec $MYSQL_BINLOG -v $MYSQLD_DATADIR/master-bin.000001 --flashback --flashback-tables=t1 --filter-rows="@9:hex 0x6565" > $MYSQLTEST_VARDIR/tmp/mysqlbinlog_flashback_rows_1.5.back.sql
+
+--echo #
+--echo # < CASE 2 >
+--echo # Test --filter-lines-terminated-by and --filter-fields-enclosed-by
+--echo #
+--exec $MYSQL_BINLOG --base64-output=decode-rows -v $MYSQLD_DATADIR/master-bin.000002 --flashback --flashback-tables=t1 --filter-rows="@9,@10\nxxx,2021-06-16 23:59:59" --filter-lines-terminated-by="\n" |grep -Evi "(# at |#.*end_log_pos |_commit_timestamp|_server_version|SET @@session)"
+--exec $MYSQL_BINLOG -v $MYSQLD_DATADIR/master-bin.000002 --flashback --flashback-tables=t1 --filter-rows="@9,@10\nxxx,2021-06-16 23:59:59" --filter-lines-terminated-by="\n" > $MYSQLTEST_VARDIR/tmp/mysqlbinlog_flashback_rows_2.1.back.sql
+--exec $MYSQL_BINLOG --base64-output=decode-rows -v $MYSQLD_DATADIR/master-bin.000002 --flashback --flashback-tables=t1 --filter-rows="@1 '800' 3 1" --filter-fields-enclosed-by="'" |grep -Evi "(# at |#.*end_log_pos |_commit_timestamp|_server_version|SET @@session)"
+--exec $MYSQL_BINLOG -v $MYSQLD_DATADIR/master-bin.000002 --flashback --flashback-tables=t1 --filter-rows="@1 '800' 3 1" --filter-fields-enclosed-by="'" > $MYSQLTEST_VARDIR/tmp/mysqlbinlog_flashback_rows_2.2.back.sql
+--echo #
+--echo # Test transaction and log_bin_compress and float
+--echo #
+--exec $MYSQL_BINLOG --base64-output=decode-rows -v $MYSQLD_DATADIR/master-bin.000002 --flashback --flashback-tables=t1 --filter-rows="@2,@12 2,200.1 2,3" |grep -Evi "(# at |#.*end_log_pos |_commit_timestamp|_server_version|SET @@session)"
+--exec $MYSQL_BINLOG -v $MYSQLD_DATADIR/master-bin.000002 --flashback --flashback-tables=t1 --filter-rows="@2,@12 2,200.1 2,3" > $MYSQLTEST_VARDIR/tmp/mysqlbinlog_flashback_rows_2.3.back.sql
+
+--echo #
+--echo # < CASE 3 >
+--echo # Test t1 ignoring t2 DDL and Test --conv-event-update-to-write
+--echo #
+--exec $MYSQL_BINLOG --base64-output=decode-rows -v $MYSQLD_DATADIR/master-bin.000003 --flashback --flashback-tables=t1 --filter-statement-match-ignore-force="t2,add index" --conv-event-update-to-write --idempotent |grep -Evi "(# at |#.*end_log_pos |_commit_timestamp|_server_version|SET @@session)"
+--exec $MYSQL_BINLOG -v $MYSQLD_DATADIR/master-bin.000003 --flashback --flashback-tables=t1 --filter-statement-match-ignore-force="t2,add index" --conv-event-update-to-write --idempotent > $MYSQLTEST_VARDIR/tmp/mysqlbinlog_flashback_rows_3.back.sql
+
+--echo #
+--echo # < CASE 4 >
+--echo # Test t1 has DDL(add auto_increment)
+--echo #
+--echo [Cannot handler this query event]
+--error 1
+--exec $MYSQL_BINLOG -v $MYSQLD_DATADIR/master-bin.000004 --flashback --flashback-tables=t1 --filter-statement-match-ignore=t2 >/dev/null
+--echo #
+--echo # Test t2 has DDL(add index) and Test --flashback-tables-ignore
+--echo #
+--exec $MYSQL_BINLOG -v $MYSQLD_DATADIR/master-bin.000004 --flashback --flashback-tables-ignore=t1 --query-event-handler=safe --filter-statement-match-ignore="t1,add index" > /dev/null
+--exec $MYSQL_BINLOG -v $MYSQLD_DATADIR/master-bin.000004 --flashback --flashback-tables-ignore=t2 --query-event-handler=safe --filter-statement-match-ignore="t2,add index" --filter-statement-match-ignore-force=auto_increment > $MYSQLTEST_VARDIR/tmp/mysqlbinlog_flashback_rows_4.back.sql
+
+
+--echo #
+--echo # < CASE 4 >
+--echo # Flashback & Check Result
+--echo #
+--exec $MYSQL < $MYSQLTEST_VARDIR/tmp/mysqlbinlog_flashback_rows_4.back.sql
+--echo # checksum #103
+checksum table t1;
+select * from t1;
+select * from t2;
+
+--echo # < CASE 3 >
+--echo # Flashback & Check Result
+--echo #
+--exec $MYSQL < $MYSQLTEST_VARDIR/tmp/mysqlbinlog_flashback_rows_3.back.sql
+--echo # checksum #102
+checksum table t1;
+select * from t1;
+
+--echo #
+--echo # < CASE 2 >
+--echo # Flashback & Check Result
+--echo #
+--exec $MYSQL < $MYSQLTEST_VARDIR/tmp/mysqlbinlog_flashback_rows_2.3.back.sql
+--exec $MYSQL < $MYSQLTEST_VARDIR/tmp/mysqlbinlog_flashback_rows_2.2.back.sql
+--exec $MYSQL < $MYSQLTEST_VARDIR/tmp/mysqlbinlog_flashback_rows_2.1.back.sql
+--echo # checksum #101
+checksum table t1;
+select * from t1;
+
+--echo #
+--echo # < CASE 1 >
+--echo # Flashback & Check Result
+--echo #
+--exec $MYSQL < $MYSQLTEST_VARDIR/tmp/mysqlbinlog_flashback_rows_1.5.back.sql
+--exec $MYSQL < $MYSQLTEST_VARDIR/tmp/mysqlbinlog_flashback_rows_1.4.back.sql
+--exec $MYSQL < $MYSQLTEST_VARDIR/tmp/mysqlbinlog_flashback_rows_1.3.back.sql
+--exec $MYSQL < $MYSQLTEST_VARDIR/tmp/mysqlbinlog_flashback_rows_1.2.back.sql
+--exec $MYSQL < $MYSQLTEST_VARDIR/tmp/mysqlbinlog_flashback_rows_1.1.back.sql
+--echo # checksum #100
+checksum table t1;
+select * from t1;
+
+--echo # < CASE 5 > Test data type
+--echo # Delete all existing binary logs.
+--echo #
+CREATE TABLE t3 (
+  c01 bigint unsigned primary key,
+  c02 tinyint,
+  c03 smallint,
+  c04 mediumint unsigned,
+  c05 int,
+  c06 bigint,
+  c07 char(10),
+  c08 varchar(20),
+  c09 binary(10),
+  c10 varbinary(20),
+  c11 date,
+  c12 time,
+  c13 datetime,
+  c14 timestamp(3),
+  c15 year,
+  c16 float,
+  c17 double,
+  c18 decimal(10,3),
+  c19 TINYTEXT,
+  c20 MEDIUMTEXT,
+  c21 TEXT,
+  c22 LONGTEXT,
+  c23 TINYBLOB,
+  C24 MEDIUMBLOB,
+  c25 BLOB,
+  c26 LONGBLOB,
+  c27 ENUM('Low', 'Medium', 'High') NOT NULL,
+  c28 BIT(8),
+  c29 JSON
+) ENGINE=InnoDB;
+RESET MASTER;
+
+insert into t3 values(0,0,0,0,0,0, '', '', 'a', 'aa', '2021-06-28', '11:11:11', '2021-06-28 11:11:11', '2021-06-28 11:11:11', '2021','0.0','100.0','100.000', 'aaaa', 'aaaaa', 'aaaaaa', 'aaaaaaa', 'aaaa', 'aaaaa', 'aaaaaa', 'aaaaaaa',1,b'00000000','{}');
+insert into t3 values(9223372036854775807,127,-32768,8388607,2147483647,-9223372036854775808, 'b', 'bb', 'b', 'bb', '2021-06-28', '11:11:11', '2021-06-28 11:11:11', '2021-06-28 11:11:11', '2069','0.11','100.01','100.001', 'bbbb', 'bbbbb', 'bbbbbb', 'bbbbbbb', '', '', '', '',1,b'00000010','{}');
+FLUSH LOGS;
+
+--echo # test datatype min
+--exec $MYSQL_BINLOG --base64-output=decode-rows -v $MYSQLD_DATADIR/master-bin.000001 --flashback --flashback-tables=t3 --filter-rows="@1,@2,@3,@4,@5,@6 0,0,0,0,0,0" |grep -Evi "(# at |#.*end_log_pos |_commit_timestamp|_server_version|SET @@session)"
+--echo # test datatype max
+--exec $MYSQL_BINLOG --base64-output=decode-rows -v $MYSQLD_DATADIR/master-bin.000001 --flashback --flashback-tables=t3 --filter-rows="@1,@2,@3:signed,@4,@5,@6:signed 9223372036854775807,127,-32768,8388607,2147483647,-9223372036854775808" |grep -Evi "(# at |#.*end_log_pos |_commit_timestamp|_server_version|SET @@session)"
+--echo # test datatype misc1
+--exec $MYSQL_BINLOG --base64-output=decode-rows -v $MYSQLD_DATADIR/master-bin.000001 --flashback --flashback-tables=t3 --filter-rows="@7,@8,@9,@10 '','',a,aa b,bb,b,bb" --filter-fields-enclosed-by="'" |grep -Evi "(# at |#.*end_log_pos |_commit_timestamp|_server_version|SET @@session)"
+--echo # test datatype misc2
+--exec $MYSQL_BINLOG --base64-output=decode-rows -v $MYSQLD_DATADIR/master-bin.000001 --flashback --flashback-tables=t3 --filter-rows="@11,@13,@15\n2021-06-28,2021-06-28 11:11:11,2021" --filter-lines-terminated-by="\n" |grep -Evi "(# at |#.*end_log_pos |_commit_timestamp|_server_version|SET @@session)"
+
+DROP TABLE t1;
+DROP TABLE t2;
+DROP TABLE t3;
+# SET GLOBAL log_bin_compress = OFF;
+
+remove_file $MYSQLTEST_VARDIR/tmp/mysqlbinlog_flashback_rows_1.1.back.sql;
+remove_file $MYSQLTEST_VARDIR/tmp/mysqlbinlog_flashback_rows_1.2.back.sql;
+remove_file $MYSQLTEST_VARDIR/tmp/mysqlbinlog_flashback_rows_1.3.back.sql;
+remove_file $MYSQLTEST_VARDIR/tmp/mysqlbinlog_flashback_rows_1.4.back.sql;
+remove_file $MYSQLTEST_VARDIR/tmp/mysqlbinlog_flashback_rows_1.5.back.sql;
+remove_file $MYSQLTEST_VARDIR/tmp/mysqlbinlog_flashback_rows_2.1.back.sql;
+remove_file $MYSQLTEST_VARDIR/tmp/mysqlbinlog_flashback_rows_2.2.back.sql;
+remove_file $MYSQLTEST_VARDIR/tmp/mysqlbinlog_flashback_rows_2.3.back.sql;
+remove_file $MYSQLTEST_VARDIR/tmp/mysqlbinlog_flashback_rows_3.back.sql;
+remove_file $MYSQLTEST_VARDIR/tmp/mysqlbinlog_flashback_rows_4.back.sql;

@@ -223,6 +223,8 @@ BEGIN/*!*/;
 # at #
 #010909  4:46:40 server id 1  end_log_pos # CRC32 XXX 	Query	thread_id=#	exec_time=#	error_code=0
 SET TIMESTAMP=1000000000/*!*/;
+# ignore query_log_event
+# DELETE FROM t1 
 # at #
 #010909  4:46:40 server id 1  end_log_pos # CRC32 XXX 	Query	thread_id=#	exec_time=#	error_code=0
 SET TIMESTAMP=1000000000/*!*/;
@@ -234,6 +236,8 @@ BEGIN/*!*/;
 # at #
 #010909  4:46:40 server id 1  end_log_pos # CRC32 XXX 	Query	thread_id=#	exec_time=#	error_code=0
 SET TIMESTAMP=1000000000/*!*/;
+# ignore query_log_event
+# UPDATE t1 SET c01=100 WHERE c02=0 OR c03=3 
 # at #
 #010909  4:46:40 server id 1  end_log_pos # CRC32 XXX 	Query	thread_id=#	exec_time=#	error_code=0
 SET TIMESTAMP=1000000000/*!*/;
@@ -245,6 +249,8 @@ BEGIN/*!*/;
 # at #
 #010909  4:46:40 server id 1  end_log_pos # CRC32 XXX 	Query	thread_id=#	exec_time=#	error_code=0
 SET TIMESTAMP=1000000000/*!*/;
+# ignore query_log_event
+# INSERT INTO t1 VALUES(127, 32767, 8388607, 2147483647, 9223372036854775807, repeat('a', 10), repeat('a', 20), repeat('a', 255)) 
 # at #
 #010909  4:46:40 server id 1  end_log_pos # CRC32 XXX 	Query	thread_id=#	exec_time=#	error_code=0
 SET TIMESTAMP=1000000000/*!*/;
@@ -256,6 +262,8 @@ BEGIN/*!*/;
 # at #
 #010909  4:46:40 server id 1  end_log_pos # CRC32 XXX 	Query	thread_id=#	exec_time=#	error_code=0
 SET TIMESTAMP=1000000000/*!*/;
+# ignore query_log_event
+# INSERT INTO t1 VALUES(1,2,3,4,5, "abc", "abcdefg", "abcedfghijklmnopqrstuvwxyz") 
 # at #
 #010909  4:46:40 server id 1  end_log_pos # CRC32 XXX 	Query	thread_id=#	exec_time=#	error_code=0
 SET TIMESTAMP=1000000000/*!*/;
@@ -267,6 +275,8 @@ BEGIN/*!*/;
 # at #
 #010909  4:46:40 server id 1  end_log_pos # CRC32 XXX 	Query	thread_id=#	exec_time=#	error_code=0
 SET TIMESTAMP=1000000000/*!*/;
+# ignore query_log_event
+# INSERT INTO t1 VALUES(0,0,0,0,0,'','','') 
 # at #
 #010909  4:46:40 server id 1  end_log_pos # CRC32 XXX 	Query	thread_id=#	exec_time=#	error_code=0
 SET TIMESTAMP=1000000000/*!*/;
@@ -286,6 +296,8 @@ SET @@session.lc_time_names=0/*!*/;
 SET @@session.collation_database=DEFAULT/*!*/;
 /*!80011 SET @@session.default_collation_for_utf8mb4=255*//*!*/;
 /*!80013 SET @@session.sql_require_primary_key=0*//*!*/;
+# ignore query_log_event
+# CREATE TABLE t1 (# c01 tinyint,# c02 smallint,# c03 mediumint,# c04 int,# c05 bigint,# c06 char(10),# c07 varchar(20),# c08 TEXT# ) ENGINE=InnoDB 
 COMMIT /* added by mysqlbinlog *//*!*/;
 DELIMITER ;
 # End of log file

@@ -85,6 +85,9 @@
 #include "sql-common/json_binary.h"
 #include "sql-common/json_dom.h"  // Json_wrapper
 #include "sql/json_diff.h"        // enum_json_diff_operation
+#include <boost/algorithm/string/replace.hpp>
+#include <boost/algorithm/string/trim.hpp>
+#include <regex>
 #endif
 
 #ifdef MYSQL_SERVER
@@ -2401,7 +2404,9 @@ void Rows_log_event::change_to_flashback_event(
       exit(1);
     }
     memcpy(swap_buff1, start_pos, length1);
-    // For Update_event, we have the second part
+    // For Update_event, we have the second part: UPDATE_AI
+    // PARTIAL_UPDATE_ROWS_EVENT not supported flashback (processed in
+    // mysqlbinlog.cc)
     size_t length2 = 0;
     if (ev_type == binary_log::UPDATE_ROWS_EVENT ||
         ev_type == binary_log::UPDATE_ROWS_EVENT_V1) {
@@ -2602,9 +2607,126 @@ void Log_event::print_base64(IO_CACHE *file, PRINT_EVENT_INFO *print_event_info,
   Format_description_event fd_evt =
       Format_description_event(BINLOG_VERSION, server_version);
   fd_evt.footer()->checksum_alg = ev_checksum_alg;
-  if (is_flashback) {
+  // filter_result.first: the new size of filtered row event
+  // filter_result.second: is current event has rows matched the filter
+  std::pair<uint, bool> filter_result = std::make_pair(0, false);
+
+  Log_event_type ev_type = (enum Log_event_type)ptr[EVENT_TYPE_OFFSET];
+  enum_binlog_checksum_alg checksum_alg =
+      (ev_type != binary_log::FORMAT_DESCRIPTION_EVENT)
+          ? common_footer->checksum_alg
+          : Log_event_footer::get_checksum_alg(temp_buf, (unsigned long)size);
+
+  if (enable_filter_rows) {
+    uint tmp_size = size;
     Rows_log_event *ev = NULL;
-    Log_event_type ev_type = (enum Log_event_type)ptr[EVENT_TYPE_OFFSET];
+
+    if (checksum_alg != binary_log::BINLOG_CHECKSUM_ALG_UNDEF &&
+        checksum_alg != binary_log::BINLOG_CHECKSUM_ALG_OFF)
+      tmp_size -=
+          BINLOG_CHECKSUM_LEN;  // checksum is displayed through the header
+    bool flag_event_updated = false;
+    switch (ev_type) {
+      case binary_log::WRITE_ROWS_EVENT:
+      case binary_log::WRITE_ROWS_EVENT_V1:
+        // not change the event type
+        ev = new Write_rows_log_event((const char *)ptr, &fd_evt);
+        filter_result =
+            ev->filter_rows_from_event(print_event_info, ptr, ev_type);
+        flag_event_updated = true;
+        break;
+      case binary_log::DELETE_ROWS_EVENT:
+      case binary_log::DELETE_ROWS_EVENT_V1:
+        ev = new Delete_rows_log_event((const char *)ptr, &fd_evt);
+        filter_result =
+            ev->filter_rows_from_event(print_event_info, ptr, ev_type);
+        flag_event_updated = true;
+        break;
+      case binary_log::UPDATE_ROWS_EVENT:
+      case binary_log::UPDATE_ROWS_EVENT_V1:
+      case binary_log::PARTIAL_UPDATE_ROWS_EVENT:
+        ev = new Update_rows_log_event((const char *)ptr, &fd_evt);
+        filter_result =
+            ev->filter_rows_from_event(print_event_info, ptr, ev_type);
+
+        if (conv_event_update2write && !is_flashback) {
+          // convert UPDATE_AI to WRITE_AI
+          // PARTIAL_UPDATE_ROWS_EVENT not supported convert (processed in
+          // mysqlbinlog.cc)
+          filter_result = ev->conv_update_to_write_event(print_event_info, ptr,
+                                                         ev_type, true);
+        }
+        flag_event_updated = true;
+        break;
+      default:
+        break;
+    }
+    if (flag_event_updated) {
+      // change the row event body size
+      if (tmp_size < size) {
+        int4store(ptr + filter_result.first,
+                  my_checksum(0L, (uchar *)ptr, filter_result.first));
+        size = filter_result.first + BINLOG_CHECKSUM_LEN;
+      } else {
+        size = filter_result.first;
+      }
+      int4store(ptr + EVENT_LEN_OFFSET, size);
+    }
+    if (ev) {
+      if (!filter_result.second) {
+        if (print_event_info->base64_output_mode != BASE64_OUTPUT_DECODE_ROWS &&
+            !more)
+          // may close for table map event
+          my_b_printf(file, "'%s\n", print_event_info->delimiter);
+        delete ev;
+        return;
+      }
+      delete ev;
+    }
+  } else {  // handle conv_update_to_write_event
+    if (conv_event_update2write && !is_flashback &&
+        (ev_type == binary_log::UPDATE_ROWS_EVENT ||
+         ev_type == binary_log::UPDATE_ROWS_EVENT_V1)) {
+      uint tmp_size = size;
+      Rows_log_event *ev = NULL;
+      if (checksum_alg != binary_log::BINLOG_CHECKSUM_ALG_UNDEF &&
+          checksum_alg != binary_log::BINLOG_CHECKSUM_ALG_OFF) {
+        tmp_size -=
+            BINLOG_CHECKSUM_LEN;  // checksum is displayed through the header
+      }
+      ev = new Update_rows_log_event((const char *)ptr, &fd_evt);
+      // convert UPDATE_AI to WRITE_AI
+      filter_result =
+          ev->conv_update_to_write_event(print_event_info, ptr, ev_type, true);
+
+      // change the row event body size
+      if (tmp_size < size) {
+        int4store(ptr + filter_result.first,
+                  my_checksum(0L, (uchar *)ptr, filter_result.first));
+        size = filter_result.first + BINLOG_CHECKSUM_LEN;
+      } else {
+        size = filter_result.first;
+      }
+      int4store(ptr + EVENT_LEN_OFFSET, size);
+
+      delete ev;
+    }
+    // set matched flag to true if not enable filter-rows
+    filter_result.second = true;
+  }
+
+  // not enable_filter_rows or (enable and matched)
+  if (is_flashback && filter_result.second) {
+    Rows_log_event *ev = NULL;
+    // ev_type may be changed in conv_update_to_write_event
+    ev_type = (enum Log_event_type)ptr[EVENT_TYPE_OFFSET];
+    // size may be changed in enable_filter_rows / conv_update_to_write_event
+    uint tmp_size = size;
+
+    if (checksum_alg != binary_log::BINLOG_CHECKSUM_ALG_UNDEF &&
+        checksum_alg != binary_log::BINLOG_CHECKSUM_ALG_OFF)
+      tmp_size -=
+          BINLOG_CHECKSUM_LEN;  // checksum is displayed through the header
     switch (ev_type) {
       case binary_log::WRITE_ROWS_EVENT:
         ptr[EVENT_TYPE_OFFSET] = binary_log::DELETE_ROWS_EVENT;
@@ -2628,8 +2750,25 @@ void Log_event::print_base64(IO_CACHE *file, PRINT_EVENT_INFO *print_event_info,
         break;
       case binary_log::UPDATE_ROWS_EVENT:
       case binary_log::UPDATE_ROWS_EVENT_V1:
+        // PARTIAL_UPDATE_ROWS_EVENT not supported
         ev = new Update_rows_log_event((const char *)ptr, &fd_evt);
         ev->change_to_flashback_event(print_event_info, ptr, ev_type);
+
+        if (conv_event_update2write) {
+          // convert UPDATE_BI to WRITE_AI, but UPDATE_BI flashbacked to
+          // UPDATE_AI
+          filter_result = ev->conv_update_to_write_event(print_event_info, ptr,
+                                                         ev_type, true);
+          // change the row event body size
+          if (tmp_size < size) {
+            int4store(ptr + filter_result.first,
+                      my_checksum(0L, (uchar *)ptr, filter_result.first));
+            size = filter_result.first + BINLOG_CHECKSUM_LEN;
+          } else {
+            size = filter_result.first;
+          }
+          int4store(ptr + EVENT_LEN_OFFSET, size);
+        }
         break;
       default:
         break;
@@ -2660,7 +2799,7 @@ void Log_event::print_base64(IO_CACHE *file, PRINT_EVENT_INFO *print_event_info,
   }
 
   // Flashback need the table_map to parse the event
-  if (print_event_info->verbose || is_flashback) {
+  if (print_event_info->verbose || is_flashback || enable_filter_rows) {
     Rows_log_event *ev = nullptr;
     Log_event_type et = (Log_event_type)ptr[EVENT_TYPE_OFFSET];
 
@@ -4633,7 +4772,11 @@ void Query_log_event::print(FILE *, PRINT_EVENT_INFO *print_event_info) const {
                   { head->write_pos = head->write_end - 500; });
   print_query_header(head, print_event_info);
   if (!is_flashback) {
-    my_b_write(head, pointer_cast<const uchar *>(query), q_len);
+    if (strcmp("BEGIN", query) == 0 || strcmp("COMMIT", query) == 0) {
+      my_b_write(head, pointer_cast<const uchar *>(query), q_len);
+    } else {
+      print_handler_query(head, print_event_info);
+    }
     my_b_printf(head, "\n%s\n", print_event_info->delimiter);
   } else {
     if (strcmp("BEGIN", query) == 0) {
@@ -4642,6 +4785,8 @@ void Query_log_event::print(FILE *, PRINT_EVENT_INFO *print_event_info) const {
     } else if (strcmp("COMMIT", query) == 0) {
       my_b_write(head, (const uchar *)"BEGIN", 5) ||
           my_b_printf(head, "\n%s\n", print_event_info->delimiter);
+    } else {
+      print_handler_query(head, print_event_info);
     }
   }
 }
@@ -14757,6 +14902,819 @@ void Aggregation_apply_unit::clear() {
   }
   event_collection.clear();
   cur_agg_size = 0;
+}
+
+#endif
+
+#ifndef MYSQL_SERVER
+std::string my_b_getbuf_hex(const uchar *ptr, uint length, bool is_hex) {
+  std::string val_str;
+  if (is_hex) {
+    char *val_buf = (char *)my_malloc(key_memory_log_event, 2 * length + 1 + 2,
+                                      MYF(MY_WME));  // 2 hex digits / byte
+    if (!val_buf) {
+      fprintf(stderr,
+              "\nError: Out of memory. "
+              "Could not allocate memory for hex value.\n");
+      exit(1);
+    }
+    str_to_hex(val_buf, (const char *)ptr, length);
+    val_str = std::string(val_buf);
+    my_free(val_buf);
+  } else {
+    val_str = std::string((const char *)ptr, length);
+  }
+  return val_str;
+}
+
+/* Copied from my_b_write_quoted_with_length */
+std::pair<uint, std::string> my_b_getstr_with_buf_length(const uchar *ptr,
+                                                         uint length,
+                                                         bool is_hex) {
+  if (length < 256) {
+    length = *ptr;
+    std::string val_str = my_b_getbuf_hex(ptr + 1, length, is_hex);
+    return std::make_pair(length + 1, val_str);
+  } else {
+    length = uint2korr(ptr);
+    std::string val_str = my_b_getbuf_hex(ptr + 2, length, is_hex);
+    return std::make_pair(length + 2, val_str);
+  }
+}
+
+std::string my_b_getbuf_bit(const uchar *ptr, uint nbits) {
+  uint bitnum, nbits8 = ((nbits + 7) / 8) * 8, skip_bits = nbits8 - nbits;
+  std::string var_str = "";
+  for (bitnum = skip_bits; bitnum < nbits8; bitnum++) {
+    int is_set = (ptr[(bitnum) / 8] >> (7 - bitnum % 8)) & 0x01;
+    var_str += (is_set ? "1" : "0");
+  }
+  return var_str;
+}
+
+/**
+  Parse a packed value of the given SQL type into std::string, for filter rows
+  Copied from log_event_print_value()
+
+  @param[in] print_event_info  options to parse this value
+  @param[in] ptr               Pointer to string
+  @param[in] type              Column type
+  @param[in] meta              Column meta information
+  @param[out] typestr          SQL type string buffer (for verbose output)
+  @param[in] field_attr           options to filter this value
+
+  @retval   - pair<number of bytes scanned from ptr, string type of the value>.
+*/
+std::pair<size_t, std::string> log_event_filter_value(
+    const uchar *ptr, int type, uint meta, char *typestr,
+    Binlog_row_field_attr field_attr) {
+  std::pair<size_t, char *> retval;
+  std::string null_str = "NULL";
+  bool is_hex = (field_attr == FIELD_IS_HEX);
+  bool is_signed = (field_attr == FIELD_IS_SIGNED);
+  // is_hex and is_signed cannot be set at same time
+  // if int flag un-signed is not given. treat it as unsigned
+  uint32 length = 0;
+  char *val_buf;
+  std::string val_str;
+  if (type == MYSQL_TYPE_STRING) {
+    if (meta >= 256) {
+      uint byte0 = meta >> 8;
+      uint byte1 = meta & 0xFF;
+
+      if ((byte0 & 0x30) != 0x30) {
+        /* a long CHAR() field: see #37426 */
+        length = byte1 | (((byte0 & 0x30) ^ 0x30) << 4);
+        type = byte0 | 0x30;
+      } else
+        length = meta & 0xFF;
+    } else
+      length = meta;
+  }
+
+  switch (type) {
+    case MYSQL_TYPE_LONG: {
+      if (!ptr) return std::make_pair(4, null_str);
+      char tmp[12];  // 4294967295 -2147483648 | MAX_INT32_STR_LENGTH + 1
+      if (is_signed) {
+        int32 si = sint4korr(ptr);
+        longlong10_to_str(si, tmp, -10);
+      } else {  // un_signed or default/not_given
+        uint32 ui = uint4korr(ptr);
+        longlong10_to_str(ui, tmp, 10);
+      }
+      return std::make_pair(4, std::string(tmp));
+    }
+
+    case MYSQL_TYPE_TINY: {
+      if (!ptr) return std::make_pair(4, null_str);
+      char tmp[5];  // -128 255
+      if (is_signed) {
+        int32 si = (int)(signed char)*ptr;
+        longlong10_to_str(si, tmp, -10);
+      } else {
+        uint32 ui = (uint)(unsigned char)*ptr;
+        longlong10_to_str(ui, tmp, 10);
+      }
+      return std::make_pair(1, std::string(tmp));
+    }
+
+    case MYSQL_TYPE_SHORT: {
+      if (!ptr) return std::make_pair(4, null_str);
+      char tmp[7];  // 65535 -32768
+      if (is_signed) {
+        int32 si = (int32)sint2korr(ptr);
+        longlong10_to_str(si, tmp, -10);
+      } else {
+        uint32 ui = (uint32)uint2korr(ptr);
+        longlong10_to_str(ui, tmp, 10);
+      }
+      return std::make_pair(2, std::string(tmp));
+    }
+
+    case MYSQL_TYPE_INT24: {
+      if (!ptr) return std::make_pair(4, null_str);
+      char tmp[9];  // 16777215 -8388608
+      if (is_signed) {
+        int32 si = (int32)sint3korr(ptr);
+        longlong10_to_str(si, tmp, -10);
+      } else {
+        uint32 ui = (uint32)uint3korr(ptr);
+        longlong10_to_str(ui, tmp, 10);
+      }
+      return std::make_pair(3, std::string(tmp));
+    }
+
+    case MYSQL_TYPE_LONGLONG: {
+      if (!ptr) return std::make_pair(4, null_str);
+      char tmp[64];  // -9223372036854775808 18446744073709551615
+      if (is_signed) {
+        longlong si = sint8korr(ptr);
+        longlong10_to_str(si, tmp, -10);
+      } else {
+        ulonglong ui = uint8korr(ptr);
+        longlong10_to_str((longlong)ui, tmp, 10);
+      }
+      return std::make_pair(8, std::string(tmp));
+    }
+
+    case MYSQL_TYPE_NEWDECIMAL: {
+      uint precision = meta >> 8;
+      uint decimals = meta & 0xFF;
+      if (!ptr) return std::make_pair(4, null_str);
+      uint bin_size = my_decimal_get_binary_size(precision, decimals);
+      my_decimal dec;
+      binary2my_decimal(E_DEC_FATAL_ERROR, pointer_cast<const uchar *>(ptr),
+                        &dec, precision, decimals);
+      int len = DECIMAL_MAX_STR_LENGTH;
+      char buff[DECIMAL_MAX_STR_LENGTH + 1];
+      decimal2string(&dec, buff, &len);
+      return std::make_pair(bin_size, std::string(buff));
+    }
+
+    case MYSQL_TYPE_FLOAT: {
+      if (!ptr) return std::make_pair(4, null_str);
+      float fl = float4get(ptr);
+      char tmp[320];  // MAX_FLOAT_STR_LENGTH + 1?
+      sprintf(tmp, "%-20g", (double)fl);
+      val_str = boost::trim_right_copy(std::string(tmp));
+      return std::make_pair(4, val_str);
+    }
+
+    case MYSQL_TYPE_DOUBLE: {
+      strcpy(typestr, "DOUBLE");
+      if (!ptr) return std::make_pair(4, null_str);
+      double dbl = float8get(ptr);
+      char tmp[320];
+      sprintf(tmp, "%-.20g", dbl); /* my_snprintf doesn't support %-20g */
+      val_str = boost::trim_right_copy(std::string(tmp));
+      return std::make_pair(8, val_str);
+    }
+
+    case MYSQL_TYPE_BIT: {
+      /* Meta-data: bit_len, bytes_in_rec, 2 bytes */
+      uint nbits = ((meta >> 8) * 8) + (meta & 0xFF);
+      if (!ptr) return std::make_pair(4, null_str);
+      length = (nbits + 7) / 8;
+      return std::make_pair(length, my_b_getbuf_bit(ptr, nbits));
+    }
+
+    case MYSQL_TYPE_TIMESTAMP: {
+      if (!ptr) return std::make_pair(4, null_str);
+      char tmp[12];
+      uint32 i32 = uint4korr(ptr);
+      longlong10_to_str(i32, tmp, 10);
+      return std::make_pair(4, std::string(tmp));
+    }
+
+    case MYSQL_TYPE_TIMESTAMP2: {
+      if (!ptr) return std::make_pair(4, null_str);
+      char buf[MAX_DATE_STRING_REP_LENGTH];
+      my_timeval tm;
+      my_timestamp_from_binary(&tm, ptr, meta);
+      int buflen = my_timeval_to_str(&tm, buf, meta);
+      val_str = std::string(buf, buflen);  // val_buf to string
+      return std::make_pair(my_timestamp_binary_length(meta), val_str);
+    }
+
+    case MYSQL_TYPE_DATETIME: {
+      if (!ptr) return std::make_pair(4, null_str);
+      size_t d, t;
+      uint64 i64 = uint8korr(ptr); /* YYYYMMDDhhmmss */
+      d = static_cast<size_t>(i64 / 1000000);
+      t = i64 % 1000000;
+      val_buf = (char *)my_malloc(key_memory_log_event, 20,
+                                  MYF(0));  // MAX_DATETIME_REP_LENGTH = 19
+
+      sprintf(val_buf, "%04d-%02d-%02d %02d:%02d:%02d",
+              static_cast<int>(d / 10000), static_cast<int>(d % 10000) / 100,
+              static_cast<int>(d % 100), static_cast<int>(t / 10000),
+              static_cast<int>(t % 10000) / 100, static_cast<int>(t % 100));
+      val_str = std::string(val_buf);
+      my_free(val_buf);
+      return std::make_pair(8, val_str);
+    }
+
+    case MYSQL_TYPE_DATETIME2: {
+      if (!ptr) return std::make_pair(4, null_str);
+      char buf[MAX_DATE_STRING_REP_LENGTH];
+      MYSQL_TIME ltime;
+      longlong packed = my_datetime_packed_from_binary(ptr, meta);
+      TIME_from_longlong_datetime_packed(&ltime, packed);
+      int buflen = my_datetime_to_str(ltime, buf, meta);
+      val_str = std::string(buf, buflen);
+      return std::make_pair(my_datetime_binary_length(meta), val_str);
+    }
+
+    case MYSQL_TYPE_TIME: {
+      if (!ptr) return std::make_pair(4, null_str);
+      uint32 i32 = uint3korr(ptr);
+      val_buf = (char *)my_malloc(key_memory_log_event, 8,
+                                  MYF(0));  // MAX_TIME_REP_LENGTH = 8
+
+      sprintf(val_buf, "'%02d:%02d:%02d'", i32 / 10000, (i32 % 10000) / 100,
+              i32 % 100);
+      val_str = std::string(val_buf);
+      my_free(val_buf);
+      return std::make_pair(3, val_str);
+    }
+
+    case MYSQL_TYPE_TIME2: {
+      if (!ptr) return std::make_pair(4, null_str);
+      char buf[MAX_DATE_STRING_REP_LENGTH];
+      MYSQL_TIME ltime;
+      longlong packed = my_time_packed_from_binary(ptr, meta);
+      TIME_from_longlong_time_packed(&ltime, packed);
+      int buflen = my_time_to_str(ltime, buf, meta);
+      val_str = std::string(buf, buflen);
+      return std::make_pair(my_time_binary_length(meta), val_str);
+    }
+
+    case MYSQL_TYPE_NEWDATE: {
+      if (!ptr) return std::make_pair(4, null_str);
+      uint32 tmp = uint3korr(ptr);
+      int part;
+      char buf[11];
+      char *pos = &buf[10];  // start from '\0' to the beginning
+
+      /* Copied from field.cc */
+      *pos-- = 0;  // End NULL
+      part = (int)(tmp & 31);
+      *pos-- = (char)('0' + part % 10);
+      *pos-- = (char)('0' + part / 10);
+      *pos-- = '-';
+      part = (int)(tmp >> 5 & 15);
+      *pos-- = (char)('0' + part % 10);
+      *pos-- = (char)('0' + part / 10);
+      *pos-- = '-';
+      part = (int)(tmp >> 9);
+      *pos-- = (char)('0' + part % 10);
+      part /= 10;
+      *pos-- = (char)('0' + part % 10);
+      part /= 10;
+      *pos-- = (char)('0' + part % 10);
+      part /= 10;
+      *pos = (char)('0' + part);
+      // my_b_printf(file, "'%s'", buf);
+      return std::make_pair(3, std::string(buf));
+    }
+
+    case MYSQL_TYPE_YEAR: {
+      if (!ptr) return std::make_pair(4, null_str);
+      uint32 i32 = *ptr;
+      char buf[5];
+      sprintf(buf, "%04d", i32 + 1900);
+      return std::make_pair(1, std::string(buf));
+    }
+
+    case MYSQL_TYPE_ENUM:
+      switch (meta & 0xFF) {
+        case 1: {
+          if (!ptr) return std::make_pair(4, null_str);
+          char tmp[5];
+          uint32 ui = (uint)(unsigned char)*ptr;
+          longlong10_to_str(ui, tmp, 10);
+          return std::make_pair(1, std::string(tmp));
+        }
+        case 2: {
+          if (!ptr) return std::make_pair(4, null_str);
+          int32 i32 = uint2korr(ptr);
+          char tmp[7];
+          longlong10_to_str(i32, tmp, 10);
+          return std::make_pair(2, std::string(tmp));
+        }
+        default:
+          return std::make_pair(0, "");
+      }
+      break;
+
+    case MYSQL_TYPE_SET:
+      if (!ptr) return std::make_pair(4, null_str);
+      val_str = my_b_getbuf_bit(ptr, (meta & 0xFF) * 8);
+      return std::make_pair(meta & 0xFF, val_str);
+
+    case MYSQL_TYPE_BLOB:
+      switch (meta) {
+        case 1:
+          if (!ptr) return std::make_pair(4, null_str);
+          length = *ptr;
+          val_str = my_b_getbuf_hex(ptr + 1, length, is_hex);
+          return std::make_pair(length + 1, val_str);
+        case 2:
+          if (!ptr) return std::make_pair(4, null_str);
+          length = uint2korr(ptr);
+          val_str = my_b_getbuf_hex(ptr + 2, length, is_hex);
+          return std::make_pair(length + 2, val_str);
+        case 3:
+          if (!ptr) return std::make_pair(4, null_str);
+          length = uint3korr(ptr);
+          val_str = my_b_getbuf_hex(ptr + 3, length, is_hex);
+          return std::make_pair(length + 3, val_str);
+        case 4:
+          if (!ptr) return std::make_pair(4, null_str);
+          length = uint4korr(ptr);
+          val_str = my_b_getbuf_hex(ptr + 4, length, is_hex);
+          return std::make_pair(length + 4, val_str);
+        default:
+          return std::make_pair(0, "");
+      }
+
+    case MYSQL_TYPE_VARCHAR:
+    case MYSQL_TYPE_VAR_STRING:
+      length = meta;
+      if (!ptr) return std::make_pair(4, null_str);
+      return my_b_getstr_with_buf_length(ptr, length, is_hex);
+
+    case MYSQL_TYPE_STRING:
+      if (!ptr) return std::make_pair(4, null_str);
+      return my_b_getstr_with_buf_length(ptr, length, is_hex);
+
+    case MYSQL_TYPE_JSON:
+      // JSON type not supported as filter value
+      if (!ptr) return std::make_pair(4, null_str);
+      length = uint4korr(ptr);
+      val_str = my_b_getbuf_hex(ptr + meta, length, is_hex);
+      return std::make_pair(length + meta, val_str);
+
+    default: {
+      char tmp[5];
+      snprintf(tmp, sizeof(tmp), "%04x", meta);
+    } break;
+  }
+  *typestr = 0;
+  return std::make_pair(0, "");
+}
+
+/**
+  Compare one row with rows_filter
+*/
+bool compare_map_value_char(std::map<int, std::string> map1,
+                            st_rows_filter *rows_filter) {
+  int col1_index = rows_filter->cols_pos[1];
+  std::string first_colstr(map1[col1_index]);
+  std::map<std::string, std::vector<std::map<int, std::string>>>::iterator
+      map_iter;
+  map_iter = rows_filter->map_lines_col.find(
+      first_colstr);  // find the first column value
+
+  if (map_iter != rows_filter->map_lines_col.end()) {
+    // match line
+    std::vector<std::map<int, std::string>> lines_col = map_iter->second;
+    for (std::vector<std::map<int, std::string>>::iterator iter =
+             lines_col.begin();
+         iter != lines_col.end(); ++iter) {
+      // match column
+      bool matched = true;
+      for (std::map<int, std::string>::iterator it = (*iter).begin();
+           it != (*iter).end(); ++it) {
+        if (map1[it->first] != it->second) {
+          // not match
+          matched = false;
+          break;
+        }
+      }
+      if (matched) return true;
+    }
+    return false;
+  }
+  return false;
+}
+
+/**
+  Filter a packed row with options from print_event_info->rows_filter.
+  Copied from print_verbose_one_row()
+
+  @param[in] td                Table definition
+  @param[in] print_event_into  Print parameters
+  @param[in] cols_bitmap       Column bitmaps.
+  @param[in] value             Pointer to packed row
+
+  @retval   - pair<number of bytes scanned, is this row matched>
+*/
+std::pair<size_t, bool> Rows_log_event::filter_binlog_one_row(
+    table_def *td, PRINT_EVENT_INFO *print_event_info, MY_BITMAP *cols_bitmap,
+    const uchar *value, enum_row_image_type row_image_type) {
+  const uchar *value0 = value;
+  char typestr[64] = "";
+
+  // Read value_options if this is AI for PARTIAL_UPDATE_ROWS_EVENT
+  ulonglong value_options = 0;
+  Bit_reader partial_bits;
+  if (get_type_code() == binary_log::PARTIAL_UPDATE_ROWS_EVENT &&
+      row_image_type == enum_row_image_type::UPDATE_AI) {
+    size_t length = m_rows_end - value;
+    if (net_field_length_checked<ulonglong>(&value, &length, &value_options)) {
+      my_b_printf(NULL,
+                  "*** Error reading binlog_row_value_options from "
+                  "Partial_update_rows_log_event\n");
+      return std::make_pair(0, false);
+    }
+    if ((value_options & PARTIAL_JSON_UPDATES) != 0) {
+      partial_bits.set_ptr(value);
+      value += (td->json_column_count() + 7) / 8;
+    }
+  }
+
+  /*
+    Metadata bytes which gives the information about nullabity of
+    master columns. Master writes one bit for each column in the
+    image.
+  */
+  Bit_reader null_bits(value);
+  value += (bitmap_bits_set(cols_bitmap) + 7) / 8;
+
+  st_rows_filter *rows_filter = print_event_info->rows_filter;
+  std::map<int, std::string> cur_row_field_value;
+
+  for (size_t i = 0; i < td->size(); i++) {
+    // filter_rows doesn't support partial json updates as where
+
+    if (bitmap_is_set(cols_bitmap, i) == 0) continue;
+
+    bool is_null = null_bits.get();
+    size_t size;
+
+    if (!is_null) {
+      size_t fsize =
+          td->calc_field_size((uint)i, pointer_cast<const uchar *>(value));
+      if (fsize > (size_t)(m_rows_end - value)) {
+        {
+          my_b_printf(NULL,
+                      "***Corrupted replication event was detected: "
+                      "field size is set to %u, but there are only %u bytes "
+                      "left of the event. Not printing the value***\n",
+                      (uint)fsize, (uint)(m_rows_end - value));
+          value += fsize;
+          return std::make_pair(0, false);
+        }
+      }
+    }
+    std::pair<int, std::string> col_val = log_event_filter_value(
+        is_null ? NULL : value, td->type(i), td->field_metadata(i), typestr,
+        rows_filter->map_field_attr[i + 1]);
+    size = col_val.first;
+
+    cur_row_field_value.insert({i + 1, col_val.second});
+
+    if (!size) return std::make_pair(0, false);
+
+    if (!is_null) value += size;
+  }
+  bool matched = compare_map_value_char(cur_row_field_value, rows_filter);
+  return std::make_pair(value - value0, matched);
+}
+
+/*
+  Convert a update_event to write_event with the after image
+  To avoid duplicate record, this table should have a unique key and the key
+  canot be changed
+*/
+std::pair<uint, bool> Rows_log_event::conv_update_to_write_event(
+    PRINT_EVENT_INFO *print_event_info, uchar *rows_buff,
+    Log_event_type ev_type, bool is_after) {
+  Table_map_log_event *map;
+  table_def *td;
+
+  std::vector<LEX_STRING> rows_arr;
+  uchar *rows_pos = rows_buff + m_rows_before_size;
+
+  enum_row_image_type row_image_type =
+      get_general_type_code() == binary_log::WRITE_ROWS_EVENT
+          ? enum_row_image_type::WRITE_AI
+      : get_general_type_code() == binary_log::DELETE_ROWS_EVENT
+          ? enum_row_image_type::DELETE_BI
+          : enum_row_image_type::UPDATE_BI;
+
+  if (!(map = print_event_info->m_table_map.get_table(m_table_id)) ||
+      !(td = map->create_table_def()))
+    return std::make_pair(0, false);
+
+  if (ev_type == binary_log::UPDATE_ROWS_EVENT) {
+    rows_buff[EVENT_TYPE_OFFSET] = binary_log::WRITE_ROWS_EVENT;
+  } else if (ev_type == binary_log::UPDATE_ROWS_EVENT_V1) {
+    rows_buff[EVENT_TYPE_OFFSET] = binary_log::WRITE_ROWS_EVENT_V1;
+  } else if (ev_type == binary_log::PARTIAL_UPDATE_ROWS_EVENT) {
+    fprintf(stderr, "\nPartial updates of json values cannot convert\n");
+    exit(1);
+  } else
+    // not update_event. shall not come here
+    goto end;
+
+  if (m_rows_buf == m_rows_end) goto end;
+
+  for (uchar *value = m_rows_buf; value < m_rows_end;) {
+    // process row one by one
+    uchar *start_pos = value;
+    size_t length1 = 0;
+    if (!(length1 =
+              print_verbose_one_row(NULL, td, print_event_info, &m_cols, value,
+                                    (const uchar *)"", row_image_type, true))) {
+      fprintf(stderr,
+              "\nError row length: %zu\n"
+              "When convert update_event to write_event\n",
+              length1);
+      exit(1);
+    }
+    value += length1;
+
+    /* Process the second image (for UPDATE only) */
+    size_t length2 = 0;
+    // param UPDATE_BI is intended to avoid partial_json check
+    if (!(length2 = print_verbose_one_row(
+              NULL, td, print_event_info, &m_cols, value, (const uchar *)"",
+              enum_row_image_type::UPDATE_BI, true))) {
+      fprintf(stderr,
+              "\nError row length: %zu\n"
+              "When convert update_event to write_event\n",
+              length2);
+      exit(1);
+    }
+    value += length2;
+
+    /* Copying one row into a buff, and pushing into the array */
+    LEX_STRING one_row;
+    if (is_after) {
+      one_row.length = length2;
+      one_row.str =
+          (char *)my_malloc(key_memory_log_event, one_row.length, MYF(0));
+      memcpy(one_row.str, start_pos + length1, length2);
+    } else {
+      one_row.length = length1;
+      one_row.str =
+          (char *)my_malloc(key_memory_log_event, one_row.length, MYF(0));
+      memcpy(one_row.str, start_pos, length1);
+    }
+
+    if (!one_row.str) {
+      fprintf(stderr,
+              "\nError: Out of memory. "
+              "Could not push flashback event into array.\n");
+      exit(1);
+    } else {
+      rows_arr.push_back(one_row);
+    }
+  }
+  if (rows_arr.size() > 0) {
+    rows_pos -= (m_width + 7) / 8;  // update_event has two null_bits len
+    for (uint i = 0; i < rows_arr.size(); i++) {
+      LEX_STRING *one_row = &rows_arr[i];
+
+      memcpy(rows_pos, (uchar *)one_row->str, one_row->length);
+      rows_pos += one_row->length;
+      my_free(one_row->str);
+    }
+    delete td;
+    uint32 new_size = rows_pos - rows_buff;
+    return std::make_pair(new_size, true);
+  }
+end:
+  delete td;
+  return std::make_pair(0, false);
+}
+
+/**
+  filter binlog rows from event with @1=11 && @2="xx" in human readable string
+  the rows_buff must be uncompressed outside before do this filter
+  Copied from print_verbose()
+
+  @param[in] print_event_info   PRINT_EVENT_INFO
+  @param[in] rows_buff          Packed event buff
+*/
+std::pair<uint, bool> Rows_log_event::filter_rows_from_event(
+    PRINT_EVENT_INFO *print_event_info, uchar *rows_buff,
+    Log_event_type ev_type) {
+  Table_map_log_event *map;
+  table_def *td;
+
+  std::vector<LEX_STRING> rows_arr;
+  uchar *rows_pos = rows_buff + m_rows_before_size;
+  Log_event_type general_type_code = get_general_type_code();
+
+  enum_row_image_type row_image_type =
+      get_general_type_code() == binary_log::WRITE_ROWS_EVENT
+          ? enum_row_image_type::WRITE_AI
+      : get_general_type_code() == binary_log::DELETE_ROWS_EVENT
+          ? enum_row_image_type::DELETE_BI
+          : enum_row_image_type::UPDATE_BI;
+
+  if (!(map = print_event_info->m_table_map.get_table(m_table_id)) ||
+      !(td = map->create_table_def()))
+    return std::make_pair(0, false);
+
+  /* If the write rows event contained no values for the AI */
+  if (((general_type_code == binary_log::WRITE_ROWS_EVENT) &&
+       (m_rows_buf == m_rows_end)))
+    goto end;
+
+  for (uchar *value = m_rows_buf; value < m_rows_end;) {
+    // process row one by one
+    uchar *start_pos = value;
+    size_t length1 = 0;
+    std::pair<size_t, bool> ret_filter = filter_binlog_one_row(
+        td, print_event_info, &m_cols, value, row_image_type);
+
+    if (!(length1 = ret_filter.first)) goto end;
+    value += length1;
+
+    /* Process the second image (for UPDATE only) */
+    size_t length2 = 0;
+    if (ev_type == binary_log::UPDATE_ROWS_EVENT ||
+        ev_type == binary_log::UPDATE_ROWS_EVENT_V1 ||
+        ev_type == binary_log::PARTIAL_UPDATE_ROWS_EVENT) {
+      // we just need the length2, not care the content
+      if (!(length2 = print_verbose_one_row(
+                NULL, td, print_event_info, &m_cols, value, (const uchar *)"",
+                enum_row_image_type::UPDATE_AI, true))) {
+        fprintf(stderr, "\nError row length: %zu\nWhen filter rows\n", length2);
+        exit(1);
+      }
+      value += length2;
+    }
+
+    if (ret_filter.second) {  // matched
+      /* Copying one row into a buff, and pushing into the array */
+      LEX_STRING one_row;
+
+      one_row.length = length1 + length2;
+      one_row.str =
+          (char *)my_malloc(key_memory_log_event, one_row.length, MYF(0));
+      memcpy(one_row.str, start_pos, one_row.length);  // dst,src,size
+      if (!one_row.str) {
+        fprintf(stderr,
+                "\nError: Out of memory. "
+                "Could not filter rows from event.\n");
+        exit(1);
+      } else {
+        rows_arr.push_back(one_row);
+      }
+    } else {
+      // DEBUG: not matched
+    }
+  }
+  // this event has no rows matched
+  if (rows_arr.size() > 0) {
+    /* Copying matched rows back into event */
+    for (uint i = 0; i < rows_arr.size(); i++) {
+      LEX_STRING *one_row = &rows_arr[i];
+      /*
+      if (i + 1 == rows_arr.size()) {
+          set_flags(Rows_log_event::STMT_END_F);
+          update_flags();
+      }
+      */
+      memcpy(rows_pos, (uchar *)one_row->str, one_row->length);
+      rows_pos += one_row->length;
+      my_free(one_row->str);
+    }
+    // m_rows_end = rows_pos; // rows_pos may have only header (no row actually)
+    delete td;
+    uint32 new_size = rows_pos - rows_buff;
+    return std::make_pair(new_size, true);
+  }
+end:
+  delete td;
+  return std::make_pair(0, false);
+}
+
+bool event_filter_func(const std::string &q,
+                       const std::vector<std::string> &match_str) {
+  std::smatch query_match;
+  for (auto iter = match_str.begin(); iter != match_str.end(); ++iter) {
+    std::regex reg_str("(" + *iter + ")");
+    if (std::regex_search(q, query_match, reg_str)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+void Query_log_event::print_handler_query(
+    IO_CACHE *file, PRINT_EVENT_INFO *print_event_info) const {
+  std::string tmp_str;
+  tmp_str.assign(query, q_len);
+
+  switch (print_event_info->event_filter->query_event_handler) {
+    case QUERY_EVENT_ERROR:
+      if (event_filter_func(
+              tmp_str,
+              print_event_info->event_filter->statement_match_ignores) ||
+          event_filter_func(
+              tmp_str,
+              print_event_info->event_filter->statement_match_ignores_force)) {
+        boost::replace_all(tmp_str, "\n", "# ");
+        my_b_printf(file, "# ignore query_log_event\n# %s \n", tmp_str.c_str());
+        break;
+      } else {  // ignore or print this event. we ignore it currently
+        fprintf(stderr, "Exit when     query event occurs: %s\n",
+                tmp_str.c_str());
+        exit(1);
+      }
+      break;
+    case QUERY_EVENT_IGNORE:
+      // ignore and print it to comment
+      if (event_filter_func(
+              tmp_str,
+              print_event_info->event_filter->statement_match_ignores_force)) {
+        boost::replace_all(tmp_str, "\n", "# ");
+        my_b_printf(file, "# ignore query_log_event\n# %s \n", tmp_str.c_str());
+        break;
+      } else if (event_filter_func(
+                     tmp_str,
+                     print_event_info->event_filter->statement_match_errors)) {
+        fprintf(stderr, "Exit when query event occurs: %s\n", tmp_str.c_str());
+        exit(1);
+      } else {  // default ignore
+        boost::replace_all(tmp_str, "\n", "# ");
+        my_b_printf(file, "# ignore query_log_event\n# %s \n", tmp_str.c_str());
+      }
+      break;
+    case QUERY_EVENT_KEEP:
+      if (event_filter_func(
+              tmp_str,
+              print_event_info->event_filter->statement_match_ignores_force)) {
+        boost::replace_all(tmp_str, "\n", "# ");
+        my_b_printf(file, "# ignore query_log_event\n# %s \n", tmp_str.c_str());
+        break;
+      } else if (event_filter_func(
+                     tmp_str,
+                     print_event_info->event_filter->statement_match_errors)) {
+        fprintf(stderr, "Exit when query event occurs: %s\n", tmp_str.c_str());
+        exit(1);
+      } else {
+        my_b_write(file, pointer_cast<const uchar *>(query), q_len);
+      }
+      break;
+    case QUERY_EVENT_SAFE:
+      if (event_filter_func(
+              tmp_str,
+              print_event_info->event_filter->statement_match_ignores_force)) {
+        boost::replace_all(tmp_str, "\n", "# ");
+        my_b_printf(file, "# ignore query_log_event\n# %s \n", tmp_str.c_str());
+        break;
+      } else if (event_filter_func(
+                     tmp_str,
+                     print_event_info->event_filter->statement_match_errors)) {
+        fprintf(stderr, "Exit when query event occurs: %s\n", tmp_str.c_str());
+        exit(1);
+      }
+      if (event_filter_func(
+              tmp_str,
+              print_event_info->event_filter->statement_match_ignores)) {
+        boost::replace_all(tmp_str, "\n", "# ");
+        my_b_printf(file, "# ignore query_log_event\n# %s \n", tmp_str.c_str());
+      } else {  // default error
+        fprintf(stderr,
+                "Cannot handler this query event: %s\nYou may need "
+                "--filter-statement-match-error "
+                "and --filter-statement-match-ignore\n",
+                tmp_str.c_str());
+        exit(1);
+      }
+      break;
+    default:
+      // shoud never reach here
+      break;
+  }
 }
 
 #endif

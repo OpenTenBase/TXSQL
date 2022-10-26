@@ -22,7 +22,6 @@ SET timestamp=1000000000;
 --echo # < CASE 1 >
 --echo # Delete all existing binary logs.
 --echo #
-RESET MASTER;
 
 CREATE TABLE t1 (
   c01 tinyint,
@@ -34,6 +33,8 @@ CREATE TABLE t1 (
   c07 varchar(20),
   c08 TEXT
 ) ENGINE=InnoDB;
+
+RESET MASTER;
 
 --echo # < CASE 1 >
 --echo # Insert data to t1
