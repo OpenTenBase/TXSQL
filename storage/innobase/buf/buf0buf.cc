@@ -5723,7 +5723,8 @@ bool buf_page_io_complete(buf_page_t *bpage, bool evict) {
         !recv_no_ibuf_operations &&
         fil_page_get_type(frame) == FIL_PAGE_INDEX && page_is_leaf(frame) &&
         !fsp_is_system_temporary(bpage->id.space()) &&
-        !fsp_is_undo_tablespace(bpage->id.space()) && !bpage->was_stale()) {
+        !fsp_is_undo_tablespace(bpage->id.space()) && !bpage->was_stale() &&
+        !(btr_page_get_index_id(frame) == DICT_IBUF_ID_MIN + IBUF_SPACE_ID)) {
       ibuf_merge_or_delete_for_page((buf_block_t *)bpage, bpage->id,
                                     &bpage->size, true);
     }

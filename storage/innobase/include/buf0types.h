@@ -138,6 +138,16 @@ inline bool is_checksum_strict(ulint algo) {
           algo == SRV_CHECKSUM_ALGORITHM_STRICT_NONE);
 }
 
+/* Changes from txsql start. */
+/** Alternatives for srv_cleaner_lsn_age_factor, set through
+innodb_cleaner_lsn_age_factor variable  */
+enum srv_cleaner_lsn_age_factor_t {
+  SRV_CLEANER_LSN_AGE_FACTOR_LEGACY, /*!< Original Oracle MySQL 5.6
+                                       formula */
+  SRV_CLEANER_LSN_AGE_FACTOR_HIGH_CHECKPOINT
+};
+/* Changes from txsql end. */
+
 /** Parameters of binary buddy system for compressed pages (buf0buddy.h) */
 /** @{ */
 /** Zip shift value for the smallest page size */
