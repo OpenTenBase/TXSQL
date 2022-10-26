@@ -8181,6 +8181,23 @@ void fil_flush(space_id_t space_id) {
 void Fil_shard::flush_file_spaces() {
   Space_ids space_ids;
 
+  if (srv_unix_file_flush_method == SRV_UNIX_O_DIRECT_NO_FSYNC) {
+#ifdef UNIV_DEBUG
+    mutex_acquire();
+    for (auto space = UT_LIST_GET_FIRST(m_unflushed_spaces); space != nullptr;
+         space = UT_LIST_GET_NEXT(unflushed_spaces, space)) {
+      if ((to_int(space->purpose) & FIL_TYPE_TABLESPACE) &&
+          !space->stop_new_ops) {
+        space_ids.push_back(space->id);
+      }
+    }
+    mutex_release();
+    ut_ad(space_ids.empty());
+    space_ids.clear();
+#endif
+    return;
+  }
+
   mutex_acquire();
 
   for (auto space : m_unflushed_spaces) {

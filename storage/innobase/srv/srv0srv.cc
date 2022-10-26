@@ -447,6 +447,7 @@ const ulonglong srv_buf_pool_chunk_unit_max =
 ulong srv_buf_pool_instances;
 /** Default number of buffer pool instances */
 const ulong srv_buf_pool_instances_default = 0;
+
 /** Number of locks to protect buf_pool->page_hash */
 ulong srv_n_page_hash_locks = 16;
 /** Whether to validate InnoDB tablespace paths on startup */
@@ -723,6 +724,24 @@ bool srv_buffer_pool_snapshot_now = false;
 ulong srv_buffer_pool_snapshot_pct;
 /** Recover this % of each buffer pool at most during BP recover */
 ulong srv_buffer_pool_recover_pct;
+
+/** Don't acquire trx_t::mutex in TrxInInnoDB to
+avoid unnecessary cpu cost. */
+bool opt_simplify_trx_in_innodb = false;
+
+ulong srv_page_flush_strategy = 0;
+
+/** Page cleaner LSN age factor formula option */
+ulong srv_cleaner_lsn_age_factor = SRV_CLEANER_LSN_AGE_FACTOR_LEGACY;
+
+int64_t srv_cleaner_sleep_factor = 1;
+bool opt_cleaner_adaptive_sleep = false;
+
+/** Don't estimate record ranges for DML operation and
+it tends to choose primary index. This is a temp solution
+to reduce io for estimation.
+Note: If we have plan cache, this option can be removed later.*/
+bool opt_skip_dml_estimate_range = false;
 /* Changes from txsql end. */
 
 /* Interval in seconds at which various tasks are performed by the

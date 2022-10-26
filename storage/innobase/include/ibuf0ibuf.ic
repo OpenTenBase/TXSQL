@@ -292,11 +292,15 @@ static inline void ibuf_update_free_bits_if_full(
     after = ibuf_index_page_calc_free(block);
   }
 
-  if (after == 0) {
+  if (after == 0 &&
+      (innodb_change_buffering != IBUF_USE_NONE)) {
     /* We move the page to the front of the buffer pool LRU list:
     the purpose of this is to prevent those pages to which we
     cannot make inserts using the insert buffer from slipping
-    out of the buffer pool */
+    out of the buffer pool.
+
+    If change buffer is disabled, it doesn't make sense to make
+    it young. So it also checks value of innodb_change_buffering. */
 
     buf_page_make_young(&block->page);
   }

@@ -1490,8 +1490,10 @@ class TrxInInnoDB {
       return (false);
     }
 
-    ut_ad(srv_read_only_mode || trx->in_depth > 0);
-    ut_ad(srv_read_only_mode || trx->in_innodb > 0);
+    ut_ad(srv_read_only_mode || opt_simplify_trx_in_innodb ||
+          trx->in_depth > 0);
+    ut_ad(srv_read_only_mode || opt_simplify_trx_in_innodb ||
+          trx->in_innodb > 0);
 
     return (trx->abort || trx_state == TRX_STATE_FORCED_ROLLBACK);
   }
@@ -1518,7 +1520,7 @@ class TrxInInnoDB {
   @param[in]    trx     transaction
   @param[in]    disable true if called from COMMIT/ROLLBACK method */
   static void enter(trx_t *trx, bool disable) {
-    if (srv_read_only_mode) {
+    if (srv_read_only_mode || opt_simplify_trx_in_innodb) {
       return;
     }
 
@@ -1566,7 +1568,7 @@ class TrxInInnoDB {
   /**
   Note that we are exiting InnoDB code */
   static void exit(trx_t *trx) {
-    if (srv_read_only_mode) {
+    if (srv_read_only_mode || opt_simplify_trx_in_innodb) {
       return;
     }
 

@@ -93,7 +93,7 @@ progress */
 static uint buf_flush_lsn_scan_factor = 3;
 
 /** Target oldest LSN for the requested flush_sync */
-static lsn_t buf_flush_sync_lsn = 0;
+static std::atomic<lsn_t> buf_flush_sync_lsn;
 
 #ifdef UNIV_DEBUG
 /** Get the lsn upto which data pages are to be synchronously flushed.
@@ -216,6 +216,76 @@ should not happen. This is because when we do LRU flushing we also put
 the blocks on free list. If LRU list is very small then we can end up
 in thrashing. */
 constexpr uint32_t BUF_LRU_MIN_LEN = 256;
+
+/* Changes from txsql start. */
+static bool buf_should_try_flush(lsn_t old_lsn) {
+  ulong strategy = srv_page_flush_strategy;
+
+  lsn_t current_lsn = log_get_lsn(*log_sys);
+
+  switch (strategy) {
+    case 0:
+      return (false);
+    case 1:
+      return (old_lsn < buf_flush_sync_lsn.load());
+    case 2:
+      return (current_lsn - old_lsn >
+              log_sys->m_capacity.adaptive_flush_max_age());
+    case 3:
+      return (current_lsn - old_lsn >
+              log_sys->m_capacity.adaptive_flush_min_age());
+    case 4:
+      return (current_lsn - old_lsn >
+              log_sys->m_capacity.adaptive_flush_min_age() / 2);
+    default:
+      break;
+  }
+
+  return (false);
+}
+
+static int64_t page_cleaner_adapt_flush_sleep_time(void) {
+  if (!opt_cleaner_adaptive_sleep) {
+    return (1000);
+  }
+
+  int64_t sleep_time = 1000;
+  int64_t pct = 0;
+  lsn_t oldest_lsn = buf_pool_get_oldest_modification_approx();
+
+  if (oldest_lsn == 0) {
+    return (1000);
+  }
+
+  lsn_t current_lsn = log_get_lsn(*log_sys);
+
+  if (current_lsn <= oldest_lsn) {
+    return (1000);
+  }
+
+  lsn_t age = current_lsn - oldest_lsn;
+  if (age > log_sys->m_capacity.adaptive_flush_max_age() / 2) {
+    if (age > log_sys->m_capacity.adaptive_flush_max_age()) {
+      sleep_time = 0;
+    } else {
+      pct = (age * 100)/log_sys->m_capacity.adaptive_flush_max_age();
+      sleep_time = 1000 - (pct * pct)/(10 * srv_cleaner_sleep_factor);
+
+      if (sleep_time < 0) {
+        sleep_time = 0;
+      }
+    }
+  }
+
+  if (sleep_time < 0) {
+    sleep_time = 0;
+  } else if (sleep_time > 1000) {
+    sleep_time = 1000;
+  }
+
+  return (sleep_time);
+}
+/* Changes from txsql end. */
 
 /** Flush a batch of writes to the datafiles that have already been
 written to the dblwr buffer on disk. */
@@ -1319,10 +1389,12 @@ bool buf_flush_page(buf_pool_t *buf_pool, buf_page_t *bpage,
   rw_lock_t *rw_lock = nullptr;
   bool no_fix_count = bpage->buf_fix_count == 0;
 
+  bool should_try = buf_should_try_flush(bpage->get_oldest_lsn());
+
   if (!is_uncompressed) {
     flush = true;
     rw_lock = nullptr;
-  } else if (!(no_fix_count || flush_type == BUF_FLUSH_LIST) ||
+  } else if (!(no_fix_count || flush_type == BUF_FLUSH_LIST || should_try) ||
              (!no_fix_count &&
               srv_shutdown_state.load() < SRV_SHUTDOWN_FLUSH_PHASE &&
               fsp_is_system_temporary(bpage->id.space()))) {
@@ -1333,7 +1405,7 @@ bool buf_flush_page(buf_pool_t *buf_pool, buf_page_t *bpage,
     flush = false;
   } else {
     rw_lock = &reinterpret_cast<buf_block_t *>(bpage)->lock;
-    if (flush_type != BUF_FLUSH_LIST) {
+    if (flush_type != BUF_FLUSH_LIST && !should_try) {
       flush = rw_lock_sx_lock_nowait(rw_lock, BUF_IO_WRITE, UT_LOCATION_HERE);
     } else {
       /* Will SX lock later */
@@ -1381,7 +1453,8 @@ bool buf_flush_page(buf_pool_t *buf_pool, buf_page_t *bpage,
       mutex_exit(&buf_pool->LRU_list_mutex);
     }
 
-    if (flush_type == BUF_FLUSH_LIST && is_uncompressed &&
+    if ((flush_type == BUF_FLUSH_LIST || should_try) &&
+        is_uncompressed &&
         !rw_lock_sx_lock_nowait(rw_lock, BUF_IO_WRITE, UT_LOCATION_HERE)) {
       if (!fsp_is_system_temporary(bpage->id.space()) && dblwr::is_enabled()) {
         dblwr::force_flush(flush_type, buf_pool_index(buf_pool));
@@ -2555,9 +2628,21 @@ ulint get_pct_for_lsn(lsn_t age) /*!< in: current age of LSN. */
 
   ut_ad(srv_max_io_capacity >= srv_io_capacity);
 
-  return (static_cast<ulint>(((srv_max_io_capacity / srv_io_capacity) *
-                              (lsn_age_factor * sqrt(lsn_age_factor))) /
+  switch (
+      static_cast<srv_cleaner_lsn_age_factor_t>(srv_cleaner_lsn_age_factor)) {
+    case SRV_CLEANER_LSN_AGE_FACTOR_LEGACY:
+      return (
+          static_cast<ulint>(((srv_max_io_capacity / srv_io_capacity) *
+                              (lsn_age_factor * sqrt((double)lsn_age_factor))) /
                              7.5));
+    case SRV_CLEANER_LSN_AGE_FACTOR_HIGH_CHECKPOINT:
+      return (static_cast<ulint>(
+          ((srv_max_io_capacity / srv_io_capacity) *
+           (lsn_age_factor * lsn_age_factor * sqrt((double)lsn_age_factor))) /
+          700.5));
+    default:
+      ut_error;
+  }
 }
 
 /** Set page flush target based on LSN change and checkpoint age.
@@ -2821,12 +2906,13 @@ static ulint pc_sleep_if_needed(
 
   if (next_loop_time > cur_time) {
     auto sleep_time = next_loop_time - cur_time;
-    if (sleep_time > std::chrono::seconds{1}) {
-      sleep_time = std::chrono::seconds{1};
+    auto adapt_sleep_time =
+        page_cleaner_adapt_flush_sleep_time() * std::chrono::milliseconds{1000};
+    if (sleep_time > adapt_sleep_time) {
+      sleep_time = adapt_sleep_time;
     }
 
-    ut_a(sleep_time.count() > 0);
-
+    ut_a(sleep_time.count() >= 0);
     return (os_event_wait_time_low(
         buf_flush_event,
         std::chrono::duration_cast<std::chrono::microseconds>(sleep_time),
@@ -2847,6 +2933,8 @@ void buf_flush_page_cleaner_init() {
   page_cleaner = ut::make_unique<page_cleaner_t>(UT_NEW_THIS_FILE_PSI_KEY);
 
   mutex_create(LATCH_ID_PAGE_CLEANER, &page_cleaner->mutex);
+
+  buf_flush_sync_lsn = 0;
 
   page_cleaner->is_requested = os_event_create();
   page_cleaner->is_finished = os_event_create();

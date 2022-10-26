@@ -594,6 +594,15 @@ static TYPELIB innodb_table_drop_mode_typelib = {
     "innodb_table_drop_mode_typelib", innodb_table_drop_mode_names, nullptr};
 
 /* Changes from txsql start. */
+/** Possible values for system variable "innodb_cleaner_lsn_age_factor".  */
+static const char *innodb_cleaner_lsn_age_factor_names[] = {
+  "legacy", "high_checkpoint", NullS};
+
+/** Enumeration for innodb_cleaner_lsn_age_factor.  */
+static TYPELIB innodb_cleaner_lsn_age_factor_typelib = {
+  array_elements(innodb_cleaner_lsn_age_factor_names) - 1,
+  "innodb_cleaner_lsn_age_factor_typelib",
+  innodb_cleaner_lsn_age_factor_names, nullptr};
 
 /** Retrieve the FTS Relevance Ranking result for doc with doc_id
 of m_prebuilt->fts_doc_id
@@ -16992,6 +17001,17 @@ ha_rows ha_innobase::records_in_range(
     goto func_exit;
   }
 
+  /* This is a temp solution to avoid io for estimation of DML
+  with range where condition. If we have plan cache, it should
+  be removed. */
+  if (opt_skip_dml_estimate_range && !thd_is_query_block(ha_thd())) {
+    if (index->is_clustered()) {
+      return (ha_rows)1;
+    } else {
+      return (ha_rows)10;
+    }
+  }
+
   heap = mem_heap_create(
       2 * (key->actual_key_parts * sizeof(dfield_t) + sizeof(dtuple_t)),
       UT_LOCATION_HERE);
@@ -23912,6 +23932,48 @@ static MYSQL_SYSVAR_ULONG(
     NULL, NULL, 100000, 0, 10000000 /*10s*/, 0);
 #endif
 
+static MYSQL_SYSVAR_ENUM(
+    cleaner_lsn_age_factor, srv_cleaner_lsn_age_factor,
+    PLUGIN_VAR_OPCMDARG,
+    "The formula for LSN age factor for page cleaner adaptive flushing. "
+    "LEGACY: Original Oracle MySQL formula. "
+    "HIGH_CHECKPOINT: the new formula.",
+    nullptr, nullptr, SRV_CLEANER_LSN_AGE_FACTOR_LEGACY,
+    &innodb_cleaner_lsn_age_factor_typelib);
+
+static MYSQL_SYSVAR_LONG(
+    page_cleaner_sleep_factor, srv_cleaner_sleep_factor,
+    PLUGIN_VAR_RQCMDARG,
+    "Factor for adjusting sleep time of page cleaner after "
+    "reaching async checkpoint age, it works only when "
+    "innodb_page_cleaner_adaptive_sleep is turn on",
+    NULL, NULL, 1, 1, 1000, 0);
+
+static MYSQL_SYSVAR_ULONG(page_flush_strategy, srv_page_flush_strategy,
+                          PLUGIN_VAR_RQCMDARG,
+                          "Note: just for testing purpose", NULL, NULL, 0, 0, 4,
+                          0);
+
+static MYSQL_SYSVAR_BOOL(
+    skip_dml_estimate_range, opt_skip_dml_estimate_range,
+    PLUGIN_VAR_OPCMDARG,
+    "skip estimation of records_in_range for dml statements. This "
+    "is a temp solution, in further we need plan cache to completely "
+    "solve the problem",
+    NULL, NULL, false);
+
+static MYSQL_SYSVAR_BOOL(
+    simplify_trx_in_innodb, opt_simplify_trx_in_innodb,
+    PLUGIN_VAR_OPCMDARG | PLUGIN_VAR_READONLY,
+    "Don't acquire trx_t::mutex in TrxInInnoDB to avoid unnecessary cpu cost.",
+    NULL, NULL, false);
+
+static MYSQL_SYSVAR_BOOL(
+    page_cleaner_adaptive_sleep, opt_cleaner_adaptive_sleep,
+    PLUGIN_VAR_OPCMDARG,
+    "Enable adaptive sleeping. If reaching limitted age of "
+    "log space, it'll do more aggressive flushing. ",
+    NULL, NULL, false);
 /* Changes from txsql end. */
 
 static MYSQL_SYSVAR_BOOL(
@@ -24178,11 +24240,17 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(buffer_pool_recover_abort),
     MYSQL_SYSVAR(buffer_pool_recover_after_transmit),
     MYSQL_SYSVAR(buffer_pool_recover_pct),
-    MYSQL_SYSVAR(cdb_fast_shutdown),
-    MYSQL_SYSVAR(quickly_stoped),
 #ifdef HAVE_TDSQL
     MYSQL_SYSVAR(i_s_cache_min_idle_us),
 #endif
+    MYSQL_SYSVAR(cdb_fast_shutdown),
+    MYSQL_SYSVAR(quickly_stoped),
+    MYSQL_SYSVAR(skip_dml_estimate_range),
+    MYSQL_SYSVAR(simplify_trx_in_innodb),
+    MYSQL_SYSVAR(cleaner_lsn_age_factor),
+    MYSQL_SYSVAR(page_cleaner_sleep_factor),
+    MYSQL_SYSVAR(page_cleaner_adaptive_sleep),
+    MYSQL_SYSVAR(page_flush_strategy),
     nullptr};
 
 mysql_declare_plugin(innobase){
