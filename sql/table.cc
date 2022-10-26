@@ -6607,16 +6607,19 @@ int TABLE_LIST::fetch_number_of_rows() {
                  (ha_rows)PLACEHOLDER_TABLE_ROW_ESTIMATE);
   } else {
     //error = table->file->info(HA_STATUS_VARIABLE | HA_STATUS_NO_LOCK);
+    uint flag = HA_STATUS_VARIABLE | HA_STATUS_NO_LOCK;
+    DBUG_EXECUTE_IF("fetch_number_of_rows_info_const",
+                    { flag |= HA_STATUS_CONST; });
 #if defined(HAVE_OPT_CTX)
-    error = table->file->info(HA_STATUS_VARIABLE | HA_STATUS_NO_LOCK);
+    error = table->file->info(flag);
     if (OPT_CTX_ENABLED(table->in_use)) {
-      int res = OPT_CTX(table->in_use).info(table, HA_STATUS_VARIABLE | HA_STATUS_NO_LOCK);
+      int res = OPT_CTX(table->in_use).info(table, flag);
       if (res && !error) {
         error = res;
       }
     }
 #else
-    error = table->file->info(HA_STATUS_VARIABLE | HA_STATUS_NO_LOCK);
+    error = table->file->info(flag);
 #endif
     DBUG_EXECUTE_IF("print_records_per_key", {
         for (uint nr=0; nr < table->s->keys; nr++) {
