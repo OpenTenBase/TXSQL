@@ -248,13 +248,15 @@ constexpr uint32_t FSP_FLAGS_WIDTH_ENCRYPTION = 1;
 tablespace dictionary.*/
 constexpr uint32_t FSP_FLAGS_WIDTH_SDI = 1;
 
+constexpr uint32_t FSP_FLAGS_WIDTH_SM4_ALGORITHM = 1;
+
 /** Width of all the currently known tablespace flags */
 constexpr uint32_t FSP_FLAGS_WIDTH =
     FSP_FLAGS_WIDTH_POST_ANTELOPE + FSP_FLAGS_WIDTH_ZIP_SSIZE +
     FSP_FLAGS_WIDTH_ATOMIC_BLOBS + FSP_FLAGS_WIDTH_PAGE_SSIZE +
     FSP_FLAGS_WIDTH_DATA_DIR + FSP_FLAGS_WIDTH_SHARED +
     FSP_FLAGS_WIDTH_TEMPORARY + FSP_FLAGS_WIDTH_ENCRYPTION +
-    FSP_FLAGS_WIDTH_SDI;
+    FSP_FLAGS_WIDTH_SDI + FSP_FLAGS_WIDTH_SM4_ALGORITHM;
 
 /** A mask of all the known/used bits in tablespace flags */
 constexpr uint32_t FSP_FLAGS_MASK = ~(~0U << FSP_FLAGS_WIDTH);
@@ -286,9 +288,12 @@ constexpr uint32_t FSP_FLAGS_POS_ENCRYPTION =
 constexpr uint32_t FSP_FLAGS_POS_SDI =
     FSP_FLAGS_POS_ENCRYPTION + FSP_FLAGS_WIDTH_ENCRYPTION;
 
+constexpr uint32_t FSP_FLAGS_POS_SM4_ALGORITHM = 
+    FSP_FLAGS_POS_SDI + FSP_FLAGS_WIDTH_SDI;
+
 /** Zero relative shift position of the start of the UNUSED bits */
 constexpr uint32_t FSP_FLAGS_POS_UNUSED =
-    FSP_FLAGS_POS_SDI + FSP_FLAGS_WIDTH_SDI;
+    FSP_FLAGS_POS_SM4_ALGORITHM + FSP_FLAGS_WIDTH_SM4_ALGORITHM;
 
 /** Bit mask of the POST_ANTELOPE field */
 constexpr uint32_t FSP_FLAGS_MASK_POST_ANTELOPE =
@@ -317,6 +322,9 @@ constexpr uint32_t FSP_FLAGS_MASK_ENCRYPTION =
 /** Bit mask of the SDI field */
 constexpr uint32_t FSP_FLAGS_MASK_SDI = (~(~0U << FSP_FLAGS_WIDTH_SDI))
                                         << FSP_FLAGS_POS_SDI;
+
+constexpr uint32_t FSP_FLAGS_MASK_SM4_ALGORITHM = ((~(~0U << FSP_FLAGS_WIDTH_SM4_ALGORITHM)) 
+                                        << FSP_FLAGS_POS_SM4_ALGORITHM);
 
 /** Return the value of the POST_ANTELOPE field */
 constexpr uint32_t FSP_FLAGS_GET_POST_ANTELOPE(uint32_t flags) {
@@ -354,6 +362,11 @@ constexpr uint32_t FSP_FLAGS_GET_ENCRYPTION(uint32_t flags) {
 constexpr uint32_t FSP_FLAGS_HAS_SDI(uint32_t flags) {
   return (flags & FSP_FLAGS_MASK_SDI) >> FSP_FLAGS_POS_SDI;
 }
+
+constexpr uint32_t FSP_FLAGS_GET_SM4_ALGORITHM(uint32_t flags) {
+  return ((flags & FSP_FLAGS_MASK_SM4_ALGORITHM) >> FSP_FLAGS_POS_SM4_ALGORITHM);
+}
+
 /** Return the contents of the UNUSED bits */
 constexpr uint32_t FSP_FLAGS_GET_UNUSED(uint32_t flags) {
   return flags >> FSP_FLAGS_POS_UNUSED;
@@ -363,15 +376,6 @@ constexpr bool FSP_FLAGS_ARE_NOT_SET(uint32_t flags) {
   return (flags & FSP_FLAGS_MASK) == 0;
 }
 
-/** Set ENCRYPTION bit in tablespace flags */
-constexpr void fsp_flags_set_encryption(uint32_t &flags) {
-  flags |= FSP_FLAGS_MASK_ENCRYPTION;
-}
-
-/** Set ENCRYPTION bit in tablespace flags */
-constexpr void fsp_flags_unset_encryption(uint32_t &flags) {
-  flags &= ~FSP_FLAGS_MASK_ENCRYPTION;
-}
 
 /** Set SDI Index bit in tablespace flags */
 constexpr void fsp_flags_set_sdi(uint32_t &flags) {

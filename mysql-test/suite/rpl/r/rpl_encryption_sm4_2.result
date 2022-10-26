@@ -1,0 +1,111 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+CALL mtr.add_suppression('Failed to store key');
+CALL mtr.add_suppression('Failed to initialize binlog encryption');
+CALL mtr.add_suppression('Unable to recover binlog encryption master key');
+CALL mtr.add_suppression('Aborting');
+CALL mtr.add_suppression('Cannot get file password for encrypted replication log file');
+CALL mtr.add_suppression('Could not parse relay log event entry');
+CALL mtr.add_suppression('Failed to fetch key from keyring');
+SHOW BINARY LOGS;
+Log_name	File_size	Encrypted	Algorithm
+master-bin.000001	2412	No	No
+SET GLOBAL binlog_encryption_algorithm=sm4;
+SET GLOBAL binlog_encryption=on;
+SHOW BINARY LOGS;
+Log_name	File_size	Encrypted	Algorithm
+master-bin.000001	2460	No	No
+master-bin.000002	669	Yes	Sm4
+SHOW BINARY LOGS;
+Log_name	File_size	Encrypted	Algorithm
+slave-bin.000001	157	No	No
+SET GLOBAL binlog_encryption_algorithm=sm4;
+SET GLOBAL binlog_encryption=on;
+SHOW BINARY LOGS;
+Log_name	File_size	Encrypted	Algorithm
+slave-bin.000001	204	No	No
+slave-bin.000002	669	Yes	Sm4
+START SLAVE;
+Warnings:
+Warning	1287	'START SLAVE' is deprecated and will be removed in a future release. Please use START REPLICA instead
+CREATE TABLE t (id INT PRIMARY KEY, name VARCHAR(20));
+INSERT INTO t VALUES(1, 'kongzhi');
+include/sync_slave_sql_with_master.inc
+SELECT * FROM t;
+id	name
+1	kongzhi
+SET GLOBAL binlog_encryption_algorithm=aes;
+ALTER INSTANCE ROTATE BINLOG MASTER KEY;
+SHOW BINARY LOGS;
+Log_name	File_size	Encrypted	Algorithm
+master-bin.000001	2460	No	No
+master-bin.000002	1223	Yes	Sm4
+master-bin.000003	669	Yes	Aes
+INSERT INTO t VALUES(2, 'kongzhi');
+include/sync_slave_sql_with_master.inc
+SELECT * FROM t;
+id	name
+1	kongzhi
+2	kongzhi
+SET GLOBAL binlog_encryption_algorithm=aes;
+ALTER INSTANCE ROTATE BINLOG MASTER KEY;
+SHOW BINARY LOGS;
+Log_name	File_size	Encrypted	Algorithm
+slave-bin.000001	204	No	No
+slave-bin.000002	3790	Yes	Sm4
+slave-bin.000003	669	Yes	Aes
+INSERT INTO t VALUES(3, 'kongzhi');
+include/sync_slave_sql_with_master.inc
+SELECT * FROM t;
+id	name
+1	kongzhi
+2	kongzhi
+3	kongzhi
+SET GLOBAL binlog_encryption=off;
+SET GLOBAL binlog_encryption_algorithm=sm4;
+SET GLOBAL binlog_encryption=on;
+INSERT INTO t VALUES(4, 'kongzhi');
+include/sync_slave_sql_with_master.inc
+SELECT * FROM t;
+id	name
+1	kongzhi
+2	kongzhi
+3	kongzhi
+4	kongzhi
+SET GLOBAL binlog_encryption=off;
+SET GLOBAL binlog_encryption_algorithm=sm4;
+SET GLOBAL binlog_encryption=on;
+INSERT INTO t VALUES(5, 'kongzhi');
+include/sync_slave_sql_with_master.inc
+SELECT * FROM t;
+id	name
+1	kongzhi
+2	kongzhi
+3	kongzhi
+4	kongzhi
+5	kongzhi
+SET GLOBAL binlog_encryption_algorithm=aes;
+SET GLOBAL binlog_encryption=off;
+SHOW BINARY LOGS;
+Log_name	File_size	Encrypted	Algorithm
+slave-bin.000001	204	No	No
+slave-bin.000002	3790	Yes	Sm4
+slave-bin.000003	1296	Yes	Aes
+slave-bin.000004	204	No	No
+slave-bin.000005	1006	Yes	Sm4
+slave-bin.000006	157	No	No
+DROP TABLE t;
+SET GLOBAL binlog_encryption_algorithm=aes;
+SET GLOBAL binlog_encryption=off;
+SHOW BINARY LOGS;
+Log_name	File_size	Encrypted	Algorithm
+master-bin.000001	2460	No	No
+master-bin.000002	1223	Yes	Sm4
+master-bin.000003	1293	Yes	Aes
+master-bin.000004	205	No	No
+master-bin.000005	1496	Yes	Sm4
+master-bin.000006	157	No	No
+include/rpl_end.inc

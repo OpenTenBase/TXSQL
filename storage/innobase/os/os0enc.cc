@@ -45,6 +45,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA
 #include <scope_guard.h>
 #include "keyring_operations_helper.h"
 #include "my_aes.h"
+#include "my_sm4.h"
 #include "my_rnd.h"
 #include "mysql/service_mysql_keyring.h"
 #include "mysqld.h"
@@ -195,6 +196,7 @@ void deinit_keyring_services(SERVICE_TYPE(registry) *) { return; }
 constexpr char Encryption::KEY_MAGIC_V1[];
 constexpr char Encryption::KEY_MAGIC_V2[];
 constexpr char Encryption::KEY_MAGIC_V3[];
+constexpr char Encryption::KEY_MAGIC_V8[];
 constexpr char Encryption::MASTER_KEY_PREFIX[];
 constexpr char Encryption::DEFAULT_MASTER_KEY[];
 
@@ -215,14 +217,41 @@ std::vector<space_id_t> Encryption::s_tablespaces_to_reencrypt;
 const char *Encryption::to_string(Type type) noexcept {
   switch (type) {
     case NONE:
+    case UNDEFINE_ALGORITHM:
       return ("N");
     case AES:
+    case SM4:
       return ("Y");
   }
 
   ut_d(ut_error);
 
   ut_o(return ("<UNKNOWN>"));
+}
+
+const char *Encryption::s_encryption_algorithm_names[] = {
+    "NONE", "AES", "SM4", NullS};
+
+const std::map<std::string, Encryption::Type>
+    Encryption::s_string_with_algorithm = { { "AES", AES },
+                                            { "SM4", SM4 } };
+
+/**
+@param[in] type  The encryption type
+@return the string representation of algorithm */
+const char *Encryption::algorithm_to_string(Type type) {
+  if (type == SM4) {
+    return s_encryption_algorithm_names[static_cast<int>(type)];
+  } else
+    return "AES";
+}
+
+Encryption::Type Encryption::string_to_algorithm(const char *key_type) {
+  auto it = s_string_with_algorithm.find(key_type);
+  if (it != s_string_with_algorithm.end())
+    return it->second;
+  else
+    return AES;
 }
 
 void Encryption::random_value(byte *value) noexcept {
@@ -249,7 +278,8 @@ void Encryption::create_master_key(byte **master_key) noexcept {
 
   /* We call keyring API to generate master key here. */
   bool ret =
-      innobase::encryption::generate_key(key_name, innodb_key_type, KEY_LEN);
+      innobase::encryption::generate_key(key_name,
+      algorithm_to_string(static_cast<Type>(srv_encryption_algorithm)), KEY_LEN);
 
   /* We call keyring API to get master key here. */
   int retval = keyring_operations_helper::read_secret(
@@ -273,7 +303,7 @@ void Encryption::create_master_key(byte **master_key) noexcept {
 }
 
 void Encryption::get_master_key(uint32_t master_key_id, char *srv_uuid,
-                                byte **master_key) noexcept {
+                                byte **master_key, Type *key_algorithm) noexcept {
   size_t key_len = 0;
   char *key_type = nullptr;
   char key_name[MASTER_KEY_NAME_MAX_LEN];
@@ -308,6 +338,7 @@ void Encryption::get_master_key(uint32_t master_key_id, char *srv_uuid,
 #endif /* !UNIV_HOTBACKUP */
 
   if (key_type != nullptr) {
+    if (key_algorithm) *key_algorithm = string_to_algorithm(key_type);
     my_free(key_type);
   }
 
@@ -331,7 +362,7 @@ void Encryption::get_master_key(uint32_t master_key_id, char *srv_uuid,
 }
 
 void Encryption::get_master_key(uint32_t *master_key_id,
-                                byte **master_key) noexcept {
+                                byte **master_key, Type *algorithm) noexcept {
 #ifndef UNIV_HOTBACKUP
   size_t key_len;
   char *key_type = nullptr;
@@ -364,7 +395,8 @@ void Encryption::get_master_key(uint32_t *master_key_id,
              s_uuid);
 
     /* We call keyring API to generate master key here. */
-    (void)innobase::encryption::generate_key(key_name, innodb_key_type,
+    (void)innobase::encryption::generate_key(key_name,
+    algorithm_to_string(static_cast<Type>(srv_encryption_algorithm)),
                                              KEY_LEN);
 
     /* We call keyring API to get master key here. */
@@ -375,6 +407,7 @@ void Encryption::get_master_key(uint32_t *master_key_id,
     if (retval > -1 && *master_key != nullptr) {
       ++s_master_key_id;
       *master_key_id = s_master_key_id;
+      if (algorithm) *algorithm = Encryption::string_to_algorithm(key_type);
     }
 #ifdef UNIV_ENCRYPT_DEBUG
     if (retval > -1 && *master_key != nullptr) {
@@ -434,6 +467,7 @@ void Encryption::get_master_key(uint32_t *master_key_id,
   }
 
   if (key_type != nullptr) {
+    if (algorithm) *algorithm = Encryption::string_to_algorithm(key_type);
     my_free(key_type);
     key_type = nullptr;
   }
@@ -450,6 +484,7 @@ bool Encryption::fill_encryption_info(
     byte *encrypt_info) noexcept {
   byte *master_key = nullptr;
   uint32_t master_key_id = DEFAULT_MASTER_KEY_ID;
+  Type algorithm = AES;
 
 #ifndef UNIV_HOTBACKUP
   /* Server uuid must have already been generated */
@@ -458,7 +493,7 @@ bool Encryption::fill_encryption_info(
 
   /* Get master key from keyring. */
   if (encrypt_key) {
-    get_master_key(&master_key_id, &master_key);
+    get_master_key(&master_key_id, &master_key, &algorithm);
 
     if (master_key == nullptr) {
       return (false);
@@ -479,8 +514,17 @@ bool Encryption::fill_encryption_info(
 
   auto ptr = encrypt_info;
 
-  /* Write Magic bytes */
-  memcpy(ptr, KEY_MAGIC_V3, MAGIC_SIZE);
+  switch (encryption_metadata.m_type) {
+    case AES:
+      memcpy(ptr, KEY_MAGIC_V3, MAGIC_SIZE);
+      break;
+    case SM4:
+      memcpy(ptr, KEY_MAGIC_V8, MAGIC_SIZE);
+      break;
+    default:
+      return (false);
+  }
+
   ptr += MAGIC_SIZE;
 
   /* Write master key id. */
@@ -500,11 +544,9 @@ bool Encryption::fill_encryption_info(
   memcpy(key_info + KEY_LEN, encryption_metadata.m_iv, KEY_LEN);
 
   if (encrypt_key) {
-    /* Encrypt key and iv. */
-    auto elen = my_aes_encrypt(key_info, sizeof(key_info), ptr, master_key,
-                               KEY_LEN, my_aes_256_ecb, nullptr, false);
-
-    if (elen == MY_AES_BAD_DATA) {
+    int elen = 0;
+    if (encrypt_low(algorithm, key_info, sizeof(key_info), ptr, &elen,
+                    master_key, KEY_LEN, my_aes_256_ecb, nullptr)) {
       my_free(master_key);
       return (false);
     }
@@ -530,7 +572,8 @@ const byte *Encryption::get_master_key_from_info(const byte *encrypt_info,
                                                  Version version,
                                                  uint32_t *m_key_id,
                                                  char *srv_uuid,
-                                                 byte **master_key) noexcept {
+                                                 byte **master_key,
+                                                 Type *key_algorithm) noexcept {
   const byte *ptr = encrypt_info;
   *m_key_id = 0;
 
@@ -546,8 +589,7 @@ const byte *Encryption::get_master_key_from_info(const byte *encrypt_info,
         ptr += sizeof(uint32);
       }
 
-      /* Get master key. */
-      get_master_key(key_id, nullptr, master_key);
+      get_master_key(key_id, nullptr, master_key, nullptr);
       if (*master_key == nullptr) {
         return (encrypt_info);
       }
@@ -569,7 +611,7 @@ const byte *Encryption::get_master_key_from_info(const byte *encrypt_info,
       ptr += SERVER_UUID_LEN;
 
       /* Get master key. */
-      get_master_key(key_id, srv_uuid, master_key);
+      get_master_key(key_id, srv_uuid, master_key, nullptr);
       if (*master_key == nullptr) {
         return (encrypt_info);
       }
@@ -578,7 +620,8 @@ const byte *Encryption::get_master_key_from_info(const byte *encrypt_info,
       break;
 
     case VERSION_3:
-      /* Read server uuid. */
+    case VERSION_8:
+      /* Get server uuid. */
       memset(srv_uuid, 0, SERVER_UUID_LEN + 1);
       memcpy(srv_uuid, ptr, SERVER_UUID_LEN);
 
@@ -592,7 +635,7 @@ const byte *Encryption::get_master_key_from_info(const byte *encrypt_info,
         ut_ad(strlen(srv_uuid) != 0);
 
         /* Get master key. */
-        get_master_key(key_id, srv_uuid, master_key);
+        get_master_key(key_id, srv_uuid, master_key, key_algorithm);
         if (*master_key == nullptr) {
           return (encrypt_info);
         }
@@ -617,20 +660,26 @@ bool Encryption::is_encrypted_with_v3(const byte *encryption_info) noexcept {
   return is_encrypted_with_version(encryption_info, Encryption::KEY_MAGIC_V3);
 }
 
+bool Encryption::is_encrypted_with_v3v8(const byte *encryption_info) noexcept {
+  return is_encrypted_with_version(encryption_info, Encryption::KEY_MAGIC_V3) ||
+         is_encrypted_with_version(encryption_info, Encryption::KEY_MAGIC_V8);
+}
+
 bool Encryption::is_encrypted(const byte *encryption_info) noexcept {
-  return is_encrypted_with_v3(encryption_info) ||
+  return is_encrypted_with_v3v8(encryption_info) || 
          is_encrypted_with_version(encryption_info, Encryption::KEY_MAGIC_V2) ||
          is_encrypted_with_version(encryption_info, Encryption::KEY_MAGIC_V1);
 }
 
 bool Encryption::decode_encryption_info(Encryption_metadata &e_metadata,
                                         const byte *encryption_info,
-                                        bool decrypt_key) noexcept {
+                                        bool decrypt_key,
+                                        Type &space_algorithm) noexcept {
   Encryption_key e_key{e_metadata.m_key, e_metadata.m_iv};
   if (decode_encryption_info(dict_sys_t::s_invalid_space_id, e_key,
-                             encryption_info, decrypt_key)) {
+                             encryption_info, decrypt_key, space_algorithm)) {
     e_metadata.m_key_len = Encryption::KEY_LEN;
-    e_metadata.m_type = Encryption::AES;
+    e_metadata.m_type = space_algorithm;
     return true;
   }
   return false;
@@ -639,12 +688,16 @@ bool Encryption::decode_encryption_info(Encryption_metadata &e_metadata,
 bool Encryption::decode_encryption_info(space_id_t space_id,
                                         Encryption_key &e_key,
                                         const byte *encryption_info,
-                                        bool decrypt_key) noexcept {
+                                        bool decrypt_key,
+                                        Type &space_algorithm) noexcept {
   const byte *ptr = encryption_info;
   byte *key = e_key.m_key;
   byte *iv = e_key.m_iv;
   uint32_t &master_key_id = e_key.m_master_key_id;
+  Type algorithm = AES;
 
+
+  space_algorithm = AES;
   /* For compatibility with 5.7.11, we need to handle the
   encryption information which created in this old version. */
   Version version;
@@ -654,6 +707,9 @@ bool Encryption::decode_encryption_info(space_id_t space_id,
     version = VERSION_2;
   } else if (memcmp(ptr, KEY_MAGIC_V3, MAGIC_SIZE) == 0) {
     version = VERSION_3;
+  } else if (memcmp(ptr, KEY_MAGIC_V8, MAGIC_SIZE) == 0) {
+    version = VERSION_8;
+    space_algorithm = SM4;
   } else {
     /* We don't report an error during recovery, since the
     encryption info maybe hasn't written into datafile when
@@ -676,7 +732,7 @@ bool Encryption::decode_encryption_info(space_id_t space_id,
   if (decrypt_key) {
     /* Get master key by key id. */
     ptr = get_master_key_from_info(ptr, version, &master_key_id, srv_uuid,
-                                   &master_key);
+                                   &master_key, &algorithm);
 
     /* If can't find the master key, return failure. */
     if (master_key == nullptr) {
@@ -684,8 +740,10 @@ bool Encryption::decode_encryption_info(space_id_t space_id,
     }
 
     /* Decrypt tablespace key and iv. */
-    auto len = my_aes_decrypt(ptr, sizeof(key_info), key_info, master_key,
-                              KEY_LEN, my_aes_256_ecb, nullptr, false);
+    int len = 0;
+    bool ret = decrypt_low(algorithm, ptr, sizeof(key_info), key_info,
+                           &len, master_key, KEY_LEN,
+                           my_aes_256_ecb, nullptr);
 
     if (master_key_id == DEFAULT_MASTER_KEY_ID) {
       ut::free(master_key);
@@ -695,11 +753,9 @@ bool Encryption::decode_encryption_info(space_id_t space_id,
     }
 
     /* If decryption failed, return error. */
-    if (len == MY_AES_BAD_DATA) {
-      return (false);
-    }
+    if (ret) return (false);
   } else {
-    ut_ad(version == VERSION_3);
+    ut_ad(version >= VERSION_3);
     /* Skip master Key and server UUID*/
     ptr += sizeof(uint32_t);
     ptr += SERVER_UUID_LEN;
@@ -798,56 +854,43 @@ bool Encryption::encrypt_log_block(const IORequest &, byte *src_ptr,
   memmove(dst_ptr, src_ptr, LOG_BLOCK_HDR_SIZE);
   ut_ad(memcmp(src_ptr, dst_ptr, LOG_BLOCK_HDR_SIZE) == 0);
 
-  switch (m_type) {
-    case NONE:
-      ut_error;
+  ut_ad(m_klen == KEY_LEN);
+  ut_ad(m_type == AES || m_type == SM4);
 
-    case AES: {
-      ut_ad(m_klen == KEY_LEN);
+  int elen = 0;
+  if (encrypt_low(m_type, src_ptr + LOG_BLOCK_HDR_SIZE,
+                  static_cast<uint32>(main_len), dst_ptr + LOG_BLOCK_HDR_SIZE,
+                  &elen, m_key,
+                  static_cast<uint32>(m_klen), my_aes_256_cbc,
+                  m_iv)) {
+    return (false);
+  }
 
-      auto elen = my_aes_encrypt(
-          src_ptr + LOG_BLOCK_HDR_SIZE, static_cast<uint32>(main_len),
-          dst_ptr + LOG_BLOCK_HDR_SIZE, m_key, static_cast<uint32>(m_klen),
-          my_aes_256_cbc, m_iv, false);
+  len = static_cast<ulint>(elen);
+  ut_ad(len == main_len);
 
-      if (elen == MY_AES_BAD_DATA) {
-        return (false);
-      }
+  /* Copy remain bytes. */
+  memcpy(dst_ptr + LOG_BLOCK_HDR_SIZE + len,
+         src_ptr + LOG_BLOCK_HDR_SIZE + len,
+         OS_FILE_LOG_BLOCK_SIZE - LOG_BLOCK_HDR_SIZE - len);
 
-      len = static_cast<ulint>(elen);
-      ut_ad(len == main_len);
+  /* Encrypt the remain bytes. Since my_aes_encrypt
+     request the content which need to encrypt is
+     multiple of MY_AES_BLOCK_SIZE, but the block
+     content is possiblly not, so, we need to handle
+     the tail bytes first. */
+  if (remain_len != 0) {
+    remain_len = MY_AES_BLOCK_SIZE * 2;
 
-      /* Copy remain bytes. */
-      memcpy(dst_ptr + LOG_BLOCK_HDR_SIZE + len,
-             src_ptr + LOG_BLOCK_HDR_SIZE + len,
-             OS_FILE_LOG_BLOCK_SIZE - LOG_BLOCK_HDR_SIZE - len);
-
-      /* Encrypt the remain bytes. Since my_aes_encrypt
-      request the content which need to encrypt is
-      multiple of MY_AES_BLOCK_SIZE, but the block
-      content is possiblly not, so, we need to handle
-      the tail bytes first. */
-      if (remain_len != 0) {
-        remain_len = MY_AES_BLOCK_SIZE * 2;
-
-        elen = my_aes_encrypt(
-            dst_ptr + LOG_BLOCK_HDR_SIZE + data_len - remain_len,
-            static_cast<uint32>(remain_len), remain_buf, m_key,
-            static_cast<uint32>(m_klen), my_aes_256_cbc, m_iv, false);
-
-        if (elen == MY_AES_BAD_DATA) {
-          return (false);
-        }
-
-        memcpy(dst_ptr + LOG_BLOCK_HDR_SIZE + data_len - remain_len, remain_buf,
-               remain_len);
-      }
-
-      break;
+    if (encrypt_low(m_type, dst_ptr + LOG_BLOCK_HDR_SIZE + data_len - remain_len,
+                    static_cast<uint32>(remain_len), remain_buf, &elen,
+                    m_key, static_cast<uint32>(m_klen), my_aes_256_cbc,
+                    m_iv)) {
+      return (false);
     }
 
-    default:
-      ut_error;
+    memcpy(dst_ptr + LOG_BLOCK_HDR_SIZE + data_len - remain_len, remain_buf,
+           remain_len);
   }
 
 #ifdef UNIV_ENCRYPT_DEBUG
@@ -938,9 +981,10 @@ byte *Encryption::encrypt_log(const IORequest &type, byte *src, ulint src_len,
   return (dst);
 }
 
-bool Encryption::encrypt_low(byte *src, ulint src_len, byte *dst,
+bool Encryption::do_encrypt(byte *src, ulint src_len, byte *dst,
                              ulint *dst_len) noexcept {
   const uint16_t page_type = mach_read_from_2(src + FIL_PAGE_TYPE);
+  byte remain_buf[MY_AES_BLOCK_SIZE * 2];
 
   /* Shouldn't encrypt an already encrypted page. */
   ut_ad(!is_encrypted_page(src));
@@ -961,77 +1005,55 @@ bool Encryption::encrypt_low(byte *src, ulint src_len, byte *dst,
 
   /* Only encrypt the data + trailer, leave the header alone */
 
-  switch (m_type) {
-    case NONE:
-      ut_error;
+  const auto data_len = src_enc_len - FIL_PAGE_DATA;
+  const auto main_len = (data_len / MY_AES_BLOCK_SIZE) * MY_AES_BLOCK_SIZE;
+  auto remain_len = data_len - main_len;
+  int elen;
 
-    case AES: {
-      ut_ad(m_klen == KEY_LEN);
+  ut_ad(m_klen == KEY_LEN);
+  ut_ad(m_type == AES || m_type == SM4);
 
-      /* Total length of the data to encrypt. */
-      const auto data_len = src_enc_len - FIL_PAGE_DATA;
+  if (encrypt_low(m_type, src + FIL_PAGE_DATA, static_cast<uint32>(main_len),
+                  dst + FIL_PAGE_DATA, &elen, m_key,
+                  static_cast<uint32>(m_klen), my_aes_256_cbc, m_iv)) {
+    ulint page_no = mach_read_from_4(src + FIL_PAGE_OFFSET);
+    ulint space_id =
+      mach_read_from_4(src + FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID);
+    *dst_len = src_len;
+    ib::error(ER_IB_MSG_844)
+        << " Can't encrypt data of page,"
+        << " page no:" << page_no << " space id:" << space_id;
+    return (src);
+  }
+  auto len = static_cast<ulint>(elen);
+  ut_ad(len == main_len);
 
-      /* Server encryption functions expect input data to be in multiples
-      of MY_AES_BLOCK SIZE. Therefore we encrypt the overlapping data of
-      the chunk_len and trailer_len twice. First we encrypt the bigger
-      chunk of data then we do the trailer. The trailer encryption block
-      starts at 2 * MY_AES_BLOCK_SIZE bytes offset from the end of the
-      enc_len.  During decryption we do the reverse of the above process. */
-      ut_ad(data_len >= 2 * MY_AES_BLOCK_SIZE);
+  /* Copy remain bytes and page tailer. */
+  memcpy(dst + FIL_PAGE_DATA + len, src + FIL_PAGE_DATA + len,
+         src_len - FIL_PAGE_DATA - len);
 
-      const auto chunk_len = (data_len / MY_AES_BLOCK_SIZE) * MY_AES_BLOCK_SIZE;
-      const auto remain_len = data_len - chunk_len;
+  /* Encrypt the remain bytes. */
+  if (remain_len != 0) {
+    remain_len = MY_AES_BLOCK_SIZE * 2;
 
-      auto elen = my_aes_encrypt(
-          src + FIL_PAGE_DATA, static_cast<uint32>(chunk_len),
-          dst + FIL_PAGE_DATA, m_key, static_cast<uint32>(m_klen),
-          my_aes_256_cbc, m_iv, false);
+    if (encrypt_low(m_type, dst + FIL_PAGE_DATA + data_len - remain_len,
+                    static_cast<uint32>(remain_len), remain_buf, &elen,
+                    m_key, static_cast<uint32>(m_klen), my_aes_256_cbc, 
+                    m_iv)) {
+      ulint page_no = mach_read_from_4(src + FIL_PAGE_OFFSET);
+      ulint space_id =
+          mach_read_from_4(src + FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID);
 
-      if (elen == MY_AES_BAD_DATA) {
-        const auto page_id = page_get_page_id(src);
-
-        ib::error(ER_IB_MSG_844) << " Can't encrypt data of page " << page_id;
-        *dst_len = src_len;
-        return false;
-      }
-
-      const auto len = static_cast<size_t>(elen);
-      ut_a(len == chunk_len);
-
-      /* Encrypt the trailing bytes. */
-      if (remain_len != 0) {
-        /* Copy remaining bytes and page tailer. */
-        memcpy(dst + FIL_PAGE_DATA + len, src + FIL_PAGE_DATA + len,
-               remain_len);
-
-        constexpr size_t trailer_len = MY_AES_BLOCK_SIZE * 2;
-        byte buf[trailer_len];
-
-        elen = my_aes_encrypt(dst + FIL_PAGE_DATA + data_len - trailer_len,
-                              static_cast<uint32>(trailer_len), buf, m_key,
-                              static_cast<uint32>(m_klen), my_aes_256_cbc, m_iv,
-                              false);
-
-        if (elen == MY_AES_BAD_DATA) {
-          const auto page_id = page_get_page_id(src);
-
-          ib::error(ER_IB_MSG_845) << " Can't encrypt data of page," << page_id;
-          *dst_len = src_len;
-          return false;
-        }
-
-        ut_a(static_cast<size_t>(elen) == trailer_len);
-
-        memcpy(dst + FIL_PAGE_DATA + data_len - trailer_len, buf, trailer_len);
-      }
-
-      break;
+      ib::error(ER_IB_MSG_845)
+          << " Can't encrypt data of page,"
+          << " page no:" << page_no << " space id:" << space_id;
+      *dst_len = src_len;
+      return (src);
     }
 
-    default:
-      ut_error;
+    memcpy(dst + FIL_PAGE_DATA + data_len - remain_len, remain_buf,
+           remain_len);
   }
-
   /* Copy the header as is. */
   memmove(dst, src, FIL_PAGE_DATA);
   ut_ad(memcmp(src, dst, FIL_PAGE_DATA) == 0);
@@ -1080,7 +1102,7 @@ byte *Encryption::encrypt(const IORequest &type, byte *src, ulint src_len,
 
   ut_ad(m_type != NONE);
 
-  if (!encrypt_low(src, src_len, dst, dst_len)) {
+  if (!do_encrypt(src, src_len, dst, dst_len)) {
     return (src);
   }
 
@@ -1124,58 +1146,55 @@ dberr_t Encryption::decrypt_log_block(const IORequest &, byte *src,
   remain_len = data_len - main_len;
 
   ptr += LOG_BLOCK_HDR_SIZE;
-  switch (m_type) {
-    case AES: {
-      lint elen;
+  int elen;
+  /* First decrypt the last 2 blocks data of data, since
+  data is no block aligned. */
+  if (remain_len != 0) {
+    ut_ad(m_klen == KEY_LEN);
 
-      /* First decrypt the last 2 blocks data of data, since
-      data is no block aligned. */
-      if (remain_len != 0) {
-        ut_ad(m_klen == KEY_LEN);
+    remain_len = MY_AES_BLOCK_SIZE * 2;
 
-        remain_len = MY_AES_BLOCK_SIZE * 2;
+    /* Copy the last 2 blocks. */
+    memcpy(remain_buf, ptr + data_len - remain_len, remain_len);
 
-        /* Copy the last 2 blocks. */
-        memcpy(remain_buf, ptr + data_len - remain_len, remain_len);
-
-        elen = my_aes_decrypt(remain_buf, static_cast<uint32>(remain_len),
-                              dst + data_len - remain_len, m_key,
-                              static_cast<uint32>(m_klen), my_aes_256_cbc, m_iv,
-                              false);
-        if (elen == MY_AES_BAD_DATA) {
-          return (DB_IO_DECRYPT_FAIL);
-        }
-
-        /* Copy the other data bytes to temp area. */
-        memcpy(dst, ptr, data_len - remain_len);
-      } else {
-        ut_ad(data_len == main_len);
-
-        /* Copy the data bytes to temp area. */
-        memcpy(dst, ptr, data_len);
+    if (decrypt_low(m_type, remain_buf, static_cast<uint32>(remain_len),
+                    dst + data_len - remain_len, &elen, m_key,
+                    static_cast<uint32>(m_klen), my_aes_256_cbc,
+                    m_iv)) {
+      if (unlikely(m_type != AES && m_type != SM4)) {
+        ib::error(ER_IB_MSG_846) << "Encryption algorithm support missing: "
+                                 << Encryption::to_string(m_type);
+        return (DB_UNSUPPORTED);
       }
-
-      /* Then decrypt the main data */
-      elen = my_aes_decrypt(dst, static_cast<uint32>(main_len), ptr, m_key,
-                            static_cast<uint32>(m_klen), my_aes_256_cbc, m_iv,
-                            false);
-      if (elen == MY_AES_BAD_DATA) {
-        return (DB_IO_DECRYPT_FAIL);
-      }
-
-      ut_ad(static_cast<ulint>(elen) == main_len);
-
-      /* Copy the remain bytes. */
-      memcpy(ptr + main_len, dst + main_len, data_len - main_len);
-
-      break;
+      return (DB_IO_DECRYPT_FAIL);
     }
 
-    default:
-      ib::error(ER_IB_MSG_846)
-          << "Encryption algorithm support missing: " << to_string(m_type);
-      return (DB_UNSUPPORTED);
+    /* Copy the other data bytes to temp area. */
+    memcpy(dst, ptr, data_len - remain_len);
+  } else {
+    ut_ad(data_len == main_len);
+
+    /* Copy the data bytes to temp area. */
+    memcpy(dst, ptr, data_len);
   }
+
+  /* Then decrypt the main data */
+  if (decrypt_low(m_type, dst, static_cast<uint32>(main_len), ptr,
+                  &elen, m_key, static_cast<uint32>(m_klen), 
+                  my_aes_256_cbc, m_iv)) {
+    if (unlikely(m_type != AES && m_type != SM4)) {
+      ib::error(ER_IB_MSG_846) << "Encryption algorithm support missing: "
+                               << Encryption::to_string(m_type);
+      return (DB_UNSUPPORTED);
+    }
+    return (DB_IO_DECRYPT_FAIL);
+  }
+
+  ut_ad(static_cast<ulint>(elen) == main_len);
+
+  /* Copy the remain bytes. */
+  memcpy(ptr + main_len, dst + main_len, data_len - main_len);
+  
 
   ptr -= LOG_BLOCK_HDR_SIZE;
 
@@ -1331,76 +1350,65 @@ dberr_t Encryption::decrypt(const IORequest &type, byte *src, ulint src_len,
   main_len = (data_len / MY_AES_BLOCK_SIZE) * MY_AES_BLOCK_SIZE;
   remain_len = data_len - main_len;
 
-  switch (m_type) {
-    case AES: {
-      lint elen;
+  int elen;
+  /* First decrypt the last 2 blocks data of data, since
+  data is no block aligned. */
+  if (remain_len != 0) {
+    ut_ad(m_klen == KEY_LEN);
 
-      /* First decrypt the last 2 blocks data of data, since
-      data is no block aligned. */
-      if (remain_len != 0) {
-        ut_ad(m_klen == KEY_LEN);
+    remain_len = MY_AES_BLOCK_SIZE * 2;
 
-        remain_len = MY_AES_BLOCK_SIZE * 2;
-
-        /* Copy the last 2 blocks. */
-        memcpy(remain_buf, ptr + data_len - remain_len, remain_len);
-
-        elen = my_aes_decrypt(remain_buf, static_cast<uint32>(remain_len),
-                              dst + data_len - remain_len, m_key,
-                              static_cast<uint32>(m_klen), my_aes_256_cbc, m_iv,
-                              false);
-
-        if (elen == MY_AES_BAD_DATA) {
-          if (block != nullptr) {
-            os_free_block(block);
-          }
-
-          return (DB_IO_DECRYPT_FAIL);
-        }
-
-        ut_ad(static_cast<ulint>(elen) == remain_len);
-
-        /* Copy the other data bytes to temp area. */
-        memcpy(dst, ptr, data_len - remain_len);
-      } else {
-        ut_ad(data_len == main_len);
-
-        /* Copy the data bytes to temp area. */
-        memcpy(dst, ptr, data_len);
-      }
-
-      /* Then decrypt the main data */
-      elen = my_aes_decrypt(dst, static_cast<uint32>(main_len), ptr, m_key,
-                            static_cast<uint32>(m_klen), my_aes_256_cbc, m_iv,
-                            false);
-      if (elen == MY_AES_BAD_DATA) {
-        if (block != nullptr) {
-          os_free_block(block);
-        }
-
-        return (DB_IO_DECRYPT_FAIL);
-      }
-
-      ut_ad(static_cast<ulint>(elen) == main_len);
-
-      /* Copy the remain bytes. */
-      memcpy(ptr + main_len, dst + main_len, data_len - main_len);
-
-      break;
-    }
-
-    default:
-      if (!type.is_dblwr()) {
-        ib::error(ER_IB_MSG_849)
-            << "Encryption algorithm support missing: " << to_string(m_type);
-      }
-
-      if (block != nullptr) {
+    /* Copy the last 2 blocks. */
+    memcpy(remain_buf, ptr + data_len - remain_len, remain_len);
+    if (decrypt_low(m_type, remain_buf, static_cast<uint32>(remain_len),
+                    dst + data_len - remain_len, &elen, m_key,
+                    static_cast<uint32>(m_klen), my_aes_256_cbc,
+                    m_iv)) {
+      if (block != NULL) {
         os_free_block(block);
       }
 
-      return (DB_UNSUPPORTED);
+      if (unlikely(m_type != AES && m_type != SM4)) {
+        if (!type.is_dblwr()) {
+          ib::error(ER_IB_MSG_849) << "Encryption algorithm support missing: "
+                                   << Encryption::to_string(m_type);
+        }
+        return (DB_UNSUPPORTED);
+      }
+
+      return (DB_IO_DECRYPT_FAIL);
+    }
+
+    /* Copy the other data bytes to temp area. */
+    memcpy(dst, ptr, data_len - remain_len);
+  } else {
+    ut_ad(data_len == main_len);
+
+    /* Copy the data bytes to temp area. */
+    memcpy(dst, ptr, data_len);
   }
+
+  /* Then decrypt the main data */
+  if (decrypt_low(m_type, dst, static_cast<uint32>(main_len), ptr,
+                  &elen, m_key, static_cast<uint32>(m_klen), 
+                  my_aes_256_cbc, m_iv)) {
+    if (block != NULL) {
+      os_free_block(block);
+    }
+
+    if (unlikely(m_type != AES && m_type != SM4)) {
+      if (!type.is_dblwr()) {
+        ib::error(ER_IB_MSG_849) << "Encryption algorithm support missing: "
+                                 << Encryption::to_string(m_type);
+      }
+      return (DB_UNSUPPORTED);
+    }
+
+    return (DB_IO_DECRYPT_FAIL);
+  }
+  ut_ad(static_cast<ulint>(elen) == main_len);
+  /* Copy the remain bytes. */
+  memcpy(ptr + main_len, dst + main_len, data_len - main_len);
 
   /* Restore the original page type. If it's a compressed and
   encrypted page, just reset it as compressed page type, since
@@ -1498,7 +1506,7 @@ bool Encryption::check_keyring() noexcept {
   } else {
     uint32_t master_key_id;
 
-    Encryption::get_master_key(&master_key_id, &master_key);
+    Encryption::get_master_key(&master_key_id, &master_key, nullptr);
     if (master_key != nullptr) {
       my_free(master_key);
       ret = true;
@@ -1508,6 +1516,77 @@ bool Encryption::check_keyring() noexcept {
   return (ret);
 }
 #endif /* !UNIV_HOTBACKUP */
+
+bool Encryption::encrypt_low(Encryption::Type algorithm, const unsigned char *source,
+                             uint32 source_length, unsigned char *dest,
+                             int *dest_length, const unsigned char *key,
+                             uint32 key_length, enum my_aes_opmode mode,
+                             const unsigned char *iv) {
+  int ret = 0;
+  switch (algorithm) {
+    case AES: {
+      ret = my_aes_encrypt(source, source_length, dest, key,
+                           key_length, mode, iv, false);
+
+      if (ret == MY_AES_BAD_DATA) {
+        return (true);
+      }
+      *dest_length = ret;
+      break;
+    }
+
+    case SM4: {
+      ret = my_sm4_encrypt(const_cast<unsigned char*>(source), source_length,
+                           dest, dest_length, const_cast<unsigned char*>(key),
+                           const_cast<unsigned char*>(iv), false);
+      if (ret < 0 || *dest_length != static_cast<int>(source_length)) {
+        return (true);
+      }
+      break;
+    }
+
+    default:
+      return (true);
+  }
+
+  return (false);
+}
+
+bool Encryption::decrypt_low(Type algorithm, const unsigned char *source,
+                             uint32 source_length, unsigned char *dest,
+                             int *dest_length, const unsigned char *key,
+                             uint32 key_length, enum my_aes_opmode mode,
+                             const unsigned char *iv) {
+  int ret = 0;
+  switch (algorithm) {
+    case AES: {
+      ret = my_aes_decrypt(source, source_length, dest, key,
+                           key_length, mode, iv, false);
+      /* If decryption failed, return error. */
+      if (ret == MY_AES_BAD_DATA) {
+        return (true);
+      }
+      *dest_length = ret;
+      break;
+    }
+
+    case SM4: {
+      ret = my_sm4_decrypt(const_cast<unsigned char*>(source), source_length,
+                           dest, dest_length, const_cast<unsigned char*>(key),
+                           const_cast<unsigned char*>(iv), false);
+      /* If decryption failed, return error. */
+      if (ret < 0 || *dest_length != static_cast<int>(source_length)) {
+        return (true);
+      }
+      break;
+    }
+
+    default:
+      return (true);
+  }
+
+  return (false);
+}
 
 Encryption::Type Encryption::get_type() const { return m_type; }
 
@@ -1525,8 +1604,12 @@ uint32_t Encryption::get_master_key_id() { return s_master_key_id; }
 
 void Encryption::set_or_generate(Type type, byte *key, byte *iv,
                                  Encryption_metadata &metadata) {
-  ut_ad(type != Encryption::NONE);
-  metadata.m_type = type;
+
+  if (type != Encryption::NONE)
+    metadata.m_type = type;
+  else
+    metadata.m_type = Encryption::AES;
+
   metadata.m_key_len = Encryption::KEY_LEN;
   if (key == nullptr && iv == nullptr) {
     Encryption::random_value(metadata.m_key);

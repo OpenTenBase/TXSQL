@@ -607,6 +607,12 @@ static TYPELIB innodb_cleaner_lsn_age_factor_typelib = {
   "innodb_cleaner_lsn_age_factor_typelib",
   innodb_cleaner_lsn_age_factor_names, nullptr};
 
+/** Used to define an enumerate type of the system variable
+innodb_encryption_algorithm. */
+static TYPELIB innodb_encryption_algorithm_typelib = {
+    Encryption::UNDEFINE_ALGORITHM, "innodb_encryption_algorithm_typelib",
+    Encryption::s_encryption_algorithm_names, NULL};
+
 /** Retrieve the FTS Relevance Ranking result for doc with doc_id
 of m_prebuilt->fts_doc_id
 @param[in,out]  fts_hdl FTS handler
@@ -4400,7 +4406,7 @@ static bool innobase_dict_set_server_version() {
 static void innobase_get_keyring_master_key(uint32_t *master_key_id,
                                             byte **master_key,
                                             uint32_t *master_key_len) {
-  Encryption::get_master_key(master_key_id, master_key);
+  Encryption::get_master_key(master_key_id, master_key, nullptr);
   *master_key_len = Encryption::KEY_LEN;
 }
 
@@ -4651,7 +4657,7 @@ bool innobase_encryption_key_rotation() {
   if (Encryption::get_master_key_id() != Encryption::DEFAULT_MASTER_KEY_ID) {
     uint32_t master_key_id;
 
-    Encryption::get_master_key(&master_key_id, &master_key);
+    Encryption::get_master_key(&master_key_id, &master_key, nullptr);
 
     if (master_key == nullptr) {
       my_error(ER_CANNOT_FIND_KEY_IN_KEYRING, MYF(0));
@@ -5760,7 +5766,8 @@ static bool dd_open_hardcoded(space_id_t space_id, const char *filename) {
 
     if (strstr(space->files.front().name, filename) != nullptr &&
         /* Ignore encryption flag as it might have changed */
-        !((space->flags ^ predefined_flags) & ~(FSP_FLAGS_MASK_ENCRYPTION))) {
+        !((space->flags ^ predefined_flags) &
+        ~(FSP_FLAGS_MASK_ENCRYPTION | FSP_FLAGS_MASK_SM4_ALGORITHM))) {
       fil_space_open_if_needed(space);
 
     } else {
@@ -12331,7 +12338,7 @@ void innodb_base_col_setup_for_stored(const dict_table_t *table,
         uint32_t master_key_id;
 
         /* Check if keyring is ready. */
-        Encryption::get_master_key(&master_key_id, &master_key);
+        Encryption::get_master_key(&master_key_id, &master_key, nullptr);
 
         if (master_key == nullptr) {
           my_error(ER_CANNOT_FIND_KEY_IN_KEYRING, MYF(0));
@@ -21990,6 +21997,33 @@ static int validate_innodb_redo_log_encrypt(THD *thd, SYS_VAR *var, void *save,
   return (0);
 }
 
+/** Validte innodb_encryption_algorithm parameter.
+@param[in]  thd       thread handle
+@param[in]  var       system variable
+@param[out] save      immediate result for update function
+@param[in]  value     incoming string
+@return  0 on success, 1 on failure. */
+static int innodb_encryption_algorithm_validate(THD *thd, SYS_VAR *var,
+                                              void *save,
+                                              struct st_mysql_value *value) {
+  ut_a(save != nullptr);
+  ut_a(value != nullptr);
+
+  char buff[STRING_BUFFER_USUAL_SIZE];
+  int len = sizeof(buff);
+  const char *encrypt_alg = value->val_str(value, buff, &len);
+
+  int type = find_type(encrypt_alg, &innodb_encryption_algorithm_typelib,
+                       FIND_TYPE_NO_PREFIX);
+  /* Set "none" is invalid */
+  if (type <= 1) {
+    return 1;
+  }
+
+  *reinterpret_cast<ulong *>(save) = static_cast<ulong>(type - 1);
+  return 0;
+}
+
 /** Update the number of rollback segments per tablespace when the
 system variable innodb_rollback_segments is changed.
 This function is registered as a callback with MySQL.
@@ -23670,6 +23704,12 @@ static MYSQL_SYSVAR_BOOL(redo_log_encrypt, srv_redo_log_encrypt,
                          "Enable or disable Encryption of REDO tablespace.",
                          validate_innodb_redo_log_encrypt, nullptr, false);
 
+static MYSQL_SYSVAR_ENUM(
+    encryption_algorithm, srv_encryption_algorithm,
+    PLUGIN_VAR_OPCMDARG,
+    "Encrypt algorithm for transparent data encryption.",
+    innodb_encryption_algorithm_validate, nullptr, Encryption::AES, &innodb_encryption_algorithm_typelib);
+
 static MYSQL_SYSVAR_BOOL(
     print_ddl_logs, srv_print_ddl_logs, PLUGIN_VAR_OPCMDARG,
     "Print all DDl logs to MySQL error log (off by default)", nullptr, nullptr,
@@ -24490,6 +24530,7 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(default_row_format),
     MYSQL_SYSVAR(redo_log_archive_dirs),
     MYSQL_SYSVAR(redo_log_encrypt),
+    MYSQL_SYSVAR(encryption_algorithm),
     MYSQL_SYSVAR(print_ddl_logs),
     MYSQL_SYSVAR(fast_ddl),
     MYSQL_SYSVAR(hot_update_detect),

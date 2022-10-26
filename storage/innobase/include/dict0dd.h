@@ -1661,6 +1661,8 @@ void dd_write_modified_column(const dict_table_t *table, const dict_col_t *col,
 bool is_modified(Field *old_field, Field *new_field);
 
 /* Changes from txsql end. */
+/* Get the encryption algorithm for imported tablesppace */
+Encryption::Type dd_get_encrypted_tablespace_algorithm(const dict_table_t *table);
 
 #include "dict0dd.ic"
 #endif

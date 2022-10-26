@@ -253,6 +253,8 @@ ulong srv_log_n_files = 100; /* Deprecated (used only for deprecated sysvar). */
 ulonglong srv_log_file_size; /* Deprecated (used only for deprecated sysvar). */
 
 ulonglong srv_redo_log_capacity, srv_redo_log_capacity_used;
+/** Encrypt algorithm for transparent data encryption */
+ulong srv_encryption_algorithm = Encryption::AES;
 
 #ifdef UNIV_DEBUG_DEDICATED
 ulong srv_debug_system_mem_size;
@@ -2750,8 +2752,9 @@ bool set_undo_tablespace_encryption(space_id_t space_id, mtr_t *mtr) {
   byte encrypt_info[Encryption::INFO_SIZE];
 
   Encryption_metadata encryption_metadata;
+  Encryption::Type algorithm = static_cast<Encryption::Type>(srv_encryption_algorithm);
 
-  Encryption::set_or_generate(Encryption::AES, nullptr, nullptr,
+  Encryption::set_or_generate(algorithm, nullptr, nullptr,
                               encryption_metadata);
 
   /* 0 fill encryption info */
@@ -2765,6 +2768,9 @@ bool set_undo_tablespace_encryption(space_id_t space_id, mtr_t *mtr) {
   }
 
   uint32_t new_flags = space->flags | FSP_FLAGS_MASK_ENCRYPTION;
+  if (Encryption::SM4 == encryption_metadata.m_type) {
+    new_flags |= FSP_FLAGS_MASK_SM4_ALGORITHM;
+  }
 
   /* Write encryption info on tablespace header page */
   if (!fsp_header_write_encryption(space->id, new_flags, encrypt_info, true,
@@ -2774,7 +2780,7 @@ bool set_undo_tablespace_encryption(space_id_t space_id, mtr_t *mtr) {
   }
 
   /* Update In-Mem encryption information for UNDO tablespace */
-  fsp_flags_set_encryption(space->flags);
+  fsp_flags_set_encryption(space->flags, static_cast<uint32_t>(encryption_metadata.m_type));
   err = fil_set_encryption(space->id, encryption_metadata.m_type,
                            encryption_metadata.m_key, encryption_metadata.m_iv);
   if (err != DB_SUCCESS) {

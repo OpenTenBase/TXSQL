@@ -2578,6 +2578,7 @@ dberr_t Fil_shard::get_file_size(fil_node_t *file, bool read_only_mode) {
   if (recv_recovery_is_on()) {
     fsp_flags_unset_encryption(space->flags);
     space->flags |= flags & FSP_FLAGS_MASK_ENCRYPTION;
+    fsp_flags_init_encryption_algorithm_from_flags(space->flags, flags);
   }
 
   /* Make sure the space_flags are the same as the header page flags. */
@@ -2629,7 +2630,8 @@ dberr_t Fil_shard::get_file_size(fil_node_t *file, bool read_only_mode) {
   /* For encrypted tablespace, we need to check the
   encryption key and iv(initial vector) is read. */
   if (FSP_FLAGS_GET_ENCRYPTION(space->flags) && !recv_recovery_is_on() &&
-      space->m_encryption_metadata.m_type != Encryption::AES) {
+      space->m_encryption_metadata.m_type != Encryption::AES &&
+      space->m_encryption_metadata.m_type != Encryption::SM4) {
     ib::error(ER_IB_MSG_273, file->name);
 
     return DB_ERROR;
@@ -5756,8 +5758,8 @@ static dberr_t fil_create_tablespace(space_id_t space_id, const char *name,
 
   /* For encryption tablespace, initial encryption information. */
   if (space != nullptr && FSP_FLAGS_GET_ENCRYPTION(space->flags)) {
-    err = fil_set_encryption(space->id, Encryption::AES, nullptr, nullptr);
-
+    err = fil_set_encryption(space->id,
+        fsp_flags_get_encryption_algorithm(space->flags), nullptr, nullptr);
     ut_ad(err == DB_SUCCESS);
   }
 
@@ -5904,7 +5906,8 @@ dberr_t fil_ibd_open(bool validate, fil_type_t purpose, space_id_t space_id,
   has been updated in ibd file but server crashed before DD flags are
   updated. Thus, consider ibd setting for encryption. */
   if (FSP_FLAGS_GET_ENCRYPTION(df.flags())) {
-    fsp_flags_set_encryption(space->flags);
+    fsp_flags_set_encryption(space->flags, static_cast<uint32_t>(Encryption::AES));
+    fsp_flags_init_encryption_algorithm_from_flags(space->flags, df.flags());
   } else {
     fsp_flags_unset_encryption(space->flags);
   }
@@ -5915,7 +5918,7 @@ dberr_t fil_ibd_open(bool validate, fil_type_t purpose, space_id_t space_id,
     byte *iv = df.m_encryption_iv;
     byte *key = df.m_encryption_key;
 
-    err = fil_set_encryption(space->id, Encryption::AES, key, iv);
+    err = fil_set_encryption(space->id, df.m_encryption_type, key, iv);
 
     if (err != DB_SUCCESS) {
       return DB_ERROR;
@@ -6253,8 +6256,8 @@ fil_load_status Fil_shard::ibd_open_for_recovery(space_id_t space_id,
   /* For encryption tablespace, initial encryption information. */
   if (FSP_FLAGS_GET_ENCRYPTION(space->flags) &&
       df.m_encryption_key != nullptr) {
-    dberr_t err = fil_set_encryption(space->id, Encryption::AES,
-                                     df.m_encryption_key, df.m_encryption_iv);
+    dberr_t err = fil_set_encryption(space->id, df.m_encryption_type,
+                    df.m_encryption_key, df.m_encryption_iv);
 
     if (err != DB_SUCCESS) {
       ib::error(ER_IB_MSG_312, space->name);
@@ -6993,7 +6996,7 @@ static void meb_set_encryption_key(const fil_space_t *space) {
 
     dberr_t err;
 
-    err = fil_set_encryption(space->id, Encryption::AES, key.ptr, key.iv);
+    err = fil_set_encryption(space->id, key.type, key.ptr, key.iv);
 
     if (err != DB_SUCCESS) {
       ib::error(ER_IB_MSG_322) << "Can't set encryption information"
@@ -7587,7 +7590,9 @@ void fil_io_set_encryption(IORequest &req_type, const page_id_t &page_id,
                           space->m_encryption_metadata.m_key_len,
                           space->m_encryption_metadata.m_iv);
 
-  req_type.encryption_algorithm(Encryption::AES);
+  assert(space->m_encryption_metadata.m_type == Encryption::AES ||
+         space->m_encryption_metadata.m_type == Encryption::SM4);
+  req_type.encryption_algorithm(space->m_encryption_metadata.m_type);
 }
 
 AIO_mode Fil_shard::get_AIO_mode(const IORequest &, bool sync) {
@@ -8354,6 +8359,8 @@ static dberr_t fil_iterate(const Fil_page_iterator &iter, buf_block_t *block,
   size_t n_bytes;
   page_no_t page_no = 0;
   space_id_t space_id = callback.get_space_id();
+  Encryption::Type algorithm = fsp_flags_get_encryption_algorithm(
+                                  callback.get_space_flags());
 
   n_bytes = iter.m_n_io_buffers * iter.m_page_size;
 
@@ -8407,7 +8414,7 @@ static dberr_t fil_iterate(const Fil_page_iterator &iter, buf_block_t *block,
       read_request.encryption_key(iter.m_encryption_key, Encryption::KEY_LEN,
                                   iter.m_encryption_iv);
 
-      read_request.encryption_algorithm(Encryption::AES);
+      read_request.encryption_algorithm(algorithm);
     }
 
     err = os_file_read(read_request, iter.m_filepath, iter.m_file, io_buffer,
@@ -8453,7 +8460,7 @@ static dberr_t fil_iterate(const Fil_page_iterator &iter, buf_block_t *block,
       write_request.encryption_key(iter.m_encryption_key, Encryption::KEY_LEN,
                                    iter.m_encryption_iv);
 
-      write_request.encryption_algorithm(Encryption::AES);
+      write_request.encryption_algorithm(algorithm);
     }
 
     /* For compressed table, set compressed information.
@@ -9601,7 +9608,7 @@ static void fil_tablespace_encryption_init(const fil_space_t *space) {
     if (fsp_is_file_per_table(space->id, space->flags)) {
       /* For file-per-table tablespace, which is not INPLACE algorithm, copy
       what is found on REDO Log. */
-      err = fil_set_encryption(space->id, Encryption::AES, key.ptr, key.iv);
+      err = fil_set_encryption(space->id, key.type, key.ptr, key.iv);
     } else {
       /* Here we try to populate space tablespace_key which is read during
       REDO scan.
@@ -9641,7 +9648,7 @@ static void fil_tablespace_encryption_init(const fil_space_t *space) {
       if (space->m_encryption_metadata.m_key_len == 0 ||
           key.lsn > space->m_header_page_flush_lsn) {
         /* Key on tablesapce isn't present or old. Update it. */
-        err = fil_set_encryption(space->id, Encryption::AES, key.ptr, key.iv);
+        err = fil_set_encryption(space->id, key.type, key.ptr, key.iv);
       } else {
         /* Key on tablespace is new. Skip updating. */
       }
@@ -9657,6 +9664,7 @@ static void fil_tablespace_encryption_init(const fil_space_t *space) {
 
     key.iv = nullptr;
     key.ptr = nullptr;
+    key.type = Encryption::NONE;
 
     key.space_id = std::numeric_limits<space_id_t>::max();
   }
@@ -10689,8 +10697,9 @@ byte *fil_tablespace_redo_encryption(byte *ptr, const byte *end,
   byte key[Encryption::KEY_LEN] = {0};
 
   Encryption_key e_key{key, iv};
+  Encryption::Type algorithm = Encryption::AES;
   if (!Encryption::decode_encryption_info(space_id, e_key, encryption_ptr,
-                                          true)) {
+                                          true, algorithm)) {
     recv_sys->found_corrupt_log = true;
 
     ib::warn(ER_IB_MSG_364)
@@ -10703,9 +10712,9 @@ byte *fil_tablespace_redo_encryption(byte *ptr, const byte *end,
   ut_ad(len == Encryption::INFO_SIZE);
 
   if (space != nullptr) {
-    Encryption::set_or_generate(Encryption::AES, key, iv,
+    Encryption::set_or_generate(algorithm, key, iv,
                                 space->m_encryption_metadata);
-    fsp_flags_set_encryption(space->flags);
+    fsp_flags_set_encryption(space->flags, algorithm);
     return ptr;
   }
 
@@ -10724,6 +10733,7 @@ byte *fil_tablespace_redo_encryption(byte *ptr, const byte *end,
       memcpy(recv_key.iv, iv, Encryption::KEY_LEN);
       memcpy(recv_key.ptr, key, Encryption::KEY_LEN);
       recv_key.lsn = lsn;
+      recv_key.type = algorithm;
       return ptr;
     }
   }
@@ -10738,6 +10748,7 @@ byte *fil_tablespace_redo_encryption(byte *ptr, const byte *end,
   memcpy(new_key.ptr, key, Encryption::KEY_LEN);
   new_key.space_id = space_id;
   new_key.lsn = lsn;
+  new_key.type = algorithm;
   recv_sys->keys->push_back(new_key);
 
   return ptr;

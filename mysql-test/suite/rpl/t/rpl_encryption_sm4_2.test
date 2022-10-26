@@ -1,0 +1,94 @@
+--source include/have_binlog_format_row.inc
+--let $rpl_skip_start_slave= 1
+--source include/master-slave.inc
+--source include/have_debug.inc
+
+# Suppression of error messages
+CALL mtr.add_suppression('Failed to store key');
+CALL mtr.add_suppression('Failed to initialize binlog encryption');
+CALL mtr.add_suppression('Unable to recover binlog encryption master key');
+CALL mtr.add_suppression('Aborting');
+CALL mtr.add_suppression('Cannot get file password for encrypted replication log file');
+CALL mtr.add_suppression('Could not parse relay log event entry');
+CALL mtr.add_suppression('Failed to fetch key from keyring');
+
+--connection master
+SHOW BINARY LOGS;
+SET GLOBAL binlog_encryption_algorithm=sm4;
+SET GLOBAL binlog_encryption=on;
+SHOW BINARY LOGS;
+
+--connection slave
+SHOW BINARY LOGS;
+SET GLOBAL binlog_encryption_algorithm=sm4;
+SET GLOBAL binlog_encryption=on;
+SHOW BINARY LOGS;
+START SLAVE;
+
+--connection master
+CREATE TABLE t (id INT PRIMARY KEY, name VARCHAR(20)); 
+INSERT INTO t VALUES(1, 'kongzhi');
+
+--source include/sync_slave_sql_with_master.inc
+
+--connection slave
+SELECT * FROM t;
+
+#change algorithm and change master key
+--connection master
+SET GLOBAL binlog_encryption_algorithm=aes;
+ALTER INSTANCE ROTATE BINLOG MASTER KEY;
+SHOW BINARY LOGS;
+
+INSERT INTO t VALUES(2, 'kongzhi');
+
+--source include/sync_slave_sql_with_master.inc
+
+--connection slave
+SELECT * FROM t;
+SET GLOBAL binlog_encryption_algorithm=aes;
+ALTER INSTANCE ROTATE BINLOG MASTER KEY;
+SHOW BINARY LOGS;
+
+--connection master
+INSERT INTO t VALUES(3, 'kongzhi');
+
+--source include/sync_slave_sql_with_master.inc
+
+--connection slave
+SELECT * FROM t;
+
+#change binlog encryption algorithm
+--connection master
+SET GLOBAL binlog_encryption=off;
+SET GLOBAL binlog_encryption_algorithm=sm4;
+SET GLOBAL binlog_encryption=on;
+
+INSERT INTO t VALUES(4, 'kongzhi');
+
+--source include/sync_slave_sql_with_master.inc
+
+--connection slave
+SELECT * FROM t;
+SET GLOBAL binlog_encryption=off;
+SET GLOBAL binlog_encryption_algorithm=sm4;
+SET GLOBAL binlog_encryption=on;
+
+--connection master
+INSERT INTO t VALUES(5, 'kongzhi');
+
+--source include/sync_slave_sql_with_master.inc
+
+--connection slave
+SELECT * FROM t;
+SET GLOBAL binlog_encryption_algorithm=aes;
+SET GLOBAL binlog_encryption=off;
+SHOW BINARY LOGS;
+
+--connection master
+DROP TABLE t;
+SET GLOBAL binlog_encryption_algorithm=aes;
+SET GLOBAL binlog_encryption=off;
+SHOW BINARY LOGS;
+
+--source include/rpl_end.inc

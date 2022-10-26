@@ -1804,9 +1804,9 @@ static inline space_id_t dict_check_sys_tables(bool validate) {
 
     /* Build FSP flag */
     uint32_t fsp_flags = dict_tf_to_fsp_flags(flags);
-    /* Set tablespace encryption flag */
+    /* Set tablespace encryption flag and default algorithm */
     if (flags2 & DICT_TF2_ENCRYPTION_FILE_PER_TABLE) {
-      fsp_flags_set_encryption(fsp_flags);
+      fsp_flags_set_encryption(fsp_flags, static_cast<uint32_t>(Encryption::AES));
     }
 
     /* Set the expected filepath from the data dictionary. */
@@ -2570,9 +2570,9 @@ void dict_load_tablespace(dict_table_t *table, dict_err_ignore_t ignore_err) {
   /* Try to open the tablespace.  We set the 2nd param (fix_dict) to
   false because we do not have an x-lock on dict_operation_lock */
   uint32_t fsp_flags = dict_tf_to_fsp_flags(table->flags);
-  /* Set tablespace encryption flag */
+  /* Set tablespace encryption flag with the default algorithm*/
   if (DICT_TF2_FLAG_IS_SET(table, DICT_TF2_ENCRYPTION_FILE_PER_TABLE)) {
-    fsp_flags_set_encryption(fsp_flags);
+    fsp_flags_set_encryption(fsp_flags, static_cast<uint32_t>(Encryption::AES));
   }
 
   /* This dict_load_tablespace() is only used on old 5.7 database during

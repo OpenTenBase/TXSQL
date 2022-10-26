@@ -32,6 +32,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA
 
 #include <mysql/components/my_service.h>
 #include "univ.i"
+#include "my_aes.h" /* my_aes_opmode */
 
 namespace innobase {
 namespace encryption {
@@ -60,7 +61,16 @@ class Encryption {
 
     /** Use AES */
     AES = 1,
+
+    /** Use SM4 */
+    SM4 = 2,
+
+    UNDEFINE_ALGORITHM = 3,
   };
+
+  static const char *s_encryption_algorithm_names[];
+
+  static const std::map<std::string, Type> s_string_with_algorithm;
 
   /** Encryption information format version */
   enum Version {
@@ -73,6 +83,10 @@ class Encryption {
 
     /** Version in > 8.0.4 */
     VERSION_3 = 2,
+
+    /** Support SM4 encryption algorithm
+    Use SM4 to encrypt tablespace data*/
+    VERSION_8 = 7,
   };
 
   /** Encryption progress type. */
@@ -108,6 +122,10 @@ class Encryption {
   /** Encryption magic bytes for 8.0.5+, it's for checking the encryption
   information version. */
   static constexpr char KEY_MAGIC_V3[] = "lCC";
+
+  /** Encryption magic bytes
+  Use SM4 for tablespace data */
+  static constexpr char KEY_MAGIC_V8[] = "lCH";
 
   /** Encryption master key prifix */
   static constexpr char MASTER_KEY_PREFIX[] = "INNODBKey";
@@ -161,6 +179,11 @@ class Encryption {
   /** Default constructor */
   Encryption() noexcept : m_type(NONE) {}
 
+  static inline bool encryption_version_is_new(const void *header) {
+    return (memcmp(header, KEY_MAGIC_V3, MAGIC_SIZE) == 0 ||
+            memcmp(header, KEY_MAGIC_V8, MAGIC_SIZE) == 0);
+  }
+
   /** Specific constructor
   @param[in]  type    Algorithm type */
   explicit Encryption(Type type) noexcept : m_type(type) {
@@ -168,6 +191,7 @@ class Encryption {
     switch (m_type) {
       case NONE:
       case AES:
+      case SM4:
 
       default:
         ut_error;
@@ -207,6 +231,16 @@ class Encryption {
   @return the string representation */
   [[nodiscard]] static const char *to_string(Type type) noexcept;
 
+  /** Convert to a "string".
+  @param[in]      type            The encryption type
+  @return the string representation of algorithm */
+  static const char *algorithm_to_string(Type type) MY_ATTRIBUTE((warn_unused_result));
+
+  /** Convsert to algorithm type
+  @param[in]   key_type        the type string
+  @return the encryption type */
+  static Type string_to_algorithm(const char *key_type);
+
   /** Check if the string is "empty" or "none".
   @param[in]  algorithm  Encryption algorithm to check
   @return true if no algorithm requested */
@@ -237,13 +271,13 @@ class Encryption {
   @param[in]      srv_uuid      uuid of server instance
   @param[in,out]  master_key    master key */
   static void get_master_key(uint32_t master_key_id, char *srv_uuid,
-                             byte **master_key) noexcept;
+                             byte **master_key, Type *algorithm) noexcept;
 
   /** Get current master key and key id.
   @param[in,out]  master_key_id master key id
   @param[in,out]  master_key    master key */
   static void get_master_key(uint32_t *master_key_id,
-                             byte **master_key) noexcept;
+                             byte **master_key, Type *algorithm) noexcept;
 
   /** Fill the encryption information.
   @param[in]      encryption_metadata  encryption metadata (key,iv)
@@ -266,7 +300,8 @@ class Encryption {
                                               Version version,
                                               uint32_t *m_key_id,
                                               char *srv_uuid,
-                                              byte **master_key) noexcept;
+                                              byte **master_key,
+                                              Type *key_algorithm) noexcept;
 
   /** Checks if encryption info bytes represent data encrypted by the given
   version of the encryption mechanism.
@@ -284,6 +319,8 @@ class Encryption {
   @return result of the check */
   static bool is_encrypted_with_v3(const byte *encryption_info) noexcept;
 
+  static bool is_encrypted_with_v3v8(const byte *encryption_info) noexcept;
+
   /** Checks if encryption info bytes represent data encrypted by any of known
   versions of the encryption mechanism. Note, that if the encryption_info is
   read from file created by a newer MySQL version, it could be considered to be
@@ -300,7 +337,8 @@ class Encryption {
   @return true if success */
   static bool decode_encryption_info(Encryption_metadata &encryption_metadata,
                                      const byte *encryption_info,
-                                     bool decrypt_key) noexcept;
+                                     bool decrypt_key,
+                                     Type &space_algorithm) noexcept;
 
   /** Decoding the encryption info from the given array of bytes,
   which are assumed to be related to a given tablespace (unless
@@ -317,7 +355,28 @@ class Encryption {
   @return true if success */
   static bool decode_encryption_info(space_id_t space_id, Encryption_key &e_key,
                                      const byte *encryption_info,
-                                     bool decrypt_key) noexcept;
+                                     bool decrypt_key, Type &space_algorithm) noexcept;
+ /** Check the type in tablespace flags
+  @param[in] algorithm
+  @return return true if it's aes, sm4 */
+  static bool type_is_valid(uint32_t algorithm) {
+    return (static_cast<Type>(algorithm) == AES || static_cast<Type>(algorithm) == SM4);
+  }
+
+  /** Encrypt data according to the algorithm type */
+  static bool encrypt_low(Type algorithm, const unsigned char *source,
+                          uint32 source_length, unsigned char *dest,
+                          int *dest_length, const unsigned char *key,
+                          uint32 key_length, enum my_aes_opmode mode,
+                          const unsigned char *iv);
+
+  /** Decrypt data according to given type */
+  static bool decrypt_low(Type algorithm, const unsigned char *source,
+                          uint32 source_length, unsigned char *dest,
+                          int *dest_length, const unsigned char *key,
+                          uint32 key_length, enum my_aes_opmode mode,
+                          const unsigned char *iv);
+
 
   /** Encrypt the redo log block.
   @param[in]      type      IORequest
@@ -428,6 +487,8 @@ class Encryption {
   @return true if operation successful, false otherwise. */
   [[nodiscard]] bool encrypt_low(byte *src, ulint src_len, byte *dst,
                                  ulint *dst_len) noexcept;
+  bool do_encrypt(byte *src, ulint src_len, byte *dst, ulint *dst_len) noexcept
+      MY_ATTRIBUTE((warn_unused_result));
 
   /** Encrypt type */
   Type m_type;

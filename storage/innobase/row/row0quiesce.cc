@@ -32,6 +32,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 
 #include <errno.h>
 #include <my_aes.h>
+#include <my_sm4.h>
 
 #include "dd/cache/dictionary_client.h"
 #include "sql/dd/dictionary.h"
@@ -769,12 +770,12 @@ of dict_col_t default value part if exists.
 @return DB_SUCCESS or error code. */
 [[nodiscard]] static MY_ATTRIBUTE((nonnull)) dberr_t
     row_quiesce_write_transfer_key(const dict_table_t *table, FILE *file,
-                                   THD *thd) {
+                                   THD *thd, Encryption::Type algorithm) {
   byte key_size[sizeof(uint32_t)];
   byte row[Encryption::KEY_LEN * 3];
   byte *ptr = row;
   byte *transfer_key = ptr;
-  lint elen;
+  int elen;
 
   ut_ad(table->encryption_key != nullptr && table->encryption_iv != nullptr);
 
@@ -801,14 +802,13 @@ of dict_col_t default value part if exists.
   ptr += Encryption::KEY_LEN;
 
   /* Encrypt tablespace key. */
-  elen = my_aes_encrypt(
-      reinterpret_cast<unsigned char *>(table->encryption_key),
-      Encryption::KEY_LEN, ptr, reinterpret_cast<unsigned char *>(transfer_key),
-      Encryption::KEY_LEN, my_aes_256_ecb, nullptr, false);
-
-  if (elen == MY_AES_BAD_DATA) {
+  if (Encryption::encrypt_low(algorithm,
+                              reinterpret_cast<unsigned char *>(table->encryption_key),
+                              Encryption::KEY_LEN, ptr, &elen,
+                              reinterpret_cast<unsigned char *>(transfer_key),
+                              Encryption::KEY_LEN, my_aes_256_ecb, nullptr)) {
     ib_senderrf(thd, IB_LOG_LEVEL_WARN, ER_IO_WRITE_ERROR, errno,
-                strerror(errno), "while encrypt tablespace key.");
+                    strerror(errno), "while encrypt tablespace key.");
     return (DB_ERROR);
   }
 
@@ -822,16 +822,15 @@ of dict_col_t default value part if exists.
   ptr += Encryption::KEY_LEN;
 
   /* Encrypt tablespace iv. */
-  elen = my_aes_encrypt(reinterpret_cast<unsigned char *>(table->encryption_iv),
-                        Encryption::KEY_LEN, ptr,
-                        reinterpret_cast<unsigned char *>(transfer_key),
-                        Encryption::KEY_LEN, my_aes_256_ecb, nullptr, false);
-
-  if (elen == MY_AES_BAD_DATA) {
-    ib_senderrf(thd, IB_LOG_LEVEL_WARN, ER_IO_WRITE_ERROR, errno,
-                strerror(errno), "while encrypt tablespace iv.");
-    return (DB_ERROR);
-  }
+  if (Encryption::encrypt_low(algorithm,
+                              reinterpret_cast<unsigned char *>(table->encryption_iv),
+                              Encryption::KEY_LEN, ptr, &elen,
+                              reinterpret_cast<unsigned char *>(transfer_key),
+                              Encryption::KEY_LEN, my_aes_256_ecb, nullptr)) {
+     ib_senderrf(thd, IB_LOG_LEVEL_WARN, ER_IO_WRITE_ERROR, errno,
+                 strerror(errno), "while encrypt tablespace iv.");
+     return (DB_ERROR);
+   }
 
   /* Write encrypted tablespace iv */
   if (fwrite(ptr, 1, Encryption::KEY_LEN, file) != Encryption::KEY_LEN) {
@@ -852,6 +851,7 @@ of dict_col_t default value part if exists.
     row_quiesce_write_cfp(dict_table_t *table, THD *thd) {
   dberr_t err;
   char name[OS_FILE_MAX_PATH];
+  Encryption::Type algorithm = Encryption::AES;
 
   /* If table is not encrypted, return. */
   if (!dd_is_table_in_encrypted_tablespace(table)) {
@@ -877,6 +877,8 @@ of dict_col_t default value part if exists.
 
     fil_space_t *space = fil_space_get(table->space);
     ut_ad(space != nullptr && FSP_FLAGS_GET_ENCRYPTION(space->flags));
+    ut_ad(fsp_flags_get_encryption_algorithm(space->flags) == space->m_encryption_metadata.m_type);
+    algorithm = space->m_encryption_metadata.m_type;
 
     memcpy(table->encryption_key, space->m_encryption_metadata.m_key,
            Encryption::KEY_LEN);
@@ -897,7 +899,7 @@ of dict_col_t default value part if exists.
 
     err = DB_IO_ERROR;
   } else {
-    err = row_quiesce_write_transfer_key(table, file, thd);
+    err = row_quiesce_write_transfer_key(table, file, thd, algorithm);
 
     if (fflush(file) != 0) {
       char msg[BUFSIZ];

@@ -413,7 +413,7 @@ dberr_t Datafile::validate_to_dd(space_id_t space_id, uint32_t flags,
 
   if (m_space_id == space_id &&
       !((m_flags ^ flags) & ~(FSP_FLAGS_MASK_DATA_DIR | FSP_FLAGS_MASK_SHARED |
-                              FSP_FLAGS_MASK_SDI))) {
+                              FSP_FLAGS_MASK_SDI | FSP_FLAGS_MASK_SM4_ALGORITHM))) {
     /* Datafile matches the tablespace expected. */
     return (DB_SUCCESS);
   }
@@ -432,7 +432,7 @@ dberr_t Datafile::validate_to_dd(space_id_t space_id, uint32_t flags,
 #endif /* !UNIV_HOTBACKUP */
 
     if (!((m_flags ^ flags) &
-          ~(FSP_FLAGS_MASK_ENCRYPTION | FSP_FLAGS_MASK_DATA_DIR |
+          ~(FSP_FLAGS_MASK_ENCRYPTION | FSP_FLAGS_MASK_SM4_ALGORITHM | FSP_FLAGS_MASK_DATA_DIR |
             FSP_FLAGS_MASK_SHARED | FSP_FLAGS_MASK_SDI))) {
       return (DB_SUCCESS);
     }
@@ -650,7 +650,9 @@ dberr_t Datafile::validate_first_page(space_id_t space_id, lsn_t *flush_lsn,
 #endif
 
     Encryption_key e_key{m_encryption_key, m_encryption_iv};
-    if (!fsp_header_get_encryption_key(m_flags, e_key, m_first_page)) {
+    if (!fsp_header_get_encryption_key(m_flags, e_key, m_first_page,
+      m_encryption_type) || (!Encryption::type_is_valid(m_encryption_type))) {
+
       ib::error(ER_IB_MSG_401)
           << "Encryption information in datafile: " << m_filepath
           << " can't be decrypted, please confirm that"
@@ -662,6 +664,7 @@ dberr_t Datafile::validate_first_page(space_id_t space_id, lsn_t *flush_lsn,
       ut::free(m_encryption_iv);
       m_encryption_key = nullptr;
       m_encryption_iv = nullptr;
+      m_encryption_type = Encryption::NONE;
       return (DB_INVALID_ENCRYPTION_META);
     } else {
 #ifdef UNIV_DEBUG
@@ -678,6 +681,7 @@ dberr_t Datafile::validate_first_page(space_id_t space_id, lsn_t *flush_lsn,
       ut::free(m_encryption_iv);
       m_encryption_key = nullptr;
       m_encryption_iv = nullptr;
+      m_encryption_type = Encryption::NONE;
     }
   }
 #ifndef UNIV_HOTBACKUP

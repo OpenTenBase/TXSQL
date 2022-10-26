@@ -84,6 +84,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA
 #include <errno.h>
 #include <lz4.h>
 #include "my_aes.h"
+#include "my_sm4.h"
 #include "my_rnd.h"
 #include "mysql/service_mysql_keyring.h"
 #include "mysqld.h"

@@ -1,0 +1,172 @@
+# test set configuration
+
+--disable_query_log
+call mtr.add_suppression("\\[Warning\\] .* Ignoring tablespace .* because it could not be opened");
+call mtr.add_suppression("\\[ERROR\\] .* Encryption can't find master key, please check the keyring plugin is loaded.");
+call mtr.add_suppression("\\[ERROR\\] .* Failed to find tablespace for table `\.\.*`\.`\.\.*` in the cache.");
+call mtr.add_suppression("\\[ERROR\\] .* Operating system error number 2 in a file operation.");
+call mtr.add_suppression("\\[ERROR\\] .* The error means the system cannot find the path specified.");
+call mtr.add_suppression("\\[ERROR\\] .* Could not find a valid tablespace file for");
+call mtr.add_suppression("\\[ERROR\\] .* If you are installing InnoDB, remember that you must create directories yourself, InnoDB does not create them.");
+call mtr.add_suppression("\\[ERROR\\] .* Tablespace [0-9]+, name 'test.*t1', unable to open file '.*test.*t1.ibd' - Data structure corruption");
+call mtr.add_suppression("\\[ERROR\\] .* Encryption information in datafile: .* can't be decrypted, please confirm the keyfile is match and keyring plugin is loaded");
+call mtr.add_suppression("\\[ERROR\\] .* ibd can't be decrypted, please confirm the keyfile is match and keyring plugin is loaded.");
+call mtr.add_suppression("\\[ERROR\\] .* Check keyring plugin fail, please check the keyring plugin is loaded.");
+--enable_query_log
+
+let $restart_parameters = restart: --early-plugin-load="keyring_file=$KEYRING_PLUGIN" --loose-keyring_file_data=$MYSQL_TMP_DIR/mysecret_keyring_log1 --general-log --log-output=FILE --general_log_file=$MYSQL_TMP_DIR/keyring_query_log $KEYRING_PLUGIN_OPT ;
+--replace_result $MYSQL_TMP_DIR MYSQL_TMP_DIR $KEYRING_PLUGIN_OPT --plugin-dir=KEYRING_PLUGIN_PATH
+--replace_regex /\.dll/.so/
+--source include/restart_mysqld.inc
+
+SHOW VARIABLES LIKE  "innodb_encryption_algorithm"; 
+SET GLOBAL innodb_encryption_algorithm = 'sm4';
+SHOW VARIABLES LIKE  "innodb_encryption_algorithm";
+
+
+#test create sm4 encrypt table
+CREATE TABLE t (id INT PRIMARY KEY, name VARCHAR(20)) ENCRYPTION='y';
+SELECT name,encryption,encryption_algorithm FROM information_schema.innodb_tablespaces WHERE name LIKE '%/t';
+
+#test encrypt and decrypt data
+INSERT INTO t VALUES(1, 'kongzhi');
+SELECT * FROM t;
+# restart
+let $restart_parameters = restart: --early-plugin-load="keyring_file=$KEYRING_PLUGIN" --loose-keyring_file_data=$MYSQL_TMP_DIR/mysecret_keyring_log1 --general-log --log-output=FILE --general_log_file=$MYSQL_TMP_DIR/keyring_query_log $KEYRING_PLUGIN_OPT ;
+--replace_result $MYSQL_TMP_DIR MYSQL_TMP_DIR $KEYRING_PLUGIN_OPT --plugin-dir=KEYRING_PLUGIN_PATH
+--replace_regex /\.dll/.so/
+--source include/restart_mysqld.inc
+
+--enable_reconnect
+--source include/wait_until_connected_again.inc
+--disable_reconnect
+SELECT * FROM t;
+
+#test rotate master key
+ALTER INSTANCE ROTATE INNODB MASTER KEY;
+INSERT INTO t VALUES(2, 'kongzhi2');
+# restart
+let $restart_parameters = restart: --early-plugin-load="keyring_file=$KEYRING_PLUGIN" --loose-keyring_file_data=$MYSQL_TMP_DIR/mysecret_keyring_log1 --general-log --log-output=FILE --general_log_file=$MYSQL_TMP_DIR/keyring_query_log $KEYRING_PLUGIN_OPT ;
+--replace_result $MYSQL_TMP_DIR MYSQL_TMP_DIR $KEYRING_PLUGIN_OPT --plugin-dir=KEYRING_PLUGIN_PATH
+--replace_regex /\.dll/.so/
+--source include/restart_mysqld.inc
+
+#--source include/restart_mysqld.inc
+--enable_reconnect
+--source include/wait_until_connected_again.inc
+--disable_reconnect
+SELECT * FROM t;
+
+#test export and import
+let $MYSQL_DATADIR= `SELECT @@datadir`;
+set global innodb_encryption_algorithm='sm4';
+CREATE TABLE t1(id INT PRIMARY KEY, name VARCHAR(20)) ENCRYPTION='y';
+ALTER TABLE t1 DISCARD TABLESPACE;
+FLUSH TABLES t FOR EXPORT;
+--exec cp $MYSQL_DATADIR/test/t.cfg $MYSQL_DATADIR/test/t1.cfg
+--exec cp $MYSQL_DATADIR/test/t.cfp $MYSQL_DATADIR/test/t1.cfp
+--exec cp $MYSQL_DATADIR/test/t.ibd $MYSQL_DATADIR/test/t1.ibd
+UNLOCK TABLES;
+ALTER TABLE t1 IMPORT TABLESPACE;
+SELECT * FROM t1;
+
+#test export and import between different encryption algorithm
+SET GLOBAL innodb_encryption_algorithm='aes';
+CREATE TABLE t2(id INT PRIMARY KEY, name VARCHAR(20)) ENCRYPTION='y';
+ALTER TABLE t2 DISCARD TABLESPACE;
+FLUSH TABLES t FOR EXPORT;
+--exec cp $MYSQL_DATADIR/test/t.cfg $MYSQL_DATADIR/test/t2.cfg
+--exec cp $MYSQL_DATADIR/test/t.cfp $MYSQL_DATADIR/test/t2.cfp
+--exec cp $MYSQL_DATADIR/test/t.ibd $MYSQL_DATADIR/test/t2.ibd
+UNLOCK TABLES;
+--error ER_TABLE_SCHEMA_MISMATCH
+ALTER TABLE t2 IMPORT TABLESPACE;
+DROP TABLE t1;
+DROP TABLE t2;
+
+#change the encryption algorithm
+DROP TABLE t;
+CREATE TABLE t(id INT PRIMARY KEY, name VARCHAR(20)) ENCRYPTION='y';
+SELECT name,encryption,encryption_algorithm FROM information_schema.innodb_tablespaces WHERE name LIKE '%/t';
+INSERT INTO t VALUES(1, 'kongzhi');
+ALTER TABLE t ENCRYPTION='n';
+SET GLOBAL innodb_encryption_algorithm='sm4';
+ALTER TABLE t ENCRYPTION='y';
+SELECT name,encryption,encryption_algorithm FROM information_schema.innodb_tablespaces WHERE name LIKE '%/t';
+
+let $restart_parameters = restart: --early-plugin-load="keyring_file=$KEYRING_PLUGIN" --loose-keyring_file_data=$MYSQL_TMP_DIR/mysecret_keyring_log1 --general-log --log-output=FILE --general_log_file=$MYSQL_TMP_DIR/keyring_query_log $KEYRING_PLUGIN_OPT ;
+--replace_result $MYSQL_TMP_DIR MYSQL_TMP_DIR $KEYRING_PLUGIN_OPT --plugin-dir=KEYRING_PLUGIN_PATH
+--replace_regex /\.dll/.so/
+--source include/restart_mysqld.inc
+
+#--source include/restart_mysqld.inc
+--enable_reconnect
+--source include/wait_until_connected_again.inc
+--disable_reconnect
+SELECT * FROM t;
+
+
+#redo and recover
+SET GLOBAL innodb_redo_log_encrypt=ON;
+DELETE FROM t;
+BEGIN;
+INSERT INTO t VALUES(0, "aaaaa");
+INSERT INTO t VALUES(1, "bbbbb");
+INSERT INTO t VALUES(2, "ccccc");
+INSERT INTO t VALUES(3, "ddddd");
+INSERT INTO t VALUES(4, "eeeee");
+INSERT INTO t VALUES(5, "fffff");
+INSERT INTO t VALUES(6, "ggggg");
+INSERT INTO t VALUES(7, "hhhhh");
+INSERT INTO t VALUES(8, "iiiii");
+INSERT INTO t VALUES(9, "jjjjj");
+
+# Restart to confirm the encryption info can be retrieved properly.
+--source include/kill_mysqld.inc
+--exec echo "restart:--early-plugin-load="keyring_file=$KEYRING_PLUGIN" --loose-keyring_file_data=$MYSQL_TMP_DIR/mysecret_keyring_log1 $KEYRING_PLUGIN_OPT" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--enable_reconnect
+--source include/wait_until_connected_again.inc
+--disable_reconnect
+
+SELECT name,encryption,encryption_algorithm FROM information_schema.innodb_tablespaces WHERE name LIKE '%/t';
+SELECT * FROM t ORDER BY name LIMIT 10; 
+DELETE FROM t;
+
+#redo undo encrypt and recover
+SET GLOBAL innodb_redo_log_encrypt=ON;
+START TRANSACTION;
+INSERT INTO t VALUES(0, "aaaaa");
+INSERT INTO t VALUES(1, "bbbbb");
+SET GLOBAL innodb_undo_log_encrypt = OFF;
+INSERT INTO t VALUES(2, "ccccc");
+INSERT INTO t VALUES(3, "ddddd");
+SET GLOBAL innodb_undo_log_encrypt = ON; 
+INSERT INTO t VALUES(4, "eeeee");
+INSERT INTO t VALUES(5, "fffff");
+COMMIT;
+START TRANSACTION;
+INSERT INTO t VALUES(6, "ggggg");
+SET GLOBAL innodb_undo_log_encrypt = OFF;
+INSERT INTO t VALUES(7, "hhhhh");
+INSERT INTO t VALUES(8, "iiiii");
+SET GLOBAL innodb_undo_log_encrypt = ON; 
+INSERT INTO t VALUES(9, "jjjjj");
+
+SHOW VARIABLES LIKE "%innodb_redo_log_encrypt%";
+SHOW VARIABLES LIKE "%innodb_undo_log_encrypt%";
+
+--echo # Kill and restart to confirm the encryption info can be retrieved properly.
+--source include/kill_mysqld.inc
+--exec echo "restart:--early-plugin-load="keyring_file=$KEYRING_PLUGIN" --loose-keyring_file_data=$MYSQL_TMP_DIR/mysecret_keyring_log1 $KEYRING_PLUGIN_OPT" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+
+--enable_reconnect
+--source include/wait_until_connected_again.inc
+--disable_reconnect
+
+SELECT * FROM t ORDER BY name LIMIT 10;
+
+#clean up
+SET GLOBAL innodb_encryption_algorithm='aes';
+SET GLOBAL innodb_redo_log_encrypt=OFF;
+SET GLOBAL innodb_undo_log_encrypt=OFF;
+DROP TABLE t;

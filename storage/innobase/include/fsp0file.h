@@ -92,7 +92,8 @@ class Datafile {
         m_encryption_key(),
         m_encryption_iv(),
         m_encryption_op_in_progress(Encryption::Progress::NONE),
-        m_encryption_master_key_id(0) {
+        m_encryption_master_key_id(0),
+        m_encryption_type(Encryption::NONE) {
     m_handle.m_file = OS_FILE_CLOSED;
   }
 
@@ -115,7 +116,8 @@ class Datafile {
         m_encryption_key(),
         m_encryption_iv(),
         m_encryption_op_in_progress(Encryption::Progress::NONE),
-        m_encryption_master_key_id(0) {
+        m_encryption_master_key_id(0),
+        m_encryption_type(Encryption::NONE)  {
     ut_ad(m_name != nullptr);
     m_handle.m_file = OS_FILE_CLOSED;
     /* No op */
@@ -138,7 +140,8 @@ class Datafile {
         m_encryption_key(),
         m_encryption_iv(),
         m_encryption_op_in_progress(Encryption::Progress::NONE),
-        m_encryption_master_key_id(0) {
+        m_encryption_master_key_id(0),
+        m_encryption_type(Encryption::NONE) {
     m_name = mem_strdup(file.m_name);
     ut_ad(m_name != nullptr);
 
@@ -194,6 +197,7 @@ class Datafile {
     m_encryption_iv = nullptr;
     m_encryption_op_in_progress = Encryption::Progress::NONE;
     m_encryption_master_key_id = 0;
+    m_encryption_type = Encryption::NONE;
 
     m_atomic_write = file.m_atomic_write;
 
@@ -511,5 +515,8 @@ class Datafile {
 
   /** Master key id read from first page */
   uint32_t m_encryption_master_key_id;
+
+  /** Encryption type */
+  Encryption::Type m_encryption_type;
 };
 #endif /* fsp0file_h */

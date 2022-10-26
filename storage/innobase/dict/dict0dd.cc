@@ -2386,7 +2386,7 @@ bool decrypt_column_key(const char *value, uint32 len, byte *dst) {
   uint32_t master_key_id;
   byte encrypted_key[Encryption::KEY_LEN];
 
-  Encryption::get_master_key(&master_key_id, &master_key);
+  Encryption::get_master_key(&master_key_id, &master_key, nullptr);
 
   if (master_key == nullptr) {
   /* without master_key, can only read encrypted data */
@@ -7255,7 +7255,8 @@ bool dd_tablespace_update_cache(THD *thd) {
 
       /* Exclude Encryption flag as (un)encryption operation might be
       rolling forward in background thread. */
-      ut_ad(!((space->flags ^ flags) & ~(FSP_FLAGS_MASK_ENCRYPTION)));
+      ut_ad(!((space->flags ^ flags) & ~(FSP_FLAGS_MASK_ENCRYPTION |
+                                           FSP_FLAGS_MASK_SM4_ALGORITHM)));
 
       fil_space_update_name(space, space_name);
 
@@ -8035,6 +8036,33 @@ bool is_modified(Field *old_field, Field *new_field) {
   return false;
 }
 
-/* Changes from txsql end. */
+
+Encryption::Type dd_get_encrypted_tablespace_algorithm(const dict_table_t *table) {
+  bool encrypt = false;
+  bool sm4_algorithm = false;
+  fil_space_t *space = fil_space_get(table->space);
+  if (space != NULL) {
+    encrypt = FSP_FLAGS_GET_ENCRYPTION(space->flags);
+    sm4_algorithm = FSP_FLAGS_GET_SM4_ALGORITHM(space->flags);
+  } else {
+    THD *thd = current_thd;
+    dd::cache::Dictionary_client *client = dd::get_dd_client(thd);
+    dd::cache::Dictionary_client::Auto_releaser releaser(client);
+    dd::Tablespace *dd_space = nullptr;
+
+    if (!client->acquire_uncached_uncommitted<dd::Tablespace>(
+            table->dd_space_id, &dd_space) &&
+        dd_space != nullptr) {
+      uint32 flags;
+      dd_space->se_private_data().get(dd_space_key_strings[DD_SPACE_FLAGS],
+                                      &flags);
+
+      encrypt = FSP_FLAGS_GET_ENCRYPTION(flags);
+      sm4_algorithm = FSP_FLAGS_GET_SM4_ALGORITHM(flags);
+    }
+  }
+
+  return encrypt ? (!sm4_algorithm ? Encryption::AES : Encryption::SM4) : Encryption::NONE;
+}
 
 #endif /* !UNIV_HOTBACKUP */

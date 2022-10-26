@@ -322,6 +322,7 @@ inline bool fsp_flags_is_valid(uint32_t flags) {
   bool is_shared = FSP_FLAGS_GET_SHARED(flags);
   bool is_temp = FSP_FLAGS_GET_TEMPORARY(flags);
   bool is_encryption = FSP_FLAGS_GET_ENCRYPTION(flags);
+  bool sm4_algorithm = FSP_FLAGS_GET_SM4_ALGORITHM(flags);
 
   ulint unused = FSP_FLAGS_GET_UNUSED(flags);
 
@@ -373,8 +374,13 @@ inline bool fsp_flags_is_valid(uint32_t flags) {
     return (false);
   }
 
+  /* Only encryption table has sm4 algorithm */
+  if (sm4_algorithm && !is_encryption) {
+    return false;
+  }
+
   static_assert(
-      FSP_FLAGS_POS_UNUSED == 15,
+      FSP_FLAGS_POS_UNUSED == 16,
       "You have added a new FSP_FLAG without adding a validation check.");
 
   return (true);
@@ -426,4 +432,36 @@ static inline uint32_t fsp_header_get_space_version(const page_t *page) {
   version = mach_read_from_4(page + FIL_PAGE_SPACE_VERSION);
 
   return (version);
+}
+
+/** Set ENCRYPTION bit in tablespace flags */
+inline void fsp_flags_set_encryption(uint32_t &flags, uint32_t alg) {
+  flags |= FSP_FLAGS_MASK_ENCRYPTION;
+  if (static_cast<Encryption::Type>(alg) == Encryption::SM4) {
+    flags |= FSP_FLAGS_MASK_SM4_ALGORITHM;
+  }
+}
+
+/** Set ENCRYPTION bit in tablespace flags */
+inline void fsp_flags_unset_encryption(uint32_t &flags) {
+  flags &= ~(FSP_FLAGS_MASK_ENCRYPTION | FSP_FLAGS_MASK_SM4_ALGORITHM);
+}
+
+inline void fsp_flags_init_encryption_algorithm_from_flags(uint32_t &flags, uint32_t from_flags) {
+  if (FSP_FLAGS_GET_SM4_ALGORITHM(from_flags)) {
+    flags |= FSP_FLAGS_MASK_SM4_ALGORITHM;
+  }
+}
+
+/** Old version server doesn't have the encryption algorithm in tablespace flags */
+inline Encryption::Type fsp_flags_get_encryption_algorithm(uint32_t flags) {
+  if (FSP_FLAGS_GET_ENCRYPTION(flags)) {
+    if (!FSP_FLAGS_GET_SM4_ALGORITHM(flags)) {
+      return Encryption::AES;
+    } else {
+      return Encryption::SM4;
+    }
+  } else {
+    return Encryption::NONE;
+  }
 }
