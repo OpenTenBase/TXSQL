@@ -817,7 +817,7 @@ int Clone_Snapshot::add_file(const char *name, uint64_t size_bytes,
 
   } else if (space->encryption_op_in_progress ==
              Encryption::Progress::ENCRYPTION) {
-    fsp_flags_set_encryption(file_meta->m_fsp_flags);
+    fsp_flags_set_encryption(file_meta->m_fsp_flags, file_meta->m_encryption_metadata.m_type);
   }
 
   /* If file node supports punch hole then check if we need it. */

@@ -33,10 +33,11 @@ constexpr const char *AES = "AES";
 constexpr const char *RSA = "RSA";
 constexpr const char *DSA = "DSA";
 constexpr const char *SECRET = "SECRET";
+constexpr const char *SM4 = "SM4";
 
 enum class Operation_type { fetch = 0, store, remove, generate };
 
-enum class Key_type { aes = 0, rsa, dsa, secret, unknown };
+enum class Key_type { aes = 0, rsa, dsa, secret, sm4, unknown };
 
 struct IKey : public Keyring_alloc {
   // key_signature:= key_id || user_id

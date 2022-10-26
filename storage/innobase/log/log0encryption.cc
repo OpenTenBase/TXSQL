@@ -107,7 +107,7 @@ dberr_t log_encryption_read(log_t &log, const Log_file &file) {
     return DB_ERROR;
   }
 
-  if (Encryption::is_encrypted_with_v3(log_block_buf +
+  if (Encryption::is_encrypted_with_v3v8(log_block_buf +
                                        LOG_HEADER_ENCRYPTION_INFO_OFFSET)) {
     /* Make sure the keyring is loaded. */
     if (!Encryption::check_keyring()) {
@@ -118,9 +118,11 @@ dberr_t log_encryption_read(log_t &log, const Log_file &file) {
 
     Encryption_metadata encryption_metadata;
 
+    Encryption::Type tablespace_algorithm = Encryption::AES;
     if (Encryption::decode_encryption_info(
             encryption_metadata,
-            log_block_buf + LOG_HEADER_ENCRYPTION_INFO_OFFSET, true)) {
+            log_block_buf + LOG_HEADER_ENCRYPTION_INFO_OFFSET, true, 
+            tablespace_algorithm)) {
       log_files_update_encryption(log, encryption_metadata);
 
       ib::info(ER_IB_MSG_1239) << "Read redo log encryption"
@@ -213,8 +215,8 @@ dberr_t log_encryption_generate_metadata(log_t &log) {
   IB_mutex_guard files_latch{&(log.m_files_mutex), UT_LOCATION_HERE};
 
   Encryption_metadata encryption_metadata;
-
-  Encryption::set_or_generate(Encryption::AES, nullptr, nullptr,
+  Encryption::Type algorithm = static_cast<Encryption::Type>(srv_encryption_algorithm);
+  Encryption::set_or_generate(algorithm, nullptr, nullptr,
                               encryption_metadata);
 
   log_files_update_encryption(log, encryption_metadata);

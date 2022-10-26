@@ -206,7 +206,8 @@ bool Key::is_key_valid() { return is_key_id_valid() || is_key_type_valid(); }
 bool Key::is_key_length_valid() {
   bool valid = false;
   switch (key_type_enum) {
-    case Key_type::aes: {
+    case Key_type::aes:
+    case Key_type::sm4: {
       valid = (key_len == 16 || key_len == 24 || key_len == 32);
       break;
     }
@@ -255,6 +256,8 @@ void Key::set_key_type_enum(const std::string *key_type) {
     key_type_enum = Key_type::dsa;
   else if (*key_type == keyring::SECRET)
     key_type_enum = Key_type::secret;
+  else if (*key_type == keyring::SM4)
+    key_type_enum = Key_type::sm4;
   else
     key_type_enum = Key_type::unknown;
 }

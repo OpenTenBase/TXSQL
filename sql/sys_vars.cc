@@ -7452,6 +7452,37 @@ static Sys_var_bool Sys_binlog_rotate_encryption_master_key_at_startup(
         rpl_encryption.get_master_key_rotation_at_startup_var()),
     CMD_LINE(OPT_ARG), DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG);
 
+static bool check_binlog_encryption_algorithm(sys_var *, THD *thd, set_var *var) {
+  DBUG_TRACE;
+  if (!thd->security_context()->check_access(SUPER_ACL) &&
+      !(thd->security_context()
+            ->has_global_grant(STRING_WITH_LEN("BINLOG_ENCRYPTION_ADMIN"))
+            .first)) {
+    my_error(ER_SPECIFIC_ACCESS_DENIED_ERROR, MYF(0),
+             "SUPER or BINLOG_ENCRYPTION_ADMIN");
+    return true;
+  }
+  /* No-op if trying to set to current value */
+  Rpl_encryption::Algorithm new_alg =
+    static_cast<Rpl_encryption::Algorithm>(var->save_result.ulonglong_value);
+  /* Set none is also invalid */
+  if (Rpl_encryption::Algorithm::NONE == new_alg) return true;
+  if (new_alg == rpl_encryption.get_algorithm()) return false;
+  /* Set the option new value */
+  rpl_encryption.set_algorithm(new_alg);
+
+  return false;
+}
+
+static const char *binlog_encryption_algorithm_names[] = {"NONE", "AES", "SM4", 0};
+static Sys_var_enum Sys_binlog_encryption_algorithm(
+    "binlog_encryption_algorithm",
+    "Algorithm used to encrypt the binlog. ",
+    GLOBAL_VAR(rpl_encryption.get_algorithm_var()), NO_CMD_LINE,
+    binlog_encryption_algorithm_names,
+    DEFAULT(static_cast<ulong>(Rpl_encryption::Algorithm::AES)),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(check_binlog_encryption_algorithm));
+
 static Sys_var_uint Sys_original_server_version(
     "original_server_version",
     "The version of the server where the transaction was originally executed",

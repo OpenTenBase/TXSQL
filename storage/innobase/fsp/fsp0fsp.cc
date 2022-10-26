@@ -567,7 +567,8 @@ exist in the space or if the offset exceeds free limit */
 #ifdef UNIV_DEBUG
   /* Exclude Encryption flag as it might have been changed In Memory flags but
   not on disk. */
-  ut_ad(!((flags ^ fspace->flags) & ~(FSP_FLAGS_MASK_ENCRYPTION)));
+  ut_ad(!((flags ^ fspace->flags) &
+      ~(FSP_FLAGS_MASK_ENCRYPTION | FSP_FLAGS_MASK_SM4_ALGORITHM)));
 #endif /* UNIV_DEBUG */
 
   if ((offset >= size) || (offset >= limit)) {
@@ -928,7 +929,11 @@ bool fsp_header_write_encryption(space_id_t space_id, uint32_t space_flags,
     master_key_id = mach_read_from_4(page + offset + Encryption::MAGIC_SIZE);
     if (srv_is_being_started &&
         master_key_id == Encryption::get_master_key_id()) {
-      ut_ad(Encryption::is_encrypted(page + offset));
+      ut_ad(memcmp(page + offset, Encryption::KEY_MAGIC_V1,
+                   Encryption::MAGIC_SIZE) == 0 ||
+            memcmp(page + offset, Encryption::KEY_MAGIC_V2,
+                   Encryption::MAGIC_SIZE) == 0 ||
+            Encryption::encryption_version_is_new(page + offset));
       return (true);
     }
   }
@@ -952,6 +957,7 @@ bool fsp_header_rotate_encryption(fil_space_t *space, byte *encrypt_info,
   DBUG_EXECUTE_IF("fsp_header_rotate_encryption_failure", return (false););
 
   /* Fill encryption info. */
+  ut_ad(Encryption::type_is_valid(space->m_encryption_metadata.m_type));
   if (!Encryption::fill_encryption_info(space->m_encryption_metadata, true,
                                         encrypt_info)) {
     return (false);
@@ -1066,6 +1072,7 @@ bool fsp_header_init(space_id_t space_id, page_no_t size, mtr_t *mtr) {
     test environment where recipient uses same keyring as donor. */
     DBUG_EXECUTE_IF("log_redo_with_invalid_master_key",
                     master_key_encrypt = false;);
+    ut_ad(Encryption::type_is_valid(space->m_encryption_metadata.m_type));
     if (!Encryption::fill_encryption_info(space->m_encryption_metadata,
                                           master_key_encrypt,
                                           encryption_info)) {
@@ -1134,7 +1141,7 @@ page_size_t fsp_header_get_page_size(const page_t *page) {
 @param[in]      page            first page of a tablespace
 @return true if success */
 bool fsp_header_get_encryption_key(uint32_t fsp_flags, Encryption_key &e_key,
-                                   page_t *page) {
+                                   page_t *page, Encryption::Type &algorithm) {
   ulint offset;
   const page_size_t page_size(fsp_flags);
 
@@ -1144,7 +1151,7 @@ bool fsp_header_get_encryption_key(uint32_t fsp_flags, Encryption_key &e_key,
   }
 
   return (Encryption::decode_encryption_info(page_get_space_id(page), e_key,
-                                             page + offset, true));
+                                             page + offset, true, algorithm));
 }
 
 #ifndef UNIV_HOTBACKUP
@@ -1462,7 +1469,8 @@ static void fsp_fill_free_list(bool init_space, fil_space_t *space,
 
   /* Exclude Encryption flag as it might have been changed In Memory flags but
   not on disk. */
-  ut_ad(!((flags ^ space->flags) & ~(FSP_FLAGS_MASK_ENCRYPTION)));
+  ut_ad(!((flags ^ space->flags) & ~(FSP_FLAGS_MASK_ENCRYPTION |
+                                     FSP_FLAGS_MASK_SM4_ALGORITHM)));
 
   const page_size_t page_size(flags);
 
@@ -4191,7 +4199,8 @@ static dberr_t encrypt_begin_persist(fil_space_t *space) {
 
   /* Fill key, iv and prepare encryption_info to be written in page 0 */
   Encryption_metadata encryption_metadata;
-  Encryption::set_or_generate(Encryption::AES, nullptr, nullptr,
+  Encryption::Type algorithm = static_cast<Encryption::Type>(srv_encryption_algorithm);
+  Encryption::set_or_generate(algorithm, nullptr, nullptr,
                               encryption_metadata);
 
   /* Prepare encrypted encryption information to be written on page 0. */
@@ -4240,9 +4249,10 @@ static dberr_t encrypt_begin_persist(fil_space_t *space) {
   the changes on disk and then modify in memory flags. */
   mtr_t mtr;
   mtr_start(&mtr);
-
+  uint32_t space_flags = space->flags;
+  fsp_flags_set_encryption(space_flags, algorithm);
   if (!fsp_header_write_encryption(space->id,
-                                   space->flags | FSP_FLAGS_MASK_ENCRYPTION,
+                                   space_flags,
                                    encryption_info, true, false, &mtr)) {
     err = DB_ERROR;
     ut_d(ut_error);
@@ -4281,7 +4291,7 @@ static void encrypt_begin_memory(fil_space_t *space) {
   space->encryption_op_in_progress = Encryption::Progress::ENCRYPTION;
 
   /* Update In-mem Encryption flag for tablespace */
-  fsp_flags_set_encryption(space->flags);
+  fsp_flags_set_encryption(space->flags, space->m_encryption_metadata.m_type);
 }
 
 /** Force all pages of a space to be loaded and flushed back to disk
@@ -4685,7 +4695,6 @@ static void validate_tablespace_encryption(fil_space_t *space) {
     ut_ad(memcmp(space->m_encryption_metadata.m_iv, buf, Encryption::KEY_LEN) !=
           0);
     ut_ad(space->m_encryption_metadata.m_key_len != 0);
-    ut_ad(space->m_encryption_metadata.m_type == Encryption::AES);
   } else {
     ut_ad(memcmp(space->m_encryption_metadata.m_key, buf,
                  Encryption::KEY_LEN) == 0);
@@ -4717,7 +4726,7 @@ static bool load_encryption_from_header(fil_space_t *space) {
   page_t *header_page = buf_block_get_frame(block);
 
   Encryption_key e_key{encryption_key, encryption_iv};
-  bool ret = fsp_header_get_encryption_key(space->flags, e_key, header_page);
+  bool ret = fsp_header_get_encryption_key(space->flags, e_key, header_page, space->m_encryption_metadata.m_type);
   mtr_commit(&mtr);
 
   if (!ret) {
@@ -4730,7 +4739,7 @@ static bool load_encryption_from_header(fil_space_t *space) {
     }
   } else {
     dberr_t err [[maybe_unused]] = fil_set_encryption(
-        space->id, Encryption::AES, encryption_key, encryption_iv);
+        space->id, space->m_encryption_metadata.m_type, encryption_key, encryption_iv);
     ut_ad(err == DB_SUCCESS);
     if (err != DB_SUCCESS) {
       return true;

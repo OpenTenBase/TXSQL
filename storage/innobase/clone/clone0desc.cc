@@ -631,6 +631,8 @@ static const uint CLONE_DESC_FILE_FLAG_RENAMED = 4;
 static const uint CLONE_DESC_FILE_FLAG_DELETED = 5;
 /** Clone File Flag: File metadata has encryption key. */
 static const uint CLONE_DESC_FILE_HAS_KEY = 6;
+/** Clone File Flag: Encryption type SM4 */
+static const uint CLONE_DESC_FILE_FLAG_SM4 = 4;
 
 /** File Metadata: Tablespace ID in 4 bytes */
 static const uint CLONE_FILE_SPACE_ID_OFFSET = CLONE_FILE_FLAGS_OFFSET + 2;
@@ -701,6 +703,9 @@ void Clone_Desc_File_MetaData::serialize(byte *&desc_file, uint &len,
   /* Set file encryption type */
   if (m_file_meta.m_encryption_metadata.m_type == Encryption::AES) {
     DESC_SET_FLAG(file_flags, CLONE_DESC_FILE_FLAG_AES);
+  }
+  if (m_file_meta.m_encryption_metadata.m_type == Encryption::SM4) {
+    DESC_SET_FLAG(file_flags, CLONE_DESC_FILE_FLAG_SM4);
   }
   /* Set file renamed attribute */
   if (m_file_meta.m_renamed) {
@@ -792,6 +797,9 @@ bool Clone_Desc_File_MetaData::deserialize(const byte *desc_file,
   if (DESC_CHECK_FLAG(file_flags, CLONE_DESC_FILE_FLAG_AES)) {
     m_file_meta.m_encryption_metadata.m_type = Encryption::AES;
   }
+  if (DESC_CHECK_FLAG(file_flags, CLONE_DESC_FILE_FLAG_SM4)) {
+    m_file_meta.m_encryption_metadata.m_type = Encryption::SM4;
+  } 
 
   /* Get file renamed attribute */
   m_file_meta.m_renamed =

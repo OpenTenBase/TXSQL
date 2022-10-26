@@ -7016,6 +7016,12 @@ static ST_FIELD_INFO innodb_tablespaces_fields_info[] = {
      STRUCT_FLD(field_flags, MY_I_S_MAYBE_NULL), STRUCT_FLD(old_name, ""),
      STRUCT_FLD(open_method, 0)},
 
+#define INNODB_TABLESPACES_ENCRYPTION_ALGORITHM 15
+    {STRUCT_FLD(field_name, "ENCRYPTION_ALGORITHM"), STRUCT_FLD(field_length, 3),
+     STRUCT_FLD(field_type, MYSQL_TYPE_STRING), STRUCT_FLD(value, 0),
+     STRUCT_FLD(field_flags, MY_I_S_MAYBE_NULL), STRUCT_FLD(old_name, ""),
+     STRUCT_FLD(open_method, 0)},
+
     END_OF_ST_FIELD_INFO
 
 };
@@ -7032,6 +7038,7 @@ collected by scanning INNODB_TABLESPACESS table.
 @param[in]      autoextend_size autoextend_size attribute value
 @param[in]      state           tablespace state
 @param[in,out]  table_to_fill   fill this table
+@param[in]      encrypt_algorithm
 @return 0 on success */
 static int i_s_dict_fill_innodb_tablespaces(
     THD *thd, space_id_t space_id, const char *name, uint32_t flags,
@@ -7090,6 +7097,24 @@ static int i_s_dict_fill_innodb_tablespaces(
                         is_encrypted ? "Y" : "N"));
 
   OK(fields[INNODB_TABLESPACES_AUTOEXTEND_SIZE]->store(autoextend_size, true));
+
+  if (is_encrypted) {
+    /* undo may not update the encryption info in dd here */
+    if (fsp_is_undo_tablespace(space_id)) {
+      fil_space_t *space = fil_space_get(space_id);
+      if (space != nullptr) {
+        OK(field_store_string(fields[INNODB_TABLESPACES_ENCRYPTION_ALGORITHM],
+          Encryption::algorithm_to_string(space->m_encryption_metadata.m_type)));
+      } else {
+        OK(field_store_string(fields[INNODB_TABLESPACES_ENCRYPTION_ALGORITHM], "Unkown"));
+      }
+    } else {
+      OK(field_store_string(fields[INNODB_TABLESPACES_ENCRYPTION_ALGORITHM],
+        Encryption::algorithm_to_string(fsp_flags_get_encryption_algorithm(flags))));
+    }
+  } else {
+    OK(field_store_string(fields[INNODB_TABLESPACES_ENCRYPTION_ALGORITHM], "No"));
+  }
 
   OK(field_store_string(fields[INNODB_TABLESPACES_ROW_FORMAT], row_format));
 

@@ -339,8 +339,11 @@ static dberr_t srv_undo_tablespace_enable_encryption(space_id_t space_id) {
   will be generated in fsp_header_init later. */
   fil_space_t *space = fil_space_get(space_id);
   if (!FSP_FLAGS_GET_ENCRYPTION(space->flags)) {
-    fsp_flags_set_encryption(space->flags);
-    err = fil_set_encryption(space_id, Encryption::AES, nullptr, nullptr);
+    /* first time undo enable encryption */
+    uint32_t algorithm = srv_encryption_algorithm;
+    fsp_flags_set_encryption(space->flags, algorithm);
+    err = fil_set_encryption(space_id,
+            static_cast<Encryption::Type>(algorithm), nullptr, nullptr);
     if (err != DB_SUCCESS) {
       ib::error(ER_IB_MSG_1075, space->name);
       return (err);
@@ -394,9 +397,10 @@ static dberr_t srv_undo_tablespace_read_encryption(pfs_os_file_t fh,
   byte key[Encryption::KEY_LEN];
   byte iv[Encryption::KEY_LEN];
   Encryption_key e_key{key, iv};
-  if (fsp_header_get_encryption_key(space->flags, e_key, first_page)) {
-    fsp_flags_set_encryption(space->flags);
-    err = fil_set_encryption(space->id, Encryption::AES, key, iv);
+  Encryption::Type algorithm = Encryption::AES;
+  if (fsp_header_get_encryption_key(space->flags, e_key, first_page, algorithm)) {
+    fsp_flags_set_encryption(space->flags, static_cast<uint32_t>(algorithm));
+    err = fil_set_encryption(space->id, algorithm, key, iv);
     ut_ad(err == DB_SUCCESS);
   } else {
     ut::aligned_free(first_page);
