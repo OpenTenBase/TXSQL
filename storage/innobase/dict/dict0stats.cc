@@ -623,6 +623,94 @@ static void dict_stats_snapshot_free(
   dict_stats_table_clone_free(t);
 }
 
+/** This function creates a scratch dict_index_t object and initializes the
+ following index members:
+ dict_index_t::type (copied)
+ dict_index_t::cached (copied)
+ dict_index_t::n_uniq (copied)
+ dict_index_t::stat_n_diff_key_vals[] (only allocated, left uninitialized)
+ dict_index_t::stat_n_sample_sizes[] (only allocated, left uninitialized)
+ dict_index_t::stat_n_non_null_key_vals[] (only allocated, left uninitialized)
+ dict_index_t::magic_n
+
+ The scratch index allows the follow operations:
+ dict_stats_create_scratch_index()
+ dict_stats_empty_index()
+ dict_stats_index_set_n_diff()
+ dict_stats_copy_index()
+ dict_stats_free_scratch_index()
+ */
+static dict_index_t *dict_stats_create_scratch_index(
+    const dict_index_t *index) /*!< in: template index */
+{
+  size_t heap_size;
+
+  ulint n_uniq = dict_index_get_n_unique(index);
+
+  heap_size = 0;
+  heap_size += sizeof(dict_index_t);
+  heap_size += n_uniq * sizeof(index->stat_n_diff_key_vals[0]);
+  heap_size += n_uniq * sizeof(index->stat_n_sample_sizes[0]);
+  heap_size += n_uniq * sizeof(index->stat_n_non_null_key_vals[0]);
+
+  mem_heap_t *heap;
+
+  heap = mem_heap_create(heap_size, UT_LOCATION_HERE);
+
+  dict_index_t *idx;
+  idx = (dict_index_t *)mem_heap_alloc(heap, sizeof(*idx));
+  idx->heap = heap;
+  idx->type = index->type;
+  idx->cached = index->cached;
+  idx->n_uniq = n_uniq;
+
+  idx->stat_n_diff_key_vals = (uint64_t *)mem_heap_alloc(
+      heap, idx->n_uniq * sizeof(idx->stat_n_diff_key_vals[0]));
+
+  idx->stat_n_sample_sizes = (uint64_t *)mem_heap_alloc(
+      heap, idx->n_uniq * sizeof(idx->stat_n_sample_sizes[0]));
+
+  idx->stat_n_non_null_key_vals = (uint64_t *)mem_heap_alloc(
+      heap, idx->n_uniq * sizeof(idx->stat_n_non_null_key_vals[0]));
+  ut_d(idx->magic_n = DICT_INDEX_MAGIC_N);
+
+  return idx;
+}
+
+/** Free the resources occupied by an object returned by
+ dict_stats_create_scratch_index(). */
+static void dict_stats_free_scratch_index(
+    dict_index_t *idx) /*!< in: scratchpad index object to free */
+{
+  ut_d(idx->magic_n = DICT_INDEX_MAGIC_N);
+  mem_heap_free(idx->heap);
+}
+
+/** Copy index statistics from one to another. */
+static void dict_stats_copy_index(
+    dict_index_t *dst_idx, /*!< in/out: destination index */
+    const dict_index_t *src_idx) /*!< in: source index */
+{
+  ulint n_copy_el;
+
+  n_copy_el = dst_idx->n_uniq;
+  ut_a(dst_idx->n_uniq == src_idx->n_uniq);
+
+  memmove(dst_idx->stat_n_diff_key_vals, src_idx->stat_n_diff_key_vals,
+          n_copy_el * sizeof(dst_idx->stat_n_diff_key_vals[0]));
+
+  memmove(dst_idx->stat_n_sample_sizes, src_idx->stat_n_sample_sizes,
+          n_copy_el * sizeof(dst_idx->stat_n_sample_sizes[0]));
+
+  memmove(dst_idx->stat_n_non_null_key_vals,
+          src_idx->stat_n_non_null_key_vals,
+          n_copy_el * sizeof(dst_idx->stat_n_non_null_key_vals[0]));
+
+  dst_idx->stat_index_size = src_idx->stat_index_size;
+
+  dst_idx->stat_n_leaf_pages = src_idx->stat_n_leaf_pages;
+}
+
 /** Calculates new estimates for index statistics. This function is
  relatively quick and is used to calculate transient statistics that
  are not saved on disk. This was the only way to calculate statistics
@@ -1688,6 +1776,11 @@ next value to retry if aborted.
 @param[in,out] index            index to analyze.
 @return false if aborted */
 static bool dict_stats_analyze_index_low(uint64_t &n_sample_pages,
+                                         uint64_t &n_tickets,
+                                         bool &no_delay,
+#ifdef UNIV_DEBUG
+                                         bool &simulate_tree_change,
+#endif /* UNIV_DEBUG */
                                          dict_index_t *index) {
   ulint root_level;
   ulint level;
@@ -1700,6 +1793,7 @@ static bool dict_stats_analyze_index_low(uint64_t &n_sample_pages,
   bool succeeded = true;
   mtr_t mtr;
   ulint size;
+  dict_index_t *scratch;
   DBUG_TRACE;
 
   DBUG_PRINT("info", ("index: %s, online status: %d", index->name(),
@@ -1712,7 +1806,15 @@ static bool dict_stats_analyze_index_low(uint64_t &n_sample_pages,
 
   DEBUG_PRINTF("  %s(index=%s)\n", __func__, index->name());
 
-  dict_stats_empty_index(index);
+  /* Use a private scratch during analyze. */
+  scratch = dict_stats_create_scratch_index(index);
+  dict_stats_empty_index(scratch);
+
+#ifdef UNIV_DEBUG
+  if (!(index->type & DICT_CLUSTERED)) {
+    DEBUG_SYNC_C("dict_stats_analyze_index_empty_sk");
+  }
+#endif /* UNIV_DEBUG */
 
   mtr_start(&mtr);
 
@@ -1720,8 +1822,11 @@ static bool dict_stats_analyze_index_low(uint64_t &n_sample_pages,
 
   size = btr_get_size(index, BTR_TOTAL_SIZE, &mtr);
 
+  DBUG_EXECUTE_IF("dict_stats_simulate_undefined_size",
+                  {size = ULINT_UNDEFINED;});
+
   if (size != ULINT_UNDEFINED) {
-    index->stat_index_size = size;
+    scratch->stat_index_size = size;
     size = btr_get_size(index, BTR_N_LEAF_PAGES, &mtr);
   }
 
@@ -1730,14 +1835,19 @@ static bool dict_stats_analyze_index_low(uint64_t &n_sample_pages,
 
   switch (size) {
     case ULINT_UNDEFINED:
+      dict_stats_free_scratch_index(scratch);
       dict_stats_assert_initialized_index(index);
+      /* Consider ULINT_UNDEFINED as a strong failure, assuming it
+      to be handled by the outer workflow. For example, Online ALTER
+      rebuilds stats at the end of
+      ha_innobase::commit_inplace_alter_table_impl(). */
       return true;
     case 0:
       /* The root node of the tree is a leaf */
       size = 1;
   }
 
-  index->stat_n_leaf_pages = size;
+  scratch->stat_n_leaf_pages = size;
 
   mtr_start(&mtr);
 
@@ -1762,8 +1872,17 @@ static bool dict_stats_analyze_index_low(uint64_t &n_sample_pages,
   full scan without the SX_LOCK to a faster scan under SX_LOCK over 1e6+ pages.
   */
 
-  if (root_level == 0 || n_sample_pages * n_uniq >
-                             std::min<ulint>(index->stat_n_leaf_pages, 1e6)) {
+  DBUG_EXECUTE_IF("dict_stats_simulate_tree_change", {
+    ut_a(root_level > 0);
+  });
+
+  if (root_level == 0 ||
+      (
+#ifdef UNIV_DEBUG
+      !simulate_tree_change &&
+#endif /* UNIV_DEBUG */
+       n_sample_pages * n_uniq >
+           std::min<ulint>(scratch->stat_n_leaf_pages, 1e6))) {
     if (root_level == 0) {
       DEBUG_PRINTF(
           "  %s(): just one page,"
@@ -1780,16 +1899,18 @@ static bool dict_stats_analyze_index_low(uint64_t &n_sample_pages,
     into the index */
 
     (void)dict_stats_analyze_index_level(
-        index, 0 /* leaf level */, index->stat_n_diff_key_vals, &total_recs,
+        index, 0 /* leaf level */, scratch->stat_n_diff_key_vals, &total_recs,
         &total_pages, nullptr /* boundaries not needed */, wait_start_time,
         &mtr);
 
     for (ulint i = 0; i < n_uniq; i++) {
-      index->stat_n_sample_sizes[i] = total_pages;
+      scratch->stat_n_sample_sizes[i] = total_pages;
     }
 
     mtr_commit(&mtr);
 
+    dict_stats_copy_index(index, scratch);
+    dict_stats_free_scratch_index(scratch);
     dict_stats_assert_initialized_index(index);
     return true;
   }
@@ -1840,7 +1961,14 @@ static bool dict_stats_analyze_index_low(uint64_t &n_sample_pages,
     mtr_start(&mtr);
     mtr_sx_lock(dict_index_get_lock(index), &mtr, UT_LOCATION_HERE);
     wait_start_time = std::chrono::steady_clock::now();
-    if (root_level != btr_height_get(index, &mtr)) {
+    if (
+#ifdef UNIV_DEBUG
+        simulate_tree_change ||
+#endif /* UNIV_DEBUG */
+        root_level != btr_height_get(index, &mtr)) {
+#ifdef UNIV_DEBUG
+        simulate_tree_change = false;
+#endif /* UNIV_DEBUG */
       /* Just quit if the tree has changed beyond
       recognition here. The old stats from previous
       runs will remain in the values that we have
@@ -1991,14 +2119,22 @@ end:
   /* n_prefix == 0 means that the above loop did not end up prematurely
   due to tree being changed and so n_diff_data[] is set up. */
   if (succeeded && n_prefix == 0) {
-    dict_stats_index_set_n_diff(n_diff_data, index);
+    dict_stats_index_set_n_diff(n_diff_data, scratch);
+    dict_stats_copy_index(index, scratch);
+  } else if (succeeded) {
+    /* Change of tree height is atomic and rare. An immediate retrial
+    should succeed. So consider it as a temporary failure. */
+    if (n_tickets > 0) {
+      n_tickets--;
+      no_delay = true;
+      succeeded = false;
+    }
   }
 
   ut::delete_arr(n_diff_data);
 
-  if (succeeded) {
-    dict_stats_assert_initialized_index(index);
-  }
+  dict_stats_free_scratch_index(scratch);
+  dict_stats_assert_initialized_index(index);
 
   return succeeded;
 }
@@ -2010,8 +2146,27 @@ static void dict_stats_analyze_index(
     dict_index_t *index) /*!< in/out: index to analyze */
 {
   uint64_t n_sample_pages = N_SAMPLE_PAGES(index);
+  uint64_t n_no_delay_tickets = 1;
+  bool no_delay = false;
+#ifdef UNIV_DEBUG
+  bool simulate_tree_change = false;
+
+  DBUG_EXECUTE_IF("dict_stats_simulate_tree_change", {
+    simulate_tree_change = true;
+  });
+#endif /* UNI_DEBUG */
+
   while (n_sample_pages > 0 &&
-         !dict_stats_analyze_index_low(n_sample_pages, index)) {
+         !dict_stats_analyze_index_low(
+             n_sample_pages, n_no_delay_tickets, no_delay,
+#ifdef UNIV_DEBUG
+             simulate_tree_change,
+#endif /* UNI_DEBUG */
+             index)) {
+    if (no_delay) {
+      no_delay = false;
+      continue;
+    }
     /* aborted. retrying. */
     ib::warn(ER_IB_MSG_STATS_SAMPLING_TOO_LARGE)
         << "Detected too long lock waiting around " << index->table->name << "."
@@ -2071,9 +2226,8 @@ static dberr_t dict_stats_update_persistent(
       continue;
     }
 
-    dict_stats_empty_index(index);
-
     if (dict_stats_should_ignore_index(index)) {
+      dict_stats_empty_index(index);
       continue;
     }
 

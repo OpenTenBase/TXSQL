@@ -1939,6 +1939,12 @@ static inline void row_update_statistics_if_needed(
   uint64_t counter;
   uint64_t n_rows;
 
+#ifdef UNIV_DEBUG
+  if (!table->is_system_table) {
+    DBUG_EXECUTE_IF("dict_stats_skip_stat_modified_counter", {return;};);
+  }
+#endif /* UNIV_DEBUG */
+
   if (!table->stat_initialized) {
     DBUG_EXECUTE_IF("test_upd_stats_if_needed_not_inited",
                     fprintf(stderr,
