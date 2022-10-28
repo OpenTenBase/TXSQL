@@ -1021,7 +1021,7 @@ struct trx_purge_t {
   bool view_active;
 
   /** Count of total tasks submitted to the task queue */
-  volatile ulint n_submitted;
+  std::atomic<ulint> n_submitted;
 
   /** Count of total tasks completed */
   std::atomic<ulint> n_completed;

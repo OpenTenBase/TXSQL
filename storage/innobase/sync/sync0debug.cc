@@ -1391,6 +1391,8 @@ static void sync_latch_meta_init() UNIV_NOTHROW {
 
   LATCH_ADD_MUTEX(SRV_SYS_TASKS, SYNC_ANY_LATCH, srv_threads_mutex_key);
 
+  LATCH_ADD_MUTEX(SRV_SYS_SLOT, SYNC_NO_ORDER_CHECK, srv_threads_slot_mutex_key);
+
   LATCH_ADD_MUTEX(PAGE_ZIP_STAT_PER_INDEX, SYNC_ANY_LATCH,
                   page_zip_stat_per_index_mutex_key);
 

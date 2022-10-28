@@ -785,6 +785,7 @@ static PSI_mutex_info all_innodb_mutexes[] = {
     PSI_MUTEX_KEY(lock_wait_mutex, 0, 0, PSI_DOCUMENT_ME),
     PSI_MUTEX_KEY(trx_mutex, 0, 0, PSI_DOCUMENT_ME),
     PSI_MUTEX_KEY(srv_threads_mutex, 0, 0, PSI_DOCUMENT_ME),
+    PSI_MUTEX_KEY(srv_threads_slot_mutex, 0, 0, PSI_DOCUMENT_ME),
 #ifndef PFS_SKIP_EVENT_MUTEX
     PSI_MUTEX_KEY(event_mutex, 0, 0, PSI_DOCUMENT_ME),
     PSI_MUTEX_KEY(event_manager_mutex, 0, 0, PSI_DOCUMENT_ME),

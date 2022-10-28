@@ -270,8 +270,6 @@ void trx_purge_sys_initialize(uint32_t n_purge_threads, purge_pq_t *purge_queue,
 
   trx_sys->mvcc->clone_oldest_view(&purge_sys->view);
 
-  purge_sys->view_active = true;
-
   purge_sys->rseg_iter = ut::new_withkey<TrxUndoRsegsIterator>(
       UT_NEW_THIS_FILE_PSI_KEY, purge_sys);
 
@@ -2398,7 +2396,7 @@ static ulint trx_purge_dml_delay(void) {
 /** Wait for pending purge jobs to complete. */
 static void trx_purge_wait_for_workers_to_complete() {
   ulint i = 0;
-  ulint n_submitted = purge_sys->n_submitted;
+  ulint n_submitted = purge_sys->n_submitted.load();
 
   /* Ensure that the work queue empties out. */
   while (purge_sys->n_completed.load() != n_submitted) {
@@ -2452,7 +2450,7 @@ ulint trx_purge(ulint n_purge_threads, /*!< in: number of purge tasks
   srv_dml_needed_delay = trx_purge_dml_delay();
 
   /* The number of tasks submitted should be completed. */
-  ut_a(purge_sys->n_submitted == purge_sys->n_completed);
+  ut_ad(purge_sys->n_submitted.load() == purge_sys->n_completed.load());
 
   ReadView mvcc_oldest_view, backquery_oldest_view;
   trx_sys->mvcc->clone_oldest_view(&mvcc_oldest_view);
@@ -2469,12 +2467,8 @@ ulint trx_purge(ulint n_purge_threads, /*!< in: number of purge tasks
 
   rw_lock_x_lock(&purge_sys->latch, UT_LOCATION_HERE);
 
-  purge_sys->view_active = false;
-
   purge_sys->view.clone_from(&backquery_oldest_view);
   purge_sys->pre_view.clone_from(&mvcc_oldest_view);
-
-  purge_sys->view_active = true;
 
   rw_lock_x_unlock(&purge_sys->latch);
 
@@ -2507,13 +2501,15 @@ ulint trx_purge(ulint n_purge_threads, /*!< in: number of purge tasks
 
       ut_a(thr != nullptr);
 
-      srv_que_task_enqueue_low(thr);
+      srv_que_task_enqueue_low(thr, i);
     }
 
     thr = que_fork_scheduler_round_robin(purge_sys->query, thr);
     ut_a(thr != nullptr);
 
     purge_sys->n_submitted += n_purge_threads - 1;
+
+    srv_release_threads(SRV_WORKER, n_purge_threads - 1);
 
     goto run_synchronously;
 
@@ -2534,7 +2530,8 @@ ulint trx_purge(ulint n_purge_threads, /*!< in: number of purge tasks
     }
   }
 
-  ut_a(purge_sys->n_submitted == purge_sys->n_completed);
+  ut_a(purge_sys->n_submitted.load(std::memory_order_relaxed) ==
+        purge_sys->n_completed.load(std::memory_order_relaxed));
 
 #ifdef UNIV_DEBUG
   rw_lock_x_lock(&purge_sys->latch, UT_LOCATION_HERE);
@@ -2789,7 +2786,7 @@ ulint trx_pre_purge(ulint n_purge_threads, /*!< in: number of purge tasks
 
       ut_a(thr != nullptr);
 
-      srv_que_task_enqueue_low(thr);
+      srv_que_task_enqueue_low(thr, i);
     }
 
     thr = que_fork_scheduler_round_robin(purge_sys->query, thr);
