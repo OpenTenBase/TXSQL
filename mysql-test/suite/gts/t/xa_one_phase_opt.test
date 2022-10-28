@@ -1,0 +1,81 @@
+
+# reset the max snapshot_gts of the cache
+-- source include/restart_mysqld.inc
+
+--disable_warnings
+DROP DATABASE IF EXISTS dbtest_gts;
+--enable_warnings
+ 
+CREATE DATABASE dbtest_gts;
+use dbtest_gts;
+--disable_warnings
+drop table if exists t;
+--enable_warnings
+create table t(id int primary key, name char(10));
+
+####################
+#commit gts auto increment
+####################
+
+XA start 'a' tdsql_withgts 100;
+insert into t values(1,'a');
+XA end 'a';
+XA prepare 'a';
+XA commit 'a' tdsql_withgts 101;
+
+show global status like "%Innodb_max_committed_gts%";
+
+XA start 'a' tdsql_withgts 102;
+insert into t values(2,'b');
+XA end 'a';
+##with gts 103
+XA commit 'a' one phase;
+
+show global status like "%Innodb_max_committed_gts%";
+
+select *from t tdsql_withgts 101;
+select *from t tdsql_withgts 102;
+select *from t tdsql_withgts 103;
+
+
+
+####################
+#dirty read test
+####################
+
+#t1 insert 
+XA start 'a' tdsql_withgts 905;
+insert into t values(3,'c');
+XA end 'a';
+
+#t2 insert 
+connect(conn1,localhost,root);
+use dbtest_gts;
+XA start 'b' tdsql_withgts 905;
+insert into t values(4,'d');
+XA end 'b';
+
+#t3 select
+connect(conn2,localhost,root);
+use dbtest_gts;
+XA start 'c' tdsql_withgts 905;
+select *from t;
+
+#t1 commit
+connection default;
+XA commit 'a' one phase;
+
+#t2 commit
+connection conn1;
+XA commit 'b' one phase;
+
+#t3 select again
+connection conn2;
+select *from t;
+XA end 'c';
+XA prepare 'c';
+XA commit 'c';
+
+#clean
+DROP DATABASE dbtest_gts;
+PURGE TDSQL_TLOG logs;

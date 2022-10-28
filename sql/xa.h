@@ -104,6 +104,7 @@ typedef struct xid_t {
  public:
   xid_t() : formatID(-1), gtrid_length(0), bqual_length(0) {
     memset(data, 0, XIDDATASIZE);
+    gts=0;
   }
 
   long get_format_id() const { return formatID; }
@@ -135,9 +136,11 @@ typedef struct xid_t {
     gtrid_length = 0;
     bqual_length = 0;
     memset(data, 0, XIDDATASIZE);
+    gts = 0;
   }
 
-  void set(long f, const char *g, long gl, const char *b, long bl) {
+  void set(long f, const char *g, long gl, const char *b, long bl,
+      uint64_t gts_in = 0) {
     DBUG_TRACE;
     DBUG_PRINT("debug", ("SETTING XID_STATE formatID: %ld", f));
     memset(data, 0, XIDDATASIZE);
@@ -145,6 +148,7 @@ typedef struct xid_t {
     memcpy(data, g, gtrid_length = gl);
     bqual_length = bl;
     if (bl > 0) memcpy(data + gl, b, bl);
+    gts = gts_in;
     return;
   }
 
@@ -287,6 +291,12 @@ typedef struct xid_t {
   void null() { formatID = -1; }
 
   friend class XID_STATE;
+
+ public:
+  /**
+    TDSQL: only saving GTS when external xa transaction has no thd.
+  */
+  uint64_t gts;
 } XID;
 
 struct st_handler_tablename;
@@ -362,6 +372,10 @@ class XID_STATE {
   void set_xa_type(xa_types t) { m_xa_type = t; }
 
   xa_types get_xa_type() const { return m_xa_type; }
+
+  bool is_external() const {
+    return (m_xa_type == XID_STATE::XA_EXTERNAL);
+  }
 
   std::mutex &get_xa_lock() { return m_xa_lock; }
 

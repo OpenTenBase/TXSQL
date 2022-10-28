@@ -1,0 +1,84 @@
+DROP DATABASE IF EXISTS dbtest_gts;
+CREATE DATABASE dbtest_gts;
+use dbtest_gts;
+drop table if exists t;
+create table t(id int primary key, name char(10),gts int, index i_name(name));
+insert into t values(1,'a',0);
+XA start 'a' tdsql_withgts 600;
+insert into t values(2,'b',601);
+XA end 'a';
+XA prepare 'a';
+XA commit 'a' tdsql_withgts 601;
+XA start 'a' tdsql_withgts 601;
+update t set gts=602 where id =1;
+XA end 'a';
+XA prepare 'a';
+use dbtest_gts;
+select name from t force index(i_name) tdsql_withgts 600;
+name
+a
+select name from t force index(i_name) tdsql_withgts 601;
+use dbtest_gts;
+select name from t force index(i_name) tdsql_withgts 602;
+xa commit 'a' tdsql_withgts 602;
+name
+a
+b
+name
+a
+b
+XA start 'a' tdsql_withgts 602;
+update t set gts=604 where id =1;
+XA end 'a';
+XA prepare 'a';
+use dbtest_gts;
+XA start 'b' tdsql_withgts 601;
+select name from t force index(i_name);
+name
+a
+b
+XA end 'b';
+XA prepare 'b';
+XA commit 'b' tdsql_withgts 603;
+XA start 'b' tdsql_withgts 603;
+select name from t force index(i_name);
+use dbtest_gts;
+XA start 'c' tdsql_withgts 604;
+select name from t force index(i_name);
+xa commit 'a' tdsql_withgts 604;
+name
+a
+b
+XA end 'b';
+XA prepare 'b';
+XA commit 'b' tdsql_withgts 605;
+name
+a
+b
+XA end 'c';
+XA prepare 'c';
+XA commit 'c' tdsql_withgts 606;
+XA start 'a';
+update t set gts=0 where id =1;
+XA end 'a';
+XA prepare 'a';
+use dbtest_gts;
+XA start 'b' tdsql_withgts 606;
+select name from t force index(i_name);
+name
+a
+b
+XA end 'b';
+XA prepare 'b';
+XA commit 'b' tdsql_withgts 607;
+select name from t force index(i_name) tdsql_withgts 608;
+name
+a
+b
+xa commit 'a' tdsql_withgts 609;
+select name from t force index(i_name) tdsql_withgts 609;
+name
+a
+b
+DROP DATABASE dbtest_gts;
+PURGE TDSQL_TLOG logs;

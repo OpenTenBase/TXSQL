@@ -1,0 +1,67 @@
+--disable_warnings
+DROP DATABASE IF EXISTS dbtest_gts;
+--enable_warnings
+ 
+CREATE DATABASE dbtest_gts;
+use dbtest_gts;
+--disable_warnings
+drop table if exists t;
+--enable_warnings
+create table t(id int primary key, name char(10),gts int, index i_name(name));
+
+insert into t values(1,'a',0);
+insert into t values(2,'b',0);
+
+#t1 start a normal XA transtion
+XA start 'a' tdsql_withgts 700;
+insert into t values(3,'c',700);
+XA end 'a';
+XA prepare 'a';
+
+#t2 select with_gts blocking
+connect(conn1,localhost,root);
+SET DEBUG_SYNC= 'sec_index_prepare_rec_lock_before WAIT_FOR s1';
+SET DEBUG_SYNC= 'lock_prepare_rec_ready_to_unlock WAIT_FOR s2';
+SET DEBUG_SYNC= 'sec_index_prepare_rec_lock_success_and_unlock WAIT_FOR s3';
+use dbtest_gts;
+send select name from t force index(i_name) tdsql_withgts 701;
+--sleep 1
+
+#t1 commit XA transtion
+connection default;
+xa commit 'a' tdsql_withgts 701;
+#t1 Notify t2 to lock
+SET DEBUG_SYNC= 'now SIGNAL s1';
+
+#t3 select for update blocking
+#--sleep 3600
+connect(conn2,localhost,root);
+use dbtest_gts;
+set session innodb_lock_wait_timeout = 1;
+--error ER_LOCK_WAIT_TIMEOUT
+select *from dbtest_gts.t for update;
+set session innodb_lock_wait_timeout = 20;
+send select *from dbtest_gts.t for update;
+
+#t1 Notify t2 to release the row lock
+connection default;
+SET DEBUG_SYNC= 'now SIGNAL s2';
+
+#t3 successfully executed
+connection conn2;
+reap;
+
+#t1 Notify t2 to continue execution
+connection default;
+SET DEBUG_SYNC= 'now SIGNAL s3';
+
+#t2 execution succeed
+connection conn1;
+reap;
+
+#clean
+connection default;
+disconnect conn1;
+disconnect conn2;
+DROP DATABASE dbtest_gts;
+PURGE TDSQL_TLOG logs;

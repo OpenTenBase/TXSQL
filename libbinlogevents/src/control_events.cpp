@@ -341,6 +341,13 @@ XA_prepare_event::XA_prepare_event(const char *buf,
       my_xid.bqual_length >= 0 && my_xid.bqual_length <= 64) {
     READER_TRY_CALL(memcpy<char *>, my_xid.data,
                     my_xid.gtrid_length + my_xid.bqual_length);
+
+    // old version doesn't have the gts
+    if (likely(header()->data_written > static_cast<size_t>(
+            MY_FIXED_SIZE + my_xid.gtrid_length + my_xid.bqual_length))) {
+      READER_TRY_SET(gts, read<uint64_t>);
+    }
+
   } else
     READER_THROW("Invalid XID information in XA Prepare");
 

@@ -35,6 +35,7 @@
 #include "sql/transaction.h"  // trans_reset_one_shot_chistics, trans_track_end_trx
 #include "sql/transaction_info.h"      // Transaction_ctx
 #include "sql/xa/transaction_cache.h"  // xa::Transaction_cache
+#include "sql/sql_lex.h"
 
 namespace {
 /**
@@ -102,8 +103,11 @@ bool Sql_cmd_xa_prepare::execute(THD *thd) {
 
   if (!st) {
     if (!thd->is_engine_ha_data_detached() ||
-        !(st = applier_reset_xa_trans(thd)))
+        !(st = applier_reset_xa_trans(thd))) {
+      /* TDSQL: reset gts asign when 'XA START' */
+      thd->lex->gts_xa = 0;
       my_ok(thd);
+    }
   }
 
   return st;

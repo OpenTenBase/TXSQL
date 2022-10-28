@@ -1,0 +1,124 @@
+DROP DATABASE IF EXISTS dbtest_gts;
+CREATE DATABASE dbtest_gts;
+use dbtest_gts;
+drop table if exists t;
+create table t(id int primary key, name char(10),gts int, index i_name(name));
+insert into t values(1,'a',0);
+insert into t values(2,'b',0);
+insert into t values(3,'c',0);
+insert into t values(4,'d',0);
+insert into t values(5,'e',0);
+insert into t values(6,'f',0);
+XA start 'a' tdsql_withgts 200;
+insert into t values(7,'g',201);
+XA end 'a';
+XA prepare 'a';
+XA commit 'a' tdsql_withgts 201;
+XA start 'a' tdsql_withgts 201;
+delete from t where id=1;
+XA end 'a';
+XA prepare 'a';
+use dbtest_gts;
+select name from t force index(i_name) tdsql_withgts 200;
+name
+a
+b
+c
+d
+e
+f
+select name from t force index(i_name) tdsql_withgts 201;
+use dbtest_gts;
+select name from t force index(i_name) tdsql_withgts 202;
+xa commit 'a' tdsql_withgts 202;
+name
+a
+b
+c
+d
+e
+f
+g
+name
+b
+c
+d
+e
+f
+g
+XA start 'a' tdsql_withgts 202;
+insert into t values(8,'g',203);
+XA end 'a';
+XA prepare 'a';
+XA commit 'a' tdsql_withgts 203;
+XA start 'a' tdsql_withgts 203;
+delete from t where id=2;
+XA end 'a';
+XA prepare 'a';
+use dbtest_gts;
+XA start 'b' tdsql_withgts 202;
+select name from t force index(i_name) ;
+name
+b
+c
+d
+e
+f
+g
+XA end 'b';
+XA prepare 'b';
+XA commit 'b' tdsql_withgts 204;
+XA start 'b' tdsql_withgts 204;
+select name from t force index(i_name);
+XA start 'c' tdsql_withgts 205;
+select name from t force index(i_name);
+xa commit 'a' tdsql_withgts 205;
+name
+b
+c
+d
+e
+f
+g
+g
+XA end 'b';
+XA prepare 'b';
+XA commit 'b' tdsql_withgts 206;
+name
+c
+d
+e
+f
+g
+g
+XA end 'c';
+XA prepare 'c';
+XA commit 'c' tdsql_withgts 207;
+XA start 'a';
+delete from t where id=3;
+XA end 'a';
+XA prepare 'a';
+use dbtest_gts;
+XA start 'b' tdsql_withgts 207;
+select name from t force index(i_name);
+name
+c
+d
+e
+f
+g
+g
+XA end 'b';
+XA prepare 'b';
+XA commit 'b' tdsql_withgts 208;
+select name from t force index(i_name) tdsql_withgts 208;
+name
+c
+d
+e
+f
+g
+g
+xa commit 'a';
+DROP DATABASE dbtest_gts;
+PURGE TDSQL_TLOG logs;

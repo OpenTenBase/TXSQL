@@ -1929,6 +1929,13 @@ typedef void (*dict_cache_reset_t)(const char *schema_name,
 
 typedef void (*dict_cache_reset_tables_and_tablespaces_t)();
 
+typedef void (*purge_tlog_t)(void);
+
+typedef void (*snapshot_update_t)(handlerton *hton, bool mc_enabled);
+
+typedef bool (*max_snapshot_gts_t)(uint64_t &p_gts);
+
+/** Mode for data dictionary recovery. */
 /** Mode for data dictionary recovery. */
 enum dict_recovery_mode_t {
   DICT_RECOVERY_INITIALIZE_SERVER,       ///< First start of a new server
@@ -2636,6 +2643,10 @@ struct handlerton {
   dict_set_server_version_t dict_set_server_version;
   is_reserved_db_name_t is_reserved_db_name;
   get_keyring_master_key_t get_keyring_master_key;
+
+  purge_tlog_t purge_tlog;
+  snapshot_update_t snapshot_update;
+  max_snapshot_gts_t max_snapshot_gts;
 
   /** Global handler flags. */
   uint32 flags{0};
@@ -7368,6 +7379,11 @@ class ha_tablespace_statistics {
   dd::String_type m_extra;  // NDB only
 };
 
+/* changes from txsql start. */
 void ha_end_backquery(THD *thd);
 
+void ha_purge_tlog();
+
+void ha_snapshot_update(bool mc_enabled);
+/* changes from txsql end. */
 #endif /* HANDLER_INCLUDED */

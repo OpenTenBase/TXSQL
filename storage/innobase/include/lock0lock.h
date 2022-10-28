@@ -643,7 +643,10 @@ bool lock_clust_rec_cons_read_sees(
                           passed over by a read cursor */
     dict_index_t *index,  /*!< in: clustered index */
     const ulint *offsets, /*!< in: rec_get_offsets(rec, index) */
-    ReadView *view);      /*!< in: consistent read view */
+    ReadView *view,      /*!< in: consistent read view */
+    bool is_active = false,  /*!< in: GTS mode readview enable or not */
+    bool mc_enable = false);  /*!< in: Whether the transaction is active.
+                                Valid when mc_enable is true */
 /** Checks that a non-clustered index record is seen in a consistent read.
 
  NOTE that a non-clustered index page contains so little information on
@@ -658,7 +661,8 @@ bool lock_clust_rec_cons_read_sees(
                                should be read or passed over
                                by a read cursor */
     const dict_index_t *index, /*!< in: index */
-    const ReadView *view);     /*!< in: consistent read view */
+    const ReadView *view,      /*!< in: consistent read view */
+    bool mc_enable = false);   /*!< in: GTS mode readview enable or not */
 /** Locks the specified database table in the mode given. If the lock cannot
  be granted immediately, the query thread is put to wait.
  @return DB_SUCCESS, DB_LOCK_WAIT, or DB_DEADLOCK */
@@ -668,7 +672,7 @@ bool lock_clust_rec_cons_read_sees(
     dict_table_t *table, /*!< in/out: database table
                          in dictionary cache */
     lock_mode mode,      /*!< in: lock mode */
-    que_thr_t *thr);     /*!< in: query thread */
+    que_thr_t *thr);      /*!< in: query thread */
 
 /** Creates a table IX lock object for a resurrected transaction.
 @param[in,out] table Table

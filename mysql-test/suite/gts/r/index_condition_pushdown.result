@@ -1,0 +1,56 @@
+DROP DATABASE IF EXISTS dbtest_gts;
+CREATE DATABASE dbtest_gts;
+use dbtest_gts;
+drop table if exists t;
+CREATE TABLE `t` (`id` int NOT NULL, `a1` int DEFAULT NULL, `a2` varchar(20) DEFAULT NULL, `a3` varchar(20) DEFAULT NULL, PRIMARY KEY (`id`), KEY `a1` (`a1`,`a2`)) ENGINE=InnoDB;
+insert into t values(1,1,'g1','g1'),(2,2,'g2','g2'),(3,2,'g3','g3'),(4,4,'g4','g4');
+XA start 'a' tdsql_withgts 100;
+insert into t values(5,5,'g5','g5');
+XA end 'a';
+XA prepare 'a';
+XA commit 'a' tdsql_withgts 101;
+XA start 'a' tdsql_withgts 101;
+insert into t values(6,6,'g6','g6');
+XA end 'a';
+XA prepare 'a';
+XA commit 'a' tdsql_withgts 102;
+XA start 'a' tdsql_withgts 102;
+insert into t values(7,6,'g7','g7');
+XA end 'a';
+XA prepare 'a';
+XA commit 'a' tdsql_withgts 103;
+XA start 'a' tdsql_withgts 103;
+insert into t values(8,6,'g7','g8');
+XA end 'a';
+XA prepare 'a';
+XA commit 'a' tdsql_withgts 104;
+XA start 'a' tdsql_withgts 104;
+insert into t values (9,6,'g9','g9');
+XA end 'a';
+XA prepare 'a';
+XA commit 'a' tdsql_withgts 105;
+insert into t values(10,10,'g10','g10');
+SET optimizer_switch = 'index_condition_pushdown=on';
+select * from t where a1=6 and a2 like '%7';
+id	a1	a2	a3
+7	6	g7	g7
+8	6	g7	g8
+select * from t where a1=6 and a2 like '%7' tdsql_withgts 105;
+id	a1	a2	a3
+7	6	g7	g7
+8	6	g7	g8
+select * from t where a1=6 and a2 like '%7' tdsql_withgts 104;
+id	a1	a2	a3
+7	6	g7	g7
+8	6	g7	g8
+select * from t where a1=6 and a2 like '%7' tdsql_withgts 103;
+id	a1	a2	a3
+7	6	g7	g7
+select * from t where a1=6 and a2 like '%7' tdsql_withgts 102;
+id	a1	a2	a3
+select * from t where a1=6 and a2 like '%7' tdsql_withgts 101;
+id	a1	a2	a3
+select * from t where a1=6 and a2 like '%7' tdsql_withgts 100;
+id	a1	a2	a3
+DROP DATABASE dbtest_gts;
+PURGE TDSQL_TLOG logs;

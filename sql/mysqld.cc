@@ -1096,6 +1096,7 @@ static PSI_mutex_key key_LOCK_crypt;
 static PSI_mutex_key key_LOCK_user_conn;
 static PSI_mutex_key key_LOCK_global_system_variables;
 static PSI_mutex_key key_LOCK_prepared_stmt_count;
+static PSI_mutex_key key_LOCK_mc_enabled;
 static PSI_mutex_key key_LOCK_replica_list;
 static PSI_mutex_key key_LOCK_sql_replica_skip_counter;
 static PSI_mutex_key key_LOCK_replica_net_timeout;
@@ -1612,6 +1613,7 @@ mysql_mutex_t LOCK_sql_rand;
 */
 mysql_mutex_t LOCK_prepared_stmt_count;
 
+mysql_mutex_t LOCK_mc_enabled;
 /**
   Protects slave_list in rpl_source.cc; the list of currently running
   dump threads with metadata for the replica.
@@ -2883,6 +2885,7 @@ static void clean_up_mutexes() {
   mysql_mutex_destroy(&LOCK_uuid_generator);
   mysql_mutex_destroy(&LOCK_sql_rand);
   mysql_mutex_destroy(&LOCK_prepared_stmt_count);
+  mysql_mutex_destroy(&LOCK_mc_enabled);
   mysql_mutex_destroy(&LOCK_replica_list);
   mysql_mutex_destroy(&LOCK_sql_replica_skip_counter);
   mysql_mutex_destroy(&LOCK_replica_net_timeout);
@@ -5607,6 +5610,8 @@ static int init_thread_environment() {
                     &LOCK_system_variables_hash);
   mysql_mutex_init(key_LOCK_prepared_stmt_count, &LOCK_prepared_stmt_count,
                    MY_MUTEX_INIT_FAST);
+  mysql_mutex_init(key_LOCK_mc_enabled,
+                  &LOCK_mc_enabled, MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_LOCK_replica_list, &LOCK_replica_list,
                    MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_LOCK_sql_replica_skip_counter,
@@ -12332,6 +12337,7 @@ static PSI_mutex_info all_server_mutexes[]=
 #endif
   { &key_LOCK_manager, "LOCK_manager", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_LOCK_prepared_stmt_count, "LOCK_prepared_stmt_count", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
+  { &key_LOCK_mc_enabled, "LOCK_mc_enabled", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_LOCK_replica_list, "LOCK_replica_list", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_LOCK_sql_replica_skip_counter, "LOCK_sql_replica_skip_counter", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_LOCK_replica_net_timeout, "LOCK_replica_net_timeout", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
@@ -13129,3 +13135,5 @@ std::atomic<int32> auto_perf_node_state;
 std::atomic<unsigned long> global_privilege_version{1};
 bool txsql_simplify_priv_check = false;
 uint g_simple_slow_logging = 0;
+bool g_mc_enable = false;
+bool g_mc_sleep_mode = false;

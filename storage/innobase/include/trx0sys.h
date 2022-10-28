@@ -636,6 +636,7 @@ struct trx_sys_t {
   char pad04[ut::INNODB_CACHE_LINE_SIZE];
   std::atomic<int64_t> m_hash_erase_version;
 
+  std::atomic<uint64_t> max_snapshotgts;
   bool is_shutdown;
 
   /** @{ */
@@ -692,6 +693,8 @@ struct trx_sys_t {
   (But, you must look at the trx->state to find out if the minimum trx id transaction
   itself is active, or already committed.) */
   bool is_trx_id_possible_active(trx_id_t compare_to);
+
+  trx_id_t get_min_trx_id();
 
   /** Returns the minimum trx->no in hash */
   trx_id_t get_min_trx_no();

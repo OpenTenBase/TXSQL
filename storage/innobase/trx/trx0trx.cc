@@ -65,6 +65,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "ut0new.h"
 #include "ut0pool.h"
 #include "ut0vec.h"
+#include "trx0tlog.h"
 
 #include "my_dbug.h"
 #include "mysql/plugin.h"
@@ -151,6 +152,8 @@ static void trx_init(trx_t *trx) {
   status is required for asynchronous handling. */
 
   trx->id = 0;
+
+  trx->gts = 0;
 
   trx->no = TRX_ID_MAX;
 
@@ -1250,6 +1253,15 @@ void trx_assign_rseg_temp(trx_t *trx) {
   }
 }
 
+/** Update trx_sys->max_snapshotgts. */
+static void update_max_snapshotgts(
+     uint64_t new_gts)	/*!< in: new GTS */
+{
+  uint64_t old_snapshotgts = trx_sys->max_snapshotgts.load();
+  while (new_gts > old_snapshotgts &&
+      !trx_sys->max_snapshotgts.compare_exchange_weak(old_snapshotgts, new_gts));
+}
+
 /** Starts a transaction. */
 static void trx_start_low(
     trx_t *trx,      /*!< in: transaction */
@@ -1349,6 +1361,14 @@ static void trx_start_low(
   read only can write to temporary tables, we put those on the RO
   list too. */
   trx->state.store(TRX_STATE_ACTIVE, std::memory_order_relaxed);
+
+  /* TDSQL: start a new transcation, update trx_sys->max_snapshotgts */
+  uint64_t gts = 0;
+
+  if (opt_mc_enabled &&
+      0 != (gts = innobase_get_stmt_gts(trx->mysql_thd))) {
+    update_max_snapshotgts(gts);
+  }
 
   if (!trx->read_only &&
       (trx->mysql_thd == nullptr || read_write || trx->ddl_operation)) {
@@ -1752,6 +1772,10 @@ static void trx_erase_lists(trx_t *trx) {
       trx_sys->mvcc->view_close(trx);
     }
   }
+
+  if (trx->gts > 0) {
+    tlog_mgr->write_gts(trx->id, trx->gts);
+  }
   DEBUG_SYNC_C("after_trx_erase_lists");
 }
 
@@ -1835,6 +1859,16 @@ written */
     ut_a(!trx->is_recovered);
     ut_ad(trx->rsegs.m_redo.rseg == nullptr);
     ut_ad(!trx_sys->find(nullptr, trx->id, false));
+
+    /* TDSQL: After turning on mc_enbale, select may hold the lock
+       while waiting for the prepare phase. */
+    if (0 != UT_LIST_GET_LEN(trx->lock.trx_locks)) {
+      ut_ad(trx->read_view == nullptr || trx->read_view->gts() > 0);
+      /* TDSQL: In GTS mode, there may be lock waiting for the record
+      of the prepare state. Although the lock has been released,
+      rx->lock.trx_locks has not been reset. So reset here. */
+      lock_trx_release_locks(trx);
+    }
 
     /* Note: We are asserting without holding the locksys latch. But
     that is OK because this transaction is not waiting and cannot
@@ -2076,6 +2110,17 @@ void trx_commit_low(trx_t *trx, mtr_t *mtr) {
 
     /*--------------*/
 
+    /* TDSQL: There are two ways to pass GTS to innodb. One way is
+    through thd when normal client connection. Another is to copy
+    through XID when binlog replication.*/
+    if (uint64_t gts = innobase_get_stmt_gts(trx->mysql_thd)) {
+      trx->gts = gts;
+    }
+
+    if (trx->gts != 0) {
+      tlog_mgr->log_commit_gts(mtr, trx->id, trx->gts);
+    }
+
     DBUG_EXECUTE_IF("trx_commit_to_the_end_of_log_block", {
       const size_t space_left = mtr->get_expected_log_size();
       mtr_commit_mlog_test_filling_block(*log_sys, space_left);
@@ -2169,7 +2214,8 @@ void trx_cleanup_at_db_startup(trx_t *trx) /*!< in: transaction */
  within the same transaction will get the same read view, which is created
  when this function is first called for a new started transaction.
  @return consistent read view */
-void trx_assign_read_view(trx_t *trx) /*!< in/out: active transaction */
+void trx_assign_read_view(trx_t *trx, /*!< in/out: active transaction */
+                          uint64_t gts) /*!< in: GTS mode readview enable or not */
 {
   ut_ad(trx_can_be_handled_by_current_thread_or_is_hp_victim(trx));
   ut_ad(trx->state.load(std::memory_order_relaxed) == TRX_STATE_ACTIVE);
@@ -2177,8 +2223,10 @@ void trx_assign_read_view(trx_t *trx) /*!< in/out: active transaction */
   if (srv_read_only_mode) {
     ut_ad(!trx->view_assigned);
   } else if (!trx->view_assigned) {
-    trx_sys->mvcc->view_open(trx->read_view, trx);
+    trx_sys->mvcc->view_open(trx->read_view, trx, gts);
     trx->view_assigned = true;
+  } else {
+    trx_sys->mvcc->set_view_gts(trx->read_view, gts);
   }
 }
 
@@ -2785,6 +2833,9 @@ bool trx_weight_ge(const trx_t *a, /*!< in: transaction to be compared */
   return (TRX_WEIGHT(a) >= TRX_WEIGHT(b));
 }
 
+extern bool g_mc_enable;
+extern "C" bool *thd_trx_xa_is_external(const MYSQL_THD thd);
+
 /** Prepares a transaction for given rollback segment.
  @return lsn_t: lsn assigned for commit of scheduled rollback segment */
 static lsn_t trx_prepare_low(
@@ -2825,6 +2876,21 @@ static lsn_t trx_prepare_low(
     }
 
     rseg->unlatch();
+
+    if (!noredo_logging) {
+      /* In order to reduce the waiting for the record of prepared,
+       * it is need to bind prepare with the largest currently
+       * commited GTS. */
+      if (opt_mc_enabled && trx->id > 0 &&
+        trx->mysql_thd && thd_trx_xa_is_external(trx->mysql_thd) &&
+        innobase_get_stmt_gts(trx->mysql_thd)) {
+          uint64_t max_gts = std::max(tlog_mgr->max_committed_gts(),
+              innobase_get_stmt_gts(trx->mysql_thd));
+          tlog_mgr->log_prepare_gts(&mtr, trx->id, max_gts);
+          tlog_mgr->set_prepared(trx->id, max_gts);
+          DBUG_EXECUTE_IF("sleep_after_set_tlog_prepared", sleep(3600););
+      }
+    }
 
     /*--------------*/
     /* This mtr commit makes the transaction prepared in

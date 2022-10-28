@@ -105,6 +105,8 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA
 /* ut_uint64_align_down */
 #include "ut0byte.h"
 
+/* tlog_mgr->flush_buffers */
+#include "trx0tlog.h"
 #ifndef UNIV_HOTBACKUP
 
 /** Updates lsn available for checkpoint.
@@ -498,6 +500,8 @@ static void log_checkpoint(log_t &log) {
   log.last_checkpoint_time = current_time;
 
   DBUG_PRINT("ib_log", ("Starting checkpoint at " LSN_PF, checkpoint_lsn));
+
+  tlog_mgr->flush_buffers();
 
   const dberr_t err = log_files_next_checkpoint(log, checkpoint_lsn);
   if (err != DB_SUCCESS) {

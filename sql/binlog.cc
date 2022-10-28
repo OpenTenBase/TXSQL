@@ -2387,9 +2387,16 @@ int MYSQL_BIN_LOG::write_xa_to_cache(THD *thd) {
          !(thd->variables.option_bits & OPTION_BIN_LOG));
 
   std::ostringstream oss;
-  oss << "XA "
+  if(thd->getGTS()) {
+    oss << "XA "
+      << (thd->lex->sql_command == SQLCOM_XA_COMMIT ? "COMMIT" : "ROLLBACK")
+      << " " << *xid_to_write << " tdsql_withgts " << thd->getGTS()
+      << std::flush;
+  } else {
+    oss << "XA "
       << (thd->lex->sql_command == SQLCOM_XA_COMMIT ? "COMMIT" : "ROLLBACK")
       << " " << *xid_to_write << std::flush;
+  }
   auto query = oss.str();
   Query_log_event qinfo(thd, query.data(), query.length(), false, true, true, 0,
                         false);
@@ -8249,6 +8256,11 @@ TC_LOG::enum_result MYSQL_BIN_LOG::commit(THD *thd, bool all) {
 
       XA_prepare_log_event end_evt(thd, xs->get_xid(), one_phase);
 
+      //TDSQL: read xa commit one phase with gts event
+      if (0 != end_evt.gts) {
+        thd->lex->gts_xa = end_evt.gts;
+      }
+
       assert(!is_loggable_xa || skip_commit);
 
       err = cache_mngr->trx_cache.finalize(thd, &end_evt, xs);
@@ -9512,7 +9524,8 @@ static int binlog_start_trans_and_stmt(THD *thd, Log_event *start_event) {
     static const char begin[] = "BEGIN";
     const char *query = nullptr;
     char buf[XID::ser_buf_size];
-    char xa_start[sizeof("XA START") + 1 + sizeof(buf)];
+    char xa_start[sizeof("XA START") + 1 + sizeof(buf) +
+                  sizeof("tdsql_withgt") + 2 + 25];
     XID_STATE *xs = thd->get_transaction()->xid_state();
     int qlen = sizeof(begin) - 1;
 
@@ -9520,7 +9533,12 @@ static int binlog_start_trans_and_stmt(THD *thd, Log_event *start_event) {
       /*
         XA-prepare logging case.
       */
-      qlen = sprintf(xa_start, "XA START %s", xs->get_xid()->serialize(buf));
+      if (thd->getGTS()) {
+        qlen = sprintf(xa_start, "XA START %s tdsql_withgts %lu",
+            xs->get_xid()->serialize(buf), thd->getGTS());
+      } else {
+        qlen = sprintf(xa_start, "XA START %s", xs->get_xid()->serialize(buf));
+      }
       query = xa_start;
     } else {
       /*

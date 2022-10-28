@@ -1,0 +1,36 @@
+DROP DATABASE IF EXISTS dbtest_gts;
+CREATE DATABASE dbtest_gts;
+use dbtest_gts;
+drop table if exists t;
+create table t(id int primary key, name char(10),gts int, index i_name(name));
+insert into t values(1,'a',0);
+insert into t values(2,'b',0);
+XA start 'a' tdsql_withgts 700;
+insert into t values(3,'c',700);
+XA end 'a';
+XA prepare 'a';
+SET DEBUG_SYNC= 'prepare_rec_lock_before WAIT_FOR s1';
+SET DEBUG_SYNC= 'lock_prepare_rec_ready_to_unlock WAIT_FOR s2';
+SET DEBUG_SYNC= 'prepare_rec_lock_success_and_unlock WAIT_FOR s3';
+use dbtest_gts;
+select *from t force index(primary) tdsql_withgts 701;
+xa commit 'a' tdsql_withgts 701;
+SET DEBUG_SYNC= 'now SIGNAL s1';
+use dbtest_gts;
+set session innodb_lock_wait_timeout = 1;
+select *from dbtest_gts.t for update;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+set session innodb_lock_wait_timeout = 20;
+select *from dbtest_gts.t for update;
+SET DEBUG_SYNC= 'now SIGNAL s2';
+id	name	gts
+1	a	0
+2	b	0
+3	c	700
+SET DEBUG_SYNC= 'now SIGNAL s3';
+id	name	gts
+1	a	0
+2	b	0
+3	c	700
+DROP DATABASE dbtest_gts;
+PURGE TDSQL_TLOG logs;

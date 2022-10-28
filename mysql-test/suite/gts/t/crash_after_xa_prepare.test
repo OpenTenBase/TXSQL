@@ -1,0 +1,34 @@
+--source include/have_debug.inc
+
+call mtr.add_suppression("Found 1 prepared XA transactions");
+
+set global innodb_checkpoint_disabled=on;
+create table t(id int primary key);
+xa start '1' tdsql_withgts 2;
+insert into t values(2);
+xa end '1';
+xa prepare '1';
+
+--source include/dbug_crash_safe.inc
+
+--source include/wait_until_disconnected.inc
+-- exec echo "restart:" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--enable_reconnect
+--source include/wait_until_connected_again.inc
+--disable_reconnect
+
+xa recover;
+
+xa start '2' tdsql_withgts 3;
+--error ER_LOCK_WAIT_TIMEOUT
+select * from t;
+xa end '2';
+xa rollback '2';
+
+xa commit '1';
+xa start '2' tdsql_withgts 3;
+select * from t;
+xa end '2';
+xa prepare '2';
+xa commit '2';
+drop table t;

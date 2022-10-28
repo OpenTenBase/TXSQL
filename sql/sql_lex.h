@@ -3916,6 +3916,8 @@ struct LEX : public Query_tables_list {
   USER_RESOURCES mqh;
   LEX_RESET_SLAVE reset_slave_info;
   Sequence_info sequence_info;
+  uint64_t gts;   //TDSQL: GTS (global transaction sequence)
+  uint64_t gts_xa;    //TDSQL: GTS (global transaction sequence)
   ulong type;
   /**
     This field is used as a work field during resolving to validate

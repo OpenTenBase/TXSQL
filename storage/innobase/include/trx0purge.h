@@ -1011,11 +1011,16 @@ struct trx_purge_t {
   holding the latch. */
   volatile purge_state_t state;
 
+  volatile bool force_wakeup;
+
   /** The query graph which will do the parallelized purge operation */
   que_t *query;
 
   /** The purge will not remove undo logs which are >= this view (purge view) */
   ReadView view;
+
+  /** Snapshot while turning mc from off to on, or NULL */
+  ReadView* snapshot_view;
 
   /** true if view is active */
   bool view_active;
@@ -1112,6 +1117,8 @@ struct trx_purge_t {
   purge_pq_t *pre_purge_queue;
   /** ReadView used for pre purge. */
   ReadView pre_view;
+
+  uint64_t limit_gts;
 };
 
 /** Choose the rollback segment with the smallest trx_no. */

@@ -234,7 +234,8 @@ bool row_mysql_handle_errors(
                            during the function entry */
     trx_t *trx,            /*!< in: transaction */
     que_thr_t *thr,        /*!< in: query thread, or NULL */
-    trx_savept_t *savept); /*!< in: savepoint, or NULL */
+    trx_savept_t *savept, /*!< in: savepoint, or NULL */
+    bool mc_enable = false); /*!< in: GTS mode readview enable or not */
 /** Create a prebuilt struct for a MySQL table handle.
  @return own: a prebuilt struct */
 row_prebuilt_t *row_create_prebuilt(
@@ -888,6 +889,18 @@ struct row_prebuilt_t {
 
   /** limit value to avoid fts result overflow */
   ulonglong m_fts_limit;
+
+  /** TDSQL: mc_enable */
+  bool m_mc_enable;
+
+  /** TDSQL: special mode use sleep instead of row lock for prepare records */
+  bool m_mc_sleep_mode;
+
+  /** TDSQL: release_lock flag in GTS mode */
+  bool m_need_release_lock;
+
+  /** TDSQL: The btr rec waiting before saving*/
+  btr_pcur_t *m_save_lock_btr;
 
   /** True if exceeded the end_range while filling the prefetch cache. */
   bool m_end_range;

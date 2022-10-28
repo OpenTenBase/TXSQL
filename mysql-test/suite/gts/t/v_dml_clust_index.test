@@ -1,0 +1,153 @@
+--disable_warnings
+DROP DATABASE IF EXISTS dbtest_gts;
+--enable_warnings
+ 
+CREATE DATABASE dbtest_gts;
+use dbtest_gts;
+--disable_warnings
+drop table if exists t;
+--enable_warnings
+create table t(id int primary key, name char(10),gts int, index i_name(name));
+
+insert into t values(1,'a',0);
+insert into t values(2,'b',0);
+
+XA start 'a' tdsql_withgts 700;
+insert into t values(3,'c',701);
+XA end 'a';
+XA prepare 'a';
+XA commit 'a' tdsql_withgts 701;
+
+#########################
+#caset 1
+
+#t1 start a normal XA transtion
+XA start 'a' tdsql_withgts 701;
+select *from t;
+update t set gts=702 where id =1;
+delete from t where id = 2;
+insert into t values(4,'d',702);
+XA end 'a';
+XA prepare 'a';
+
+#t2 select with_gts no blocking
+connect(conn1,localhost,root);
+use dbtest_gts;
+select *from t force index(primary) tdsql_withgts 700;
+
+#t2 select with_gts and blocking
+send select *from t force index(primary) tdsql_withgts 701;
+
+#t3 select with_gts and blocking
+connect(conn2,localhost,root);
+use dbtest_gts;
+send select *from t force index(primary) tdsql_withgts 702;
+
+--sleep 1
+#t1 commit
+connection default;
+xa commit 'a' tdsql_withgts 702;
+
+#t2 returns and can not see the change
+connection conn1;
+reap;
+
+#t3 returns and can see the change
+connection conn2;
+reap;
+
+#increase max_commited_gts
+connection default;
+XA start 'a' tdsql_withgts 702;
+insert into t values(5,'e',703);
+XA end 'a';
+XA prepare 'a';
+XA commit 'a' tdsql_withgts 703;
+
+#########################
+#case 2
+connection default;
+#t1 start a normal XA transtion
+XA start 'a' tdsql_withgts 703;
+select *from t;
+update t set gts=705 where id =3;
+delete from t where id = 4;
+insert into t values(6,'f',704);
+XA end 'a';
+XA prepare 'a';
+
+#t2 XA-select with_gts no blocking
+connection conn1;
+use dbtest_gts;
+XA start 'b' tdsql_withgts 702;
+select *from t force index(primary);
+XA end 'b';
+XA prepare 'b';
+XA commit 'b' tdsql_withgts 703;
+
+#t2 XA-select with_gts blocking
+XA start 'b' tdsql_withgts 703;
+send select *from t force index(primary);
+
+#t3 select with_gts and blocking
+connection conn2;
+use dbtest_gts;
+XA start 'c' tdsql_withgts 704;
+send select *from t force index(primary);
+
+--sleep 1
+#t1 commit
+connection default;
+xa commit 'a' tdsql_withgts 704;
+
+#t2 select returns and can not see the change
+connection conn1;
+reap;
+XA end 'b';
+XA prepare 'b';
+XA commit 'b' tdsql_withgts 705;
+
+#t3 select returns and can see the change
+connection conn2;
+reap;
+XA end 'c';
+XA prepare 'c';
+XA commit 'c' tdsql_withgts 706;
+
+
+#########################
+#case 3
+connection default;
+#t1 start a normal XA transtion
+XA start 'a';
+select *from t;
+update t set gts=705 where id =5;
+delete from t where id = 3;
+insert into t values(7,'g',0);
+XA end 'a';
+XA prepare 'a';
+
+#t2 select with_gts and no blocking
+connection conn1;
+use dbtest_gts;
+XA start 'b' tdsql_withgts 706;
+select *from t force index(primary);
+XA end 'b';
+XA prepare 'b';
+XA commit 'b' tdsql_withgts 707;
+
+#t2 select with_gts and no blocking
+select *from t force index(primary) tdsql_withgts 708;
+
+#t1 commit
+connection default;
+xa commit 'a' tdsql_withgts 709;
+
+#t1 select with_gts and no blocking
+select *from t force index(primary) tdsql_withgts 709;
+
+#clean
+connection default;
+disconnect conn1;
+DROP DATABASE dbtest_gts;
+PURGE TDSQL_TLOG logs;

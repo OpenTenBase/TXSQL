@@ -1,0 +1,141 @@
+--disable_warnings
+DROP DATABASE IF EXISTS dbtest_gts;
+--enable_warnings
+ 
+CREATE DATABASE dbtest_gts;
+use dbtest_gts;
+--disable_warnings
+drop table if exists t;
+--enable_warnings
+create table t(id int primary key, name char(10),gts int, index i_name(name));
+
+insert into t values(1,'a',0);
+insert into t values(2,'b',0);
+insert into t values(3,'c',0);
+insert into t values(4,'d',0);
+insert into t values(5,'e',0);
+insert into t values(6,'f',0);
+
+XA start 'a' tdsql_withgts 200;
+insert into t values(7,'g',201);
+XA end 'a';
+XA prepare 'a';
+XA commit 'a' tdsql_withgts 201;
+
+#########################
+#caset 1.1 The xa-prepare for select with_gts
+#t1 start a normal XA transtion
+XA start 'a' tdsql_withgts 201;
+delete from t where id=1;
+XA end 'a';
+XA prepare 'a';
+
+#t2 select with_gts and no blocking
+connect(conn1,localhost,root);
+use dbtest_gts;
+select name from t force index(i_name) tdsql_withgts 200;
+
+#t2 select with_gts blocking
+send select name from t force index(i_name) tdsql_withgts 201;
+
+#t3 select with_gts blocking
+connect(conn2,localhost,root);
+use dbtest_gts;
+send select name from t force index(i_name) tdsql_withgts 202;
+
+--sleep 1
+#t1 commit
+connection default;
+xa commit 'a' tdsql_withgts 202;
+
+#t2 select tdsql_withgts returns and can not see the change
+connection conn1;
+reap;
+
+#t3 select tdsql_withgts returns and can see the change
+connection conn2;
+reap;
+
+#########################
+#case 1.2 The xa-prepare for XA-select with_gts
+connection default;
+
+#t1 insert a new record
+XA start 'a' tdsql_withgts 202;
+insert into t values(8,'g',203);
+XA end 'a';
+XA prepare 'a';
+XA commit 'a' tdsql_withgts 203;
+
+#t1 start a normal XA transtion
+XA start 'a' tdsql_withgts 203;
+delete from t where id=2;
+XA end 'a';
+XA prepare 'a';
+
+#t2 XA-select with_gts no blocking
+connection conn1;
+use dbtest_gts;
+XA start 'b' tdsql_withgts 202;
+select name from t force index(i_name) ;
+XA end 'b';
+XA prepare 'b';
+XA commit 'b' tdsql_withgts 204;
+
+#t2 XA-select with_gts blocking
+XA start 'b' tdsql_withgts 204;
+send select name from t force index(i_name);
+
+#t3 XA-select with_gts blocking
+connection conn2;
+XA start 'c' tdsql_withgts 205;
+send select name from t force index(i_name);
+
+--sleep 1
+#t1 commit
+connection default;
+xa commit 'a' tdsql_withgts 205;
+
+#t2 select tdsql_withgts returns and can not see the change
+connection conn1;
+reap;
+XA end 'b';
+XA prepare 'b';
+XA commit 'b' tdsql_withgts 206;
+
+#t3 select tdsql_withgts returns and can see the change
+connection conn2;
+reap;
+XA end 'c';
+XA prepare 'c';
+XA commit 'c' tdsql_withgts 207;
+
+#########################
+##case 1.3 The xa-prepare of the delete event with no gts info
+connection default;
+#t1 start a normal XA transtion
+XA start 'a';
+delete from t where id=3;
+XA end 'a';
+XA prepare 'a';
+
+#t2 XA-select with_gts and no blocking
+connection conn1;
+use dbtest_gts;
+XA start 'b' tdsql_withgts 207;
+select name from t force index(i_name);
+XA end 'b';
+XA prepare 'b';
+XA commit 'b' tdsql_withgts 208;
+
+#t2 XA-select with_gts and no blocking
+select name from t force index(i_name) tdsql_withgts 208;
+
+#t1 commit
+connection default;
+xa commit 'a';
+
+#clean
+disconnect conn1;
+DROP DATABASE dbtest_gts;
+PURGE TDSQL_TLOG logs;

@@ -8491,6 +8491,38 @@ static Sys_var_bool Sys_currval_before_first_nextval_return_error(
     GLOBAL_VAR(g_seq_currval_before_first_nextval_return_error),
     CMD_LINE(OPT_ARG), DEFAULT(false));
 
+bool old_mc_enabled_val = false;
+static bool check_mc_switch(sys_var *self, THD *thd, set_var *var) {
+  old_mc_enabled_val = g_mc_enable;
+  return false;
+}
+
+static bool update_mc_switch(sys_var *self, THD *thd, enum_var_type type) {
+  if (old_mc_enabled_val == g_mc_enable) {
+    /* Not changed. */
+    return false;
+  }
+
+  ha_snapshot_update(g_mc_enable);
+
+  return false;
+}
+
+static PolyLock_mutex PLock_mc_enabled(&LOCK_mc_enabled);
+static Sys_var_bool Sys_mc_enable(
+    "mc_enable",
+    "Global transaction sequence switch.Set to on to open, set to off to close",
+    GLOBAL_VAR(g_mc_enable),
+    CMD_LINE(OPT_ARG), DEFAULT(false), &PLock_mc_enabled, NOT_IN_BINLOG,
+    ON_CHECK(check_mc_switch), ON_UPDATE(update_mc_switch));
+
+static Sys_var_bool Sys_mc_wait_mode(
+    "mc_sleep_mode",
+    "After turning on mc_enable, use sleep instead of row lock for prepare records.",
+    GLOBAL_VAR(g_mc_sleep_mode),
+    CMD_LINE(OPT_ARG), DEFAULT(false), NULL, NOT_IN_BINLOG,
+    NULL, NULL);
+
 #ifdef HAVE_TDSQL
 static Sys_var_bool Sys_threadpool_eager_mode(
     "thread_pool_eager_mode",

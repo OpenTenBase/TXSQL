@@ -3275,7 +3275,7 @@ bool row_sel_store_mysql_rec(byte *mysql_rec, row_prebuilt_t *prebuilt,
     ReadView *read_view, dict_index_t *clust_index, row_prebuilt_t *prebuilt,
     const rec_t *rec, ulint **offsets, mem_heap_t **offset_heap,
     rec_t **old_vers, const dtuple_t **vrow, mtr_t *mtr,
-    lob::undo_vers_t *lob_undo) {
+    lob::undo_vers_t *lob_undo, bool mc_enable = false) {
   DBUG_TRACE;
 
   dberr_t err;
@@ -3288,7 +3288,7 @@ bool row_sel_store_mysql_rec(byte *mysql_rec, row_prebuilt_t *prebuilt,
 
   err = row_vers_build_for_consistent_read(
       rec, mtr, clust_index, offsets, read_view, offset_heap,
-      prebuilt->old_vers_heap, old_vers, vrow, lob_undo);
+      prebuilt->old_vers_heap, old_vers, vrow, lob_undo, mc_enable);
 
   return err;
 }
@@ -3328,6 +3328,140 @@ class Row_sel_get_clust_rec_for_mysql {
                      const dtuple_t **vrow, mtr_t *mtr,
                      lob::undo_vers_t *lob_undo);
 };
+
+/* TDSQL: When query with GTS , check the prepare record by sleeping. */
+bool check_prepare_rec_in_sleep_mode(trx_id_t &trx_id, THD *thd,
+        TLogManager::gts_state_t &state, dberr_t &err) {
+
+  auto start_time = std::chrono::steady_clock::now();
+  uint64_t gts_rec = 0;
+
+  do {
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    auto now_time = std::chrono::steady_clock::now();
+    auto lock_wait_timeout = thd_lock_wait_timeout(thd);
+    if (now_time - start_time > lock_wait_timeout) {
+      ib::info() << "query with GTS lock wait timeout in sleep mode.trx_id:" <<trx_id;
+      err = DB_LOCK_WAIT_TIMEOUT;
+      //goto err_exit;
+      return false;
+    } else if (thd_killed(thd)) {
+      ib::error() << "Because the session was killed so stop waiting for the prepare "
+              "record commited. trx_id:" << trx_id;
+      err = DB_INTERRUPTED;
+      //goto err_exit;
+      return false;
+    } else if (srv_shutdown_state.load() != SRV_SHUTDOWN_NONE) {
+      ib::error() << "Because mysql is shutting down so stop waiting for prepare record "
+              "commited. trx_id:" << trx_id;
+      err = DB_INTERRUPTED;
+      //goto err_exit;
+      return false;
+    }
+    state = tlog_mgr->trx_state(trx_id,gts_rec);
+  } while (TLogManager::gts_state_t::PREPARED == state);
+    //goto skip_lock_for_prepared_rec;
+  return true;
+}
+
+/* TDSQL: When query with GTS, check the prepare records by row lock. */
+bool check_prepare_rec_in_lock_mode(int lock_item, row_prebuilt_t *prebuilt,
+        btr_pcur_t *pcur, dict_index_t *index, que_thr_t *thr, trx_t *trx,
+        ulint *offsets, const rec_t *rec, mtr_t *mtr, dberr_t &err,
+        bool &lock_table_failed) {
+
+  ulint select_lock_type_bak = 0;
+
+  /* Add IS lock before adding S lock */
+  err = lock_table(0, index->table,
+    prebuilt->select_lock_type == LOCK_S ? LOCK_IS : LOCK_IX, thr);
+
+  if (err != DB_SUCCESS) {
+    lock_table_failed = true;
+    //goto err_exit;
+    return false;
+  }
+
+  /* Try to place a lock on the index record */
+  err = sel_set_rec_lock(pcur,
+                     rec, index, offsets,
+                     SELECT_ORDINARY,
+                     LOCK_S, LOCK_REC_NOT_GAP, thr, mtr);
+
+  //trx_id_t trx_id = row_get_rec_trx_id(rec, index, offsets);
+  switch (err) {
+    case DB_SUCCESS:
+      break;
+
+    case DB_SUCCESS_LOCKED_REC:
+
+      //ib::info()<<"The prepare record was found and locked when query with "
+              //"GTS , trx_id:" << trx_id;
+
+      /* The record in the prepare state is released by other threads here.
+      So we can successfully acquire the S lock, but it needs to be released
+      immediately. Because we are just a fake lock here, actually just to wait
+      for the prepare state of the transaction to commit. */
+
+      select_lock_type_bak = prebuilt->select_lock_type;
+      prebuilt->select_lock_type = LOCK_S;
+
+      ut_ad(!prebuilt->new_rec_lock[lock_item]);
+      prebuilt->new_rec_lock[lock_item] = true;
+      DEBUG_SYNC_C("lock_prepare_rec_ready_to_unlock");
+
+      prebuilt->try_unlock(true);
+      prebuilt->select_lock_type = select_lock_type_bak;
+      prebuilt->new_rec_lock.reset();
+      err = DB_SUCCESS;
+
+      break;
+
+    case DB_LOCK_WAIT:
+
+      //ib::info()<<"Find the prepare record in GTS mode and wait, trx_id:" << trx_id
+          //<< " flag:" << prebuilt->m_need_release_lock;
+
+      /* S lock will be held immediately after waking up, and the lock needs
+      to be released the next time it is awakened */
+      ut_ad(false == prebuilt->m_need_release_lock &&
+            nullptr == prebuilt->m_save_lock_btr);
+
+      prebuilt->m_need_release_lock = true;
+      prebuilt->m_save_lock_btr = pcur;
+      //goto err_exit;
+      return false;
+
+    default:
+
+      /* Failed to lock, go to row_mysql_handle_errors() after returning,
+       adn thread hangs. */
+      //goto err_exit;
+      return false;
+
+  }//end of switch
+  return true;
+}
+
+/* TDSQL: When query with GTS, the prepare record is checked by row lock, so the lock
+ * needs to be released as soon. */
+void unlock_prepare_rec(row_prebuilt_t *prebuilt, int lock_item) {
+
+  ulint select_lock_type_bak = 0;
+  //ib::info() << "Release the row lock added during GTS query, trx_id:" << trx_id;
+
+  prebuilt->m_need_release_lock = false;
+  prebuilt->m_save_lock_btr = nullptr;
+
+  select_lock_type_bak = prebuilt->select_lock_type;
+  ut_ad(!prebuilt->new_rec_lock[lock_item]);
+  prebuilt->new_rec_lock[lock_item] = true;
+  prebuilt->select_lock_type = LOCK_S;
+  prebuilt->try_unlock(true);
+  prebuilt->select_lock_type = select_lock_type_bak;
+  prebuilt->new_rec_lock.reset();
+}
+
 
 /** Retrieve the clustered index record corresponding to a record in a
 non-clustered index. Does the necessary locking.
@@ -3496,6 +3630,61 @@ non-clustered index. Does the necessary locking.
 
     old_vers = nullptr;
 
+    bool is_active = false;
+
+    /* TDSQL: Get whether the record is in prepare state when scanning. */
+    if (prebuilt->m_mc_enable) {
+
+      uint64_t gts_rec;
+      trx_id_t trx_id = row_get_rec_trx_id(clust_rec, clust_index, *offsets);
+      TLogManager::gts_state_t state = tlog_mgr->trx_state(trx_id,gts_rec);
+
+      if (TLogManager::gts_state_t::PREPARED == state) {
+
+        DEBUG_SYNC_C("sec_index_find_prepare_state_and_wait");
+
+        uint64_t gts_sel = 0;
+        gts_sel = innobase_get_stmt_gts(trx->mysql_thd);
+
+        /* TDSQL: If the GTS of the prepare record is greater than the GTS of the
+           select, the select needs to wait for the prepare record to be commited. */
+        if (0 != gts_rec && gts_sel >= gts_rec ) {
+          
+          if (prebuilt->m_mc_sleep_mode) {
+
+            if (check_prepare_rec_in_sleep_mode(trx_id, trx->mysql_thd, state, err)) {
+              goto skip_lock_for_prepared_rec;
+            } else {
+              goto err_exit;
+            }
+          } else {
+            DEBUG_SYNC_C("sec_index_prepare_rec_lock_before");
+            bool lock_table_failed = false;
+            if (!check_prepare_rec_in_lock_mode(row_prebuilt_t::LOCK_CLUST_PCUR, prebuilt, prebuilt->clust_pcur,
+                    clust_index, thr, trx, *offsets, clust_rec, mtr, err, lock_table_failed)) {
+              goto err_exit;
+            }
+            DEBUG_SYNC_C("sec_index_prepare_rec_lock_success_and_unlock");
+          }
+        }//end of if (0 != gts_rec && gts_sel >= gts_rec )
+      } else if (TLogManager::gts_state_t::ACTIVE == state) {
+        is_active = true;
+      } else {
+
+        /* Records that were in the prepare waiting state need to be unlocked here */
+        if (prebuilt->m_need_release_lock && prebuilt->clust_pcur == prebuilt->m_save_lock_btr) {
+
+          DEBUG_SYNC_C("sec_index_prepare_rec_wait_success_before_unlock");
+          unlock_prepare_rec(prebuilt, row_prebuilt_t::LOCK_CLUST_PCUR);
+          //ib::info() << "The record row waiting for the lock during the sec-index scan "
+            //"is awakened, trx_id:" << trx_id;
+          DEBUG_SYNC_C("sec_index_prepare_rec_wait_success_unlock");
+        }
+      }
+    }//enf of if (prebuilt->m_mc_enable
+
+skip_lock_for_prepared_rec:
+
     /* If the isolation level allows reading of uncommitted data,
     then we never look for an earlier version */
 
@@ -3503,12 +3692,12 @@ non-clustered index. Does the necessary locking.
 
     if (trx->isolation_level > TRX_ISO_READ_UNCOMMITTED &&
         !lock_clust_rec_cons_read_sees(clust_rec, clust_index, *offsets,
-                                       view)) {
+                                       view, is_active, prebuilt->m_mc_enable)) {
       if (clust_rec != cached_clust_rec) {
         /* The following call returns 'offsets' associated with 'old_vers' */
         err = row_sel_build_prev_vers_for_mysql(
             view, clust_index, prebuilt, clust_rec, offsets,
-            offset_heap, &old_vers, vrow, mtr, lob_undo);
+            offset_heap, &old_vers, vrow, mtr, lob_undo, prebuilt->m_mc_enable);
 
         if (err != DB_SUCCESS) {
           goto err_exit;
@@ -4657,6 +4846,12 @@ dberr_t row_search_mvcc(byte *buf, page_cur_mode_t mode,
   ut_a(prebuilt->magic_n2 == ROW_PREBUILT_ALLOCATED);
   ut_a(!trx->has_search_latch);
 
+  /* TDSQL: Whether to read in GTS mode */
+  uint64_t gts_sel = 0;
+  if (prebuilt->m_mc_enable) {
+    gts_sel =  innobase_get_stmt_gts(trx->mysql_thd);
+  }
+
   /* We don't support FTS queries from the HANDLER interfaces, because
   we implemented FTS as reversed inverted index with auxiliary tables.
   So anything related to traditional index query would not apply to
@@ -5006,7 +5201,7 @@ dberr_t row_search_mvcc(byte *buf, page_cur_mode_t mode,
     /* Assign a read view for the query */
 
     if (!srv_read_only_mode) {
-      trx_assign_read_view(trx);
+      trx_assign_read_view(trx, gts_sel);
     }
 
     prebuilt->sql_stat_start = false;
@@ -5512,6 +5707,71 @@ rec_loop:
       latest version of the record */
 
     } else if (index == clust_index) {
+
+      bool is_active = false;
+
+      /*
+       * TDSQL: In GTS read mode, if the record is in the PREPARED state,
+       * it's need to wait.
+       */
+      if (prebuilt->m_mc_enable) {
+
+        uint64_t gts_rec;
+        trx_id_t trx_id = row_get_rec_trx_id(rec, index, offsets);
+        TLogManager::gts_state_t state = tlog_mgr->trx_state(trx_id,gts_rec);
+
+        if (TLogManager::gts_state_t::PREPARED == state) {
+
+          DEBUG_SYNC_C("find_prepare_state_and_wait");
+
+          /*
+           * If the GTS of the prepare record is greater than the GTS of the query,
+           * the query needs to wait for the prepare record to be commited.
+           */
+          if (0 != gts_rec && gts_sel >= gts_rec) {
+
+            /* use sleep instead of row lock for prepare records. */
+            if (prebuilt->m_mc_sleep_mode) {
+              if (check_prepare_rec_in_sleep_mode(trx_id, trx->mysql_thd, state, err)) {
+                goto skip_lock_for_prepared_rec;
+              } else if(DB_LOCK_WAIT_TIMEOUT == err) {
+                goto lock_table_wait;
+              } else if(DB_INTERRUPTED == err) {
+                goto normal_return;
+              }
+            } else {
+              DEBUG_SYNC_C("prepare_rec_lock_before");
+              bool lock_table_failed = false;
+              /* Add row lock to prepare record to test whether it has been commited. */
+              if (!check_prepare_rec_in_lock_mode(row_prebuilt_t::LOCK_PCUR, prebuilt,pcur,
+                      index, thr, trx, offsets, rec, &mtr, err, lock_table_failed)) {
+                if (true == lock_table_failed) {
+                  table_lock_waited = true;
+                  goto lock_table_wait;
+                } else {
+                  goto lock_wait_or_error;
+                }
+              }
+              DEBUG_SYNC_C("prepare_rec_lock_success_and_unlock");
+            }
+          }//end of if (0 != gts_rec
+        } else if ( TLogManager::gts_state_t::ACTIVE == state ) {
+          /* The transaction in the current active state is only open,
+           * not sure whether it is bound to GTS*/
+          is_active = true;
+        } else {
+          /* Records that were in the prepare waiting state need to be unlocked here */
+          if (prebuilt->m_need_release_lock && pcur == prebuilt->m_save_lock_btr) {
+            DEBUG_SYNC_C("prepare_rec_wait_success_before_unlock");
+            unlock_prepare_rec(prebuilt, row_prebuilt_t::LOCK_PCUR);
+            //ib::info << "The record row waiting for the lock during the index scan "
+              //"is awakened, trx_id:" << trx_id;
+            DEBUG_SYNC_C("prepare_rec_wait_success_unlock");
+           }
+        }//end of if(PREPARED == state
+      }//end of if(prebuilt->m_mc_enable
+
+skip_lock_for_prepared_rec:
       /* Fetch a previous version of the row if the current
       one is not visible in the snapshot; if we have a very
       high force recovery level set, we try to avoid crashes
@@ -5519,13 +5779,14 @@ rec_loop:
 
       ReadView *view = trx_get_read_view(trx, index);
       if (srv_force_recovery < 5 &&
-          !lock_clust_rec_cons_read_sees(rec, index, offsets, view)) {
+          !lock_clust_rec_cons_read_sees(rec, index, offsets, view,
+                                         is_active, prebuilt->m_mc_enable)) {
         rec_t *old_vers;
         /* The following call returns 'offsets' associated with 'old_vers' */
         err = row_sel_build_prev_vers_for_mysql(
             view, clust_index, prebuilt, rec, &offsets, &heap,
             &old_vers, need_vrow ? &vrow : nullptr, &mtr,
-            prebuilt->get_lob_undo());
+            prebuilt->get_lob_undo(), prebuilt->m_mc_enable);
 
         if (err != DB_SUCCESS) {
           goto lock_wait_or_error;
@@ -5555,7 +5816,8 @@ rec_loop:
 
       ReadView *view = trx_get_read_view(trx, index);
       if (!srv_read_only_mode &&
-          !lock_sec_rec_cons_read_sees(rec, index, view)) {
+          !lock_sec_rec_cons_read_sees(rec, index, view,
+            prebuilt->m_mc_enable)) {
         /* We should look at the clustered index.
         However, as this is a non-locking read,
         we can skip the clustered index lookup if
@@ -6123,7 +6385,7 @@ lock_table_wait:
 
   thr->lock_state = QUE_THR_LOCK_ROW;
 
-  if (row_mysql_handle_errors(&err, trx, thr, nullptr)) {
+  if (row_mysql_handle_errors(&err, trx, thr, nullptr, prebuilt->m_mc_enable)) {
     /* It was a lock wait, and it ended */
 
     thr->lock_state = QUE_THR_LOCK_NOLOCK;

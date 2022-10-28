@@ -582,6 +582,9 @@ class XA_prepare_event : public Binary_log_event {
     consult there about fine details.
   */
   static const int MY_XIDDATASIZE = 128;
+  /* common heaer 19 + 1 (one phase) + 4(formatID) +
+   * 4(gtrid_length) + 4(bqual_length) */
+  static const int MY_FIXED_SIZE = 32;
 
  public:
   struct MY_XID {
@@ -600,6 +603,7 @@ class XA_prepare_event : public Binary_log_event {
   bool one_phase;
 
  public:
+  uint64_t gts;
   /**
     The minimal constructor of XA_prepare_event, it initializes the
     instance variable xid and set the type_code as XID_EVENT in the
@@ -608,7 +612,7 @@ class XA_prepare_event : public Binary_log_event {
   XA_prepare_event(void *xid_arg, bool oph_arg)
       : Binary_log_event(XA_PREPARE_LOG_EVENT),
         xid(xid_arg),
-        one_phase(oph_arg) {}
+        one_phase(oph_arg) { gts = 0; }
 
   /**
     An XID event is generated for a commit of a transaction that modifies one or

@@ -1,0 +1,55 @@
+# restart
+DROP DATABASE IF EXISTS dbtest_gts;
+CREATE DATABASE dbtest_gts;
+use dbtest_gts;
+drop table if exists t;
+create table t(id int primary key, name char(10));
+XA start 'a' tdsql_withgts 100;
+insert into t values(1,'a');
+XA end 'a';
+XA prepare 'a';
+XA commit 'a' tdsql_withgts 101;
+show global status like "%Innodb_max_committed_gts%";
+Variable_name	Value
+Innodb_max_committed_gts	101
+XA start 'a' tdsql_withgts 102;
+insert into t values(2,'b');
+XA end 'a';
+XA commit 'a' one phase;
+show global status like "%Innodb_max_committed_gts%";
+Variable_name	Value
+Innodb_max_committed_gts	103
+select *from t tdsql_withgts 101;
+id	name
+1	a
+select *from t tdsql_withgts 102;
+id	name
+1	a
+select *from t tdsql_withgts 103;
+id	name
+1	a
+2	b
+XA start 'a' tdsql_withgts 905;
+insert into t values(3,'c');
+XA end 'a';
+use dbtest_gts;
+XA start 'b' tdsql_withgts 905;
+insert into t values(4,'d');
+XA end 'b';
+use dbtest_gts;
+XA start 'c' tdsql_withgts 905;
+select *from t;
+id	name
+1	a
+2	b
+XA commit 'a' one phase;
+XA commit 'b' one phase;
+select *from t;
+id	name
+1	a
+2	b
+XA end 'c';
+XA prepare 'c';
+XA commit 'c';
+DROP DATABASE dbtest_gts;
+PURGE TDSQL_TLOG logs;

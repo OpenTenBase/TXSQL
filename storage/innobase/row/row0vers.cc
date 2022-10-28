@@ -1264,7 +1264,8 @@ bool row_vers_old_has_index_entry(
 dberr_t row_vers_build_for_consistent_read(
     const rec_t *rec, mtr_t *mtr, dict_index_t *index, ulint **offsets,
     const ReadView *view, mem_heap_t **offset_heap, mem_heap_t *in_heap,
-    rec_t **old_vers, const dtuple_t **vrow, lob::undo_vers_t *lob_undo) {
+    rec_t **old_vers, const dtuple_t **vrow, lob::undo_vers_t *lob_undo,
+    bool mc_enable ) {
   DBUG_TRACE;
   const rec_t *version;
   rec_t *prev_version;
@@ -1287,7 +1288,7 @@ dberr_t row_vers_build_for_consistent_read(
     lob_undo->reset();
   }
 
-  ut_ad(!view->changes_visible(trx_id, index->table->name));
+  ut_ad(mc_enable || !view->changes_visible(trx_id, index->table->name));
 
   ut_ad(!vrow || !(*vrow));
 
@@ -1307,7 +1308,8 @@ dberr_t row_vers_build_for_consistent_read(
 
     bool purge_sees =
         trx_undo_prev_version_build(rec, mtr, version, index, *offsets, heap,
-                                    &prev_version, nullptr, vrow, 0, lob_undo);
+                                    &prev_version, nullptr, vrow, 0, lob_undo,
+                                    false, mc_enable);
 
     err = (purge_sees) ? DB_SUCCESS : DB_MISSING_HISTORY;
 
@@ -1331,7 +1333,15 @@ dberr_t row_vers_build_for_consistent_read(
 
     trx_id = row_get_rec_trx_id(prev_version, index, *offsets);
 
-    if (view->changes_visible(trx_id, index->table->name)) {
+    bool version_visible = false;
+
+    if (mc_enable) {
+      version_visible = view->changes_visible_withgts(trx_id, index->table->name);
+    } else {
+      version_visible = view->changes_visible(trx_id, index->table->name);
+    }
+
+    if (version_visible) {
       /* The view already sees this version: we can copy
       it to in_heap and return */
 

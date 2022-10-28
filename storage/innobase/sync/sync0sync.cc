@@ -179,6 +179,9 @@ mysql_pfs_key_t trx_purge_latch_key;
 mysql_pfs_key_t trx_sys_rw_lock_key;
 mysql_pfs_key_t trx_sys_mvcc_lock_key;
 mysql_pfs_key_t backquery_enable_lock_key;
+mysql_pfs_key_t tlog_file_lock_key;
+mysql_pfs_key_t tlog_page_lock_key;
+mysql_pfs_key_t tlog_purge_lock_key;
 #endif /* UNIV_PFS_RWLOCK */
 
 /* There are mutexes/rwlocks that we want to exclude from instrumentation

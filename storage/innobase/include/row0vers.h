@@ -117,7 +117,8 @@ bool row_vers_old_has_index_entry(
 dberr_t row_vers_build_for_consistent_read(
     const rec_t *rec, mtr_t *mtr, dict_index_t *index, ulint **offsets,
     const ReadView *view, mem_heap_t **offset_heap, mem_heap_t *in_heap,
-    rec_t **old_vers, const dtuple_t **vrow, lob::undo_vers_t *lob_undo);
+    rec_t **old_vers, const dtuple_t **vrow, lob::undo_vers_t *lob_undo,
+    bool mc_enable = false);
 
 /** Constructs the last committed version of a clustered index record,
  which should be seen by a semi-consistent read.

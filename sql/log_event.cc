@@ -6867,16 +6867,19 @@ bool XA_prepare_log_event::write(Basic_ostream *ostream) {
   uchar buf_f[4];
   uchar buf_g[4];
   uchar buf_b[4];
+  uchar buf_gts[8] = {0};
   int4store(buf_f, static_cast<XID *>(xid)->get_format_id());
   int4store(buf_g, static_cast<XID *>(xid)->get_gtrid_length());
   int4store(buf_b, static_cast<XID *>(xid)->get_bqual_length());
+  int8store(buf_gts, thd->getGTS());
 
   assert(xid_bufs_size == sizeof(buf_f) + sizeof(buf_g) + sizeof(buf_b));
 
   return write_header(ostream,
                       sizeof(one_byte) + xid_bufs_size +
                           static_cast<XID *>(xid)->get_gtrid_length() +
-                          static_cast<XID *>(xid)->get_bqual_length()) ||
+                          static_cast<XID *>(xid)->get_bqual_length() +
+                          sizeof(buf_gts)) ||
          wrapper_my_b_safe_write(ostream, &one_byte, sizeof(one_byte)) ||
          wrapper_my_b_safe_write(ostream, buf_f, sizeof(buf_f)) ||
          wrapper_my_b_safe_write(ostream, buf_g, sizeof(buf_g)) ||
@@ -6886,6 +6889,7 @@ bool XA_prepare_log_event::write(Basic_ostream *ostream) {
              pointer_cast<const uchar *>(static_cast<XID *>(xid)->get_data()),
              static_cast<XID *>(xid)->get_gtrid_length() +
                  static_cast<XID *>(xid)->get_bqual_length()) ||
+         wrapper_my_b_safe_write(ostream, buf_gts, sizeof(buf_gts)) ||
          write_footer(ostream);
 }
 #endif  // MYSQL_SERVER
@@ -6899,10 +6903,27 @@ void XA_prepare_log_event::print(FILE *,
   print_header(head, print_event_info, false);
   serialize_xid(buf, my_xid.formatID, my_xid.gtrid_length, my_xid.bqual_length,
                 my_xid.data);
+
+#ifdef HAVE_TDSQL
+  if (gts && one_phase) {
+    my_b_printf(head, "\nXA COMMIT %s ONE PHASE tdsql_withgts %ld%s" ,
+        buf, gts, print_event_info->delimiter);
+  } else {
+    my_b_printf(head,
+        one_phase ? "\nXA COMMIT %s ONE PHASE%s" : "\nXA PREPARE %s%s",
+        buf, print_event_info->delimiter);
+  }
+#else
   my_b_printf(head, "\tXA PREPARE %s\n", buf);
-  my_b_printf(
-      head, one_phase ? "XA COMMIT %s ONE PHASE\n%s\n" : "XA PREPARE %s\n%s\n",
-      buf, print_event_info->delimiter);
+  if (gts && one_phase) {
+    my_b_printf(head, "\nXA COMMIT %s ONE PHASE tdsql_withgts %ld%s" ,
+        buf, gts, print_event_info->delimiter);
+  } else {
+    my_b_printf(
+        head, one_phase ? "XA COMMIT %s ONE PHASE\n%s\n" : "XA PREPARE %s\n%s\n",
+        buf, print_event_info->delimiter);
+  }
+#endif
 }
 #endif /* !MYSQL_SERVER */
 

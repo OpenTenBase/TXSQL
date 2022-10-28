@@ -39,6 +39,9 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "read0types.h"
 #include "univ.i"
 
+#define TMP_SNAPSHOT_FILE_NAME "_tmp_snapshot_file_"
+#define SNAPSHOT_FILE_NAME "_snapshot_file_"
+
 /** The MVCC read view manager */
 class MVCC {
  public:
@@ -51,8 +54,9 @@ class MVCC {
   /** Allocate and create a view.
   @param view   View owned by this class created for the caller. Must be
   freed by calling view_close()
-  @param trx    Transaction instance of caller */
-  void view_open(ReadView *view, trx_t *trx);
+  @param trx    Transaction instance of caller
+  @param gts    global transaction sequence */
+  void view_open(ReadView *view, trx_t *trx, uint64_t gts = 0);
 
   /** Close a view created by the above function. */
   void view_close(trx_t *trx);
@@ -64,6 +68,12 @@ class MVCC {
   purge the delete marked record or not.
   @param view           Preallocated view, owned by the caller */
   void clone_oldest_view(ReadView *view, bool fast = false);
+
+  void persist_snapshot(ReadView *view);
+
+  void delete_snapshot();
+
+  bool read_snapshot(ReadView* &view);
 
   /**
   @return the number of active views */
@@ -78,6 +88,11 @@ class MVCC {
     ut_ad(id > 0);
     view->creator_trx_id(id);
   }
+
+  /**
+  TDSQL: Set the view gts. Note: This should be set only for trx that mix normal
+  select and withgts select. */
+  static void set_view_gts(ReadView* view, uint64_t gts);
 
   ReadView *cached_view() { return m_cached_view; }
 

@@ -268,6 +268,8 @@ struct trx_rseg_t {
   /** Transaction number of the last not yet purged log */
   trx_id_t last_trx_no;
 
+  trx_id_t last_trx_id;
+
   /** true if the last not yet purged log needs purging */
   bool last_del_marks{};
 

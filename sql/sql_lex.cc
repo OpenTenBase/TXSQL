@@ -475,6 +475,8 @@ void LEX::reset() {
   is_lex_started = true;
   reset_slave_info.all = false;
   mi.channel = nullptr;
+  gts = 0;
+  //gts_xa = 0;
 
   wild = nullptr;
   mark_broken(false);
@@ -3732,6 +3734,8 @@ LEX::LEX()
       will_contextualize(true),
       wait_time(ULONG_MAX) {
   reset_query_tables_list(true);
+  gts = 0;
+  gts_xa = 0;
 }
 
 /**
