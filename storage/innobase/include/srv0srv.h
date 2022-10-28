@@ -1084,7 +1084,8 @@ void srv_inc_activity_count(void);
 
 /** Enqueues a task to server task queue and releases a worker thread, if there
 is a suspended one. */
-void srv_que_task_enqueue_low(que_thr_t *thr); /*!< in: query thread */
+void srv_que_task_enqueue_low(que_thr_t *thr, /*!< in: query thread */
+                              ulint slot_no); /*!< in: slot no to put thr */
 
 /** A thread which prints the info output by various InnoDB monitors. */
 void srv_monitor_thread();
@@ -1290,6 +1291,22 @@ struct export_var_t {
 struct srv_slot_t {
   /** Thread type: user, utility etc. */
   srv_thread_type type;
+
+  uint32_t worker_id;
+
+  /* Mutex for protecting suspend/release of
+  system thread */
+  ib_mutex_t *mutex{nullptr};
+
+  void lock() {
+    ut_a(mutex);
+    mutex_enter(mutex);
+  }
+
+  void unlock() {
+    ut_a(mutex);
+    mutex_exit(mutex);
+  }
 
   /** true if this slot is in use. */
   bool in_use;

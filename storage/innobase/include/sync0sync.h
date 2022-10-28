@@ -165,6 +165,7 @@ extern mysql_pfs_key_t trx_sys_shard_mutex_key;
 extern mysql_pfs_key_t trx_sys_serialisation_mutex_key;
 extern mysql_pfs_key_t srv_sys_mutex_key;
 extern mysql_pfs_key_t srv_threads_mutex_key;
+extern mysql_pfs_key_t srv_threads_slot_mutex_key;
 #ifndef PFS_SKIP_EVENT_MUTEX
 extern mysql_pfs_key_t event_mutex_key;
 extern mysql_pfs_key_t event_manager_mutex_key;

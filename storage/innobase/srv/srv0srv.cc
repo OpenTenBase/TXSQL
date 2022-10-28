@@ -763,6 +763,8 @@ constexpr std::chrono::seconds SRV_MASTER_DICT_LRU_INTERVAL{47};
 /** Test if the system mutex is owned. */
 #define srv_sys_mutex_own() (mutex_own(&srv_sys->mutex) && !srv_read_only_mode)
 
+#define srv_sys_slot_mutex_own(slot) (mutex_own(slot->mutex) && !srv_read_only_mode)
+
 /** Release the system mutex. */
 #define srv_sys_mutex_exit()     \
   do {                           \
@@ -844,10 +846,7 @@ in a traditional Unix implementation. */
 
 /** The server system struct */
 struct srv_sys_t {
-  ib_mutex_t tasks_mutex; /*!< variable protecting the
-                          tasks queue */
-  UT_LIST_BASE_NODE_T(que_thr_t, queue)
-  tasks; /*!< task queue */
+  std::atomic<que_thr_t *> tasks[MAX_PURGE_THREADS];
 
   ib_mutex_t mutex;    /*!< variable protecting the
                        fields below. */
@@ -856,7 +855,9 @@ struct srv_sys_t {
 
   srv_slot_t *sys_threads; /*!< server thread table */
 
-  ulint n_threads_active[SRV_MASTER + 1];
+  ib_mutex_t  *sys_mutexs; /*!< mutex to protect thread slot */
+
+  std::atomic<uint64_t> n_threads_active[SRV_MASTER + 1];
   /*!< number of threads active
   in a thread class */
 
@@ -1030,6 +1031,7 @@ static srv_slot_t *srv_reserve_slot(
     srv_thread_type type) /*!< in: type of the thread */
 {
   srv_slot_t *slot = nullptr;
+  uint32_t worker_id = 0;
 
   srv_sys_mutex_enter();
 
@@ -1046,7 +1048,7 @@ static srv_slot_t *srv_reserve_slot(
 
     case SRV_WORKER:
       /* Find an empty slot, skip the master and purge slots. */
-      for (slot = &srv_sys->sys_threads[2]; slot->in_use; ++slot) {
+      for (slot = &srv_sys->sys_threads[2]; slot->in_use; ++slot, ++worker_id) {
         ut_a(slot < &srv_sys->sys_threads[srv_sys->n_sys_threads]);
       }
       break;
@@ -1055,11 +1057,19 @@ static srv_slot_t *srv_reserve_slot(
       ut_error;
   }
 
+  slot->lock();
   ut_a(!slot->in_use);
+
+  if (type == SRV_WORKER) {
+    slot->worker_id = worker_id;
+  } else {
+    slot->worker_id = UINT32_MAX;
+  }
 
   slot->in_use = true;
   slot->suspended = false;
   slot->type = type;
+  slot->unlock();
 
   ut_ad(srv_slot_get_type(slot) == type);
 
@@ -1098,7 +1108,7 @@ static int64_t srv_suspend_thread_low(
     srv_slot_t *slot) /*!< in/out: thread slot */
 {
   ut_ad(!srv_read_only_mode);
-  ut_ad(srv_sys_mutex_own());
+  ut_ad(srv_sys_slot_mutex_own(slot));
 
   ut_ad(slot->in_use);
 
@@ -1140,11 +1150,11 @@ static int64_t srv_suspend_thread_low(
  @return the current signal count of the event. */
 static int64_t srv_suspend_thread(srv_slot_t *slot) /*!< in/out: thread slot */
 {
-  srv_sys_mutex_enter();
+  slot->lock();
 
   int64_t sig_count = srv_suspend_thread_low(slot);
 
-  srv_sys_mutex_exit();
+  slot->unlock();
 
   return (sig_count);
 }
@@ -1162,14 +1172,18 @@ ulint srv_release_threads(srv_thread_type type, /*!< in: thread type */
   ut_ad(srv_thread_type_validate(type));
   ut_ad(n > 0);
 
-  srv_sys_mutex_enter();
-
   for (i = 0; i < srv_sys->n_sys_threads; i++) {
     srv_slot_t *slot;
 
     slot = &srv_sys->sys_threads[i];
 
-    if (slot->in_use && srv_slot_get_type(slot) == type && slot->suspended) {
+    /* Type never be changed after reserving, so read without lock */
+    if (slot->in_use && srv_slot_get_type(slot) != type) {
+      continue;
+    }
+
+    slot->lock();
+    if (slot->in_use && slot->suspended) {
       switch (type) {
         case SRV_NONE:
           ut_error;
@@ -1204,12 +1218,13 @@ ulint srv_release_threads(srv_thread_type type, /*!< in: thread type */
       os_event_set(slot->event);
 
       if (++count == n) {
+        slot->unlock();
         break;
       }
     }
+    
+    slot->unlock();
   }
-
-  srv_sys_mutex_exit();
 
   return (count);
 }
@@ -1219,6 +1234,7 @@ static void srv_free_slot(srv_slot_t *slot) /*!< in/out: thread slot */
 {
   srv_sys_mutex_enter();
 
+  slot->lock();
   if (!slot->suspended) {
     /* Mark the thread as inactive. */
     srv_suspend_thread_low(slot);
@@ -1228,6 +1244,7 @@ static void srv_free_slot(srv_slot_t *slot) /*!< in/out: thread slot */
   ut_ad(slot->in_use);
   slot->in_use = false;
 
+  slot->unlock();
   srv_sys_mutex_exit();
 }
 
@@ -1291,14 +1308,18 @@ static void srv_init(void) {
   {
     mutex_create(LATCH_ID_SRV_SYS, &srv_sys->mutex);
 
-    mutex_create(LATCH_ID_SRV_SYS_TASKS, &srv_sys->tasks_mutex);
-
     srv_sys->sys_threads = (srv_slot_t *)&srv_sys[1];
+
+    srv_sys->sys_mutexs = (ib_mutex_t *)ut::malloc(
+                              sizeof(ib_mutex_t) * srv_sys->n_sys_threads);
 
     for (ulint i = 0; i < srv_sys->n_sys_threads; ++i) {
       srv_slot_t *slot = &srv_sys->sys_threads[i];
 
       slot->event = os_event_create();
+
+      slot->mutex = &srv_sys->sys_mutexs[i];
+      mutex_create(LATCH_ID_SRV_SYS_SLOT, slot->mutex);
 
       slot->in_use = false;
 
@@ -1317,7 +1338,9 @@ static void srv_init(void) {
 
     srv_buf_synchronize_event = os_event_create();
 
-    UT_LIST_INIT(srv_sys->tasks);
+    for (ulint i = 0; i < MAX_PURGE_THREADS; i++) {
+      srv_sys->tasks[i] = nullptr;
+    }
   }
 
   srv_buf_resize_event = os_event_create();
@@ -1353,13 +1376,16 @@ void srv_free(void) {
 
   {
     mutex_free(&srv_sys->mutex);
-    mutex_free(&srv_sys->tasks_mutex);
 
     for (ulint i = 0; i < srv_sys->n_sys_threads; ++i) {
       srv_slot_t *slot = &srv_sys->sys_threads[i];
 
+      ut_a(slot->mutex != nullptr);
+      mutex_free(slot->mutex);
       os_event_destroy(slot->event);
     }
+
+    ut::free(srv_sys->sys_mutexs);
 
     os_event_destroy(srv_error_event);
     os_event_destroy(srv_monitor_event);
@@ -2075,10 +2101,9 @@ void srv_active_wake_master_thread_low() {
   if (srv_sys->n_threads_active[SRV_MASTER] == 0) {
     srv_slot_t *slot;
 
-    srv_sys_mutex_enter();
-
     slot = &srv_sys->sys_threads[SRV_MASTER_SLOT];
 
+    slot->lock();
     /* Only if the master thread has been started. */
 
     if (slot->in_use) {
@@ -2093,7 +2118,7 @@ void srv_active_wake_master_thread_low() {
       }
     }
 
-    srv_sys_mutex_exit();
+    slot->unlock();
   }
 }
 
@@ -2973,36 +2998,44 @@ static bool srv_purge_should_exit(
 }
 
 /** Fetch and execute a task from the work queue.
- @return true if a task was executed */
-static bool srv_task_execute(void) {
+ @return true if all tasks are executed */
+static void srv_task_execute(uint32_t start_pos) {
   que_thr_t *thr = nullptr;
 
   ut_ad(!srv_read_only_mode);
   ut_a(srv_force_recovery < SRV_FORCE_NO_BACKGROUND);
+  ut_a(start_pos != UINT32_MAX);
+  ut_a(start_pos < srv_threads.m_purge_workers_n);
 
-  if (UT_LIST_GET_LEN(srv_sys->tasks) == 0) {
-    return false;
+  bool first_loop = true;
+  for (uint32_t i = start_pos;; i++) {
+    if (i == srv_threads.m_purge_workers_n) {
+      i = 0;
+    }
+
+    if (!first_loop && i == start_pos) {
+      /* Already iterate all slots. */
+      break;
+    }
+
+    first_loop = false;
+  retry:
+    thr = srv_sys->tasks[i].load(std::memory_order_acquire);
+    if (thr == nullptr) {
+      continue;
+    }
+
+    if (!srv_sys->tasks[i].compare_exchange_weak(thr, nullptr)) {
+      goto retry;
+    } else {
+      ut_a(thr != nullptr);
+      que_run_threads(thr);
+      purge_sys->n_completed++;
+
+      /* Only do one job */
+      break;
+    }
   }
-
-  mutex_enter(&srv_sys->tasks_mutex);
-
-  if (UT_LIST_GET_LEN(srv_sys->tasks) > 0) {
-    thr = UT_LIST_GET_FIRST(srv_sys->tasks);
-
-    ut_a(que_node_get_type(thr->child) == QUE_NODE_PURGE);
-
-    UT_LIST_REMOVE(srv_sys->tasks, thr);
-  }
-
-  mutex_exit(&srv_sys->tasks_mutex);
-
-  if (thr != nullptr) {
-    que_run_threads(thr);
-
-    purge_sys->n_completed.fetch_add(1);
-  }
-
-  return (thr != nullptr);
 }
 
 /** Worker thread that reads tasks from the work queue and executes them. */
@@ -3024,11 +3057,7 @@ void srv_worker_thread() {
 
   ut_a(srv_n_purge_threads > 1);
 
-  srv_sys_mutex_enter();
-
-  ut_a(srv_sys->n_threads_active[SRV_WORKER] < srv_n_purge_threads);
-
-  srv_sys_mutex_exit();
+  ut_a(srv_sys->n_threads_active[SRV_WORKER].load() < srv_n_purge_threads);
 
   /* We need to ensure that the worker threads exit after the
   purge coordinator thread. Otherwise the purge coordinaor can
@@ -3039,12 +3068,7 @@ void srv_worker_thread() {
 
     os_event_wait(slot->event);
 
-    if (srv_task_execute()) {
-      /* If there are tasks in the queue, wakeup
-      the purge coordinator thread. */
-
-      srv_wake_purge_thread_if_not_active();
-    }
+    srv_task_execute(slot->worker_id);
 
     /* Note: we are checking the state without holding the
     purge_sys->latch here. */
@@ -3185,8 +3209,8 @@ static void srv_purge_coordinator_suspend(
       ret = 0;
     }
 
-    srv_sys_mutex_enter();
 
+    slot->lock();
     /* The thread can be in state !suspended after the timeout
     but before this check if another thread sent a wakeup signal. */
 
@@ -3196,7 +3220,7 @@ static void srv_purge_coordinator_suspend(
       ut_a(srv_sys->n_threads_active[slot->type] == 1);
     }
 
-    srv_sys_mutex_exit();
+    slot->unlock();
 
     sig_count = srv_suspend_thread(slot);
 
@@ -3241,7 +3265,7 @@ static void srv_purge_coordinator_suspend(
 
   } while (stop);
 
-  srv_sys_mutex_enter();
+  slot->lock();
 
   if (slot->suspended) {
     slot->suspended = false;
@@ -3249,7 +3273,7 @@ static void srv_purge_coordinator_suspend(
     ut_a(srv_sys->n_threads_active[slot->type] == 1);
   }
 
-  srv_sys_mutex_exit();
+  slot->unlock();
 }
 
 /** Purge coordinator thread that schedules the purge tasks. */
@@ -3372,24 +3396,29 @@ void srv_purge_coordinator_thread() {
 
 /** Enqueues a task to server task queue and releases a worker thread, if there
 is a suspended one. */
-void srv_que_task_enqueue_low(que_thr_t *thr) /*!< in: query thread */
+
+void srv_que_task_enqueue_low(que_thr_t *thr, /*!< in: query thread */
+                              ulint slot_no)  /*!< in: slot no to put thr */
 {
   ut_ad(!srv_read_only_mode);
-  mutex_enter(&srv_sys->tasks_mutex);
 
-  UT_LIST_ADD_LAST(srv_sys->tasks, thr);
+  ut_a(srv_sys->tasks[slot_no].load(std::memory_order_relaxed) == nullptr);
 
-  mutex_exit(&srv_sys->tasks_mutex);
-
-  srv_release_threads(SRV_WORKER, 1);
+  srv_sys->tasks[slot_no].store(thr, std::memory_order_release);
 }
 
 /** Get count of tasks in the queue.
  @return number of tasks in queue */
 ulint srv_get_task_queue_length(void) {
+  ulint n_tasks = 0;
   ut_ad(!srv_read_only_mode);
 
-  return UT_LIST_GET_LEN(srv_sys->tasks);
+  for (ulint i = 0; i < srv_threads.m_purge_workers_n; i++) {
+    if (srv_sys->tasks[i].load(std::memory_order_relaxed) != nullptr) {
+      n_tasks++;
+    }
+  }
+  return (n_tasks);
 }
 
 /** Wakeup the purge threads. */
