@@ -78,6 +78,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "row0mysql.h"
 #include "sql_thd_internal_api.h"
 #include "srv0mon.h"
+#include "trx0tlog.h"
 
 #include "my_dbug.h"
 #include "my_psi_config.h"
@@ -123,6 +124,7 @@ bool srv_upgrade_old_undo_found = false;
 /* Revert to old partition file name if upgrade fails. */
 bool srv_downgrade_partition_files = false;
 
+ulonglong srv_min_purge_gts = 0;
 /* The following is the maximum allowed duration of a lock wait. */
 ulong srv_fatal_semaphore_wait_threshold = 600;
 std::atomic<int> srv_fatal_semaphore_wait_extend{0};
@@ -562,6 +564,7 @@ bool srv_cmp_per_index_enabled = false;
 /** If innodb redo logging is enabled. */
 bool srv_redo_log = true;
 
+bool opt_mc_enabled = false;
 /** The value of the configuration parameter innodb_fast_shutdown,
 controlling the InnoDB shutdown.
 
@@ -1940,6 +1943,10 @@ void srv_export_innodb_status(void) {
   }
 #endif /* UNIV_DEBUG */
 
+  export_vars.innodb_max_committed_gts = tlog_mgr->max_committed_gts();
+  export_vars.innodb_tlog_file_read = tlog_mgr->state.io_read_counter.load();
+  export_vars.innodb_tlog_file_write = tlog_mgr->state.io_write_counter.load();
+
   mutex_exit(&srv_innodb_monitor_mutex);
 }
 
@@ -3141,7 +3148,8 @@ static ulint srv_do_purge(ulint *n_total_purged) {
     ut_a(n_use_threads <= n_threads);
 
     /* Take a snapshot of the history list before purge. */
-    if ((rseg_history_len = trx_sys->rseg_history_len.load()) == 0) {
+    if (!purge_sys->force_wakeup &&
+        (rseg_history_len = trx_sys->rseg_history_len.load()) == 0) {
       break;
     }
 

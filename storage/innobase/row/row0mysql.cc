@@ -1024,7 +1024,8 @@ bool row_mysql_handle_errors(
                           function */
     trx_t *trx,           /*!< in: transaction */
     que_thr_t *thr,       /*!< in: query thread, or NULL */
-    trx_savept_t *savept) /*!< in: savepoint, or NULL */
+    trx_savept_t *savept, /*!< in: savepoint, or NULL */
+    bool mc_enable)       /*!< in: GTS mode readview enable or not */
 {
   dberr_t err;
 
@@ -1121,6 +1122,14 @@ handle_new_error:
           << FK_MAX_CASCADE_DEL
           << ". Please drop excessive"
              " foreign constraints and try again";
+      break;
+
+    /* TDSQL: Turning on and off mc may cause undo loss and
+       historical records may can not be found. */
+    case DB_MISSING_HISTORY:
+      ut_a(mc_enable);
+      ib::error() << "The needed undo record has been deleted,"
+                    " maybe the mc switch is being turned on now.";
       break;
     default:
       ib::fatal(UT_LOCATION_HERE, ER_IB_MSG_975)
@@ -1293,6 +1302,11 @@ row_prebuilt_t *row_create_prebuilt(
 
   prebuilt->m_no_prefetch = false;
   prebuilt->m_read_virtual_key = false;
+
+  prebuilt->m_mc_enable = false;
+  prebuilt->m_mc_sleep_mode = false;
+  prebuilt->m_need_release_lock = false;
+  prebuilt->m_save_lock_btr = nullptr;
 
   return prebuilt;
 }
@@ -2912,7 +2926,7 @@ void row_prebuilt_t::try_unlock(bool has_latches_on_recs) {
   trx->op_info = "unlock_row";
 
   if (0 < new_rec_locks_count()) {
-    ut_ad(trx->releases_non_matching_rows());
+    ut_ad(trx->releases_non_matching_rows() || m_mc_enable);
     ut_ad(select_lock_type != LOCK_NONE);
     ut_ad(!table->is_intrinsic());
 

@@ -197,6 +197,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 
 #include "os0enc.h"
 #include "os0file.h"
+#include "trx0tlog.h"
 
 #include <mutex>
 #include <sstream>
@@ -210,6 +211,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 
 #ifndef UNIV_HOTBACKUP
 
+extern bool g_mc_sleep_mode;
 namespace innobase {
 namespace component_services {
 SERVICE_TYPE(registry) *reg_srv = nullptr;
@@ -838,6 +840,9 @@ static PSI_rwlock_info all_innodb_rwlocks[] = {
     PSI_RWLOCK_KEY(trx_sys_mvcc_lock, 0, PSI_DOCUMENT_ME),
     PSI_RWLOCK_KEY(trx_sys_rw_lock, 0, PSI_DOCUMENT_ME),
     PSI_RWLOCK_KEY(backquery_enable_lock, 0, PSI_DOCUMENT_ME),
+    PSI_RWLOCK_KEY(tlog_file_lock, 0, PSI_DOCUMENT_ME),
+    PSI_RWLOCK_KEY(tlog_page_lock, 0, PSI_DOCUMENT_ME),
+    PSI_RWLOCK_KEY(tlog_purge_lock, 0, PSI_DOCUMENT_ME),
 };
 #endif /* UNIV_PFS_RWLOCK */
 
@@ -1369,6 +1374,15 @@ static SHOW_VAR innodb_status_variables[] = {
     {"buffer_pool_recover_status",
      (char *)&export_vars.innodb_buffer_pool_recover_status, SHOW_CHAR,
      SHOW_SCOPE_GLOBAL},
+    {"max_committed_gts",
+      (char*) &export_vars.innodb_max_committed_gts, SHOW_LONG,
+      SHOW_SCOPE_GLOBAL},
+    {"tlog_file_read",
+      (char*) &export_vars.innodb_tlog_file_read, SHOW_LONG,
+      SHOW_SCOPE_GLOBAL},
+    {"tlog_file_write",
+      (char*) &export_vars.innodb_tlog_file_write, SHOW_LONG,
+      SHOW_SCOPE_GLOBAL},
     /* Changes from txsql end. */
     {NullS, NullS, SHOW_LONG, SHOW_SCOPE_GLOBAL}};
 
@@ -1376,7 +1390,6 @@ static SHOW_VAR innodb_status_variables[] = {
  locking. Register the table name if it doesn't exist in the hash table. */
 static INNOBASE_SHARE *get_share(
     const char *table_name); /*!< in: table to lookup */
-
 /** Free the shared object that was registered with get_share(). */
 static void free_share(INNOBASE_SHARE *share); /*!< in/own: share to free */
 
@@ -2542,6 +2555,16 @@ into the provided buffer.
 @return                 Length of the SQL statement */
 size_t innobase_get_stmt_safe(THD *thd, char *buf, size_t buflen) {
   return (thd_query_safe(thd, buf, buflen));
+}
+
+extern "C" uint64_t thd_get_gts(MYSQL_THD thd);
+uint64_t
+innobase_get_stmt_gts(THD *thd) {
+  if (thd == nullptr) {
+    return (0);
+  }
+
+  return (thd_get_gts(thd));
 }
 
 /** Get the current setting of the table_def_size global parameter. We do
@@ -4475,6 +4498,52 @@ static void innobase_page_track_get_status(
   arch_page_sys->get_status(status);
 }
 
+/** TDSQL: Clean up all Tlogs and reset the maximum commit_gts */
+static void innobase_purge_tlog() {
+  if (tlog_mgr != nullptr) {
+    tlog_mgr->purge_all();
+  }
+}
+
+/** TDSQL: Clean up all Tlogs and reset the maximum commit_gts
+@param[in/out]	p_gts The largest snapshot GTS read from Innodb	*/
+static bool innobase_max_snapshot_gts(uint64_t &p_gts) {
+  p_gts = trx_sys->max_snapshotgts;
+  return true;
+}
+
+static
+void
+innobase_snapshot_update(handlerton* hton, bool mc_enabled) {
+  ut_a(mc_enabled == g_mc_enable);
+
+  /* Tell purge thread to be always active even there's
+  nothing to purge, so it got chance to record or delete
+  snapshot file. */
+  purge_sys->force_wakeup = true;
+  while (srv_shutdown_state == SRV_SHUTDOWN_NONE) {
+    os_rmb;
+    if ((mc_enabled && purge_sys->snapshot_view == nullptr) ||
+        (!mc_enabled && purge_sys->snapshot_view != nullptr)) {
+      srv_purge_wakeup();
+      std::this_thread::sleep_for(std::chrono::microseconds(1000));
+      continue;
+    }
+
+    break;
+  }
+
+  purge_sys->force_wakeup = false;
+
+  std::atomic_thread_fence(std::memory_order_seq_cst);
+
+  opt_mc_enabled = mc_enabled;
+
+  if (srv_shutdown_state == SRV_SHUTDOWN_NONE) {
+    srv_purge_wakeup();
+  }
+}
+
 /** Gives the file extension of an InnoDB single-table tablespace. */
 static const char *ha_innobase_exts[] = {dot_ext[IBD], NullS};
 
@@ -5432,6 +5501,13 @@ static int innodb_init(void *p) {
   innobase_hton->page_track.get_status = innobase_page_track_get_status;
 
   innobase_hton->end_backquery = innobase_end_backquery;
+
+  innobase_hton->purge_tlog = innobase_purge_tlog;
+  /* Persist snapshot while turning on MC */
+  innobase_hton->snapshot_update = innobase_snapshot_update;
+
+  /* TDSQL: Get the largest gts snapshot from innodb */
+  innobase_hton->max_snapshot_gts = innobase_max_snapshot_gts;
 
   static_assert(DATA_MYSQL_TRUE_VARCHAR == (ulint)MYSQL_TYPE_VARCHAR);
 
@@ -8856,6 +8932,26 @@ void ha_innobase::build_template(bool whole_row) {
 
       templ->rec_field_no = templ->clust_rec_field_no;
     }
+  }
+
+  /* TDSQL: init m_prebuilt->m_mc_enable */
+  uint64_t gts_sel = 0;
+  m_prebuilt->m_mc_enable = g_mc_enable;
+  if (unlikely(m_prebuilt->m_mc_enable)) {
+    gts_sel =  innobase_get_stmt_gts(m_user_thd);
+    if (unlikely(!gts_sel)) {
+      m_prebuilt->m_mc_enable = false;
+    }
+    m_prebuilt->m_mc_sleep_mode = g_mc_sleep_mode;
+  }
+
+  /* TDSQL: The last time the query with GTS lock wait timed out,
+   * so the state needs to be reset*/
+  if (m_prebuilt->m_need_release_lock && nullptr != m_prebuilt->clust_pcur) {
+    ib::info()<<"There is an unreleased row lock in GTS read mode, "
+           "which may be a query that ER_LOCK_WAIT_TIMEOUT.";
+    m_prebuilt->m_need_release_lock = false;
+    m_prebuilt->m_save_lock_btr = nullptr;
   }
 }
 
@@ -20392,6 +20488,12 @@ static xa_status_code innobase_commit_by_xid(
   trx_t *trx = trx_get_trx_by_xid(xid);
 
   if (trx != nullptr) {
+    /** TDSQL: When binlog replication, GTS cannot be transferred to innodb
+    via thd. So we use xid saving GTS and pass to innodb. */
+    if (xid->gts) {
+      trx->gts = xid->gts;
+    }
+
     TrxInInnoDB::begin_stmt(trx);
     innobase_commit_low(trx);
     ut_ad(trx->mysql_thd == nullptr);
@@ -23989,7 +24091,6 @@ static MYSQL_SYSVAR_BOOL(
     "Enable adaptive sleeping. If reaching limitted age of "
     "log space, it'll do more aggressive flushing. ",
     NULL, NULL, false);
-/* Changes from txsql end. */
 
 static MYSQL_SYSVAR_BOOL(
     cdb_fast_shutdown, srv_cdb_fast_shutdown, PLUGIN_VAR_NOCMDARG,
@@ -24002,6 +24103,38 @@ static MYSQL_SYSVAR_BOOL(
     "Speeds up the shutdown process of the InnoDB storage engine by skipping"
     " the deconstruction of the global structures.",
     NULL, NULL, false);
+
+extern bool g_mc_enable;
+static void update_purge_gts(
+/*======================*/
+    THD*        thd,  /*!< in: thread handle */
+    SYS_VAR*  var,  /*!< in: pointer to
+                      system variable */
+    void*       var_ptr,  /*!< out: where the
+                            formal string goes */
+    const void*     save) /*!< in: immediate result
+                            from check function */
+{
+  ulonglong in_val = *static_cast<const long*>(save);
+
+  if (!g_mc_enable && in_val != 0) {
+    push_warning_printf(thd, Sql_condition::SL_WARNING,
+        ER_WRONG_ARGUMENTS,
+        "Cannot update min_purge_gts,"
+        " because mc_enable is turn off");
+    return;
+  }
+
+  srv_min_purge_gts = in_val;
+
+  srv_wake_purge_thread_if_not_active();
+}
+
+static MYSQL_SYSVAR_ULONGLONG(min_purge_gts, srv_min_purge_gts,
+    PLUGIN_VAR_RQCMDARG,
+    "The minimal gts before which undo can be purged",
+    NULL, update_purge_gts, 0, 0, ULONG_MAX, 0);
+/* Changes from txsql end. */
 
 static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(api_trx_level),
@@ -24267,6 +24400,7 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(page_cleaner_sleep_factor),
     MYSQL_SYSVAR(page_cleaner_adaptive_sleep),
     MYSQL_SYSVAR(page_flush_strategy),
+    MYSQL_SYSVAR(min_purge_gts),
     nullptr};
 
 mysql_declare_plugin(innobase){

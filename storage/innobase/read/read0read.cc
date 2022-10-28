@@ -364,13 +364,14 @@ void ReadView::clone_from(const ReadView *other) {
   ut_d(m_view_low_limit_no = other->m_view_low_limit_no);
 }
 
-void MVCC::view_open(ReadView *view, trx_t *trx) {
+void MVCC::view_open(ReadView *view, trx_t *trx, uint64_t gts) {
   ut_ad(!srv_read_only_mode);
   ut_ad(!trx->view_assigned);
   ut_a(view != nullptr);
 
   /* Create a snapshot and add to list */
   view->snapshot(trx);
+  view->m_gts = gts;
 }
 
 ulint MVCC::size() const {
@@ -433,6 +434,161 @@ void MVCC::view_close(trx_t *trx) {
 
   view->close();
   trx->view_assigned = false;
+}
+
+/**
+TDSQL: Set the view GTS. Note: This should be set only for trx that mix normal
+select and withgts select.
+@param view     Set the gts for this view
+@param id       Transaction id to set
+@param gts      Global timestamp */
+void
+MVCC::set_view_gts(ReadView* view, uint64_t gts)
+{
+  if (!view->m_gts) {
+    //mutex_enter(&trx_sys->mutex);
+    view->m_gts = gts;
+    //mutex_exit(&trx_sys->mutex);
+  }
+}
+
+static inline std::string log_dir_path() {
+  if (srv_log_group_home_dir[strlen(srv_log_group_home_dir) -1] == '/') {
+    return std::string(srv_log_group_home_dir);
+  } else {
+    return (std::string(srv_log_group_home_dir) + std::string("/"));
+  }
+}
+
+void MVCC::delete_snapshot() {
+  std::string tmp_path = log_dir_path() + std::string(TMP_SNAPSHOT_FILE_NAME);
+  unlink(tmp_path.c_str());
+
+  std::string path = log_dir_path() + std::string(SNAPSHOT_FILE_NAME);
+  unlink(path.c_str());
+}
+
+/** Store purge_sys->snapshot_view into file. */
+void
+MVCC::persist_snapshot(ReadView *snapshot_view) {
+  ut_a(snapshot_view != nullptr);
+  /** Delete if there's history file */
+  delete_snapshot();
+
+  trx_ids_t trx_ids;
+  trx_ids.clear();
+
+  snapshot_view->copy_trx_ids(trx_ids);
+
+  ulint size = (1 + 1 + 1 + 1) * 8 + 4 + trx_ids.size() * 8;
+
+  size = ut_uint64_align_up(size, UNIV_PAGE_SIZE);
+
+  byte* log_buf = static_cast<byte*>(
+      ut::aligned_zalloc(size + UNIV_PAGE_SIZE, UNIV_PAGE_SIZE));
+
+  /* Prepare the buffer */
+  mach_write_to_8(log_buf, snapshot_view->up_limit_id());
+  mach_write_to_8(log_buf + 8, snapshot_view->low_limit_id());
+  mach_write_to_8(log_buf + 16, snapshot_view->low_limit_no());
+  mach_write_to_8(log_buf + 24, snapshot_view->gts());
+  mach_write_to_4(log_buf + 32, trx_ids.size());
+
+  byte* ptr = log_buf + 36;
+  ulint i = 0;
+  while (i < trx_ids.size()) {
+    mach_write_to_8(ptr + i * 8, trx_ids[i]);
+    i++;
+  }
+
+  /* Create a tmp file */
+  std::string tmp_path = log_dir_path() + std::string(TMP_SNAPSHOT_FILE_NAME);
+
+  bool ret;
+  pfs_os_file_t handle = os_file_create(innodb_log_file_key, tmp_path.c_str(),
+      OS_FILE_CREATE, OS_FILE_NORMAL,
+      OS_LOG_FILE, srv_read_only_mode, &ret);
+
+  ut_a(ret);
+
+  dberr_t io_err;
+  IORequest request(IORequest::WRITE);
+  request.disable_compression();
+  io_err = os_file_write(request, tmp_path.c_str(), handle, log_buf, 0, size);
+  ut_a(io_err == DB_SUCCESS);
+
+  os_file_flush(handle);
+  os_file_close(handle);
+
+  std::string path = log_dir_path() + std::string(SNAPSHOT_FILE_NAME);
+
+  os_file_rename(innodb_log_file_key, tmp_path.c_str(), path.c_str());
+
+  ut::aligned_free(log_buf);
+}
+
+void ReadView::parse_snapshot(byte *snapshot_buf) {
+  m_up_limit_id = mach_read_from_8(snapshot_buf);
+  m_low_limit_id = mach_read_from_8(snapshot_buf + 8);
+  m_low_limit_no = mach_read_from_8(snapshot_buf + 16);
+  m_gts = mach_read_from_8(snapshot_buf + 24);
+  ulint id_count = mach_read_from_4(snapshot_buf + 32);
+
+  m_ids.clear();
+  ulint i = 0;
+
+  byte* ptr = snapshot_buf + 36;
+  while (i < id_count) {
+    trx_id_t id = mach_read_from_8(ptr + i * 8);
+    ut_a(id > 0);
+    ut_a(id < m_low_limit_id);
+    i++;
+    m_ids.push_back(id);
+  }
+
+  m_creator_trx_id = 0;
+}
+
+bool
+MVCC::read_snapshot(ReadView* &view) {
+  std::string path = log_dir_path() + std::string(SNAPSHOT_FILE_NAME);
+
+  os_file_stat_t stat_info;
+  dberr_t err;
+  err = os_file_get_status(path.c_str(), &stat_info, false, srv_read_only_mode);
+  if (err == DB_NOT_FOUND) {
+    return false;
+  }
+
+  bool ret;
+  pfs_os_file_t handle = os_file_create_simple(
+      innodb_log_file_key, path.c_str(),
+      OS_FILE_OPEN, OS_FILE_READ_ONLY, srv_read_only_mode, &ret);
+
+  if (!ret) {
+    return false;
+  }
+
+  ulint size = os_file_get_size(handle);
+
+  byte* log_buf = static_cast<byte*>(
+      ut::aligned_zalloc(size + UNIV_PAGE_SIZE, UNIV_PAGE_SIZE));
+
+  IORequest request(IORequest::READ);
+  request.disable_compression();
+
+  err = os_file_read(request, path.c_str(), handle, log_buf, 0, size);
+
+  if (view == nullptr) {
+    view = new ReadView();
+  }
+
+  view->parse_snapshot(log_buf);
+
+  ut::aligned_free(log_buf);
+  os_file_close(handle);
+
+  return true;
 }
 
 /**

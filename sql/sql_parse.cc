@@ -3722,7 +3722,13 @@ int mysql_execute_command(THD *thd, bool first_level) {
       }
       /* PURGE MASTER LOGS TO 'file' */
       tp_change_active_thread(thd, lex->sql_command, false/*inc*/);
-      res = purge_source_logs_to_file(thd, lex->to_log);
+      if (lex->type == 1) {
+        ha_purge_tlog();
+        res = false;
+        my_ok(thd);
+      } else {
+        res = purge_source_logs_to_file(thd, lex->to_log);
+      }
       tp_change_active_thread(thd, lex->sql_command, true/*inc*/);
 
       break;

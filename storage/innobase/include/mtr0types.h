@@ -258,8 +258,9 @@ enum mlog_id_t {
   MLOG_LIST_END_DELETE = 75,
   MLOG_LIST_START_DELETE = 76,
 
+  MLOG_TRX_MAP_GTS = 77,
   /** biggest value (used in assertions) */
-  MLOG_BIGGEST_TYPE = MLOG_LIST_START_DELETE
+  MLOG_BIGGEST_TYPE = MLOG_TRX_MAP_GTS
 };
 
 /** @} */

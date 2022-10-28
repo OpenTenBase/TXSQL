@@ -64,6 +64,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "trx0roll.h"
 #include "trx0rseg.h"
 #include "trx0trx.h"
+#include "trx0tlog.h"
 
 /** Maximum allowable purge history length.  <=0 means 'infinite'. */
 ulong srv_max_purge_lag = 0;
@@ -241,6 +242,7 @@ void trx_purge_sys_mem_create() {
   purge_sys->heap = mem_heap_create(8 * 1024, UT_LOCATION_HERE);
 }
 
+extern bool g_mc_enable;
 void trx_purge_sys_initialize(uint32_t n_purge_threads, purge_pq_t *purge_queue,
                               purge_pq_t *pre_purge_queue) {
   /* Take ownership of purge_queue, we are responsible for freeing it. */
@@ -279,6 +281,26 @@ void trx_purge_sys_initialize(uint32_t n_purge_threads, purge_pq_t *purge_queue,
   new (&purge_sys->pre_view) ReadView();
   purge_sys->pre_rseg_iter = ut::new_withkey<TrxUndoRsegsIterator>(
       UT_NEW_THIS_FILE_PSI_KEY, purge_sys);
+
+  purge_sys->force_wakeup = false;
+  purge_sys->limit_gts = 0;
+
+  purge_sys->snapshot_view = nullptr;
+  ut_a(opt_mc_enabled == g_mc_enable);
+  if (opt_mc_enabled) {
+    trx_sys->mvcc->read_snapshot(purge_sys->snapshot_view);
+
+    /* It's possible that the server never turn off mc_enabled
+    or exception happens while turning on the option and fail
+    to create the snapshot file. so here we clone from purge_sys->view
+    and persist it. */
+    if (purge_sys->snapshot_view == nullptr) {
+      ReadView *old_snapshot = new ReadView();
+      old_snapshot->clone_from(&purge_sys->view);
+      trx_sys->mvcc->persist_snapshot(old_snapshot);
+      purge_sys->snapshot_view = old_snapshot;
+    }
+  }
 }
 
 void trx_purge_sys_close() {
@@ -413,6 +435,7 @@ void trx_purge_add_update_undo_to_history(
     rseg->last_offset = undo->hdr_offset;
     rseg->last_trx_no = trx->no;
     rseg->last_del_marks = undo->del_marks;
+    rseg->last_trx_id = trx->id;
   }
 
   if (rseg->pre_last_page_no == FIL_NULL) {
@@ -1804,6 +1827,8 @@ static void trx_purge_rseg_get_next_history_log(
 
   trx_id_t trx_no = mach_read_from_8(log_hdr + TRX_UNDO_TRX_NO);
 
+  trx_id_t trx_id = mach_read_from_8(log_hdr + TRX_UNDO_TRX_ID);
+
   auto del_marks = mach_read_from_2(log_hdr + TRX_UNDO_DEL_MARKS);
 
   mtr_commit(&mtr);
@@ -1814,6 +1839,7 @@ static void trx_purge_rseg_get_next_history_log(
   rseg->last_offset = prev_log_addr.boffset;
   rseg->last_trx_no = trx_no;
   rseg->last_del_marks = del_marks;
+  rseg->last_trx_id = trx_id;
 
   TrxUndoRsegs elem(rseg->last_trx_no);
   elem.insert(rseg);
@@ -2247,6 +2273,29 @@ void Purge_groups_t::distribute_if_needed() {
     return nullptr;
   }
 
+  if (purge_sys->rseg &&
+      purge_sys->rseg->last_trx_id > 0 && purge_sys->limit_gts > 0) {
+    bool purged = false;
+    trx_id_t last_trx_id = purge_sys->rseg->last_trx_id;
+    uint64_t trx_gts = tlog_mgr->get_gts(last_trx_id, purged);
+    if (!purged) {
+      if (trx_gts == 0) {
+        /* Check if trx is still active */
+        if (trx_sys->find(nullptr, last_trx_id, false) != nullptr) {
+          /* The transaction has added its modification to history
+          list but hasn't write gts yet. */
+          return nullptr;
+        } else {
+          /* For some unknown reason, gts isn't written to tlog. */
+        }
+      } else if (trx_gts >= purge_sys->limit_gts) {
+        return nullptr;
+      }
+    }
+    /* Reset it so skip checking for undo rec with same trx id */
+    purge_sys->rseg->last_trx_id = 0;
+  }
+
   /* fprintf(stderr, "Thread %s purging trx %llu undo record %llu\n",
   to_string(std::this_thread::get_id()), iter->trx_no, iter->undo_no); */
 
@@ -2432,6 +2481,7 @@ static void trx_purge_truncate(void) {
   trx_purge_truncate_undo_spaces();
 }
 
+extern bool g_mc_enable;
 /** This function runs a purge batch.
  @return number of undo log pages handled in the batch */
 ulint trx_purge(ulint n_purge_threads, /*!< in: number of purge tasks
@@ -2465,8 +2515,45 @@ ulint trx_purge(ulint n_purge_threads, /*!< in: number of purge tasks
 
   rw_lock_x_lock(&purge_sys->latch, UT_LOCATION_HERE);
 
+  if (purge_sys->force_wakeup) {
+    if (g_mc_enable) {
+      if (purge_sys->snapshot_view == nullptr) {
+        ReadView *old_snapshot = new ReadView();
+        old_snapshot->clone_from(&purge_sys->view);
+        trx_sys->mvcc->persist_snapshot(old_snapshot);
+        purge_sys->snapshot_view = old_snapshot;
+        os_wmb;
+      }
+    } else {
+      if (purge_sys->snapshot_view != nullptr) {
+        trx_sys->mvcc->delete_snapshot();
+        delete purge_sys->snapshot_view;
+        purge_sys->snapshot_view = nullptr;
+        os_wmb;
+      }
+    }
+
+    /* do nothing and return. */
+    rw_lock_x_unlock(&purge_sys->latch);
+
+    return (0);
+  }
+
   purge_sys->view.clone_from(&backquery_oldest_view);
   purge_sys->pre_view.clone_from(&pre_view);
+
+  purge_sys->view_active = false;
+
+  purge_sys->view.clone_from(&backquery_oldest_view);
+  purge_sys->pre_view.clone_from(&pre_view);
+
+  purge_sys->view_active = true;
+
+  if (opt_mc_enabled) {
+    purge_sys->limit_gts = srv_min_purge_gts;
+  } else {
+    purge_sys->limit_gts = 0;
+  }
 
   rw_lock_x_unlock(&purge_sys->latch);
 
@@ -2561,6 +2648,10 @@ ulint trx_purge(ulint n_purge_threads, /*!< in: number of purge tasks
   length. */
   if (truncate || srv_upgrade_old_undo_found) {
     trx_purge_truncate();
+  }
+
+  if (purge_sys->limit_gts > 0) {
+    tlog_mgr->purge(purge_sys->limit_gts);
   }
 
   MONITOR_INC_VALUE(MONITOR_PURGE_INVOKED, 1);

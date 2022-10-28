@@ -452,6 +452,8 @@ extern unsigned long long srv_max_undo_tablespace_size;
 /** Rate at which UNDO records should be purged. */
 extern ulong srv_purge_rseg_truncate_frequency;
 
+extern ulonglong srv_min_purge_gts;
+
 /** Enable or Disable Truncate of UNDO tablespace. */
 extern bool srv_undo_log_truncate;
 
@@ -813,6 +815,8 @@ extern bool srv_redo_log;
 extern bool opt_skip_dml_estimate_range;
 
 extern bool opt_simplify_trx_in_innodb;
+
+extern bool opt_mc_enabled;
 /** Status variables to be passed to MySQL */
 extern struct export_var_t export_vars;
 
@@ -1286,6 +1290,9 @@ struct export_var_t {
                                           128]; /*!< Buf pool snapshot status */
   char innodb_buffer_pool_recover_status[OS_FILE_MAX_PATH +
                                          128]; /*!< Buf pool recover status */
+  ulint innodb_max_committed_gts;
+  ulint innodb_tlog_file_read;
+  ulint innodb_tlog_file_write;
   /* Changes from txsql end. */
 };
 

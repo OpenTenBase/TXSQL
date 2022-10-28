@@ -4844,6 +4844,9 @@ private:
   bool thd_seq_set_val(const std::string &db, const std::string &name,
                        Sequence::seq_val_t set_val, bool next, Sequence::seq_val_t &out);
 
+  //TDSQL GTS (global transaction sequence)
+  uint64_t getGTS();
+
  public:
   LEX_STRING m_txsql_qid;
 

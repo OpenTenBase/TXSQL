@@ -188,6 +188,8 @@ into the provided buffer.
 @return                 Length of the SQL statement */
 size_t innobase_get_stmt_safe(THD *thd, char *buf, size_t buflen);
 
+uint64_t innobase_get_stmt_gts(THD *thd);
+
 /** This function is used to find the storage length in bytes of the first n
  characters for prefix indexes using a multibyte character set. The function
  finds charset information and returns length of prefix_len characters in the

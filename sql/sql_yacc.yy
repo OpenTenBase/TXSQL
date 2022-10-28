@@ -1412,6 +1412,8 @@ void warn_about_deprecated_binary(THD *thd)
 %token<lexer.keyword> STATISTICS_TASKS_SYM 1296
 %token<lexer.keyword> STATISTICS_NODE_SYM 1297
 %token TXSQL_RETURNING_SYM 1298
+%token TDSQL_TLOG_SYM 1299
+%token  TDSQL_WITHGTS_SYM 1300            /* TDSQL */
 /* Changes from txsql end. */
 
 /*
@@ -1552,7 +1554,7 @@ void warn_about_deprecated_binary(THD *thd)
 
 %type <ulonglong_number>
         ulonglong_num real_ulonglong_num size_number
-        option_autoextend_size
+        option_autoextend_size opt_with_gts
 
 %type <lock_type>
         replace_lock_option opt_low_priority insert_lock_option load_data_lock
@@ -10156,9 +10158,10 @@ opt_ignore_leaves:
         ;
 
 select_stmt:
-          query_expression
+          query_expression opt_with_gts
           {
             $$ = NEW_PTN PT_select_stmt($1);
+            Lex->gts = $2;
           }
         | query_expression locking_clause_list
           {
@@ -10171,6 +10174,11 @@ select_stmt:
           }
         | select_stmt_with_into
         ;
+
+opt_with_gts:
+         /* nothing */ { $$= 0; }
+         | TDSQL_WITHGTS_SYM real_ulonglong_num { $$= $2; }
+         ;
 
 /*
   MySQL has a syntax extension that allows into clauses in any one of two
@@ -14682,6 +14690,10 @@ engine_or_all:
 master_or_binary:
           MASTER_SYM
         | BINARY_SYM
+        | TDSQL_TLOG_SYM
+          {
+            Lex->type = 1; //purge tlog
+          }
         ;
 
 opt_storage:
@@ -15062,7 +15074,11 @@ purge_options:
         ;
 
 purge_option:
-          TO_SYM TEXT_STRING_sys
+        /* empty */ 
+          {
+            Lex->type = 1; //purge tlog
+          }
+        | TO_SYM TEXT_STRING_sys
           {
             Lex->to_log = $2.str;
           }
@@ -15074,6 +15090,11 @@ purge_option:
             lex->purge_value_list.clear();
             lex->purge_value_list.push_front($2);
             lex->sql_command= SQLCOM_PURGE_BEFORE;
+          }
+        | TDSQL_TLOG_SYM LOGS_SYM
+          {
+            LEX *lex=Lex;
+            lex->type = 1; //purge tlog
           }
         ;
 
@@ -18750,10 +18771,12 @@ sp_tail:
 /*************************************************************************/
 
 xa:
-          XA_SYM begin_or_start xid opt_join_or_resume
+          XA_SYM begin_or_start xid opt_join_or_resume opt_with_gts
           {
             Lex->sql_command = SQLCOM_XA_START;
             Lex->m_sql_cmd= NEW_PTN Sql_cmd_xa_start($3, $4);
+            Lex->gts = $5;
+            Lex->gts_xa = $5;
           }
         | XA_SYM END xid opt_suspend
           {
@@ -18765,10 +18788,11 @@ xa:
             Lex->sql_command = SQLCOM_XA_PREPARE;
             Lex->m_sql_cmd= NEW_PTN Sql_cmd_xa_prepare($3);
           }
-        | XA_SYM COMMIT_SYM xid opt_one_phase
+        | XA_SYM COMMIT_SYM xid opt_one_phase opt_with_gts
           {
             Lex->sql_command = SQLCOM_XA_COMMIT;
             Lex->m_sql_cmd= NEW_PTN Sql_cmd_xa_commit($3, $4);
+            Lex->gts = $5;
           }
         | XA_SYM ROLLBACK_SYM xid opt_xa_rollback_force
           {

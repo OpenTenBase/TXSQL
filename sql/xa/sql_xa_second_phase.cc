@@ -157,6 +157,15 @@ void Sql_cmd_xa_second_phase::assign_xid_to_thd(THD *thd) const {
   assert(this->m_detached_trx_context != nullptr);
   auto thd_xs = thd->get_transaction()->xid_state();
   thd_xs->start_detached_xa(this->m_xid, thd_xs->is_binlogged());
+
+  /*
+    TDSQL: External xa does not pass THD to the engine , so it
+    is impossible to get GTS through thd in the engine. At this
+    time, we pass GTS to the engine through xid.
+   */
+  if (thd->getGTS()) {
+    thd_xs->get_xid()->gts = thd->getGTS();
+  }
 }
 
 void Sql_cmd_xa_second_phase::exit_commit_order(THD *thd) const {

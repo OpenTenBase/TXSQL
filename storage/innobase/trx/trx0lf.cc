@@ -153,6 +153,11 @@ bool get_min_trx_id_callback(rw_trx_hash_element_t *element,
   return (false);
 }
 
+trx_id_t trx_sys_t::get_min_trx_id() {
+  trx_id_t id = get_max_trx_id();
+  THIS_HASH_ITERATE(nullptr, get_min_trx_id_callback, &id);
+  return id;
+}
 /* Since we do not handle the gap between a trx increase max_trx_id
 and insert into lf_hash, we may get a larger min_active_id here.
 But these transactions can be treated as to be ACTIVE.
@@ -163,8 +168,7 @@ bool trx_sys_t::is_trx_id_possible_active(trx_id_t compare_to) {
     return (false);
   }
 
-  trx_id_t id = get_max_trx_id();
-  THIS_HASH_ITERATE(nullptr, get_min_trx_id_callback, &id);
+  trx_id_t id = get_min_trx_id();
 
   trx_id_t old_val = m_min_active_id.load();
   while (old_val < id &&

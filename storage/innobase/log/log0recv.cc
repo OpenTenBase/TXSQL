@@ -68,6 +68,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "trx0rec.h"
 #include "trx0undo.h"
 #include "ut0new.h"
+#include "trx0tlog.h"
 
 #include "my_dbug.h"
 
@@ -2939,7 +2940,21 @@ static ulint recv_parse_log_rec(mlog_id_t *type, byte *ptr, byte *end_ptr,
       *space_id = SPACE_UNKNOWN;
       *type = static_cast<mlog_id_t>(*ptr);
       return 1;
+    case MLOG_TRX_MAP_GTS:
+      if (end_ptr < ptr + 1 + 8 + 8) {
+        return 0;
+      }
 
+      *type = MLOG_TRX_MAP_GTS;
+      {
+        byte *log_ptr = ptr;
+        log_ptr++;
+        trx_id_t id = mach_read_from_8(log_ptr);
+        log_ptr += 8;
+        uint64_t gts = mach_read_from_8(log_ptr);
+        tlog_mgr->write_gts(id, gts);
+      }
+      return (1 + 8 + 8);
     case MLOG_MULTI_REC_END | MLOG_SINGLE_REC_FLAG:
     case MLOG_DUMMY_RECORD | MLOG_SINGLE_REC_FLAG:
       recv_sys->found_corrupt_log = true;
@@ -3135,6 +3150,7 @@ static bool recv_single_rec(byte *ptr, byte *end_ptr) {
     case MLOG_FILE_CREATE:
     case MLOG_FILE_EXTEND:
     case MLOG_TABLE_DYNAMIC_META:
+    case MLOG_TRX_MAP_GTS:
 
       /* These were already handled by
       recv_parse_log_rec() and
@@ -3283,6 +3299,7 @@ static bool recv_multi_rec(byte *ptr, byte *end_ptr) {
       case MLOG_FILE_RENAME:
       case MLOG_FILE_EXTEND:
       case MLOG_TABLE_DYNAMIC_META:
+      case MLOG_TRX_MAP_GTS:
         /* case MLOG_TRUNCATE: Disabled for WL6378 */
         /* These were already handled by
         recv_parse_or_apply_log_rec_body(). */
@@ -4412,6 +4429,9 @@ const char *get_mlog_string(mlog_id_t type) {
 
     case MLOG_LIST_START_DELETE:
       return "MLOG_LIST_START_DELETE";
+
+    case MLOG_TRX_MAP_GTS:
+      return ("MLOG_TRX_MAP_GTS");
 
     case MLOG_TEST:
       return "MLOG_TEST";

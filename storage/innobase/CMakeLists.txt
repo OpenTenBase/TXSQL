@@ -244,6 +244,7 @@ SET(INNOBASE_SOURCES
   trx/trx0trx.cc
   trx/trx0lf.cc
   trx/trx0undo.cc
+  trx/trx0tlog.cc
   usr/usr0sess.cc
   ut/ut0dbg.cc
   ut/ut0list.cc

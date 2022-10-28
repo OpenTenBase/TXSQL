@@ -77,6 +77,10 @@ bool Sql_cmd_xa_commit::execute(THD *thd) {
     */
     trans_reset_one_shot_chistics(thd);
 
+    //TDSQL: 'XA ONE PHASE' reset thd->lex->gts_xa
+    if (m_xa_opt == XA_ONE_PHASE) {
+      thd->lex->gts_xa = 0;
+    }
     my_ok(thd);
   }
   return st;

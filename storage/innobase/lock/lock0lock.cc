@@ -240,7 +240,10 @@ bool lock_clust_rec_cons_read_sees(
                           passed over by a read cursor */
     dict_index_t *index,  /*!< in: clustered index */
     const ulint *offsets, /*!< in: rec_get_offsets(rec, index) */
-    ReadView *view)       /*!< in: consistent read view */
+    ReadView *view,       /*!< in: consistent read view */
+    bool is_active,  /*!< in: Whether the transaction is active.
+                       Valid when mc_enable is true */
+    bool mc_enable)  /*!< in: GTS mode readview enable or not */
 {
   ut_ad(index->is_clustered());
   ut_ad(page_rec_is_user_rec(rec));
@@ -260,7 +263,11 @@ bool lock_clust_rec_cons_read_sees(
 
   trx_id_t trx_id = row_get_rec_trx_id(rec, index, offsets);
 
-  return (view->changes_visible(trx_id, index->table->name));
+  if (mc_enable) {
+    return view->changes_visible_withgts(trx_id, index->table->name, is_active);
+  } else {
+    return (view->changes_visible(trx_id, index->table->name));
+  }
 }
 
 /** Checks that a non-clustered index record is seen in a consistent read.
@@ -277,7 +284,8 @@ bool lock_sec_rec_cons_read_sees(
                                should be read or passed over
                                by a read cursor */
     const dict_index_t *index, /*!< in: index */
-    const ReadView *view)      /*!< in: consistent read view */
+    const ReadView *view,      /*!< in: consistent read view */
+    bool mc_enable)
 {
   ut_ad(page_rec_is_user_rec(rec));
 
@@ -300,7 +308,13 @@ bool lock_sec_rec_cons_read_sees(
 
   ut_ad(max_trx_id > 0);
 
-  return (view->sees(max_trx_id));
+  if (!mc_enable) {
+    return(view->sees(max_trx_id));
+  } else {
+    /*TDSQL: Forced failure of secondary index in GTS mode.
+    To be optimized*/
+    return false;
+  }
 }
 
 /** Creates the lock system at database start. */
@@ -5414,7 +5428,9 @@ static void rec_queue_validate_latched(const buf_block_t *block,
     }
 
   Lock_iter::for_each(rec_id, [&](lock_t *lock) {
-    ut_ad(!trx_is_ac_nl_ro(lock->trx));
+    /* TDSQL: It is a no-lock select in GTS mode, but a short row lock will 
+       be added and released immediately. */
+    ut_ad(lock->trx->read_view->gts() || !trx_is_ac_nl_ro(lock->trx));
 
     if (index != nullptr) {
       ut_a(lock->index == index);
@@ -6593,7 +6609,10 @@ void lock_trx_release_locks(trx_t *trx) /*!< in/out: transaction */
   trx_mutex_enter(trx);
 
   check_trx_state(trx);
-  ut_ad(trx_state_eq(trx, TRX_STATE_COMMITTED_IN_MEMORY));
+  /* TDSQL: It is a no-lock select in GTS mode, but a short row lock will 
+     be added and released immediately. */
+  ut_ad(0 !=trx->read_view->gts() ||
+        trx_state_eq(trx, TRX_STATE_COMMITTED_IN_MEMORY));
 
   if (trx_is_referenced(trx)) {
     while (trx_is_referenced(trx)) {

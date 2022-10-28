@@ -1772,6 +1772,15 @@ int ha_commit_low(THD *thd, bool all, bool run_after_commit) {
 
   if (ha_list) {
     bool restore_backup_ha_data = false;
+
+    /* TDSQL: "XA COMMIT ONE PHASE" may need to increment the max snapshot_gts */
+    bool bind_snapshot_gts = false;
+    if (g_mc_enable && thd->lex->sql_command == SQLCOM_XA_COMMIT &&
+        static_cast<Sql_cmd_xa_commit*>(thd->lex->m_sql_cmd)->
+            get_xa_opt() == XA_ONE_PHASE){
+      bind_snapshot_gts = true;
+    }
+
     /*
       At execution of XA COMMIT ONE PHASE binlog or slave applier
       reattaches the engine ha_data to THD, previously saved at XA START.
@@ -1842,6 +1851,22 @@ int ha_commit_low(THD *thd, bool all, bool run_after_commit) {
     for (auto &ha_info : ha_list) {
       int err;
       auto ht = ha_info.ht();
+
+      /*
+        TDSQL: Get the largest gts snapshot of InnoDB and compare the
+        current xa-start gts.
+      */
+      if (g_mc_enable && bind_snapshot_gts && ht->max_snapshot_gts) {
+
+        uint64_t gts = 0;
+        ht->max_snapshot_gts(gts);
+        if (0 != gts)
+          gts++;
+
+        if (gts > thd->lex->gts_xa)
+          thd->lex->gts_xa = gts;
+      }
+
       if ((err = ht->commit(ht, thd, all))) {
         char errbuf[MYSQL_ERRMSG_SIZE];
         my_error(ER_ERROR_DURING_COMMIT, MYF(0), err,
@@ -8997,6 +9022,33 @@ bool handler::print_index_status(THD *thd, const char *table_name,
     protocol->store(btr_depth);
 
   return protocol->end_row();
+}
+
+static bool purge_tlog_handlerton(THD *, plugin_ref plugin, void *) {
+  handlerton *hton= plugin_data<handlerton*>(plugin);
+  if (hton->purge_tlog != nullptr) {
+    hton->purge_tlog();
+  }
+
+  return false;
+}
+
+void ha_purge_tlog() {
+  plugin_foreach(nullptr, purge_tlog_handlerton,
+      MYSQL_STORAGE_ENGINE_PLUGIN, nullptr);
+}
+
+static bool snapshot_update_handlerton(THD *, plugin_ref plugin, void *mc_enabled) {
+  handlerton *hton= plugin_data<handlerton*>(plugin);
+  if (hton->state == SHOW_OPTION_YES && hton->snapshot_update)
+    hton->snapshot_update(hton, *((bool*)mc_enabled));
+
+  return false;
+}
+
+void ha_snapshot_update(bool mc_enabled) {
+  plugin_foreach(nullptr, snapshot_update_handlerton,
+      MYSQL_STORAGE_ENGINE_PLUGIN, &mc_enabled);
 }
 
 /* Changes from txsql end. */

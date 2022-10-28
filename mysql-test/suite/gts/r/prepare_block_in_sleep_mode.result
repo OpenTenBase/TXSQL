@@ -1,0 +1,25 @@
+DROP DATABASE IF EXISTS dbtest_gts;
+CREATE DATABASE dbtest_gts;
+use dbtest_gts;
+drop table if exists t;
+create table t(id int primary key, name char(10),gts int, index i_name(name));
+set global mc_sleep_mode = ON;
+show global variables like "mc_sleep_mode";
+Variable_name	Value
+mc_sleep_mode	ON
+XA start 'a' tdsql_withgts 700;
+insert into t values(3,'c',700);
+XA end 'a';
+XA prepare 'a';
+set session innodb_lock_wait_timeout = 1;
+show variables like "innodb_lock_wait_timeout";
+Variable_name	Value
+innodb_lock_wait_timeout	1
+use dbtest_gts;
+select *from t force index(primary) tdsql_withgts 701;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+xa commit 'a' tdsql_withgts 701;
+Occurrences of 'query with GTS lock wait timeout in sleep mode' in the input file: 1
+DROP DATABASE dbtest_gts;
+PURGE TDSQL_TLOG logs;
+set global mc_sleep_mode = OFF;

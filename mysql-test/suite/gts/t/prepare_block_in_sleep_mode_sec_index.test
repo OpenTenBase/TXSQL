@@ -1,0 +1,44 @@
+--disable_warnings
+DROP DATABASE IF EXISTS dbtest_gts;
+--enable_warnings
+ 
+CREATE DATABASE dbtest_gts;
+use dbtest_gts;
+--disable_warnings
+drop table if exists t;
+--enable_warnings
+create table t(id int primary key, name char(10),gts int, index i_name(name));
+
+#t1 start a normal XA transtion
+set global mc_sleep_mode = ON;
+show global variables like "%mc%";
+
+XA start 'a' tdsql_withgts 700;
+insert into t values(3,'c',700);
+XA end 'a';
+XA prepare 'a';
+
+#t2 select with_gts blocking
+connect(conn1,localhost,root);
+set session innodb_lock_wait_timeout = 1;
+show variables like "innodb_lock_wait_timeout";
+use dbtest_gts;
+--error ER_LOCK_WAIT_TIMEOUT
+select name from t force index(i_name) tdsql_withgts 701;
+
+#t1 commit XA transtion
+connection default;
+xa commit 'a' tdsql_withgts 701;
+
+#check log
+--let $grep_file=$MYSQLTEST_VARDIR/log/mysqld.1.err
+--let $grep_pattern=query with GTS lock wait timeout in sleep mode
+--let $grep_output=print_count
+--source include/grep_pattern.inc
+
+#clean
+connection default;
+disconnect conn1;
+DROP DATABASE dbtest_gts;
+PURGE TDSQL_TLOG logs;
+set global mc_sleep_mode = OFF;

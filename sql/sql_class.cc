@@ -3566,6 +3566,28 @@ bool THD::thd_seq_set_val(const std::string &db,const std::string &name,
   return false;
 }
 
+uint64_t THD::getGTS() {
+  if (lex->gts > 0) {
+    /* GTS in the statement */
+    return lex->gts;
+  } else if(lex->gts_xa) {
+    /* GTS dosen't in the statement but in XA START (tdsql_withgts) */
+    return lex->gts_xa;
+  } else
+    return 0;
+}
+
+extern "C"
+bool thd_trx_xa_is_external(const MYSQL_THD thd) {
+  if (!thd->get_transaction() ||
+      !thd->get_transaction()->xid_state())
+    return false;
+  return thd->get_transaction()->xid_state()->is_external();
+}
+
+extern "C" uint64_t thd_get_gts(MYSQL_THD thd) {
+  return (thd->getGTS());
+}
 /**
   Changes from txsql end.
 */

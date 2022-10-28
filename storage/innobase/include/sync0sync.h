@@ -213,6 +213,9 @@ extern mysql_pfs_key_t trx_sys_mvcc_lock_key;
 extern mysql_pfs_key_t trx_sys_rw_lock_key;
 extern mysql_pfs_key_t hash_table_locks_key;
 extern mysql_pfs_key_t backquery_enable_lock_key;
+extern mysql_pfs_key_t tlog_page_lock_key;
+extern mysql_pfs_key_t tlog_purge_lock_key;
+extern mysql_pfs_key_t tlog_file_lock_key;
 #endif /* UNIV_PFS_RWLOCK */
 
 #ifdef HAVE_PSI_INTERFACE

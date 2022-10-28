@@ -207,7 +207,8 @@ void trx_mark_sql_stat_end(trx_t *trx); /*!< in: trx handle */
 /** Assigns a read view for a consistent read query. All the consistent reads
  within the same transaction will get the same read view, which is created
  when this function is first called for a new started transaction. */
-void trx_assign_read_view(trx_t *trx); /*!< in: active transaction */
+void trx_assign_read_view(trx_t *trx, /*!< in: active transaction */
+                          uint64_t gts = 0); /*!< in: GTS mode readview enable or not */
 
 /** @return the transaction's read view or NULL if one not assigned. */
 static inline ReadView *trx_get_read_view(trx_t *trx, dict_index_t *index);
@@ -1167,6 +1168,8 @@ struct trx_t {
 #endif            /* UNIV_DEBUG */
   bool connect_broken;
 
+  uint64_t gts;
+
   ulint magic_n;
 
   bool is_read_uncommitted() const {
@@ -1221,7 +1224,8 @@ static inline bool trx_is_autocommit_non_locking(const trx_t *t) {
 
 /** Check transaction state */
 static inline void check_trx_state(const trx_t *t) {
-  ut_ad(!trx_is_autocommit_non_locking(t));
+  ut_ad(0 != t->read_view->gts() ||
+        !trx_is_autocommit_non_locking((t)));
   switch (t->state) {
     case TRX_STATE_PREPARED:
       /* fall through */

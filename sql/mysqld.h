@@ -762,6 +762,7 @@ extern mysql_mutex_t LOCK_global_system_variables;
 extern mysql_mutex_t LOCK_user_conn;
 extern mysql_mutex_t LOCK_log_throttle_qni;
 extern mysql_mutex_t LOCK_prepared_stmt_count;
+extern mysql_mutex_t LOCK_mc_enabled;
 extern mysql_mutex_t LOCK_replica_list;
 extern mysql_mutex_t LOCK_error_messages;
 extern mysql_mutex_t LOCK_sql_replica_skip_counter;
@@ -973,6 +974,8 @@ extern uint num_seq_threads;
 extern bool g_sequence_same_nextval_in_query;
 extern bool g_seq_currval_before_first_nextval_return_error;
 extern uint g_simple_slow_logging;
+extern bool g_mc_enable;
+extern bool g_mc_sleep_mode;
 
 extern std::atomic<unsigned long> global_privilege_version;
 extern bool txsql_simplify_priv_check;

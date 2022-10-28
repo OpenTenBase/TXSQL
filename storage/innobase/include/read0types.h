@@ -37,6 +37,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "dict0mem.h"
 
 #include "trx0types.h"
+#include "trx0tlog.h"
 
 // Friend declaration
 class MVCC;
@@ -69,6 +70,67 @@ class ReadView {
   @param id             transaction to check
   @return true if view sees transaction id */
   bool sees(trx_id_t id) const { return (id < m_up_limit_id); }
+
+  /** TDSQL: Check whether the changes by id are visible.
+  @param[in]  id    transaction id to check against the view
+  @param[in]  name  table name
+  @param[in]  is_active whether the transaction is active when it is accessed
+  @return whether the view sees the modifications of id. */
+  bool changes_visible_withgts(trx_id_t id, const table_name_t& name,
+      bool is_active  = false) const MY_ATTRIBUTE((warn_unused_result))
+  {
+    if (is_current_trx(id)) {
+      return true;
+    }
+
+    /*It means that for the newly started transaction after
+    the current read transaction, its GTS must be higher than
+    the current m_gts, so it must not be visible*/
+    if (id > m_low_limit_id /* max_commit_trx_id */ ) {
+      return false;
+    }
+
+    bool purged = false;
+    uint64_t gts = tlog_mgr->get_gts(id,purged);
+
+    /* If true = is_active, it means that it is an active transaction
+     * and its gts = 0. Here gts is not 0, indicating that it has changed
+     * from the active state to the prepare or commit state.*/
+    if (true == is_active && gts != 0) {
+
+      /* active GTS transactions must not be visible */
+      return false;
+    }
+
+    if (purged) {
+
+      /*Mapping record has been purged. Maybe it's a very old record
+      and must be visible.*/
+      return true;
+
+    } else if (gts > 0) {
+
+      return sees_withgts(gts);
+    } else {
+
+      /* This record is an normal transaction without GTS attributes */
+      return  changes_visible(id,name);
+    }
+  }
+
+  /**
+  @param id transaction to check
+  @return true if view sees transaction id */
+  bool sees_withgts(uint64_t gts) const {
+    return(gts <= m_gts);
+  }
+
+  /**
+  @param id transaction to check
+  @return true if it is current transaction */
+  bool is_current_trx(trx_id_t id) const {
+    return (id == m_creator_trx_id);
+  }
 
   /**
   Mark the view as closed */
@@ -125,6 +187,7 @@ uint32_t get_state() const {
     m_low_limit_no = 0;
     m_low_limit_id = 0;
     m_up_limit_id = 0;
+    m_gts = 0;
     m_ids.clear();
   }
 
@@ -139,6 +202,12 @@ uint32_t get_state() const {
   trx_id_t up_limit_id() const { return (m_up_limit_id); }
 
   int64_t get_hash_erase_version() const { return m_hash_erase_version.load(std::memory_order_relaxed); }
+
+  uint64_t gts() const {
+    return m_gts;
+  }
+
+  void parse_snapshot(byte *snapshot_buf);
 
   /**
   @return true if there are no transaction ids in the snapshot */
@@ -175,6 +244,10 @@ uint32_t get_state() const {
   void creator_trx_id(trx_id_t id) {
     // ut_ad(m_creator_trx_id == 0);
     m_creator_trx_id = id;
+  }
+
+  void copy_trx_ids(trx_ids_t &ids) {
+    ids = m_ids;
   }
 
   friend class MVCC;
@@ -219,6 +292,7 @@ uint32_t get_state() const {
 
   std::atomic<int64_t> m_hash_erase_version;
 
+  uint64_t m_gts;
 #ifdef UNIV_DEBUG
   /** The low limit number up to which read views don't need to access
   undo log records for MVCC. This could be higher than m_low_limit_no

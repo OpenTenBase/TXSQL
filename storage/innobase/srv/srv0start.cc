@@ -123,9 +123,12 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "usr0sess.h"
 #include "ut0crc32.h"
 #include "ut0new.h"
+#include "trx0tlog.h"
 
 /** fil_space_t::flags for hard-coded tablespaces */
 extern uint32_t predefined_flags;
+
+extern bool g_mc_enable;
 
 /** Recovered persistent metadata */
 static MetadataRecover *srv_dict_metadata;
@@ -1532,6 +1535,11 @@ dberr_t srv_start(bool create_new_db) {
   mtr_t mtr;
   purge_pq_t *purge_queue, *pre_purge_queue;
 
+  char logfilename[10000];
+  size_t dirnamelen;
+
+  memset(logfilename, '\0', 10000);
+
   assert(srv_dict_metadata == nullptr);
   /* Reset the start state. */
   srv_start_state = SRV_START_STATE_NONE;
@@ -1559,6 +1567,8 @@ dberr_t srv_start(bool create_new_db) {
       return (srv_init_abort(DB_ERROR));
     }
   }
+
+  opt_mc_enabled = g_mc_enable;
 
 #ifdef UNIV_DEBUG
   ib::info(ER_IB_MSG_1112) << "!!!!!!!! UNIV_DEBUG switched on !!!!!!!!!";
@@ -1893,6 +1903,16 @@ dberr_t srv_start(bool create_new_db) {
 
   ut_a(log_sys != nullptr);
 
+  dirnamelen = strlen(srv_log_group_home_dir);
+  ut_a(dirnamelen < (sizeof logfilename) - 10 - sizeof "ib_logfile");
+  memcpy(logfilename, srv_log_group_home_dir, dirnamelen);
+
+  tlog_mgr = new TLogManager(logfilename);
+
+  if (!tlog_mgr->init()) {
+    return(srv_init_abort(DB_ERROR));
+  }
+
   arch_init();
 
   if (create_new_db) {
@@ -1938,6 +1958,8 @@ dberr_t srv_start(bool create_new_db) {
     trx_purge_sys_mem_create();
 
     purge_queue = trx_sys_init_at_db_start(&pre_purge_queue);
+
+    tlog_mgr->post_recovery();
 
     /* The purge system needs to create the purge view and
     therefore requires that the trx_sys is inited. */
@@ -2358,6 +2380,8 @@ dberr_t srv_start(bool create_new_db) {
     /* The purge system needs to create the purge view and
     therefore requires that the trx_sys is inited. */
     purge_queue = trx_sys_init_at_db_start(&pre_purge_queue);
+
+    tlog_mgr->post_recovery();
 
     if (srv_is_upgrade_mode) {
       if (!purge_queue->empty()) {
@@ -3220,6 +3244,9 @@ void srv_shutdown() {
   /* 3. Close all opened files. */
   ibt::close_files();
   fil_close_all_files();
+
+  tlog_mgr->shutdown();
+
   if (srv_monitor_file) {
     fclose(srv_monitor_file);
   }
@@ -3274,6 +3301,9 @@ void srv_shutdown() {
   backquery_sys_close();
   lock_sys_close();
   trx_pool_close();
+
+  delete tlog_mgr;
+  tlog_mgr = nullptr;
 
   dict_close();
   dict_persist_close();

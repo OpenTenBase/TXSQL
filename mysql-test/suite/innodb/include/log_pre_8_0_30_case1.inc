@@ -66,7 +66,7 @@ while ($i <= 2) {
     }
 
     --echo # Case 1B-$i: Start MySQL with --innodb-force-recovery=$force_recovery...
-    --error 1,42
+    --error 1,2,42
     --exec $MYSQLD_CMD $MYSQLD_ARGS --innodb-force-recovery=$force_recovery --$UNKNOWN_PARAM
 
     --echo # Verify...

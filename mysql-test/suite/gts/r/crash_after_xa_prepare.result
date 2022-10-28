@@ -1,0 +1,26 @@
+call mtr.add_suppression("Found 1 prepared XA transactions");
+set global innodb_checkpoint_disabled=on;
+create table t(id int primary key);
+xa start '1' tdsql_withgts 2;
+insert into t values(2);
+xa end '1';
+xa prepare '1';
+SET SESSION debug = '+d,crash_now_safe';
+ERROR HY000: Lost connection to MySQL server during query
+xa recover;
+formatID	gtrid_length	bqual_length	data
+1	1	0	1
+xa start '2' tdsql_withgts 3;
+select * from t;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+xa end '2';
+xa rollback '2';
+xa commit '1';
+xa start '2' tdsql_withgts 3;
+select * from t;
+id
+2
+xa end '2';
+xa prepare '2';
+xa commit '2';
+drop table t;
