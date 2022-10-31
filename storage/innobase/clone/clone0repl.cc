@@ -229,7 +229,7 @@ bool Clone_persist_gtid::check_gtid_commit(THD *thd, bool found_gtid,
   set_explicit = (thd == nullptr) ? false : thd->se_persists_gtid_explicit();
 
   if (!found_gtid) {
-    ut_ad(!set_explicit || thd->is_attachable_transaction_active());
+    // ut_ad(!set_explicit || thd->is_attachable_transaction_active());
     return (false);
   }
 
