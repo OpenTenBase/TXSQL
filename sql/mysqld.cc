@@ -2266,7 +2266,8 @@ class Set_kill_conn : public Do_THD_Impl {
   Set_kill_conn()
       : m_dump_thread_count(0),
         m_kill_dump_threads_flag(false),
-        m_kill_read_write_threads_flag(false) {}
+        m_kill_read_write_threads_flag(false),
+        m_start_slave_cmd_count(0) {}
 
   void set_dump_thread_flag() { m_kill_dump_threads_flag = true; }
 
@@ -2280,6 +2281,12 @@ class Set_kill_conn : public Do_THD_Impl {
     if (!m_kill_dump_threads_flag) {
       // We skip slave threads & scheduler on this first loop through.
       if (killing_thd->slave_thread) return;
+
+      if ((killing_thd->lex &&
+           killing_thd->lex->sql_command == SQLCOM_SLAVE_START)) {
+        ++m_start_slave_cmd_count;
+        return;
+      }
 
       if (killing_thd->get_command() == COM_BINLOG_DUMP ||
           killing_thd->get_command() == COM_BINLOG_DUMP_GTID) {
@@ -2337,6 +2344,12 @@ class Set_kill_conn : public Do_THD_Impl {
     }
     mysql_mutex_unlock(&killing_thd->LOCK_thd_data);
   }
+
+ private:
+  int m_start_slave_cmd_count;
+
+ public:
+  int get_start_slave_cmd_count() const { return m_start_slave_cmd_count; }
 };
 
 
@@ -2456,7 +2469,8 @@ static void close_connections(void) {
   LogErr(INFORMATION_LEVEL, ER_SHUTTING_DOWN_SLAVE_THREADS);
   end_slave();
 
-  if (set_kill_conn.get_dump_thread_count()) {
+  if (set_kill_conn.get_dump_thread_count() ||
+      set_kill_conn.get_start_slave_cmd_count()) {
     /*
       Replication dump thread should be terminated after the clients are
       terminated. Wait for few more seconds for other sessions to end.
