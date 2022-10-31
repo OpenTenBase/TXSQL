@@ -42,6 +42,13 @@ enum_sql_command Sql_cmd_xa_rollback::sql_command_code() const {
 }
 
 bool Sql_cmd_xa_rollback::execute(THD *thd) {
+
+  DBUG_EXECUTE_IF("xa_commit_rollback_wait10sec",{
+      DBUG_SET_INITIAL("-d,xa_commit_rollback_wait10sec");
+      _db_reset_cur_thread_setting_point_global_setting();
+      sleep(10);
+  };);
+  
   if (m_force) {
     auto get_xa_txnid = [](const xid_t *xid) -> std::string {
       return std::string(xid->get_data(), xid->get_gtrid_length());

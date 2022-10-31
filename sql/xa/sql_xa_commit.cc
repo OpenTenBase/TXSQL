@@ -60,6 +60,13 @@ enum_sql_command Sql_cmd_xa_commit::sql_command_code() const {
 enum xa_option_words Sql_cmd_xa_commit::get_xa_opt() const { return m_xa_opt; }
 
 bool Sql_cmd_xa_commit::execute(THD *thd) {
+
+  DBUG_EXECUTE_IF("xa_commit_rollback_wait10sec",{
+      DBUG_SET_INITIAL("-d,xa_commit_rollback_wait10sec");
+      _db_reset_cur_thread_setting_point_global_setting();
+      sleep(10);
+  };);
+  
   bool st = trans_xa_commit(thd);
 
   if (!st) {
