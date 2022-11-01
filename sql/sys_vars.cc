@@ -4083,7 +4083,9 @@ static bool fix_server_id(sys_var *, THD *thd, enum_var_type) {
   // server_id is 'MYSQL_PLUGIN_IMPORT ulong'
   // So we cast here, rather than change its type.
   server_id_supplied = true;
-  thd->server_id = static_cast<uint32>(server_id);
+  thd->server_id = thd->variables.pseudo_server_id != 0 ?
+      thd->variables.pseudo_server_id : static_cast<uint32>(server_id);
+
   return false;
 }
 static Sys_var_ulong Sys_server_id(
@@ -8687,4 +8689,23 @@ static Sys_var_bool Sys_log_statement_of_query_event(
     "Enable log statement format binlog of query event",
     GLOBAL_VAR(g_log_statement_of_query_event), CMD_LINE(OPT_ARG),
     DEFAULT(true));
+
+static bool fix_pseudo_server_id(sys_var *, THD *thd, enum_var_type) {
+  thd->server_id = thd->variables.pseudo_server_id != 0
+                       ? thd->variables.pseudo_server_id
+                       : server_id;
+  return false;
+}
+
+static bool check_pseudo_server_id(sys_var *, THD *thd, set_var *) {
+  return (!(thd->is_tencent_root_or_tdsql_user() ||
+            thd->security_context()->check_access(SUPER_ACL)));
+}
+
+static Sys_var_ulong Sys_pseudo_server_id(
+    "pseudo_server_id", "Override server_id for currrent session",
+    SESSION_ONLY(pseudo_server_id), NO_CMD_LINE,
+    VALID_RANGE(0, ULONG_MAX), DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD,
+    IN_BINLOG, ON_CHECK(check_pseudo_server_id),
+    ON_UPDATE(fix_pseudo_server_id));
 /* Changes from txsql end. */
