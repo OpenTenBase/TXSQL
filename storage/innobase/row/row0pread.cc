@@ -793,6 +793,8 @@ void Parallel_reader::worker(Parallel_reader::Thread_ctx *thread_ctx) {
                            m_sig_count);
   }
 
+  create_thread_cached_tlog();
+
   for (;;) {
     size_t n_completed{};
     int64_t sig_count = os_event_reset(m_event);
@@ -834,6 +836,8 @@ void Parallel_reader::worker(Parallel_reader::Thread_ctx *thread_ctx) {
         }
       }
 
+      clear_thread_cached_tlog();
+
       /* Check for trx interrupted (useful in the case of small tables). */
       if (err == DB_SUCCESS && trx_is_interrupted(ctx->trx())) {
         err = DB_INTERRUPTED;
@@ -845,6 +849,8 @@ void Parallel_reader::worker(Parallel_reader::Thread_ctx *thread_ctx) {
 
       ++n_completed;
     }
+
+    clear_thread_cached_tlog();
 
     if (cb_err != DB_SUCCESS || err != DB_SUCCESS || is_error_set()) {
       break;
@@ -863,6 +869,8 @@ void Parallel_reader::worker(Parallel_reader::Thread_ctx *thread_ctx) {
                              sig_count);
     }
   }
+
+  destroy_thread_cached_tlog();
 
   if (err != DB_SUCCESS && !is_error_set()) {
     /* Set the "global" error state. */

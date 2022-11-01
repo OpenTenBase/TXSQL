@@ -1,0 +1,40 @@
+--source include/have_pool_of_threads.inc
+--disable_warnings
+DROP DATABASE IF EXISTS dbtest_gts;
+--enable_warnings
+
+CREATE DATABASE dbtest_gts;
+use dbtest_gts;
+--disable_warnings
+drop table if exists t;
+--enable_warnings
+create table t(id int primary key, name char(10),gts int, index i_name(name));
+
+# prepare data
+XA start 'a' tdsql_withgts 100;
+insert into t values(3,'c',100);
+XA end 'a';
+XA prepare 'a';
+XA commit 'a' tdsql_withgts 101;
+
+XA start 'a' tdsql_withgts 700;
+insert into t values(4,'b',700);
+XA end 'a';
+XA prepare 'a';
+XA commit 'a' tdsql_withgts 701;
+
+create user normal;
+grant select on *.* to 'normal'@'%';
+connect (con2,127.0.0.1,normal,,dbtest_gts);
+
+# select use thread pool and read gts from cache
+SELECT * FROM t tdsql_withgts 200;
+
+# select count(*) use parallel read
+SELECT COUNT(*) FROM t tdsql_withgts 200;
+
+#clean
+connection default;
+DROP DATABASE dbtest_gts;
+DROP USER normal;
+PURGE TDSQL_TLOG logs;

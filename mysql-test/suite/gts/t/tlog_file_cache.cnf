@@ -1,0 +1,13 @@
+!include include/default_my.cnf
+
+[mysqld.1]
+mc_enable=ON
+innodb_min_purge_gts=1
+transaction-isolation=Read-Committed
+
+loose-thread-handling=   pool-of-threads
+loose-thread_pool_size= 2
+loose-thread_pool_max_threads= 2
+
+[client]
+connect-timeout=  2

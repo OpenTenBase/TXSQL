@@ -28,6 +28,8 @@ to stoe elements */
 #include <atomic>
 #include <string>
 
+#include "thread_cached_tlog.h"
+#include "mem_root_allocator.h"
 /**
 Structure of tlog file:
 - file name: tlog_[0, 1, 2....]
@@ -162,6 +164,24 @@ class TLogFile {
     uint64_t m_file_num;
 };
 
+using CachedFiles = std::map<uint64, TLogFile*, std::less<uint64_t>,
+                     Mem_root_allocator<std::pair<const uint64_t, TLogFile*>>>;
+class TLogCachedFile {
+  public:
+    TLogCachedFile();
+
+    ~TLogCachedFile();
+
+    inline TLogFile *get_file(uint64_t id) const;
+
+    inline bool cache_file(uint64_t id, TLogFile *file);
+
+    void clear();
+  private:
+    MEM_ROOT m_mem_root;
+    CachedFiles m_cached_files;//reduce memory cost
+};
+
 using TlogFiles = std::map<uint64_t, TLogFile*>;
 class TLogManager {
   public:
@@ -250,7 +270,7 @@ class TLogManager {
   private:
     /** Get tlog file by giving trx_id or create a
       new file if param create is true. */
-    TLogFile *get_file(trx_id_t trx_id, bool create, bool &purged);
+    TLogFile *get_file(trx_id_t trx_id, bool create, bool &purged, bool &cached);
 
     /** Get gts value or zero */
     uint64_t get_gts_value(trx_id_t id, bool &purged);

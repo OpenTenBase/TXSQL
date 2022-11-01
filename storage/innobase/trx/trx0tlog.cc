@@ -443,6 +443,38 @@ uint64_t TLogFile::get_gts(trx_id_t id) {
   return (mach_read_from_8(page + pos.offset));
 }
 
+TLogCachedFile::TLogCachedFile()
+  : m_mem_root(),
+    m_cached_files(std::less<uint64_t>(),
+        Mem_root_allocator<std::pair<const uint64_t, TLogFile*>>(&m_mem_root)) {
+}
+
+TLogCachedFile::~TLogCachedFile() {
+  clear();
+}
+
+TLogFile *TLogCachedFile::get_file(uint64_t id) const {
+  auto iter = m_cached_files.find(id);
+
+  if (iter == m_cached_files.end()) {
+    return nullptr;
+  }
+  return iter->second;
+}
+
+bool TLogCachedFile::cache_file(uint64_t id, TLogFile *file) {
+  return m_cached_files.insert(std::make_pair(id,file)).second;
+}
+
+void TLogCachedFile::clear() {
+  auto iter = m_cached_files.begin();
+  for (; iter != m_cached_files.end(); ++iter) {
+    iter->second->dec_ref();
+  }
+  m_cached_files.clear();
+  m_mem_root.ClearForReuse(); //when clean all nodes,we should clear the memory
+}
+
 TLogManager::TLogManager(const char* dir) {
   m_dir = std::string(dir);
   m_files.clear();
@@ -650,11 +682,13 @@ void TLogManager::log_gts(mtr_t *mtr, trx_id_t trx_id, uint64_t gts) {
 }
 
 void TLogManager::write_gts(trx_id_t trx_id, uint64_t gts) {
+  bool purged = false;
+  bool cached = false;
+
   /* Serializable writing to tlog. */
   lock();
 
-  bool purged = false;
-  TLogFile *tlog = get_file(trx_id, true, purged);
+  TLogFile *tlog = get_file(trx_id, true, purged, cached);
   if (tlog == nullptr) {
     unlock();
     ib::error() << "Fail to write trx_Id " << trx_id << " with gts " << gts;
@@ -669,13 +703,17 @@ void TLogManager::write_gts(trx_id_t trx_id, uint64_t gts) {
   tlog->write_gts(trx_id, gts);
   part_xunlock(part);
 
-  tlog->dec_ref();
+  if (unlikely(!cached)) {
+    tlog->dec_ref();
+  }
 
   unlock();
 }
 
 uint64_t TLogManager::get_gts_value(trx_id_t trx_id, bool &purged) {
-  TLogFile *tlog = get_file(trx_id, false, purged);
+  bool cached = false;
+
+  TLogFile *tlog = get_file(trx_id, false, purged, cached);
   if (tlog == nullptr) {
     return 0;
   }
@@ -702,7 +740,9 @@ uint64_t TLogManager::get_gts_value(trx_id_t trx_id, bool &purged) {
     part_sunlock(part);
   }
 
-  tlog->dec_ref();
+  if (unlikely(!cached)) {
+    tlog->dec_ref();
+  }
 
   return (gts);
 }
@@ -745,12 +785,23 @@ void TLogManager::set_prepared(trx_id_t trx_id, uint64_t prepared_gts) {
   write_gts(trx_id, prepared_gts | TLOG_GTS_PREPARED_FLAG);
 }
 
-TLogFile *TLogManager::get_file(trx_id_t trx_id, bool create, bool &purged) {
+TLogFile *TLogManager::get_file(trx_id_t trx_id, bool create, bool &purged,
+    bool &cached) {
   TLogFile *file = nullptr;
   uint64_t file_num = trx_id_to_file_num(trx_id);
   /* Init to false */
   purged = false;
   bool x_locked = false;
+
+  /* try to get from thread cache before hold purge lock */
+  TLogCachedFile *cache = thread_cached_tlog;
+  if (likely(cache)) {
+    file = cache->get_file(file_num);
+    if (file) {
+      cached = true;
+      return file;
+    }
+  }
 
   purge_slock();
 
@@ -798,6 +849,12 @@ got_file:
     purge_xunlock();
   } else {
     purge_sunlock();
+  }
+
+  if (likely(cache)) {
+    if (cache->cache_file(file_num,file)){
+      cached = true;
+    }
   }
 
   return file;
@@ -923,4 +980,23 @@ bool TLogManager::show_tlogs(THD *thd) {
   }
   purge_sunlock();
   return false;
+}
+
+void create_thread_cached_tlog() {
+  if (!thread_cached_tlog) {
+    thread_cached_tlog = new TLogCachedFile;
+  }
+}
+
+void destroy_thread_cached_tlog() {
+  if (likely(thread_cached_tlog)) {
+    delete thread_cached_tlog;
+    thread_cached_tlog = nullptr;
+  }
+}
+
+void clear_thread_cached_tlog() {
+  if (likely(thread_cached_tlog)) {
+    thread_cached_tlog->clear();
+  }
 }
