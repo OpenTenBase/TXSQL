@@ -1,0 +1,26 @@
+DROP DATABASE IF EXISTS dbtest_gts;
+CREATE DATABASE dbtest_gts;
+use dbtest_gts;
+drop table if exists t;
+create table t(id int primary key, name char(10),gts int, index i_name(name));
+XA start 'a' tdsql_withgts 100;
+insert into t values(3,'c',100);
+XA end 'a';
+XA prepare 'a';
+XA commit 'a' tdsql_withgts 101;
+XA start 'a' tdsql_withgts 700;
+insert into t values(4,'b',700);
+XA end 'a';
+XA prepare 'a';
+XA commit 'a' tdsql_withgts 701;
+create user normal;
+grant select on *.* to 'normal'@'%';
+SELECT * FROM t tdsql_withgts 200;
+id	name	gts
+3	c	100
+SELECT COUNT(*) FROM t tdsql_withgts 200;
+COUNT(*)
+1
+DROP DATABASE dbtest_gts;
+DROP USER normal;
+PURGE TDSQL_TLOG logs;

@@ -48,6 +48,7 @@ typedef port_event_t native_event;
 
 #include "sql/conn_handler/connection_handler_impl.h"
 
+#include "sql/thread_cached_tlog.h"
 /** Maximum number of native events a listener can read in one go */
 #define MAX_EVENTS 1024
 
@@ -2045,6 +2046,8 @@ static void *worker_main(void *param) {
   (NULL, 0, NULL, 0);
 #endif
 
+  create_thread_cached_tlog();
+
   /* Run event loop */
   for (;;) {
     connection_t *connection;
@@ -2054,8 +2057,10 @@ static void *worker_main(void *param) {
     if (!connection) break;
     this_thread.event_count++;
     handle_event(connection);
+    clear_thread_cached_tlog();
   }
 
+  destroy_thread_cached_tlog();
   /* Thread shutdown: cleanup per-worker-thread structure. */
   mysql_cond_destroy(&this_thread.cond);
 
