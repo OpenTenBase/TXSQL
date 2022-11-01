@@ -445,12 +445,14 @@ bool Parallel_reader::Scan_ctx::check_visibility(const rec_t *&rec,
       }
 
       if (m_trx->isolation_level > TRX_ISO_READ_UNCOMMITTED &&
-          !view->changes_visible(rec_trx_id, table_name)) {
+          (m_config.m_mc_enable ?
+           !view->changes_visible_withgts(rec_trx_id, table_name) :
+           !view->changes_visible(rec_trx_id, table_name))) {
         rec_t *old_vers;
 
         row_vers_build_for_consistent_read(rec, mtr, m_config.m_index, &offsets,
                                            view, &heap, heap, &old_vers,
-                                           nullptr, nullptr);
+                                           nullptr, nullptr, m_config.m_mc_enable);
 
         rec = old_vers;
 

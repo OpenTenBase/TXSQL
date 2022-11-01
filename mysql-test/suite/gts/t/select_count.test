@@ -1,0 +1,101 @@
+--disable_warnings
+DROP DATABASE IF EXISTS dbtest_gts;
+--enable_warnings
+ 
+CREATE DATABASE dbtest_gts;
+use dbtest_gts;
+--disable_warnings
+drop table if exists t;
+drop table if exists tp;
+--enable_warnings
+create table t(id int primary key, name char(10),gts int, index i_name(name));
+
+insert into t values(1,'a',0);
+insert into t values(2,'b',0);
+
+XA start 'a' tdsql_withgts 700;
+insert into t values(3,'c',701);
+XA end 'a';
+XA prepare 'a';
+XA commit 'a' tdsql_withgts 701;
+
+XA start 'a' tdsql_withgts 701;
+insert into t values(4,'d',702);
+XA end 'a';
+XA prepare 'a';
+XA commit 'a' tdsql_withgts 702;
+
+XA start 'a' tdsql_withgts 702;
+delete from t where id = 2;
+XA end 'a';
+XA prepare 'a';
+XA commit 'a' tdsql_withgts 703;
+
+select count(*) from t force index(primary) tdsql_withgts 700;
+select count(*) from t force index(primary) tdsql_withgts 701;
+select count(*) from t force index(primary) tdsql_withgts 702;
+select count(*) from t force index(primary) tdsql_withgts 703;
+
+select count(*) from t force index(i_name) tdsql_withgts 700;
+select count(*) from t force index(i_name) tdsql_withgts 701;
+select count(*) from t force index(i_name) tdsql_withgts 702;
+select count(*) from t force index(i_name) tdsql_withgts 703;
+
+select count(*) from t tdsql_withgts 700;
+select count(*) from t tdsql_withgts 701;
+select count(*) from t tdsql_withgts 702;
+select count(*) from t tdsql_withgts 703;
+
+# patition table
+create table tp(id int primary key,
+ name char(10),
+ gts int,
+ index i_name(name)) ENGINE=InnoDB
+ /*!50100 PARTITION BY LIST (murmurHashCodeAndMod(`id`,6))
+ (PARTITION p0 VALUES IN (0) ENGINE = InnoDB,
+  PARTITION p1 VALUES IN (1) ENGINE = InnoDB,
+  PARTITION p2 VALUES IN (2) ENGINE = InnoDB,
+  PARTITION p3 VALUES IN (3) ENGINE = InnoDB,
+  PARTITION p4 VALUES IN (4) ENGINE = InnoDB,
+  PARTITION p5 VALUES IN (5) ENGINE = InnoDB)*/;
+
+insert into tp values(1,'a',0);
+insert into tp values(2,'b',0);
+
+XA start 'a' tdsql_withgts 800;
+insert into tp values(3,'c',801);
+XA end 'a';
+XA prepare 'a';
+XA commit 'a' tdsql_withgts 801;
+
+XA start 'a' tdsql_withgts 801;
+insert into tp values(4,'d',802);
+XA end 'a';
+XA prepare 'a';
+XA commit 'a' tdsql_withgts 802;
+
+XA start 'a' tdsql_withgts 802;
+delete from tp where id = 2;
+XA end 'a';
+XA prepare 'a';
+XA commit 'a' tdsql_withgts 803;
+
+select count(*) from tp force index(primary) tdsql_withgts 800;
+select count(*) from tp force index(primary) tdsql_withgts 801;
+select count(*) from tp force index(primary) tdsql_withgts 802;
+select count(*) from tp force index(primary) tdsql_withgts 803;
+
+select count(*) from tp force index(i_name) tdsql_withgts 800;
+select count(*) from tp force index(i_name) tdsql_withgts 801;
+select count(*) from tp force index(i_name) tdsql_withgts 802;
+select count(*) from tp force index(i_name) tdsql_withgts 803;
+
+select count(*) from tp tdsql_withgts 800;
+select count(*) from tp tdsql_withgts 801;
+select count(*) from tp tdsql_withgts 802;
+select count(*) from tp tdsql_withgts 803;
+
+#clean
+connection default;
+DROP DATABASE dbtest_gts;
+PURGE TDSQL_TLOG logs;

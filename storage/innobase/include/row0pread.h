@@ -182,7 +182,8 @@ class Parallel_reader {
           m_is_compact(dict_table_is_comp(index->table)),
           m_page_size(dict_tf_to_fsp_flags(index->table->flags)),
           m_read_level(read_level),
-          m_partition_id(partition_id) {}
+          m_partition_id(partition_id),
+          m_mc_enable(false) {}
 
     /** Copy constructor.
     @param[in] config           Instance to copy from. */
@@ -208,6 +209,8 @@ class Parallel_reader {
     /** Partition id if the index to be scanned belongs to a partitioned table,
     else std::numeric_limits<size_t>::max(). */
     size_t m_partition_id{std::numeric_limits<size_t>::max()};
+
+    bool m_mc_enable{};
   };
 
   /** Thread related context information. */

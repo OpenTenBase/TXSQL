@@ -82,6 +82,7 @@ Created Nov 22, 2013 Mattias Jonsson */
 #include "ut0ut.h"
 
 /* To be backwards compatible we also fold partition separator on windows. */
+extern bool g_mc_sleep_mode;
 
 Ha_innopart_share::Ha_innopart_share(TABLE_SHARE *table_share)
     : Partition_share(),
@@ -3214,7 +3215,18 @@ int ha_innopart::records(ha_rows *num_rows) {
       trx->mysql_n_tables_locked == 0 && !m_prebuilt->ins_sel_stmt &&
       n_threads > 1) {
     trx_start_if_not_started_xa(trx, false, UT_LOCATION_HERE);
-    trx_assign_read_view(trx);
+
+    /* TDSQL: init m_prebuilt->m_mc_enable */
+    uint64_t gts_sel = 0;
+    m_prebuilt->m_mc_enable = g_mc_enable;
+    if (unlikely(m_prebuilt->m_mc_enable)) {
+      gts_sel =  innobase_get_stmt_gts(m_user_thd);
+      if (unlikely(!gts_sel)) {
+        m_prebuilt->m_mc_enable = false;
+      }
+      m_prebuilt->m_mc_sleep_mode = g_mc_sleep_mode;
+    }
+    trx_assign_read_view(trx, gts_sel);
 
     const auto first_used_partition = m_part_info->get_first_used_partition();
 
@@ -3243,7 +3255,8 @@ int ha_innopart::records(ha_rows *num_rows) {
     ulint n_rows{};
 
     auto err =
-        row_mysql_parallel_select_count_star(trx, indexes, n_threads, &n_rows);
+      row_mysql_parallel_select_count_star(trx, indexes, n_threads, &n_rows,
+                                           m_prebuilt->m_mc_enable);
 
     if (thd_killed(m_user_thd) || err == DB_INTERRUPTED) {
       *num_rows = HA_POS_ERROR;
