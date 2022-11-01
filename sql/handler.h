@@ -7389,5 +7389,7 @@ void ha_purge_tlog();
 void ha_snapshot_update(bool mc_enabled);
 
 bool ha_show_tlogs(THD *thd);
+
+ulonglong ha_min_purge_gts();
 /* changes from txsql end. */
 #endif /* HANDLER_INCLUDED */

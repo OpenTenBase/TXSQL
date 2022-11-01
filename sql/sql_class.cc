@@ -3693,4 +3693,13 @@ extern "C" const char *thd_trx_xa_xid(const MYSQL_THD thd) {
 }
 #endif
 
+bool is_tdsql_gts_valid(THD *thd) {
+  uint64_t gts = thd->getGTS();
+  uint64_t min_purge_gts = ha_min_purge_gts();
+  if ((gts > 0) && (gts < min_purge_gts)) {
+    my_error(ER_INVALID_TDSQL_GTS, MYF(0), gts, min_purge_gts);
+    return false;
+  }
+  return true;
+}
 /* Changes from TXSQL end. */

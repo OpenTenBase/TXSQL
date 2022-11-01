@@ -9088,5 +9088,7 @@ bool ha_show_tlogs(THD *thd) {
   return false;
 }
 
+extern ulonglong srv_min_purge_gts;
+ulonglong ha_min_purge_gts() { return srv_min_purge_gts; }
 
 /* Changes from txsql end. */
