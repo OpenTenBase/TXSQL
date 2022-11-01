@@ -724,13 +724,19 @@ int fill_cdb_outline_info(THD *thd, TABLE_LIST *tables, Item *__attribute__((unu
   return 0;
 }
 
+
+bool Sql_cmd_show_tlogs::check_privileges(THD *thd) {
+  return check_global_access(thd, SUPER_ACL);
+}
+
+bool Sql_cmd_show_tlogs::execute_inner(THD *thd) { return ha_show_tlogs(thd); }
+
 /* Changes from txsql end. */
 
 /**
   Try acquire high priority share metadata lock on a table (with
   optional wait for conflicting locks to go away).
 
-  @param thd            Thread context.
   @param table          Table list element for the table
   @param can_deadlock   Indicates that deadlocks are possible due to
                         metadata locks, so to avoid them we should not

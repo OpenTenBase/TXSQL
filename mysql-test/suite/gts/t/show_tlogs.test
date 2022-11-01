@@ -1,0 +1,51 @@
+--source include/have_debug.inc
+--disable_warnings
+DROP DATABASE IF EXISTS dbtest_gts;
+--enable_warnings
+
+CREATE DATABASE dbtest_gts;
+use dbtest_gts;
+--disable_warnings
+drop table if exists t;
+--enable_warnings
+create table t(id int primary key, name char(10),gts int, index i_name(name));
+
+# only super user have privileges
+create user normal;
+grant select on *.* to 'normal'@'%';
+connect (con2,localhost,normal,,dbtest_gts);
+connection con2;
+--error 1227
+SHOW TDSQL_TLOG;
+
+connection default;
+# simulate net write failure
+SET debug = "+d, simulate_show_tlogs_failure";
+--error 1160
+SHOW TDSQL_TLOG;
+SET debug = "-d, simulate_show_tlogs_failure";
+
+# set tlog to empty
+PURGE TDSQL_TLOG logs;
+SHOW TDSQL_TLOG;
+
+XA start 'a' tdsql_withgts 100;
+insert into t values(3,'c',100);
+XA end 'a';
+XA prepare 'a';
+xa commit 'a' tdsql_withgts 101;
+
+XA start 'a' tdsql_withgts 700;
+insert into t values(4,'b',700);
+XA end 'a';
+XA prepare 'a';
+xa commit 'a' tdsql_withgts 701;
+
+--replace_column 4 #
+SHOW TDSQL_TLOG;
+
+#clean
+connection default;
+DROP DATABASE dbtest_gts;
+DROP USER normal;
+PURGE TDSQL_TLOG logs;

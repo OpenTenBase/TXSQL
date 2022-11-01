@@ -78,6 +78,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include <sql_show.h>
 #include <sql_tablespace.h>
 #include <sql_thd_internal_api.h>
+#include <protocol.h>
 #include "api0api.h"
 #include "api0misc.h"
 #include "arch0arch.h"
@@ -4544,6 +4545,28 @@ innobase_snapshot_update(handlerton* hton, bool mc_enabled) {
   }
 }
 
+bool innobase_send_tlogs(THD *thd, const char *log_name, uint64_t min_gts,
+                       uint64_t max_gts, time_t access_time) {
+  Protocol *protocol = thd->get_protocol();
+  protocol->start_row();
+  protocol->store(log_name, system_charset_info);
+  protocol->store((ulonglong)(min_gts));
+  protocol->store((ulonglong)(max_gts));
+  protocol->store((ulonglong)(access_time));
+  if (protocol->end_row()) return true;
+  return false;
+}
+
+static bool innobase_show_tlogs(handlerton* hton, THD* thd) {
+  assert(hton == innodb_hton_ptr);
+
+  if (tlog_mgr != nullptr) {
+    return tlog_mgr->show_tlogs(thd);
+  }
+
+  return true;
+}
+
 /** Gives the file extension of an InnoDB single-table tablespace. */
 static const char *ha_innobase_exts[] = {dot_ext[IBD], NullS};
 
@@ -5508,6 +5531,8 @@ static int innodb_init(void *p) {
 
   /* TDSQL: Get the largest gts snapshot from innodb */
   innobase_hton->max_snapshot_gts = innobase_max_snapshot_gts;
+
+  innobase_hton->show_tlogs = innobase_show_tlogs;
 
   static_assert(DATA_MYSQL_TRUE_VARCHAR == (ulint)MYSQL_TYPE_VARCHAR);
 

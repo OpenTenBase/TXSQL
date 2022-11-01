@@ -4529,4 +4529,10 @@ bool PT_truncate_table_stmt::make_recycle_cmd(THD *thd) {
   return (!add_table(m_table) || !add_table(recycle_bin_table));
 }
 
+Sql_cmd *PT_show_tlogs::make_cmd(THD *thd) {
+  LEX *lex = thd->lex;
+  lex->sql_command = m_sql_command;
+
+  return &m_sql_cmd;
+}
 /* Changes from txsql end. */

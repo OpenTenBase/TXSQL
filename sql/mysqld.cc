@@ -4682,6 +4682,9 @@ SHOW_VAR com_status_vars[] = {
     {"clear_sequence",
       (char*) offsetof(System_status_var, com_stat[(uint) SQLCOM_CLEAR_SEQ]),
       SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
+    {"show_tlogs",
+     (char *)offsetof(System_status_var, com_stat[(uint)SQLCOM_SHOW_TLOGS]),
+     SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
     {NullS, NullS, SHOW_LONG, SHOW_SCOPE_ALL}};
 
 /* Changes from TXSQL start. */

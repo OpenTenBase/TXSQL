@@ -619,6 +619,13 @@ class Sql_cmd_show_threadpool_status : public Sql_cmd_show_noplan {
   Sql_cmd_show_threadpool_status() : Sql_cmd_show_noplan(SQLCOM_SHOW_THREADPOOL_STAT) {}
   bool execute_inner(THD *thd) override;
 };
+
+class Sql_cmd_show_tlogs : public Sql_cmd_show_noplan {
+ public:
+  Sql_cmd_show_tlogs() : Sql_cmd_show_noplan(SQLCOM_SHOW_TLOGS) {}
+  bool check_privileges(THD *thd) override;
+  bool execute_inner(THD *thd) override;
+};
 /* Changes from txsql end. */
 
 #endif /* SQL_SHOW_H */

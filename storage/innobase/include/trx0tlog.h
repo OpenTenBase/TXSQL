@@ -105,6 +105,12 @@ class TLogFile {
     bool is_deleted() { return m_deleted; }
 
     uint64_t max_gts() const { return m_max_gts; }
+    uint64_t min_gts() const { return m_min_gts; }
+    time_t access_time() const { return m_access_time; }
+    std::string file_name() const {
+      return std::string(TLOG_FILE_PREFIX) + std::to_string(m_file_num);
+    }
+
   private:
     void do_flushing(pfs_os_file_t &file, bool acquire_lock);
 
@@ -152,6 +158,8 @@ class TLogFile {
     byte *m_file_buffer_ptr;
 
     std::string m_path;
+
+    uint64_t m_file_num;
 };
 
 using TlogFiles = std::map<uint64_t, TLogFile*>;
@@ -236,6 +244,8 @@ class TLogManager {
     uint64_t max_committed_gts() {
       return m_max_committed_gts.load();
     }
+
+    bool show_tlogs(THD *thd);
 
   private:
     /** Get tlog file by giving trx_id or create a

@@ -1935,6 +1935,7 @@ typedef void (*snapshot_update_t)(handlerton *hton, bool mc_enabled);
 
 typedef bool (*max_snapshot_gts_t)(uint64_t &p_gts);
 
+typedef bool (*show_tlogs_t)(handlerton *hton, THD *thd);
 /** Mode for data dictionary recovery. */
 /** Mode for data dictionary recovery. */
 enum dict_recovery_mode_t {
@@ -2647,6 +2648,7 @@ struct handlerton {
   purge_tlog_t purge_tlog;
   snapshot_update_t snapshot_update;
   max_snapshot_gts_t max_snapshot_gts;
+  show_tlogs_t show_tlogs;
 
   /** Global handler flags. */
   uint32 flags{0};
@@ -7385,5 +7387,7 @@ void ha_end_backquery(THD *thd);
 void ha_purge_tlog();
 
 void ha_snapshot_update(bool mc_enabled);
+
+bool ha_show_tlogs(THD *thd);
 /* changes from txsql end. */
 #endif /* HANDLER_INCLUDED */

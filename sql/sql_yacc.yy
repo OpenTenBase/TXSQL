@@ -1413,7 +1413,7 @@ void warn_about_deprecated_binary(THD *thd)
 %token<lexer.keyword> STATISTICS_NODE_SYM 1297
 %token TXSQL_RETURNING_SYM 1298
 %token TDSQL_TLOG_SYM 1299
-%token  TDSQL_WITHGTS_SYM 1300            /* TDSQL */
+%token TDSQL_WITHGTS_SYM 1300            /* TDSQL */
 /* Changes from txsql end. */
 
 /*
@@ -1962,6 +1962,7 @@ void warn_about_deprecated_binary(THD *thd)
         show_tables_stmt
         show_triggers_stmt
         show_threadpool_stmt
+        show_tlogs_stmt
         show_outline_info
         show_variables_stmt
         show_warnings_stmt
@@ -2534,6 +2535,7 @@ simple_statement:
         | show_tables_stmt
         | show_triggers_stmt
         | show_threadpool_stmt
+        | show_tlogs_stmt
         | show_outline_info
         | show_variables_stmt
         | show_warnings_stmt
@@ -14333,6 +14335,13 @@ show_threadpool_stmt:
           {
             $$ = NEW_PTN PT_show_threadpool_status(@$);
           }
+
+show_tlogs_stmt:
+         SHOW TDSQL_TLOG_SYM
+         {
+            $$ = NEW_PTN PT_show_tlogs(@$);
+         }
+         ;
 
 show_outline_info:
           SHOW CDB_OUTLINE_INFO_SYM
