@@ -465,7 +465,7 @@ dberr_t row_drop_database_for_mysql(const char *name, trx_t *trx, ulint *found);
 @return DB_SUCCESS or error code. */
 dberr_t row_mysql_parallel_select_count_star(
     trx_t *trx, std::vector<dict_index_t *> &indexes, size_t max_threads,
-    ulint *n_rows);
+    ulint *n_rows, bool mc_enable = false);
 
 /** Scans an index for either COUNT(*) or CHECK TABLE.
 If CHECK TABLE; Checks that the index contains entries in an ascending order,

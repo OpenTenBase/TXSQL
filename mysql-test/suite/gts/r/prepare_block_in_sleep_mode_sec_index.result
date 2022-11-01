@@ -7,6 +7,7 @@ set global mc_sleep_mode = ON;
 show global variables like "%mc%";
 Variable_name	Value
 mc_enable	ON
+mc_gts_check	ON
 mc_sleep_mode	ON
 XA start 'a' tdsql_withgts 700;
 insert into t values(3,'c',700);
