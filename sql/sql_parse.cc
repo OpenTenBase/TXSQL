@@ -5094,6 +5094,10 @@ int mysql_execute_command(THD *thd, bool first_level) {
     case SQLCOM_SHOW_TLOGS: {
       assert(lex->m_sql_cmd != nullptr);
 
+      if (g_mc_enable && g_mc_gts_check && !is_tdsql_gts_valid(thd)) {
+        goto error;
+      }
+
       res = lex->m_sql_cmd->execute(thd);
 
       break;

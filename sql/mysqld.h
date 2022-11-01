@@ -976,6 +976,7 @@ extern bool g_seq_currval_before_first_nextval_return_error;
 extern uint g_simple_slow_logging;
 extern bool g_mc_enable;
 extern bool g_mc_sleep_mode;
+extern bool g_mc_gts_check;
 
 extern std::atomic<unsigned long> global_privilege_version;
 extern bool txsql_simplify_priv_check;

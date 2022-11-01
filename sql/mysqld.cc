@@ -13140,3 +13140,4 @@ bool txsql_simplify_priv_check = false;
 uint g_simple_slow_logging = 0;
 bool g_mc_enable = false;
 bool g_mc_sleep_mode = false;
+bool g_mc_gts_check = true;

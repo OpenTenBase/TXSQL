@@ -9948,6 +9948,9 @@ ER_SEQUENCE_IN_USE
 ER_SEQUENCE_NOT_ROW_UNSAFE
   eng "Refenrence to sequence using mixed/statement mode is not safe"
 
+ER_INVALID_TDSQL_GTS
+  eng "The current gts %llu is less than innodb_min_purge_gts %llu."
+
 ################################################################################
 # them for other error messages.
 ################################################################################

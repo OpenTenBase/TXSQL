@@ -4999,4 +4999,5 @@ inline bool is_xa_tran_detached_on_prepare(const THD *thd) {
   return thd->variables.xa_detach_on_prepare;
 }
 
+bool is_tdsql_gts_valid(THD *thd);
 #endif /* SQL_CLASS_INCLUDED */

@@ -8630,4 +8630,11 @@ static Sys_var_deprecated_alias Sys_cdb_optimize_ps_priv_check(
     "cdb_optimize_ps_priv_check", Sys_txsql_simplify_priv_check);
 #endif
 
+static Sys_var_bool Sys_mc_gts_check(
+    "mc_gts_check",
+    "After turning on mc_gts_check, gts from statment cann't less than "
+    "innodb_min_purge_gts.",
+    GLOBAL_VAR(g_mc_gts_check),
+    CMD_LINE(OPT_ARG), DEFAULT(true), NULL, NOT_IN_BINLOG,
+    NULL, NULL);
 /* Changes from txsql end. */
