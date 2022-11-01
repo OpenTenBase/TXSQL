@@ -215,7 +215,7 @@ enum enum_sql_command {
   SQLCOM_CLEAR_SEQ,
   SQLCOM_SHOW_STATS_TASKS,
   SQLCOM_SHOW_STATS_NODE,
-  /* This should be the last !!! */
+  SQLCOM_SHOW_TLOGS,
   SQLCOM_END
 };
 

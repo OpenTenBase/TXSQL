@@ -5308,5 +5308,17 @@ class PT_check_index_stmt final : public PT_table_ddl_stmt_base {
  private:
   Mem_root_array<Table_ident *> *m_table_list;
 };
+
+/// Parse tree node for SHOW TDSQL_TLOG statement
+class PT_show_tlogs final : public PT_show_base {
+ public:
+  PT_show_tlogs(const POS &pos) : PT_show_base(pos, SQLCOM_SHOW_TLOGS) {}
+
+  Sql_cmd *make_cmd(THD *thd) override;
+
+ private:
+  Sql_cmd_show_tlogs m_sql_cmd;
+};
+
 /* Changes from txsql end. */
 #endif /* PARSE_TREE_NODES_INCLUDED */

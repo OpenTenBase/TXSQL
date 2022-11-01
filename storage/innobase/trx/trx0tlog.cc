@@ -6,6 +6,7 @@
 #include "sync0rw.h"
 #include "sync0sync.h"
 #include "trx0tlog.h"
+#include "ha_prototypes.h"
 TLogManager *tlog_mgr = nullptr;
 
 #define TLOG_GTS_MASK          0xFFFFFFFF0FFFFFFF
@@ -17,7 +18,8 @@ TLogFile::TLogFile(uint64_t file_num, const std::string &dir) {
   m_total_element_in_file = TLOG_ELEMS_PER_FILE;
   m_start_id = file_num * m_total_element_in_file;
   m_end_id = m_start_id + m_total_element_in_file;
-  m_min_gts = m_max_gts = 0;
+  m_min_gts = ULONG_LONG_MAX;
+  m_max_gts = 0;
 
   m_flushed_clock = 0;
   m_modify_clock = 0;
@@ -35,6 +37,7 @@ TLogFile::TLogFile(uint64_t file_num, const std::string &dir) {
   m_file_buffer_ptr = nullptr;
 
   m_path = dir + std::string(TLOG_FILE_PREFIX) + std::to_string(file_num);
+  m_file_num = file_num;
 }
 
 TLogFile::~TLogFile() {
@@ -906,4 +909,18 @@ void TLogManager::close_if_possible() {
      file->close_if_possible();
   }
  purge_sunlock();
+}
+
+bool TLogManager::show_tlogs(THD *thd) {
+  purge_slock();
+  for (auto item = m_files.begin(); item != m_files.end(); item++) {
+     TLogFile *file = item->second;
+     if (innobase_send_tlogs(thd, file->file_name().c_str(), file->min_gts(),
+           file->max_gts(), file->access_time())) {
+       purge_sunlock();
+       return true;
+     }
+  }
+  purge_sunlock();
+  return false;
 }

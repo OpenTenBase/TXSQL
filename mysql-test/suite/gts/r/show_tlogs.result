@@ -1,0 +1,32 @@
+DROP DATABASE IF EXISTS dbtest_gts;
+CREATE DATABASE dbtest_gts;
+use dbtest_gts;
+drop table if exists t;
+create table t(id int primary key, name char(10),gts int, index i_name(name));
+create user normal;
+grant select on *.* to 'normal'@'%';
+SHOW TDSQL_TLOG;
+ERROR 42000: Access denied; you need (at least one of) the SUPER privilege(s) for this operation
+SET debug = "+d, simulate_show_tlogs_failure";
+SHOW TDSQL_TLOG;
+ERROR 08S01: Got an error writing communication packets
+SET debug = "-d, simulate_show_tlogs_failure";
+PURGE TDSQL_TLOG logs;
+SHOW TDSQL_TLOG;
+Log_name	Min_gts	Max_gts	Access_time
+XA start 'a' tdsql_withgts 100;
+insert into t values(3,'c',100);
+XA end 'a';
+XA prepare 'a';
+xa commit 'a' tdsql_withgts 101;
+XA start 'a' tdsql_withgts 700;
+insert into t values(4,'b',700);
+XA end 'a';
+XA prepare 'a';
+xa commit 'a' tdsql_withgts 701;
+SHOW TDSQL_TLOG;
+Log_name	Min_gts	Max_gts	Access_time
+tlog_0	101	701	#
+DROP DATABASE dbtest_gts;
+DROP USER normal;
+PURGE TDSQL_TLOG logs;

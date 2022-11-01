@@ -469,4 +469,7 @@ ulong thd_parallel_read_threads(THD *thd);
 /** @return if we can use TXSQL Parallel DDL (global/session). */
 [[nodiscard]] bool thd_txsql_parallel_ddl(THD *thd) noexcept;
 
+/** Send one row of tlog information. */
+bool innobase_send_tlogs(THD *thd, const char *log_name, uint64_t min_gts,
+                         uint64_t max_gts, time_t access_time);
 #endif /* HA_INNODB_PROTOTYPES_H */

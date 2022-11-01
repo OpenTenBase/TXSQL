@@ -9051,4 +9051,42 @@ void ha_snapshot_update(bool mc_enabled) {
       MYSQL_STORAGE_ENGINE_PLUGIN, &mc_enabled);
 }
 
+static bool show_tlogs_handlerton(THD *thd, plugin_ref plugin, void *) {
+  handlerton *hton= plugin_data<handlerton*>(plugin);
+  if (hton->show_tlogs != nullptr && hton->show_tlogs(hton, thd)) {
+    return true;
+  }
+
+  return false;
+}
+
+bool ha_show_tlogs(THD *thd) {
+  mem_root_deque<Item *> field_list(thd->mem_root);
+  field_list.push_back(new Item_empty_string("Log_name", 10));
+  field_list.push_back(
+    new Item_return_int("Min_gts", 20, MYSQL_TYPE_LONGLONG));
+  field_list.push_back(
+    new Item_return_int("Max_gts", 20, MYSQL_TYPE_LONGLONG));
+  field_list.push_back(
+    new Item_return_int("Access_time", MY_INT64_NUM_DECIMAL_DIGITS,
+      MYSQL_TYPE_LONGLONG));
+
+  if (thd->send_result_metadata(field_list,
+                                Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF))
+    return true;
+
+  DBUG_EXECUTE_IF("simulate_show_tlogs_failure",
+                  DBUG_SET("+d,simulate_net_write_failure"););
+  if (plugin_foreach(
+        thd, show_tlogs_handlerton, MYSQL_STORAGE_ENGINE_PLUGIN, nullptr)) {
+    DBUG_EXECUTE_IF("simulate_show_tlogs_failure",
+                   DBUG_SET("-d,simulate_net_write_failure"););
+    return true;
+  }
+
+  my_eof(thd);
+  return false;
+}
+
+
 /* Changes from txsql end. */
