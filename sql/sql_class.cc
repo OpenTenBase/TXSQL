@@ -1111,6 +1111,7 @@ void THD::init(void) {
     avoid temporary tables replication failure.
   */
   variables.pseudo_thread_id = m_thread_id;
+  variables.pseudo_server_id= 0;
 
   /*
     NOTE: reset_connection command will reset the THD to its default state.
