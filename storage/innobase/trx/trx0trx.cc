@@ -2882,8 +2882,7 @@ static lsn_t trx_prepare_low(
        * it is need to bind prepare with the largest currently
        * commited GTS. */
       if (opt_mc_enabled && trx->id > 0 &&
-        trx->mysql_thd && thd_trx_xa_is_external(trx->mysql_thd) &&
-        innobase_get_stmt_gts(trx->mysql_thd)) {
+        trx->mysql_thd && thd_trx_xa_is_external(trx->mysql_thd)) {
           uint64_t max_gts = std::max(tlog_mgr->max_committed_gts(),
               innobase_get_stmt_gts(trx->mysql_thd));
           tlog_mgr->log_prepare_gts(&mtr, trx->id, max_gts);

@@ -1,0 +1,40 @@
+--source include/have_debug.inc
+
+connection default;
+show variables like "%mc_enable%";
+xa start '1';
+xa end '1';
+xa rollback '1';
+SET debug = "+d, sleep_after_set_tlog_prepared";
+#without fix this will hang
+create table t(id int primary key);
+insert into t values(1) tdsql_withgts 1;
+SET debug = "-d, sleep_after_set_tlog_prepared";
+
+connect (con1,localhost,root,,test);
+connection con1;
+
+xa start '1';
+insert into t values(2);
+xa end '1';
+xa prepare '1';
+
+connect (con2,localhost,root,,test);
+connection con2;
+
+xa start '2';
+#need wait the '1' to commit and see 1,2
+--send select * from t tdsql_withgts 3 
+
+connection con1;
+xa commit '1' tdsql_withgts 2;
+
+--connection con2
+--reap
+
+xa end '2';
+xa prepare '2';
+xa commit '2';
+
+connection default;
+drop table t;
