@@ -2406,7 +2406,7 @@ void row_sel_convert_mysql_key_to_innobase(dtuple_t *tuple, byte *buf,
       buf = row_mysql_store_col_in_innobase_format(
           dfield, buf, false, /* MySQL key value format col */
           key_ptr + data_offset, data_len, dict_table_is_comp(index->table),
-          false, 0, nullptr, nullptr, nullptr);
+          false, 0, nullptr, nullptr, false, 0, nullptr);
       ut_a(buf <= original_buf + buf_len);
     }
 
@@ -2539,7 +2539,7 @@ mysql_col_len, mbminlen, mbmaxlen
 void row_sel_field_store_in_mysql_format_func(
     byte *dest, const mysql_row_templ_t *templ, const uint instant_default,
     const dict_index_t *index, ulint field_no, const byte *data, ulint len,
-    row_prebuilt_t *prebuilt, ulint sec_field) {
+    row_prebuilt_t *prebuilt, ulint sec_field, mem_heap_t *extra_comp_heap) {
   byte *ptr;
   const dict_field_t *field =
       templ->is_virtual ? nullptr : index->get_field(field_no);
@@ -2714,6 +2714,9 @@ void row_sel_field_store_in_mysql_format_func(
                                       field->col->encryption_iv, 
                                       prebuilt);
 
+        if (templ->is_compressed && (instant_default == 0))
+          data = row_decompress_column(data, &len, prebuilt);
+
         dest =
             row_mysql_store_true_var_len(dest, len, templ->mysql_length_bytes);
         /* Copy the actual data. Leave the rest of the
@@ -2769,7 +2772,8 @@ void row_sel_field_store_in_mysql_format_func(
         row_partial_mask_data(data, len, templ->mask_start_pos, templ->mask_end_pos);
       }
 
-      row_mysql_store_blob_ref(dest, templ->mysql_col_len, data, len);
+      row_mysql_store_blob_ref(dest, templ->mysql_col_len, data, len,
+                               templ->is_compressed, prebuilt, extra_comp_heap);
       break;
 
     case DATA_POINT:
@@ -3088,6 +3092,10 @@ void row_sel_field_store_in_mysql_format_func(
     if (UNIV_LIKELY_NULL(prebuilt->encryption_heap))
       mem_heap_empty(prebuilt->encryption_heap);
 
+    if (UNIV_LIKELY_NULL(prebuilt->compress_heap)) {
+      mem_heap_empty(prebuilt->compress_heap);
+    }
+
     /* Reassign the clustered index field no. */
     if (clust_templ_for_sec) {
       field_no = clust_field_no;
@@ -3135,6 +3143,9 @@ bool row_sel_store_mysql_rec(byte *mysql_rec, row_prebuilt_t *prebuilt,
 
   if (UNIV_LIKELY_NULL(prebuilt->encryption_heap))
     mem_heap_empty(prebuilt->encryption_heap);
+
+  if (UNIV_LIKELY_NULL(prebuilt->compress_heap))
+    mem_heap_empty(prebuilt->compress_heap);
 
   if (clust_templ_for_sec) {
     /* Store all clustered index column of secondary index record. */

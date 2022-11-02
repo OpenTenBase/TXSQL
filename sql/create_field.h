@@ -110,8 +110,9 @@ class Create_field {
   Item *constant_default;
   enum_field_types sql_type;
   uint decimals;
-  uint flags{0};
+  uint64 flags{0};
   uint flags2{0};
+  uint flags3{0}; /* now, it is only used for compressed column algorithms */
   /**
     Bitmap of flags indicating if field value should be auto-generated
     by default and/or on update, and in which way.
@@ -195,6 +196,8 @@ class Create_field {
 
   // Which encryption algorithm to use, in COLUMN_FORMAT encrypted
   uint encryption_col_algo{ENCRYPTION_COL_ALGO_TYPE_AES128};
+  // Which compression algorithm to use, in COLUMN_FORMAT COMPRESSED
+  uint comp_col_algo {COMP_COL_ALGO_TYPE_ZLIB};
 
   Create_field()
       : after(nullptr),
@@ -231,7 +234,7 @@ class Create_field {
 
   bool init(THD *thd, const char *field_name, enum_field_types type,
             const char *length, const char *decimals, 
-            uint type_modifier, uint type_modifier2,
+            uint64 type_modifier, uint type_modifier2, uint type_modifier3,
             Item *default_value, Item *on_update_value,
             const LEX_CSTRING *comment, const char *change,
             List<String> *interval_list, const CHARSET_INFO *cs,
@@ -247,11 +250,21 @@ class Create_field {
   }
 
   void set_column_format(column_format_type column_format_arg) {
-    flags |= (column_format_arg << FIELD_FLAGS_COLUMN_FORMAT);
+    assert(column_format() == COLUMN_FORMAT_TYPE_DEFAULT);
+    if (column_format_arg < COLUMN_FORMAT_TYPE_COMPRESSED) {
+      flags |= (column_format_arg << FIELD_FLAGS_COLUMN_FORMAT);
+    } else {
+      flags |= FIELD_FLAGS_COL_COMPRESS_FORMAT_MASK;
+    }
   }
 
   column_format_type column_format() const {
-    return (column_format_type)((flags >> FIELD_FLAGS_COLUMN_FORMAT) & 3);
+    if (flags & FIELD_FLAGS_COL_COMPRESS_FORMAT_MASK) {
+      assert(((flags >> FIELD_FLAGS_COLUMN_FORMAT) & 3) == 0);
+      return COLUMN_FORMAT_TYPE_COMPRESSED;
+    } else {
+      return (column_format_type)((flags >> FIELD_FLAGS_COLUMN_FORMAT) & 3);
+    }
   }
 
  private:

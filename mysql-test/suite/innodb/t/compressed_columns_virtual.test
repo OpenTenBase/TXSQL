@@ -1,0 +1,62 @@
+# creating a table with an implicitly virtual generated column with COMPRESSED attribute
+# must trigger an error
+--error ER_WRONG_USAGE
+CREATE TABLE t1(
+  id INT,
+  a BLOB,
+  g BLOB GENERATED ALWAYS AS (a) COMPRESSED
+) ENGINE=InnoDB;
+
+--error ER_WRONG_USAGE
+CREATE TABLE t1(
+  id INT,
+  a BLOB,
+  g BLOB GENERATED ALWAYS AS (a) VIRTUAL COMPRESSED
+) ENGINE=InnoDB;
+
+--error ER_WRONG_USAGE
+CREATE TABLE t1(
+  id INT,
+  a BLOB,
+  g BLOB GENERATED ALWAYS AS (a) STORED COMPRESSED
+) ENGINE=InnoDB;
+
+# creating a table with an index on a virtual column based on a compressed field
+CREATE TABLE t1(
+  f1 INT PRIMARY KEY,
+  f2 BLOB COMPRESSED,
+  f3 BLOB GENERATED ALWAYS AS (f2) VIRTUAL,
+  INDEX(f3(200))
+) ROW_FORMAT=COMPRESSED, ENGINE=InnoDB;
+
+INSERT INTO t1 (f1, f2) VALUES (1, REPEAT('a', 256));
+# checking if changing table row format, which requires virtual values calculation, does not crash
+ALTER TABLE t1 ROW_FORMAT=COMPACT;
+# checking if deleting a row, which requires virtual values calculation in order to update the index,
+# does not crash
+DELETE FROM t1 WHERE f1 = 1;
+DROP TABLE t1;
+
+# checking if calculating virtual column values from current cluster index record data
+# does not cause double locking of 'dict_operation_lock' / 'dict_sys->mutex' when reading
+# zip dict data on opening an already open table
+CREATE TABLE t (
+  a BLOB COMPRESSED,
+  c BLOB GENERATED ALWAYS AS (LEFT(a, 20)) VIRTUAL,
+  INDEX(c(100))
+) ENGINE=InnoDB;
+
+INSERT INTO t VALUES (REPEAT('a', 16000), DEFAULT);
+
+SELECT LEFT(a, 30) FROM t WHERE c = (REPEAT('a', 20));
+SELECT c FROM t WHERE c = "aaaaaaaaaaaaaaaaaaaa";
+SELECT LEFT(a, 30), c FROM t;
+
+UPDATE t SET a = REPEAT('m', 16000) WHERE a LIKE "aaa%";
+
+SELECT LEFT(a, 30) FROM t WHERE c = (REPEAT('a', 20));
+SELECT c FROM t WHERE c = "aaaaaaaaaaaaaaaaaaaa";
+SELECT LEFT(a, 30) FROM t WHERE c = (REPEAT('m', 20));
+SELECT c FROM t WHERE c = "mmmmmmmmmmmmmmmmmmmm";
+SELECT LEFT(a, 30), c FROM t;
+DROP TABLE t;

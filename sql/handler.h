@@ -166,6 +166,7 @@ st_plugin_int *remove_hton2plugin(uint slot);
 extern const char *ha_row_type[];
 extern const char *tx_isolation_names[];
 extern const char *binlog_format_names[];
+extern const char *column_compression_algo_names[];
 extern TYPELIB tx_isolation_typelib;
 extern ulong total_ha_2pc;
 
@@ -2864,8 +2865,6 @@ struct handlerton {
 /** Engine supports table or tablespace encryption . */
 #define HTON_SUPPORTS_TABLE_ENCRYPTION (1 << 16)
 
-/** Engine supports column encryption. */
-#define HTON_SUPPORTS_COLUMN_ENCRYPTION (1 << 18)
 
 constexpr const decltype(handlerton::flags) HTON_SUPPORTS_ENGINE_ATTRIBUTE{
     1 << 17};
@@ -2873,6 +2872,14 @@ constexpr const decltype(handlerton::flags) HTON_SUPPORTS_ENGINE_ATTRIBUTE{
 /** Engine supports Generated invisible primary key. */
 constexpr const decltype(
     handlerton::flags) HTON_SUPPORTS_GENERATED_INVISIBLE_PK{1 << 18};
+
+/** Engine supports column encryption. */
+constexpr const decltype(
+    handlerton::flags) HTON_SUPPORTS_COLUMN_ENCRYPTION {1 << 19};
+
+/** Engine supports compressed columns. */
+constexpr const decltype(
+    handlerton::flags) HTON_SUPPORTS_COMPRESSED_COLUMNS {1 << 20};
 
 inline bool ddl_is_atomic(const handlerton *hton) {
   return (hton->flags & HTON_SUPPORTS_ATOMIC_DDL) != 0;

@@ -49,6 +49,17 @@ enum enum_binlog_format {
       3  ///< thd_binlog_format() returns it when binlog is closed
 };
 
+// Values for column_compression_algorithm sysvar
+enum enum_column_compression_algorithm {
+   /* Add 1 to be compatible with
+      enum compressed_column_algo_type in field.h
+      ZLIB = 1, LZ4 = 2, ZSTD = 3
+   */
+  ALGORITHM_ZLIB = 0,
+  ALGORITHM_LZ4 = 1,
+  ALGORITHM_ZSTD = 2
+};
+
 // Values for rbr_exec_mode_options sysvar
 enum enum_rbr_exec_mode {
   RBR_EXEC_MODE_STRICT,

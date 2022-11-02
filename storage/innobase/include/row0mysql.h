@@ -90,6 +90,9 @@ struct upd_t;
 
 #ifndef UNIV_HOTBACKUP
 extern bool row_rollback_on_timeout;
+extern uint column_compress_length;
+extern uint zlib_compression_level;
+extern uint zstd_compression_level;
 
 struct row_prebuilt_t;
 
@@ -132,6 +135,29 @@ const byte *row_encrypt_column(
     byte *encryption_iv, 
     row_prebuilt_t *prebuilt);
 
+/** Frees the compress heap in prebuilt when no longer needed.
+@param[in]	prebuilt	prebuilt struct of a ha_innobase::table handle
+*/
+void row_mysql_prebuilt_free_compress_heap(row_prebuilt_t *prebuilt) noexcept;
+
+/** Uncompress blob/text/varchar column
+@param[in]	data	data in InnoDB (compressed) format
+@param[in,out]	len	in: data length, out: length of decomprssed data
+@param[in]	algorithm_type  which compression algorithm to use
+@return pointer to the uncompressed data */
+const byte *row_decompress_column(const byte *data, ulint *len,
+                                  row_prebuilt_t *prebuilt,
+                                  mem_heap_t *extra_comp_heap = nullptr);
+
+/** Compress blob/text/varchar column
+@param[in]      data            data in mysql (uncompressed) format
+@param[in,out]  len             in: data length, out: length of compressed data
+@param[in]      lenlen          bytes used to store the length of data
+@param[in]      prebuilt        use prebuilt->compress only here
+@return pointer to the compressed data */
+byte *row_compress_column(const byte *data, ulint *len, ulint lenlen,
+                          uint algorithm_type, row_prebuilt_t *prebuilt);
+
 /** Stores a >= 5.0.3 format true VARCHAR length to dest, in the MySQL row
  format.
  @return pointer to the data, we skip the 1 or 2 bytes at the start
@@ -159,14 +185,17 @@ pointer
 @param[in] len Blob length; if the value to store is sql null this should be 0;
 remember also to set the null bit in the mysql record header! */
 void row_mysql_store_blob_ref(byte *dest, ulint col_len, const void *data,
-                              ulint len);
+                              ulint len, bool need_decompression,
+                              row_prebuilt_t *prebuilt,
+                              mem_heap_t *extra_comp_heap = nullptr);
 
 /** Reads a reference to a BLOB in the MySQL format.
 @param[out] len                 BLOB length.
 @param[in] ref                  BLOB reference in the MySQL format.
 @param[in] col_len              BLOB reference length (not BLOB length).
 @return pointer to BLOB data */
-const byte *row_mysql_read_blob_ref(ulint *len, const byte *ref, ulint col_len);
+const byte *row_mysql_read_blob_ref(ulint *len, const byte *ref, ulint col_len,
+                                    bool need_compression, ulint comp_algorithm, row_prebuilt_t *prebuilt);
 
 /** Converts InnoDB geometry data format to MySQL data format. */
 void row_mysql_store_geometry(
@@ -225,7 +254,9 @@ byte *row_mysql_store_col_in_innobase_format(
     ulint encryption_algorithm,  /*!< in: which encrypted algorithm to use*/
     byte *encryption_key,  /*! < in : the column encryption key */
     byte *encryption_iv,   /*! < in : the column encryption key */
-    row_prebuilt_t *prebuilt); 
+    bool need_compression,  /*!< in: if the data need to be compressed */
+    ulint comp_algorithm,   /*!< in: which compression algorithm to use*/
+    row_prebuilt_t *prebuilt);
 /** Handles user errors and lock waits detected by the database engine.
  @return true if it was a lock wait and we should continue running the
  query thread */
@@ -550,6 +581,8 @@ struct mysql_row_templ_t {
   uint64_t mask_end_pos;
   ulint col_encryption_algorithm;/*!< algorithm for columns with ecnryption format */
   ulint is_encryption;          /*!< if column format is ecncrypted */
+  ulint col_comp_algorithm;     /*!< algorithm for columns with compressed format */
+  ulint is_compressed;          /*!< if column format is compressed */
 };
 
 constexpr uint32_t MYSQL_FETCH_CACHE_SIZE = 8;
@@ -842,6 +875,8 @@ struct row_prebuilt_t {
                              defined FTS_DOC_ID coulmn. */
   mem_heap_t *encryption_heap;          /*!< memory heap used to encrytion
                                         and deencryption column*/
+  mem_heap_t *compress_heap;          /*!< memory heap used to compress
+                                        and decompress blob column*/
   /*----------------------*/
   ulonglong autoinc_last_value;
   /*!< last value of AUTO-INC interval */
@@ -1114,6 +1149,8 @@ constexpr uint32_t ROW_RETRIEVE_ALL_COLS = 2;
 constexpr uint32_t ROW_READ_WITH_LOCKS = 0;
 constexpr uint32_t ROW_READ_TRY_SEMI_CONSISTENT = 1;
 constexpr uint32_t ROW_READ_DID_SEMI_CONSISTENT = 2;
+
+#define MIN_COLUMN_COMPRESS_LENGTH 256
 
 #ifdef UNIV_DEBUG
 /** Wait for the background drop list to become empty. */

@@ -504,7 +504,8 @@ class Alter_info {
 
   bool add_field(THD *thd, const LEX_STRING *field_name,
                  enum enum_field_types type, const char *length,
-                 const char *decimal, uint type_modifier, uint type_modifier2,
+                 const char *decimal, uint64 type_modifier, uint type_modifier2,
+                 uint type_modifier3,
                  Item *default_value, Item *on_update_value,
                  LEX_CSTRING *comment, const char *change,
                  List<String> *interval_list, const CHARSET_INFO *cs,
@@ -524,6 +525,15 @@ class Alter_info {
      @retval true there is at least one encrypted column
   */
   bool has_encryption_columns() const;
+
+  /**
+     Checks if there are any columns with COLUMN_FORMAT COMRPESSED
+     attribute among field definitions in create_list.
+
+     @retval false there are no compressed columns
+     @retval true there is at least one compressed column
+  */
+  bool has_compressed_columns() const;
 
  private:
   Alter_info &operator=(const Alter_info &rhs);  // not implemented

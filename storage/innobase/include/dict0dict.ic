@@ -38,6 +38,13 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "srv0srv.h"
 #include "sync0rw.h"
 
+inline bool dict_col_is_compressed(
+/*============*/
+	const dict_col_t*	col)	/*!< in: column */
+{
+    return (col->prtype & DATA_COMPRESSED) ? true : false;
+}
+
 /** Gets the column number.
  @return col->ind, table column position (starting from 0) */
 static inline ulint dict_col_get_no(const dict_col_t *col) /*!< in: column */

@@ -900,6 +900,8 @@ static bool fill_column_from_dd(THD *thd, TABLE_SHARE *share,
   column_format_type field_column_format;
   encryption_column_algo_type column_encryption_algorithm = 
                               ENCRYPTION_COL_ALGO_TYPE_AES128;
+  compressed_column_algo_type column_compress_algorithm =
+                              COMP_COL_ALGO_TYPE_ZLIB;
 
   //
   // Read column details from dd table
@@ -988,6 +990,16 @@ static bool fill_column_from_dd(THD *thd, TABLE_SHARE *share,
     }
     if (column_se_private_data->exists("encryption_iv")) {
       column_se_private_data->get("encryption_iv", &iv_value);
+    }
+  }
+
+  // Read algorithm for column compression
+  if (field_column_format == COLUMN_FORMAT_TYPE_COMPRESSED) {
+    if (column_options->exists("compressed_algo")) {
+      uint32 option_value = 0;
+      column_options->get("compressed_algo", &option_value);
+      column_compress_algorithm =
+          static_cast<compressed_column_algo_type>(option_value);
     }
   }
 
@@ -1104,8 +1116,8 @@ static bool fill_column_from_dd(THD *thd, TABLE_SHARE *share,
 
   reg_field->set_storage_type(field_storage);
   reg_field->set_column_format(field_column_format);
-  reg_field->encryption_col_algo = column_encryption_algorithm;
 
+  reg_field->encryption_col_algo = column_encryption_algorithm;
   // encryption_key, encryption_iv
   reg_field->encryption_key.length = key_value.length();
   reg_field->encryption_iv.length = iv_value.length();
@@ -1121,6 +1133,8 @@ static bool fill_column_from_dd(THD *thd, TABLE_SHARE *share,
                                                 iv_value.length());
     reg_field->encryption_iv.length = iv_value.length();
   }
+
+  reg_field->comp_col_algo = column_compress_algorithm;
 
   // Comments
   dd::String_type comment = col_obj->comment();

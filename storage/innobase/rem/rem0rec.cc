@@ -373,6 +373,8 @@ bool is_store_version(const dict_index_t *index, size_t n_tuple_fields) {
     }
 
     ut_ad(len <= col->len || DATA_LARGE_MTYPE(col->mtype) ||
+        (dict_col_is_compressed(col) &&
+         (col->len == 0U || len <= static_cast<ulint>(col->len + COLUMN_COMPRESS_HEADER_LENGTH))) ||
           (DATA_POINT_MTYPE(col->mtype) && len == DATA_MBR_LEN) ||
           (col->len == 0 && col->mtype == DATA_VARCHAR) ||
           dict_col_is_encrypted(col));
@@ -877,7 +879,11 @@ static inline bool rec_convert_dtuple_to_rec_comp(
         ut_ad(len <= dtype_get_len(type) ||
               DATA_LARGE_MTYPE(dtype_get_mtype(type)) ||
               !strcmp(index->name, FTS_INDEX_TABLE_IND_NAME) ||
-              dict_col_is_encrypted(col));
+              dict_col_is_encrypted(col) ||
+              (dict_col_is_compressed(col) &&
+               (col->len == 0U ||
+                len <= static_cast<ulint>(col->len +
+                                          COLUMN_COMPRESS_HEADER_LENGTH))));
 #endif /* !UNIV_HOTBACKUP */
         if (len < 128 ||
             !DATA_BIG_LEN_MTYPE(dtype_get_len(type), dtype_get_mtype(type))) {

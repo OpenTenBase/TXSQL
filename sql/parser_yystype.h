@@ -573,6 +573,7 @@ union YYSTYPE {
   PT_column_attr_base *col_attr;
   column_format_type column_format;
   encryption_column_algo_type encryption_column_algorithm;
+  compressed_column_algo_type compressed_column_algorithm;
   ha_storage_media storage_media;
   Mem_root_array<PT_column_attr_base *> *col_attr_list;
   Virtual_or_stored virtual_or_stored;

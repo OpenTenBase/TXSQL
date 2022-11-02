@@ -1945,7 +1945,8 @@ bool PT_column_def::contextualize(Table_ddl_parse_context *pc) {
 
   return pc->alter_info->add_field(
       pc->thd, &field_ident, field_def->type, field_def->length, field_def->dec,
-      field_def->type_flags, field_def->type_flags2, field_def->default_value,
+      field_def->type_flags, field_def->type_flags2, field_def->type_flags3,
+      field_def->default_value,
       field_def->on_update_value, &field_def->comment, nullptr,
       field_def->interval_list, field_def->charset,
       field_def->has_explicit_collation, field_def->uint_geom_type,
@@ -2708,7 +2709,8 @@ bool PT_alter_table_change_column::contextualize(Table_ddl_parse_context *pc) {
 
   return pc->alter_info->add_field(
       pc->thd, &m_new_name, m_field_def->type, m_field_def->length,
-      m_field_def->dec, m_field_def->type_flags, m_field_def->type_flags2,
+      m_field_def->dec, m_field_def->type_flags, m_field_def->type_flags2, 
+      m_field_def->type_flags3,
       m_field_def->default_value, m_field_def->on_update_value,
       &m_field_def->comment, m_old_name.str,
       m_field_def->interval_list, m_field_def->charset,
@@ -3227,7 +3229,8 @@ bool PT_json_table_column_with_path::contextualize(Parse_context *pc) {
                  m_type->get_length(),          // Length
                  m_type->get_dec(),             // Decimals
                  m_type->get_type_flags(),      // Type modifier
-                 m_type->get_type_flags2(),      // Type modifier
+                 m_type->get_type_flags2(),     // Extra Type modifier
+                 m_type->get_type_flags3(),     // Extra Type modifier
                  nullptr,                       // Default value
                  nullptr,                       // On update value
                  &EMPTY_CSTR,                   // Comment

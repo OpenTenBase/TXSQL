@@ -479,15 +479,18 @@ mysql_col_len, mbminlen, mbmaxlen
 void row_sel_field_store_in_mysql_format_func(
     byte *dest, const mysql_row_templ_t *templ, const uint instant_default,
     const dict_index_t *index, ulint field_no, const byte *data, ulint len,
-    row_prebuilt_t *prebuilt, ulint sec_field);
+    row_prebuilt_t *prebuilt, ulint sec_field,
+    mem_heap_t *extra_comp_heap = nullptr);
 
 /** Convert a non-SQL-NULL field from Innobase format to MySQL format. */
 static inline void row_sel_field_store_in_mysql_format(
     byte *dest, const mysql_row_templ_t *templ, const uint instant_default,
     const dict_index_t *idx, ulint field, const byte *src, ulint len,
-    row_prebuilt_t *prebuilt, ulint sec) {
+    row_prebuilt_t *prebuilt, ulint sec,
+    mem_heap_t *extra_comp_heap = nullptr) {
   row_sel_field_store_in_mysql_format_func(dest, templ, instant_default, idx,
-                                           field, src, len, prebuilt, sec);
+                                           field, src, len, prebuilt, sec,
+                                           extra_comp_heap);
 }
 
 /** Search the record present in innodb_table_stats table using

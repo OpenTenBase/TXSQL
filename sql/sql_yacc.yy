@@ -1420,7 +1420,14 @@ void warn_about_deprecated_binary(THD *thd)
 %token<lexer.keyword> PARALLEL 1303                        /* MYSQL */
 %token<lexer.keyword> ACK_SYM  1304                     /* TDSQL */
 
+/*
+  Tokens for compressed column
+*/
+%token<lexer.keyword> LZ4_SYM    1305 
+%token<lexer.keyword> ZLIB_SYM   1306 
+%token<lexer.keyword> ZSTD_SYM   1307
 /* Changes from txsql end. */
+
 
 /*
   Precedence rules used to resolve the ambiguity when using keywords as idents
@@ -2107,6 +2114,8 @@ void warn_about_deprecated_binary(THD *thd)
 %type <column_format> column_format
 
 %type <encryption_column_algorithm> encryption_column_algorithm 
+
+%type <compressed_column_algorithm> compressed_column_algorithm
 
 %type <storage_media> storage_media
 
@@ -4278,6 +4287,7 @@ sp_fdparam:
                                       $2->get_length(), $2->get_dec(),
                                       $2->get_type_flags(),
                                       $2->get_type_flags2(),
+                                      $2->get_type_flags3(),
                                       NULL, NULL, &NULL_CSTR, 0,
                                       $2->get_interval_list(),
                                       cs ? cs : thd->variables.collation_database,
@@ -4340,6 +4350,7 @@ sp_pdparam:
                                       $3->get_length(), $3->get_dec(),
                                       $3->get_type_flags(),
                                       $3->get_type_flags2(),
+                                      $3->get_type_flags3(),
                                       NULL, NULL, &NULL_CSTR, 0,
                                       $3->get_interval_list(),
                                       cs ? cs : thd->variables.collation_database,
@@ -4471,6 +4482,7 @@ sp_decl:
                                         $3->get_length(), $3->get_dec(),
                                         $3->get_type_flags(),
                                         $3->get_type_flags2(),
+                                        $3->get_type_flags3(),
                                         NULL, NULL, &NULL_CSTR, 0,
                                         $3->get_interval_list(),
                                         cs ? cs : thd->variables.collation_database,
@@ -7776,15 +7788,30 @@ column_attribute:
           }
         | ENCRYPTION_SYM encryption_column_algorithm
           {
-            $$= NEW_PTN PT_column_format_column_attr(COLUMN_FORMAT_TYPE_ENCRYPTION, $2);
+            $$= NEW_PTN PT_column_format_column_attr(
+                    COLUMN_FORMAT_TYPE_ENCRYPTION, $2);
+          }
+        | COMPRESSED_SYM compressed_column_algorithm
+          {
+            $$= NEW_PTN PT_column_format_column_attr(
+                    COLUMN_FORMAT_TYPE_COMPRESSED,
+                    ENCRYPTION_COL_ALGO_TYPE_AES128, $2);
           }
         | COLUMN_FORMAT_SYM column_format
           {
-            $$= NEW_PTN PT_column_format_column_attr($2, ENCRYPTION_COL_ALGO_TYPE_AES128);
+            $$= NEW_PTN PT_column_format_column_attr(
+                    $2, ENCRYPTION_COL_ALGO_TYPE_AES128);
           }
         | COLUMN_FORMAT_SYM ENCRYPTION_SYM encryption_column_algorithm
           {
-            $$= NEW_PTN PT_column_format_column_attr(COLUMN_FORMAT_TYPE_ENCRYPTION, $3);
+            $$= NEW_PTN PT_column_format_column_attr(
+                    COLUMN_FORMAT_TYPE_ENCRYPTION, $3);
+          }
+        | COLUMN_FORMAT_SYM COMPRESSED_SYM compressed_column_algorithm
+          {
+            $$= NEW_PTN PT_column_format_column_attr(
+                    COLUMN_FORMAT_TYPE_COMPRESSED,
+                    ENCRYPTION_COL_ALGO_TYPE_AES128, $3);
           }
         | STORAGE_SYM storage_media
           {
@@ -7842,6 +7869,12 @@ encryption_column_algorithm:
         | ALGORITHM_SYM EQ AES256_SYM { $$= ENCRYPTION_COL_ALGO_TYPE_AES256; }
         | ALGORITHM_SYM EQ SM4_SYM { $$= ENCRYPTION_COL_ALGO_TYPE_SM4; }
         ;
+
+compressed_column_algorithm:
+          /* empty */ { $$= COMP_COL_ALGO_TYPE_ZLIB; }
+        | ALGORITHM_SYM EQ ZLIB_SYM { $$= COMP_COL_ALGO_TYPE_ZLIB; }
+        | ALGORITHM_SYM EQ LZ4_SYM { $$= COMP_COL_ALGO_TYPE_LZ4; }
+        | ALGORITHM_SYM EQ ZSTD_SYM { $$= COMP_COL_ALGO_TYPE_ZSTD; }
 
 column_format:
           DEFAULT_SYM { $$= COLUMN_FORMAT_TYPE_DEFAULT; }
@@ -16216,6 +16249,7 @@ ident_keywords_unambiguous:
         | LOCKS_SYM
         | LOGFILE_SYM
         | LOGS_SYM
+        | LZ4_SYM
         | MASK_SYM
         | UNMASK_SYM
         | MASTER_AUTO_POSITION_SYM
@@ -16518,6 +16552,8 @@ ident_keywords_unambiguous:
         | CLEAR_SYM
         | RECYCLE_NAME_SYM
         | RECYCLE_BIN_SYM
+        | ZLIB_SYM
+        | ZSTD_SYM
         ;
 
 /*
@@ -18800,7 +18836,9 @@ sf_tail:
 
             if (sp->m_return_field_def.init(YYTHD, "", field_type,
                                             $10->get_length(), $10->get_dec(),
-                                            $10->get_type_flags(), $10->get_type_flags(),
+                                            $10->get_type_flags(), 
+                                            $10->get_type_flags2(),
+                                            $10->get_type_flags3(),
                                             NULL, NULL, &NULL_CSTR, 0,
                                             $10->get_interval_list(),
                                             cs ? cs : YYTHD->variables.collation_database,

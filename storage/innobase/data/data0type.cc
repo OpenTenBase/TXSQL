@@ -130,10 +130,15 @@ ulint dtype_form_prtype(
                         DATA_BINARY_TYPE etc. */
     ulint charset_coll) /*!< in: MySQL charset-collation code */
 {
+  ulint compressed_attr = 0;
+  if (old_prtype & DATA_COMPRESSED) {
+    compressed_attr = DATA_COMPRESSED;
+    old_prtype -= DATA_COMPRESSED;
+  }
   ut_a(old_prtype < 256 * 256);
   ut_a(charset_coll <= MAX_CHAR_COLL_NUM);
 
-  return (old_prtype + (charset_coll << 16));
+  return (old_prtype + (charset_coll << 16) + compressed_attr);
 }
 
 /** Validates a data type structure.
