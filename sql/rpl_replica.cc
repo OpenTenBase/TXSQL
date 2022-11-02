@@ -5070,6 +5070,23 @@ static int exec_relay_log_event(THD *thd, Relay_log_info *rli,
           };);
     }
 
+#ifdef HAVE_TDSQL
+    /* xa prepared list should be skipped. */
+    if (ev->get_type_code() == binary_log::QUERY_EVENT &&
+        (!strncasecmp(((Query_log_event *)ev)->query, "XA_PREPARED_LIST",
+                      16))) {
+      mysql_mutex_unlock(&rli->data_lock);
+      ev->update_pos(rli);
+      rli->inc_event_relay_log_pos();
+      rli->flush_info(true);
+      DBUG_EXECUTE_IF("txsql_print_xa_prepared_list", {
+        sql_print_information(((Query_log_event *)ev)->query);
+      });
+      delete ev;
+      return 0;
+    }
+#endif
+
     /*
       GTID protocol will put a FORMAT_DESCRIPTION_EVENT from the master with
       log_pos != 0 after each (re)connection if auto positioning is enabled.
