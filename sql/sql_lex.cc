@@ -493,6 +493,8 @@ void LEX::reset() {
 
   clear_privileges();
   grant_as.cleanup();
+  donor_transaction_id = nullptr;
+  attach_session_id = 0;
   alter_user_attribute = enum_alter_user_attribute::ALTER_USER_COMMENT_NOT_USED;
   m_is_replication_deprecated_syntax_used = false;
   m_was_replication_command_executed = false;
@@ -3739,6 +3741,8 @@ LEX::LEX()
   reset_query_tables_list(true);
   gts = 0;
   gts_xa = 0;
+  donor_transaction_id = nullptr;
+  attach_session_id = 0;
 }
 
 /**

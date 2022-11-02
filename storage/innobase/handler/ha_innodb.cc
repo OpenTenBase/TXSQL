@@ -1724,6 +1724,19 @@ static int innobase_start_trx_and_assign_read_view(
     THD *thd);        /* in: MySQL thread handle of the
                       user for whom the transaction should
                       be committed */
+
+/** Creates an InnoDB transaction struct for the thd if it does not
+yet have one.  Starts a new InnoDB transaction if a transaction is not
+yet started. And clones snapshot for a consistent read from another
+session, if it has one.
+@param[in]  hton        InnoDB handlerton
+@param[in]  thd     MySQL thread handle of the user for whom the
+                    transaction should be committed
+@param[in]  from_thd    MySQL thread handle of the user session from
+                        which the consistent read should be cloned
+@return 0 */
+static int innobase_start_trx_and_clone_read_view(handlerton *hton, THD *thd, THD *from_thd);
+
 /** Flush InnoDB redo logs to the file system.
 @param[in]      hton                    InnoDB handlerton
 @param[in]      binlog_group_flush      true if we got invoked by binlog
@@ -1861,6 +1874,33 @@ static handler *innobase_create_handler(handlerton *hton, TABLE_SHARE *table,
 bool thd_is_replication_slave_thread(THD *thd) /*!< in: thread handle */
 {
   return thd != nullptr && thd_slave_thread(thd);
+}
+
+uint64_t thd_get_attach_trx_id(THD *thd) {
+  THD *from_thd = thd_get_attach_thd(thd);
+  if (from_thd == nullptr) {
+    return 0;
+  }
+
+  trx_id_t ret_id = 0;
+
+  trx_t *from_trx = thd_to_trx(from_thd);
+  if (from_trx == nullptr || from_trx->id == 0) {
+    goto end;
+  }
+
+  ret_id = from_trx->id;
+
+  // We done validate the transaction is commit or not, since
+  // it has no effect on changes_visible.
+  /* Validate transaction id */
+  // if (!trx_rw_is_active(ret_id, true)) {
+  //   /* Transaction id is not active, possiblely committed. */
+  //   ret_id = 0;
+  // }
+
+end:
+  return (uint64_t)ret_id;
 }
 
 /** Gets information on the durability property requested by thread.
@@ -5432,6 +5472,9 @@ static int innodb_init(void *p) {
   innobase_hton->start_consistent_snapshot =
       innobase_start_trx_and_assign_read_view;
 
+  innobase_hton->clone_consistent_snapshot = 
+      innobase_start_trx_and_clone_read_view;
+
   innobase_hton->flush_logs = innobase_flush_logs;
   innobase_hton->show_status = innobase_show_status;
   innobase_hton->lock_hton_log = innobase_lock_hton_log;
@@ -6030,6 +6073,58 @@ static int innobase_start_trx_and_assign_read_view(
 
   /* Set the MySQL flag to mark that there is an active transaction */
 
+  innobase_register_trx(hton, current_thd, trx);
+
+  return 0;
+}
+
+static int innobase_start_trx_and_clone_read_view(handlerton *hton, THD *thd, THD *from_thd) {
+  DBUG_TRACE;
+
+  /* Get transaction handle from the donor session */
+  trx_t *from_trx = thd_to_trx(from_thd);
+  if (!from_trx) {
+    push_warning_printf(thd, Sql_condition::SL_WARNING, HA_ERR_UNSUPPORTED,
+                        "InnoDB: WITH CONSISTENT SNAPSHOT FROM SESSION was "
+                        "ignored because the specified session does not have "
+                        "an open transaction inside InnoDB.");
+    return 0;
+  }
+
+  /* Create a new trx struct for thd, if it does not yet have one */
+  trx_t *trx = check_trx_exists(thd);
+
+  innobase_srv_conc_force_exit_innodb(trx);
+
+  /* Clone the read view from the donor transaction.  Do this only if
+  transaction is using REPEATABLE READ isolation level. */
+  trx->isolation_level =
+    innobase_trx_map_isolation_level(thd_get_trx_isolation(thd));
+
+  if (trx->isolation_level != TRX_ISO_REPEATABLE_READ) {
+    push_warning_printf(thd, Sql_condition::SL_WARNING, HA_ERR_UNSUPPORTED,
+                        "InnoDB: WITH CONSISTENT SNAPSHOT was ignored because "
+                        "this phrase can only be used with REPEATABLE READ "
+                        "isolation level.");
+  } else {
+    mutex_enter(&from_trx->mutex);
+    if (from_trx->state != TRX_STATE_ACTIVE ||
+        from_trx->read_view == nullptr ||
+        from_trx->read_view->get_state() != READ_VIEW_STATE_OPEN) {
+      push_warning_printf(thd, Sql_condition::SL_WARNING, HA_ERR_UNSUPPORTED,
+                          "InnoDB: WITH CONSISTENT SNAPSHOT FROM SESSION was "
+                          "ignored because the target transaction has not "
+                          "been assigned a read view.");
+    } else {
+      /* Clone read view */
+      ut_a(trx->read_view != nullptr);
+      trx->read_view->open_by_copy(from_trx->read_view);
+    }
+
+    mutex_exit(&from_trx->mutex);
+  }
+
+  /* Set the MySQL flag to mark that there is an active transaction */
   innobase_register_trx(hton, current_thd, trx);
 
   return 0;

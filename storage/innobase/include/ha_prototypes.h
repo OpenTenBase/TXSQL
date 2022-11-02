@@ -91,6 +91,8 @@ char *innobase_convert_name(
  @return true if thd is the replication thread */
 bool thd_is_replication_slave_thread(THD *thd); /*!< in: thread handle */
 
+uint64_t thd_get_attach_trx_id(THD *thd);
+
 /** Returns true if the transaction this thread is processing has edited
  non-transactional tables. Used by the deadlock detector when deciding
  which transaction to rollback in case of a deadlock - we try to avoid

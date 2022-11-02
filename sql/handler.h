@@ -1404,6 +1404,7 @@ using recover_prepared_in_tc_t = int (*)(handlerton *hton,
   transactions held by the THD parameters as prepared in the server TC.
  */
 using set_prepared_in_tc_t = int (*)(handlerton *hton, THD *thd);
+typedef int (*clone_consistent_snapshot_t)(handlerton *hton, THD *thd, THD *from_thd);
 
 /** X/Open XA distributed transaction status codes */
 enum xa_status_code {
@@ -2620,6 +2621,7 @@ struct handlerton {
   drop_database_t drop_database;
   panic_t panic;
   start_consistent_snapshot_t start_consistent_snapshot;
+  clone_consistent_snapshot_t clone_consistent_snapshot;
   flush_logs_t flush_logs;
   show_status_t show_status;
   partition_flags_t partition_flags;

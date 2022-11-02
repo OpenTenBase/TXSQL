@@ -9667,6 +9667,12 @@ start_transaction_option:
           {
             $$= MYSQL_START_TRANS_OPT_WITH_CONS_SNAPSHOT;
           }
+        | WITH CONSISTENT_SYM SNAPSHOT_SYM FROM SESSION_SYM expr
+          {
+            ITEMIZE($6, &$6);
+            $$= MYSQL_START_TRANS_OPT_WITH_CONS_SNAPSHOT;
+            Lex->donor_transaction_id = $6;
+          }
         | READ_SYM ONLY_SYM
           {
             $$= MYSQL_START_TRANS_OPT_READ_ONLY;
@@ -10178,6 +10184,11 @@ select_stmt:
           {
             $$ = NEW_PTN PT_select_stmt($1);
             Lex->gts = $2;
+          }
+        | query_expression WITH SESSION_SYM real_ulonglong_num 
+          {
+            $$ = NEW_PTN PT_select_stmt($1);
+            Lex->attach_session_id = $4;
           }
         | query_expression locking_clause_list opt_with_gts
           {
