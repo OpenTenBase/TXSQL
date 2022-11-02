@@ -233,6 +233,7 @@ bool charset_prevents_inplace(const Field_str &from, const Create_field &to) {
 bool change_prevents_inplace(const Field_str &from, const Create_field &to) {
   DBUG_TRACE;
   return sql_type_prevents_inplace(from, to) ||
+         from.has_different_compression_attributes_with(to) ||
          length_prevents_inplace(from, to) ||
          // Changing column format to/from encryption or changing associated
          // encryption must result in table rebuild
@@ -1702,6 +1703,7 @@ Field::Field(uchar *ptr_arg, uint32 length_arg, uchar *null_ptr_arg,
 {
   if (!is_nullable()) set_flag(NOT_NULL_FLAG);
   encryption_col_algo = ENCRYPTION_COL_ALGO_TYPE_AES128;
+  comp_col_algo = COMP_COL_ALGO_TYPE_ZLIB;
   comment.str = "";
   comment.length = 0;
   m_field_index = 0;
@@ -1834,6 +1836,29 @@ bool Field::has_different_encryption_attributes_with(
     return false;
   if (new_field.encryption_col_algo != encryption_col_algo)
     return true;
+
+  return (new_field.column_format() != column_format());
+}
+
+/**
+  Checks if the current field definition and provided create field
+  definition have different compression attributes.
+
+  @param   new_field   create field definition to compare with
+
+  @return
+    true  - if compression attributes are different
+    false - if compression attributes are identical.
+*/
+bool Field::has_different_compression_attributes_with(
+    const Create_field &new_field) const noexcept {
+  if (new_field.column_format() != COLUMN_FORMAT_TYPE_COMPRESSED &&
+      column_format() != COLUMN_FORMAT_TYPE_COMPRESSED)
+    return false;
+
+  if (new_field.comp_col_algo != comp_col_algo)
+    return true;
+
   return (new_field.column_format() != column_format());
 }
 
@@ -2181,6 +2206,7 @@ Field *Field::new_field(MEM_ROOT *root, TABLE *new_table) const {
     sure which parts of the server will break.
   */
   tmp->auto_flags = Field::NONE;
+
   /* encryption column format flag must not be cleared here */
   const bool has_encryption_flag =
       (tmp->column_format() == COLUMN_FORMAT_TYPE_ENCRYPTION);
@@ -2188,6 +2214,14 @@ Field *Field::new_field(MEM_ROOT *root, TABLE *new_table) const {
                  BINARY_FLAG | ENUM_FLAG | SET_FLAG | NOT_SECONDARY_FLAG);
   if (has_encryption_flag)
     tmp->set_column_format(COLUMN_FORMAT_TYPE_ENCRYPTION);
+
+  /* COMPRESSED column format flag must not be cleared here */
+  const bool has_compressed_flag =
+    (tmp->column_format() == COLUMN_FORMAT_TYPE_COMPRESSED);
+  if (has_compressed_flag) {
+    tmp->set_column_format(COLUMN_FORMAT_TYPE_COMPRESSED);
+  }
+
   return tmp;
 }
 
@@ -7493,6 +7527,7 @@ uint Field_blob::is_equal(const Create_field *new_field) const {
   // equality so would be redundant here.
   if (new_field->sql_type != get_blob_type_from_length(max_data_length()) ||
       new_field->pack_length() != pack_length() ||
+      has_different_compression_attributes_with(*new_field) ||
       charset_prevents_inplace(*this, *new_field)) {
     return IS_EQUAL_NO;
   }

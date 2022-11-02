@@ -1,0 +1,58 @@
+CREATE TABLE t1(
+id INT,
+a BLOB,
+g BLOB GENERATED ALWAYS AS (a) COMPRESSED
+) ENGINE=InnoDB;
+ERROR HY000: Incorrect usage of COLUMN_FORMAT and generated column
+CREATE TABLE t1(
+id INT,
+a BLOB,
+g BLOB GENERATED ALWAYS AS (a) VIRTUAL COMPRESSED
+) ENGINE=InnoDB;
+ERROR HY000: Incorrect usage of COLUMN_FORMAT and generated column
+CREATE TABLE t1(
+id INT,
+a BLOB,
+g BLOB GENERATED ALWAYS AS (a) STORED COMPRESSED
+) ENGINE=InnoDB;
+ERROR HY000: Incorrect usage of COLUMN_FORMAT and generated column
+CREATE TABLE t1(
+f1 INT PRIMARY KEY,
+f2 BLOB COMPRESSED,
+f3 BLOB GENERATED ALWAYS AS (f2) VIRTUAL,
+INDEX(f3(200))
+) ROW_FORMAT=COMPRESSED, ENGINE=InnoDB;
+INSERT INTO t1 (f1, f2) VALUES (1, REPEAT('a', 256));
+ALTER TABLE t1 ROW_FORMAT=COMPACT;
+DELETE FROM t1 WHERE f1 = 1;
+DROP TABLE t1;
+CREATE TABLE t (
+a BLOB COMPRESSED,
+c BLOB GENERATED ALWAYS AS (LEFT(a, 20)) VIRTUAL,
+INDEX(c(100))
+) ENGINE=InnoDB;
+INSERT INTO t VALUES (REPEAT('a', 16000), DEFAULT);
+SELECT LEFT(a, 30) FROM t WHERE c = (REPEAT('a', 20));
+LEFT(a, 30)
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+SELECT c FROM t WHERE c = "aaaaaaaaaaaaaaaaaaaa";
+c
+aaaaaaaaaaaaaaaaaaaa
+SELECT LEFT(a, 30), c FROM t;
+LEFT(a, 30)	c
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	aaaaaaaaaaaaaaaaaaaa
+UPDATE t SET a = REPEAT('m', 16000) WHERE a LIKE "aaa%";
+SELECT LEFT(a, 30) FROM t WHERE c = (REPEAT('a', 20));
+LEFT(a, 30)
+SELECT c FROM t WHERE c = "aaaaaaaaaaaaaaaaaaaa";
+c
+SELECT LEFT(a, 30) FROM t WHERE c = (REPEAT('m', 20));
+LEFT(a, 30)
+mmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+SELECT c FROM t WHERE c = "mmmmmmmmmmmmmmmmmmmm";
+c
+mmmmmmmmmmmmmmmmmmmm
+SELECT LEFT(a, 30), c FROM t;
+LEFT(a, 30)	c
+mmmmmmmmmmmmmmmmmmmmmmmmmmmmmm	mmmmmmmmmmmmmmmmmmmm
+DROP TABLE t;

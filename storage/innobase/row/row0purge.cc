@@ -286,7 +286,7 @@ bool row_purge_poss_sec(purge_node_t *node,    /*!< in/out: row purge node */
       !row_purge_reposition_pcur(BTR_SEARCH_LEAF, node, &mtr) ||
       !row_vers_old_has_index_entry(true, node->pcur.get_rec(), &mtr, index,
                                     entry, node->roll_ptr, node->trx_id,
-				    prebuilt, node->pre_purge);
+                                    prebuilt, node->pre_purge);
 
   /* Persistent cursor is closed if reposition fails. */
   if (node->found_clust) {
@@ -1259,6 +1259,9 @@ que_thr_t *row_purge_step(que_thr_t *thr) {
 
   if (thr->prebuilt != nullptr && thr->prebuilt->encryption_heap != nullptr)
     mem_heap_empty(thr->prebuilt->encryption_heap);
+
+  if (thr->prebuilt != nullptr && thr->prebuilt->compress_heap != nullptr)
+    mem_heap_empty(thr->prebuilt->compress_heap);
 
   return (thr);
 }

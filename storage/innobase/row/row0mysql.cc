@@ -84,6 +84,8 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "trx0undo.h"
 #include "ut0cpu_cache.h"
 #include "ut0new.h"
+#include "lz4.h"
+#include "zstd.h"
 
 #include "current_thd.h"
 #include "my_dbug.h"
@@ -97,6 +99,25 @@ static const char *MODIFICATIONS_NOT_ALLOWED_MSG_FORCE_RECOVERY =
 
 /** Provide optional 4.x backwards compatibility for 5.0 and above */
 bool row_rollback_on_timeout = false;
+
+/** Minimum origin length to compress a column */
+uint column_compress_length;
+
+/**
+Z_NO_COMPRESSION = 0
+Z_BEST_SPEED = 1
+Z_BEST_COMPRESSION = 9
+Z_DEFAULT_COMPRESSION = -1
+Compression level to be used by zlib for compressed columns.
+Settable by user.
+*/
+uint zlib_compression_level = DEFAULT_COMPRESSION_LEVEL;
+/**
+ZSTD_BEST_SPEED = 1
+ZSTD_CLEVEL_DEFAULT = 3
+ZSTD_BEST_COMPRESSION = 22
+*/
+uint zstd_compression_level = 3;
 
 /** Chain node of the list of tables to drop in the background. */
 struct row_mysql_drop_t {
@@ -495,6 +516,14 @@ undecrypted:
   return data;
 }
 
+/** Frees the compress heap in prebuilt when no longer needed.
+@param[in]      prebuilt        prebuilt struct of a ha_innobase::table
+                                handle  */
+void row_mysql_prebuilt_free_compress_heap(row_prebuilt_t *prebuilt) noexcept {
+  mem_heap_free(prebuilt->compress_heap);
+  prebuilt->compress_heap = nullptr;
+}
+
 /** Stores a >= 5.0.3 format true VARCHAR length to dest, in the MySQL row
  format.
  @return pointer to the data, we skip the 1 or 2 bytes at the start
@@ -543,6 +572,374 @@ const byte *row_mysql_read_true_varchar(
   return (field + 1);
 }
 
+/**
+  For performance concern, only do compression on columns whose
+  size >= min_column_compress_length Bytes (256 by default).
+  There are two Compressed BLOB header format
+  Compressed BLOB header and prefix format:
+  -----------------------------------------------------------
+  | Header                                    | Prefix      |
+  -----------------------------------------------------------
+  | compressed | algorithm | unused | len-len | original-len|
+  |        [1] |       [2] |    [2] |     [3] |         [1] |
+  -----------------------------------------------------------
+  | 0        0 | 1       2 | 3    4 | 5     7 |  1-4 Byte(s)|
+  -----------------------------------------------------------
+  * If 'compressed' bit is set to 1, then this header is immediately followed
+  by 1..4 bytes (depending on the value of 'len-len' bitfield) which
+  determine original (uncompressed) block size. These 'len-len' bytes are
+  followed by compressed representation of the original data.
+  * If 'compressed' bit is set to 0, every other bitfield ('wrap',
+  'algorithm' and 'le-len') must be ignored. In this case the header is
+  immediately followed by uncompressed (original) data.
+  * 'algorithm' identifies which algoritm was used to compress this BLOB.
+  Currently, the value 'default_zip_column_algorithm_value' (0) and
+  'lz4_column_aalgorithm_value' are supported.
+  * 'len-len' field identifies the length of the column length data portion
+  followed by this header (see below).
+  * 'original-len' stores the length of the raw data, how much Bytes it occupies
+  * is specified by len-len.
+*/
+
+static constexpr size_t zip_column_prefix_max_length =
+    COLUMN_COMPRESS_HEADER_LENGTH + 4;
+
+static constexpr size_t zip_column_header_length =
+    COLUMN_COMPRESS_HEADER_LENGTH;
+
+/* 'compressed', bit 0 */
+static constexpr uint zip_column_compressed = 0;
+/* 0000 0001 */
+static constexpr uint zip_column_compressed_mask = 0x01;
+
+/* 'algorithm', bit 1,2 */
+static constexpr uint zip_column_algorithm = 1;
+/* 0000 0110 */
+static constexpr uint zip_column_algorithm_mask = 0x06;
+
+/* 'len-len', bit 5,6,7 */
+static constexpr uint zip_column_data_length = 5;
+/* 1110 0000 */
+static constexpr uint zip_column_data_length_mask = 0xE0;
+
+/** Updates compressed block header with the given components */
+static void column_set_compress_header(byte *data, bool compressed,
+                                       ulint lenlen, uint alg) noexcept {
+  ulint header = 0;
+  header |= (compressed << zip_column_compressed);
+  header |= (alg << zip_column_algorithm);
+  header |= (lenlen << zip_column_data_length);
+  mach_write_to_1(data, header);
+}
+
+/** Parse compressed block header into components */
+static void column_get_compress_header(const byte *data, bool *compressed,
+                                       ulint *lenlen, uint *alg) noexcept {
+  const byte header = mach_read_from_1(data);
+  *compressed =
+      ((header & zip_column_compressed_mask) >> zip_column_compressed);
+  *alg = ((header & zip_column_algorithm_mask) >> zip_column_algorithm);
+  *lenlen = ((header & zip_column_data_length_mask) >> zip_column_data_length);
+}
+
+/** Compress blob/text/varchar column using zlib (A wrapper of compress2)
+@param[in]	dest	where to store compressed data
+@param[in,out]	destLen length of compressed data
+@param[in]	source  uncompressed data (original data)
+@param[in]	sourceLen	length of uncompressed data (original data)
+@param[in]  level   compression level
+@return returns 0 if success, 1 if failed */
+static int row_compress_column_zlib(Bytef *dest, uLongf *destLen,
+                             const Bytef *source, uLong sourceLen,
+                             int level) {
+  return (compress2(dest, destLen, source, sourceLen, level) != Z_OK);
+}
+
+/** Uncompress blob/text/varchar column using zlib
+@param[in]	dest	where to store decompressed data
+@param[in,out]	destLen length of decompressed data
+@param[in]	source  compressed data
+@param[in]	sourceLen	length of compressed data
+@return returns 0 if success, 1 if failed */
+static int row_decompress_column_zlib(Bytef *dest, uLongf *destLen,
+                               const Bytef *source, uLong sourceLen) {
+  return (uncompress(dest, destLen, source, sourceLen) != Z_OK);
+}
+
+/** Compress blob/text/varchar column using lz4
+@param[in]	dest	where to store compressed data
+@param[in,out]	destLen length of compressed data
+@param[in]	source  uncompressed data (original data)
+@param[in]	sourceLen	length of uncompressed data (original data)
+@return returns 0 if success, 1 if failed */
+int row_compress_column_lz4(byte *dest, ulint *destLen,
+                            byte *source,
+                            ulint sourceLen) {
+  int len = LZ4_compress_default(reinterpret_cast<char *>(source),
+                                 reinterpret_cast<char *>(dest),
+                                 static_cast<int>(sourceLen),
+                                 static_cast<int>(*destLen));
+
+  if (len == 0 || static_cast<ulint>(len) >= *destLen) {
+      return 1;
+  } else {
+    /* Compression is successful, store compressed length. */
+    *destLen = static_cast<ulint>(len);
+    return 0;
+  }
+}
+
+/** Uncompress blob/text/varchar column using lz4
+@param[in]	dest	where to store decompressed data
+@param[in,out]	destLen length of decompressed data
+@param[in]	source  compressed data
+@param[in]	sourceLen	length of compressed data
+@return returns 0 if success, 1 if failed */
+int row_decompress_column_lz4(byte *dest, ulint *destLen,
+                              byte *source, ulint sourceLen) {
+  int ret = LZ4_decompress_safe(reinterpret_cast<char *>(source),
+                                reinterpret_cast<char *>(dest),
+                                static_cast<int>(sourceLen),
+                                static_cast<int>(*destLen));
+
+  if (ret < 0) {
+    return 1;
+  } else {
+    *destLen = static_cast<ulint>(ret);
+    return 0;
+  }
+}
+
+/** Compress blob/text/varchar column using zstd
+@param[in]	dest	where to store compressed data
+@param[in,out]	destLen length of compressed data
+@param[in]	source  uncompressed data (original data)
+@param[in]	sourceLen	length of uncompressed data (original data)
+@param[in]  level   compression level
+@return returns 0 if success, 1 if failed */
+int row_compress_column_zstd(byte *dest, ulint *destLen,
+                             byte *source, ulint sourceLen,
+                             int level) {
+  size_t len = ZSTD_compress(dest, static_cast<size_t>(*destLen), source, sourceLen, level);
+
+  if (ZSTD_isError(len) || len > static_cast<size_t>(*destLen)) {
+    return 1;
+  } else {
+    /* Compression is successful, store compressed length. */
+    *destLen = static_cast<ulint>(len);
+    return 0;
+  }
+}
+
+/** Uncompress blob/text/varchar column using zstd
+@param[in]	dest	where to store decompressed data
+@param[in,out]	destLen length of decompressed data
+@param[in]	source  compressed data
+@param[in]	sourceLen	length of compressed data
+@return returns 0 if success, 1 if failed */
+int row_decompress_column_zstd(byte *dest, ulint *destLen,
+                               byte *source, ulint sourceLen) {
+  size_t ret = ZSTD_decompress(dest, static_cast<size_t>(*destLen), source, sourceLen);
+
+  if (ZSTD_isError(ret)) {
+    return 1;
+  } else {
+    *destLen = static_cast<ulint>(ret);
+    return 0;
+  }
+}
+
+/** Compress blob/text/varchar column
+@param[in]      data            data in mysql (uncompressed) format
+@param[in,out]  len             in: data length, out: length of compressed data
+@param[in]      lenlen          bytes used to store the length of data
+@param[in]      prebuilt        use prebuilt->compress only here
+@return pointer to the compressed data */
+byte *row_compress_column(const byte *data, ulint *len, ulint lenlen,
+                          uint algorithm_type, row_prebuilt_t *prebuilt) {
+  int err = 0;
+  ulint original_len = *len;
+  ulint buf_len = original_len + zip_column_prefix_max_length;
+  byte *buf;
+  byte *ptr;
+
+  /* The algorithm_type in HEADER, ZLIB = 0, LZ4 = 1, ZSTD = 2 */
+  ut_ad(algorithm_type <= 2);
+
+  if (!prebuilt->compress_heap)
+    prebuilt->compress_heap =
+        mem_heap_create(std::max(UNIV_PAGE_SIZE, buf_len), UT_LOCATION_HERE);
+
+  buf = static_cast<byte *>(mem_heap_zalloc(prebuilt->compress_heap, buf_len));
+
+  if (algorithm_type == LZ4_COL_COMP && (original_len & 0x80000000)) {
+    /* If the original length is greater or equal than 2^31, it cannot stored in an 'int',
+    and the lz4 compression use int to store the length, so use zlib compression instead */
+    algorithm_type = ZLIB_COL_COMP;
+  }
+
+  if ((original_len < column_compress_length) ||
+    (algorithm_type == ZLIB_COL_COMP && zlib_compression_level == Z_NO_COMPRESSION))
+    /* Do not compress the data if the size is too small, or is set not compress */
+    goto do_not_compress;
+
+  ptr = buf + zip_column_header_length + lenlen;
+
+  /* Compress the data */
+  switch (algorithm_type) {
+    case ZLIB_COL_COMP:
+      err = row_compress_column_zlib(ptr, (uLong*)len, const_cast<Bytef *>(data),
+                                    original_len, zlib_compression_level);
+      break;
+    case LZ4_COL_COMP:
+      err = row_compress_column_lz4(ptr, len, const_cast<byte *>(data), original_len);
+      break;
+    case ZSTD_COL_COMP:
+      err = row_compress_column_zstd(ptr, len, const_cast<byte *>(data),
+                                     original_len, zstd_compression_level);
+      break;
+    default:
+      ib::fatal(UT_LOCATION_HERE, ER_COLUMN_COMPRESSION_GENERAL_ERROR)
+          << "unsupported 'algorithm' value in the compressed BLOB header\n";
+  }
+  /* Make sure the compressed data size is smaller than uncompressed data */
+  if (!err && original_len > (*len + zip_column_header_length + lenlen)) {
+    /* Set the header */
+    column_set_compress_header(buf, true, lenlen - 1, algorithm_type);
+    ptr = buf + zip_column_header_length;
+    /* Store the uncompressed data length*/
+    switch (lenlen) {
+      case 1:
+        mach_write_to_1(ptr, original_len);
+        break;
+      case 2:
+        mach_write_to_2(ptr, original_len);
+        break;
+      case 3:
+        mach_write_to_3(ptr, original_len);
+        break;
+      case 4:
+        mach_write_to_4(ptr, original_len);
+        break;
+      default:
+        ut_error;
+    }
+    *len = *len + zip_column_header_length + lenlen;
+    return buf;
+  }
+
+do_not_compress:
+  /* Compression failed or original_len < column_compress_length */
+  ptr = buf;
+  /* Now, Algorithm is not important, set default: ZLIB_COL_COMP */
+  column_set_compress_header(ptr, false, 0,
+                             ZLIB_COL_COMP);
+  ptr += zip_column_header_length;
+  memcpy(ptr, data, *len);
+  *len = original_len + zip_column_header_length;
+  return buf;
+}
+
+/** Uncompress blob/text/varchar column
+@param[in]	data	data in InnoDB (compressed) format
+@param[in,out]	len	in: data length, out: length of decomprssed data
+@param[in]	algorithm_type  which compression algorithm to use
+@return pointer to the uncompressed data */
+const byte *row_decompress_column(const byte *data, ulint *len,
+                                  row_prebuilt_t *prebuilt,
+                                  mem_heap_t *extra_comp_heap) {
+  ulint buf_len = 0;
+  byte *buf;
+  int err = 0;
+  bool is_compressed = false;
+  ulint lenlen = 0;
+  uint alg = 0;
+
+  ut_ad(*len != ULINT_UNDEFINED);
+  ut_ad(*len >= zip_column_header_length);
+
+  column_get_compress_header(data, &is_compressed, &lenlen, &alg);
+
+  ut_a(lenlen < 4);
+
+  data += zip_column_header_length;
+  if (!is_compressed) { /* column not compressed */
+    *len -= zip_column_header_length;
+    return data;
+  }
+  lenlen++;
+
+  ulint comp_len = *len - zip_column_header_length - lenlen;
+
+  ulint uncomp_len = 0;
+  switch (lenlen) {
+    case 1:
+      uncomp_len = mach_read_from_1(data);
+      break;
+    case 2:
+      uncomp_len = mach_read_from_2(data);
+      break;
+    case 3:
+      uncomp_len = mach_read_from_3(data);
+      break;
+    case 4:
+      uncomp_len = mach_read_from_4(data);
+      break;
+    default:
+      ut_error;
+  }
+
+  data += lenlen;
+
+  /* data is compressed, decompress it*/
+  mem_heap_t *heap = nullptr;
+  if (prebuilt != nullptr) {
+    if (!prebuilt->compress_heap) {
+      prebuilt->compress_heap = mem_heap_create(
+          std::max(UNIV_PAGE_SIZE, uncomp_len), UT_LOCATION_HERE);
+    }
+    heap = prebuilt->compress_heap;
+  } else {
+    heap = extra_comp_heap;
+  }
+  ut_a(heap != nullptr);
+
+  buf_len = uncomp_len;
+  buf = static_cast<byte *>(mem_heap_zalloc(heap, buf_len));
+
+  switch (alg) {
+    case ZLIB_COL_COMP:
+      err = row_decompress_column_zlib(buf, (uLong *)&buf_len,
+                                       const_cast<Bytef *>(data), comp_len);
+      break;
+    case LZ4_COL_COMP:
+      err = row_decompress_column_lz4(buf, &buf_len, const_cast<byte *>(data),
+                                      comp_len);
+      break;
+    case ZSTD_COL_COMP:
+      err = row_decompress_column_zstd(buf, &buf_len, const_cast<byte *>(data),
+                                       comp_len);
+      break;
+    default:
+      ib::fatal(UT_LOCATION_HERE, ER_COLUMN_COMPRESSION_GENERAL_ERROR)
+          << "unsupported 'algorithm' value in the compressed BLOB header\n";
+    }
+
+    if (!err) {
+      if (buf_len != uncomp_len) {
+        ib::fatal(UT_LOCATION_HERE, ER_COLUMN_COMPRESSION_GENERAL_ERROR)
+            << "failed to decompress blob column, may be corrupted\n";
+      }
+      *len = buf_len;
+      return buf;
+    }
+    ib::fatal(UT_LOCATION_HERE, ER_COLUMN_COMPRESSION_GENERAL_ERROR)
+        << "failed to decompress column.\n";
+
+    *len -= (zip_column_header_length + lenlen);
+    return data;
+  }
+
 /** Stores a reference to a BLOB in the MySQL format.
 @param[in] dest Where to store
 @param[in,out] col_len Dest buffer size: determines into how many bytes the blob
@@ -552,7 +949,9 @@ pointer
 @param[in] len Blob length; if the value to store is sql null this should be 0;
 remember also to set the null bit in the mysql record header! */
 void row_mysql_store_blob_ref(byte *dest, ulint col_len, const void *data,
-                              ulint len) {
+                              ulint len, bool need_decompression,
+                              row_prebuilt_t *prebuilt,
+                              mem_heap_t *extra_comp_heap) {
   /* MySQL might assume the field is set to zero except the length and
   the pointer fields */
 
@@ -563,22 +962,52 @@ void row_mysql_store_blob_ref(byte *dest, ulint col_len, const void *data,
   In 32-bit architectures we only use the first 4 bytes of the pointer
   slot. */
 
-  ut_a(col_len - 8 > 1 || len < 256);
-  ut_a(col_len - 8 > 2 || len < 256 * 256);
-  ut_a(col_len - 8 > 3 || len < 256 * 256 * 256);
+  ut_a(col_len - 8 > 1 ||
+       len < 256 + (need_decompression ? COLUMN_COMPRESS_HEADER_LENGTH : 0));
+  ut_a(col_len - 8 > 2 ||
+       len < 256 * 256 +
+                 (need_decompression ? COLUMN_COMPRESS_HEADER_LENGTH : 0));
+  ut_a(col_len - 8 > 3 ||
+       len < 256 * 256 * 256 +
+                 (need_decompression ? COLUMN_COMPRESS_HEADER_LENGTH : 0));
+
+  const byte *ptr = nullptr;
+
+  if (need_decompression)
+    ptr = row_decompress_column((const byte *)data, &len, prebuilt,
+                                extra_comp_heap);
 
   mach_write_to_n_little_endian(dest, col_len - 8, len);
 
-  memcpy(dest + col_len - 8, &data, sizeof data);
+  if (ptr)
+    memcpy(dest + col_len - 8, &ptr, sizeof ptr);
+  else
+    memcpy(dest + col_len - 8, &data, sizeof data);
 }
 
+/** Reads a reference to a BLOB in the MySQL format.
+@param[out] len                 BLOB length.
+@param[in] ref                  BLOB reference in the MySQL format.
+@param[in] col_len              BLOB reference length (not BLOB length).
+@param[in] need_compression     if the data need to be compressed
+@param[in] comp_algorithm       which algorithm to use in the compressed column
+@param[in] prebuilt             use prebuilt->compress_heap only heap
+@return pointer to BLOB data */
 const byte *row_mysql_read_blob_ref(ulint *len, const byte *ref,
-                                    ulint col_len) {
-  byte *data;
+                                    ulint col_len,
+                                    bool need_compression, ulint comp_algorithm,
+                                    row_prebuilt_t *prebuilt) {
+  byte *data = nullptr;
+  byte *ptr = nullptr;
 
   *len = mach_read_from_n_little_endian(ref, col_len - 8);
 
   memcpy(&data, ref + col_len - 8, sizeof data);
+
+  if (need_compression) {
+    ptr = row_compress_column(data, len, col_len - 8, comp_algorithm, prebuilt);
+    if (ptr) data = ptr;
+  }
 
   return (data);
 }
@@ -747,6 +1176,8 @@ byte *row_mysql_store_col_in_innobase_format(
     ulint encryption_algorithm,/*!< in: which encryption algorithm to use*/
     byte *encryption_key,  /*! < in : the column encryption key */
     byte *encryption_iv,   /*! < in : the column encryption key */
+    bool need_compression,  /*!< in: if the data need to be compressed */
+    ulint comp_algorithm,   /*!< in: which compression algorithm to use*/
     row_prebuilt_t *prebuilt)
 {
   const byte *ptr = mysql_data;
@@ -801,6 +1232,9 @@ byte *row_mysql_store_col_in_innobase_format(
       if (need_encryption)
         ptr = row_encrypt_column(tmp_ptr, &col_len, lenlen, encryption_algorithm,
                                  encryption_key, encryption_iv, prebuilt);
+
+      if (need_compression)
+        ptr = row_compress_column(tmp_ptr, &col_len, lenlen, comp_algorithm, prebuilt);
       else
         ptr = tmp_ptr;
     } else {
@@ -883,7 +1317,9 @@ byte *row_mysql_store_col_in_innobase_format(
     since the length is always stored in 2 bytes,
     we need do nothing here. */
   } else if (type == DATA_BLOB) {
-    ptr = row_mysql_read_blob_ref(&col_len, mysql_data, col_len);
+    ptr = row_mysql_read_blob_ref(&col_len, mysql_data, col_len,
+                                  need_compression, comp_algorithm,
+                                  prebuilt);
   } else if (DATA_GEOMETRY_MTYPE(type)) {
     /* We use blob to store geometry data except DATA_POINT
     internally, but in MySQL Layer the datatype is always blob. */
@@ -975,6 +1411,9 @@ static void row_mysql_convert_row_to_innobase(
       }
       dfield_multi_value_dup(dfield, *heap);
     } else {
+      bool is_comp_field = templ->is_compressed;
+      ulint comp_algo = is_comp_field ? templ->col_comp_algorithm : 0;
+      row_prebuilt_t *comp_prebuilt = is_comp_field ? prebuilt : nullptr;
       /* virtual column can't be encrypted, and col is nullptr*/
       if (!templ->is_virtual) {
         row_mysql_store_col_in_innobase_format(
@@ -983,14 +1422,14 @@ static void row_mysql_convert_row_to_innobase(
             mysql_rec + templ->mysql_col_offset, templ->mysql_col_len,
             dict_table_is_comp(prebuilt->table), templ->is_encryption,
             templ->col_encryption_algorithm, col->encryption_key,
-            col->encryption_iv, prebuilt);
+            col->encryption_iv, is_comp_field, comp_algo, prebuilt);
       } else {
         row_mysql_store_col_in_innobase_format(
             dfield, prebuilt->ins_upd_rec_buff + templ->mysql_col_offset,
             true, /* MySQL row format data */
             mysql_rec + templ->mysql_col_offset, templ->mysql_col_len,
             dict_table_is_comp(prebuilt->table), 
-            false, 0, nullptr, nullptr, nullptr);
+            false, 0, nullptr, nullptr, is_comp_field, comp_algo, comp_prebuilt);
       }
 
       /* server has issue regarding handling BLOB virtual fields,
@@ -1351,6 +1790,10 @@ void row_prebuilt_free(row_prebuilt_t *prebuilt, bool dict_locked) {
 
   if (prebuilt->encryption_heap) {
     mem_heap_free(prebuilt->encryption_heap);
+  }
+
+  if (prebuilt->compress_heap) {
+    mem_heap_free(prebuilt->compress_heap);
   }
 
   if (prebuilt->old_vers_heap) {
@@ -1811,7 +2254,7 @@ static void row_mysql_to_innobase(dtuple_t *row, row_prebuilt_t *prebuilt,
       row_mysql_read_true_varchar(&col_len, ptr, templ->mysql_length_bytes);
       ptr += templ->mysql_length_bytes;
     } else if (dtype->mtype == DATA_BLOB) {
-      ptr = row_mysql_read_blob_ref(&col_len, ptr, col_len);
+      ptr = row_mysql_read_blob_ref(&col_len, ptr, col_len, false, 0, nullptr);
     } else if (DATA_GEOMETRY_MTYPE(dtype->mtype)) {
       /* Point, Var-Point, Geometry */
       ptr = row_mysql_read_geometry(&col_len, ptr, col_len);
@@ -1978,6 +2421,9 @@ static dberr_t row_insert_for_mysql_using_ins_graph(const byte *mysql_rec,
 
   if (UNIV_LIKELY_NULL(prebuilt->encryption_heap))
     mem_heap_empty(prebuilt->encryption_heap);
+
+  if (UNIV_LIKELY_NULL(prebuilt->compress_heap))
+    mem_heap_empty(prebuilt->compress_heap);
 
   trx->op_info = "inserting";
 

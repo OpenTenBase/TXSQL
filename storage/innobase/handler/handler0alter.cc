@@ -3809,6 +3809,10 @@ static void innobase_build_col_map_add(mem_heap_t *heap, dfield_t *dfield,
   byte *buf = static_cast<byte *>(mem_heap_alloc(heap, size));
 
   const byte *mysql_data = field->field_ptr();
+  bool is_comp_field =
+      field->column_format() == COLUMN_FORMAT_TYPE_COMPRESSED;
+  ulint comp_algo = is_comp_field ? field->comp_col_algo : 0;
+  row_prebuilt_t *comp_prebuilt = is_comp_field ? prebuilt : nullptr;
 
   if (field->column_format() == COLUMN_FORMAT_TYPE_ENCRYPTION) {
 
@@ -3830,11 +3834,13 @@ static void innobase_build_col_map_add(mem_heap_t *heap, dfield_t *dfield,
       field->encryption_col_algo,
       encryption_key,
       encryption_iv,
+      is_comp_field,
+      comp_algo,
       prebuilt);
   } else {
     row_mysql_store_col_in_innobase_format(
         dfield, buf, true, mysql_data, size, comp,
-        false, 0, nullptr, nullptr, nullptr);
+        false, 0, nullptr, nullptr, is_comp_field, comp_algo, comp_prebuilt);
   }
 }
 
@@ -4356,6 +4362,10 @@ static bool prepare_inplace_add_virtual(Alter_inplace_info *ha_alter_info,
 
     if (field->is_column_encrypted()) {
       field_type |= DATA_ENCRYPTION;
+    }
+
+    if (field->is_column_compressed()) {
+      field_type |= DATA_COMPRESSED;
     }
 
     if (dtype_is_string_type(col_type)) {
@@ -5188,6 +5198,10 @@ template <typename Table>
       }
 
       is_encryption = field->is_column_encrypted() ? DATA_ENCRYPTION : 0;
+
+      if (field->is_column_compressed()) {
+        field_type |= DATA_COMPRESSED;
+      }
 
       if (dtype_is_string_type(col_type)) {
         charset_no = (ulint)field->charset()->number;

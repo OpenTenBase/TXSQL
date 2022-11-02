@@ -225,12 +225,16 @@ constexpr uint32_t DATA_MULTI_VALUE = 16384;
 
 constexpr uint32_t DATA_ENCRYPTION = 32768;
 
-/*-------------------------------------------*/
+/** this is ORed to the precise data       
+type when the column has COLUMN_FORMAT = COMPRESSED attribute */
+constexpr uint32_t DATA_COMPRESSED = 0x80000000; 
 
-/* This many bytes we need to store the type information affecting the
-alphabetical order for a single field and decide the storage size of an
-SQL null*/
-constexpr uint32_t DATA_ORDER_NULL_TYPE_BUF_SIZE = 4;
+    /*-------------------------------------------*/
+
+    /* This many bytes we need to store the type information affecting the
+    alphabetical order for a single field and decide the storage size of an
+    SQL null*/
+    constexpr uint32_t DATA_ORDER_NULL_TYPE_BUF_SIZE = 4;
 /* In the >= 4.1.x storage format we add 2 bytes more so that we can also
 store the charset-collation number; one byte is left unused, though */
 constexpr uint32_t DATA_NEW_ORDER_NULL_TYPE_BUF_SIZE = 6;

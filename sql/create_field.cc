@@ -64,6 +64,7 @@ Create_field::Create_field(Field *old_field, Field *orig_field)
       decimals(old_field->decimals()),
       flags(old_field->all_flags()),
       flags2(old_field->encryption_col_algo),
+      flags3(old_field->comp_col_algo),
       auto_flags(old_field->auto_flags),
       charset(old_field->charset()),  // May be NULL ptr
       is_explicit_collation(false),
@@ -87,6 +88,7 @@ Create_field::Create_field(Field *old_field, Field *orig_field)
       encryption_key(old_field->encryption_key),
       encryption_iv(old_field->encryption_iv),
       encryption_col_algo(old_field->encryption_col_algo),
+      comp_col_algo(old_field->comp_col_algo),
       m_max_display_width_in_codepoints(old_field->char_length()) {
   switch (sql_type) {
     case MYSQL_TYPE_TINY_BLOB:
@@ -196,7 +198,7 @@ Create_field::Create_field(Field *old_field, Field *orig_field)
 bool Create_field::init(
     THD *thd, const char *fld_name, enum_field_types fld_type,
     const char *display_width_in_codepoints, const char *fld_decimals,
-    uint fld_type_modifier, uint fld_type_modifier2, 
+    uint64 fld_type_modifier, uint fld_type_modifier2, uint fld_type_modifier3,
     Item *fld_default_value, Item *fld_on_update_value,
     const LEX_CSTRING *fld_comment, const char *fld_change,
     List<String> *fld_interval_list, const CHARSET_INFO *fld_charset,
@@ -215,10 +217,16 @@ bool Create_field::init(
   field = nullptr;
   field_name = fld_name;
   flags = fld_type_modifier;
+
   flags2 = fld_type_modifier2;
   is_explicit_collation = (fld_charset != nullptr);
   /* Get encryption algorithm for encryption columns from fld_type_modifier2 */
   encryption_col_algo = ((flags2 >> FIELD_FLAGS_COL_ENCRYPTION_ALGO) & FIELD_FLAGS_COL_ENCRYPTION_ALGO_MASK);
+
+  flags3 = fld_type_modifier3;
+  is_explicit_collation = (fld_charset != nullptr);
+  /* Get compression algorithm for compressed columns from fld_type_modifier3 */
+  comp_col_algo = ((flags3 >> FIELD_FLAGS_COL_COMPRESS_ALGO) & FIELD_FLAGS_COL_COMPRESS_ALGO_MASK);
 
   if (!has_explicit_collation && fld_charset == &my_charset_utf8mb4_0900_ai_ci)
     charset = thd->variables.default_collation_for_utf8mb4;

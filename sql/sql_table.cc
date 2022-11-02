@@ -444,7 +444,7 @@ static int copy_data_between_tables(
 
 static bool prepare_blob_field(THD *thd, Create_field *sql_field,
                                bool convert_character_set);
-static bool check_engine(const char *db_name, const char *table_name,
+static bool check_engine(THD *thd, const char *db_name, const char *table_name,
                          HA_CREATE_INFO *create_info,
                          const Alter_info *alter_info);
 
@@ -4723,6 +4723,7 @@ bool prepare_create_field(THD *thd, const char *error_schema_name,
 
         sql_field->flags = dup_field->flags;
         sql_field->flags2 = dup_field->flags2;
+        sql_field->flags3 = dup_field->flags3;
         sql_field->interval = dup_field->interval;
         sql_field->gcol_info = dup_field->gcol_info;
         sql_field->m_default_val_expr = dup_field->m_default_val_expr;
@@ -4962,6 +4963,13 @@ static bool prepare_key_column(THD *thd, HA_CREATE_INFO *create_info,
   /* encryption column is not allowed to be defined as a key part */
   if (sql_field->column_format() == COLUMN_FORMAT_TYPE_ENCRYPTION) {
     my_error(ER_CDB_ENCRYPTION_COLUMN_USED_AS_KEY, MYF(0),
+             column->get_field_name());
+    return true;
+  }
+
+  /* compressed column is not allowed to be defined as a key part */
+  if (sql_field->column_format() == COLUMN_FORMAT_TYPE_COMPRESSED) {
+    my_error(ER_COMPRESSED_COLUMN_USED_AS_KEY, MYF(0),
              column->get_field_name());
     return true;
   }
@@ -8125,6 +8133,27 @@ bool mysql_prepare_create_table(
         return true;
       }
     }
+      
+    /*
+      Check if the column is compressible.
+      VIRTUAL generated columns cannot have COMPRESSED attribute.
+    */
+    if ((sql_field->sql_type == MYSQL_TYPE_TINY_BLOB ||
+         sql_field->sql_type == MYSQL_TYPE_MEDIUM_BLOB ||
+         sql_field->sql_type == MYSQL_TYPE_BLOB ||
+         sql_field->sql_type == MYSQL_TYPE_LONG_BLOB ||
+         sql_field->sql_type == MYSQL_TYPE_VARCHAR ||
+         sql_field->sql_type == MYSQL_TYPE_JSON) &&
+        (sql_field->gcol_info == nullptr ||
+         sql_field->gcol_info->get_field_stored())) {
+      // this is a valid column type to set compressed
+    } else {
+      if (sql_field->column_format() == COLUMN_FORMAT_TYPE_COMPRESSED) {
+        my_error(ER_UNSUPPORTED_COMPRESSED_COLUMN_TYPE, MYF(0),
+                 sql_field->field_name);
+        return true;
+      }
+    }
 
     if (sql_field->gcol_info != nullptr && !sql_field->is_virtual_gcol()) {
       has_stored_virtual_column = true;
@@ -8776,7 +8805,7 @@ static bool create_table_impl(
     return true;
   }
 
-  if (check_engine(db, table_name, create_info, alter_info)) return true;
+  if (check_engine(thd, db, table_name, create_info, alter_info)) return true;
 
   // Secondary engine cannot be defined for temporary tables.
   if (create_info->secondary_engine.str != nullptr &&
@@ -8932,12 +8961,22 @@ static bool create_table_impl(
       }
       create_info->db_type = engine_type;
     }
+
     if (alter_info->has_encryption_columns() &&
         !ha_check_storage_engine_flag(part_info->default_engine_type,
                                       HTON_SUPPORTS_COLUMN_ENCRYPTION)) {
       my_error(ER_ILLEGAL_HA_CREATE_OPTION, MYF(0),
                ha_resolve_storage_engine_name(part_info->default_engine_type),
                "ENCRYPTION COLUMNS");
+      return true;
+    }
+
+    if (alter_info->has_compressed_columns() &&
+      !ha_check_storage_engine_flag(part_info->default_engine_type,
+                                    HTON_SUPPORTS_COMPRESSED_COLUMNS)) {
+      my_error(ER_ILLEGAL_HA_CREATE_OPTION, MYF(0),
+               ha_resolve_storage_engine_name(part_info->default_engine_type),
+               "COMPRESSED COLUMNS");
       return true;
     }
   }
@@ -14172,9 +14211,10 @@ static bool upgrade_old_temporal_types(THD *thd, Alter_info *alter_info) {
     Create_field *temporal_field = nullptr;
     if (!(temporal_field = new (thd->mem_root) Create_field()) ||
         temporal_field->init(thd, def->field_name, sql_type, nullptr, nullptr,
-                             (def->flags & NOT_NULL_FLAG), def->flags2, default_value,
-                             update_value, &def->comment, def->change, nullptr,
-                             nullptr, false, 0, nullptr, nullptr, def->m_srid,
+                             (def->flags & NOT_NULL_FLAG), def->flags2,
+                             def->flags3, default_value, update_value,
+                             &def->comment, def->change, nullptr, nullptr,
+                             false, 0, nullptr, nullptr, def->m_srid,
                              def->hidden, def->is_array))
       return true;
 
@@ -16862,7 +16902,8 @@ bool mysql_alter_table(THD *thd, const char *new_db, const char *new_name,
       create_info->db_type = table->s->db_type();
   }
 
-  if (check_engine(alter_ctx.new_db, alter_ctx.new_name, create_info, alter_info))
+  if (check_engine(thd, alter_ctx.new_db, alter_ctx.new_name, create_info,
+                   alter_info))
     return true;
 
   /*
@@ -17092,6 +17133,14 @@ bool mysql_alter_table(THD *thd, const char *new_db, const char *new_name,
                               &partition_changed, &new_part_info)) {
       return true;
     }
+  }
+  if (new_part_info != nullptr && alter_info->has_compressed_columns() &&
+      !ha_check_storage_engine_flag(new_part_info->default_engine_type,
+                                    HTON_SUPPORTS_COMPRESSED_COLUMNS)) {
+    my_error(ER_ILLEGAL_HA_CREATE_OPTION, MYF(0),
+             ha_resolve_storage_engine_name(new_part_info->default_engine_type),
+             "COMPRESSED COLUMNS");
+    return true;
   }
 
   if (new_part_info != nullptr && alter_info->has_encryption_columns() &&
@@ -19264,7 +19313,7 @@ err:
   @retval true  Engine not available/supported, error has been reported.
   @retval false Engine available/supported.
 */
-static bool check_engine(const char *db_name, const char *table_name,
+static bool check_engine(THD *thd, const char *db_name, const char *table_name,
                          HA_CREATE_INFO *create_info,
                          const Alter_info *alter_info) {
   DBUG_TRACE;
@@ -19279,6 +19328,25 @@ static bool check_engine(const char *db_name, const char *table_name,
     my_error(ER_UNSUPPORTED_ENGINE, MYF(0),
              ha_resolve_storage_engine_name(*new_engine), db_name, table_name);
     *new_engine = nullptr;
+    return true;
+  }
+
+  /*
+    Check if the given table has compressed columns, and if the storage engine
+    does support it.
+  */
+  partition_info *part_info = thd->work_part_info;
+  bool check_compressed_columns =
+      part_info == 0 &&
+      !(create_info->db_type->partition_flags &&
+        (create_info->db_type->partition_flags() & HA_USE_AUTO_PARTITION));
+
+  if (check_compressed_columns && alter_info->has_compressed_columns() &&
+      !ha_check_storage_engine_flag(*new_engine,
+                                    HTON_SUPPORTS_COMPRESSED_COLUMNS)) {
+    my_error(ER_ILLEGAL_HA_CREATE_OPTION, MYF(0),
+             ha_resolve_storage_engine_name(*new_engine), "COMPRESSED COLUMNS");
+    *new_engine = 0;
     return true;
   }
 

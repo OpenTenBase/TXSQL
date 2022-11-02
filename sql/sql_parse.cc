@@ -6435,14 +6435,15 @@ bool mysql_test_parse_for_slave(THD *thd) {
 */
 bool Alter_info::add_field(
     THD *thd, const LEX_STRING *field_name, enum_field_types type,
-    const char *length, const char *decimals, uint type_modifier,
-    uint type_modifier2, Item *default_value, Item *on_update_value,
-    LEX_CSTRING *comment, const char *change, List<String> *interval_list,
-    const CHARSET_INFO *cs, bool has_explicit_collation, uint uint_geom_type,
+    const char *length, const char *decimals, uint64 type_modifier,
+    uint type_modifier2, uint type_modifier3, Item *default_value,
+    Item *on_update_value, LEX_CSTRING *comment, const char *change,
+    List<String> *interval_list, const CHARSET_INFO *cs,
+    bool has_explicit_collation, uint uint_geom_type,
     Value_generator *gcol_info, Value_generator *default_val_expr,
     const char *opt_after, std::optional<gis::srid_t> srid,
     Sql_check_constraint_spec_list *col_check_const_spec_list,
-    dd::Column::enum_hidden_type hidden, bool is_array, bool is_masked, 
+    dd::Column::enum_hidden_type hidden, bool is_array, bool is_masked,
     uint64_t mask_start, uint64_t mask_end) {
   uint8 datetime_precision = decimals ? atoi(decimals) : 0;
   DBUG_TRACE;
@@ -6555,11 +6556,11 @@ bool Alter_info::add_field(
   Create_field *new_field = new (thd->mem_root) Create_field();
   if ((new_field == nullptr) ||
       new_field->init(thd, field_name->str, type, length, decimals,
-                      type_modifier, type_modifier2, default_value,
-                      on_update_value, comment, change, interval_list, cs,
-                      has_explicit_collation, uint_geom_type, gcol_info,
-                      default_val_expr, srid, hidden, is_array, is_masked,
-                      mask_start, mask_end))
+                      type_modifier, type_modifier2, type_modifier3,
+                      default_value, on_update_value, comment, change,
+                      interval_list, cs, has_explicit_collation, uint_geom_type,
+                      gcol_info, default_val_expr, srid, hidden, is_array,
+                      is_masked, mask_start, mask_end))
     return true;
 
   for (const auto &a : cf_appliers) {

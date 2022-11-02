@@ -99,14 +99,30 @@ Alter_info::Alter_info(const Alter_info &rhs, MEM_ROOT *mem_root)
   Checks if there are any columns with COLUMN_FORMAT_ENCRYPTION
   attribute among field definitions in create_list.
 
-  @retval false there are no compressed columns
-  @retval true there is at least one compressed column
+  @retval false there are no encryption columns
+  @retval true there is at least one encryption column
 */
 bool Alter_info::has_encryption_columns() const {
   List_iterator<Create_field> it(const_cast<List<Create_field> &>(create_list));
   const Create_field *sql_field;
   while ((sql_field = it++))
     if (sql_field->column_format() == COLUMN_FORMAT_TYPE_ENCRYPTION)
+      return true;
+  return false;
+}
+
+/**
+  Checks if there are any columns with COLUMN_FORMAT COMRPESSED
+  attribute among field definitions in create_list.
+
+  @retval false there are no compressed columns
+  @retval true there is at least one compressed column
+*/
+bool Alter_info::has_compressed_columns() const {
+  List_iterator<Create_field> it(const_cast<List<Create_field> &>(create_list));
+  const Create_field *sql_field;
+  while ((sql_field = it++))
+    if (sql_field->column_format() == COLUMN_FORMAT_TYPE_COMPRESSED)
       return true;
   return false;
 }

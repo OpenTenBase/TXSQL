@@ -2107,6 +2107,8 @@ void dd_add_instant_columns(const dd::Table *old_dd_table,
     ulint field_type;
     ulint mtype = get_innobase_type_from_mysql_type(&unsigned_type, field);
 
+    ulint is_compressed = field->is_column_compressed() ? DATA_COMPRESSED : 0;
+
     nulls_allowed = field->is_nullable() ? 0 : DATA_NOT_NULL;
 
     binary_type = field->binary() ? DATA_BINARY_TYPE : 0;
@@ -2132,8 +2134,9 @@ void dd_add_instant_columns(const dd::Table *old_dd_table,
     dict_fix_string_to_varchar_for_encryption(is_encryption, &field_type, &col_len);
 
     prtype =
-        dtype_form_prtype(field_type | nulls_allowed | unsigned_type |
-                              binary_type | long_true_varchar | is_encryption,
+        dtype_form_prtype(field_type | nulls_allowed | unsigned_type
+                          | binary_type | long_true_varchar | is_encryption 
+                          | is_compressed,
                           charset_no);
 
     dict_col_t col;
@@ -2159,7 +2162,8 @@ void dd_add_instant_columns(const dd::Table *old_dd_table,
 
     row_mysql_store_col_in_innobase_format(
         &dfield, reinterpret_cast<byte *>(&buf), true, mysql_data, size,
-        dict_table_is_comp(new_dict_table), false, 0, nullptr, nullptr, nullptr);
+        dict_table_is_comp(new_dict_table), false, 0, nullptr, nullptr, false,
+        0, nullptr);
 
     DD_instant_col_val_coder coder;
     size_t length = 0;
@@ -3539,8 +3543,11 @@ void get_field_types(const dd::Table *dd_tab, const dict_table_t *m_table,
   ulint charset_no = 0;
   ulint is_encryption;
   ulint field_type;
+  ulint is_compressed;
 
   is_encryption = field->is_column_encrypted() ? DATA_ENCRYPTION : 0;
+
+  is_compressed = field->is_column_compressed() ? DATA_COMPRESSED : 0;
 
   mtype = get_innobase_type_from_mysql_type(&unsigned_type, field);
 
@@ -3598,12 +3605,13 @@ void get_field_types(const dd::Table *dd_tab, const dict_table_t *m_table,
   if (!is_virtual) {
     prtype =
         dtype_form_prtype(field_type | nulls_allowed | unsigned_type |
-                              binary_type | long_true_varchar | is_encryption,
+                              binary_type | long_true_varchar | is_encryption |
+                              is_compressed,
                           charset_no);
   } else {
     prtype = dtype_form_prtype(
         (ulint)field->type() | nulls_allowed | unsigned_type | binary_type |
-            long_true_varchar | is_virtual | is_multi_val,
+            long_true_varchar | is_virtual | is_multi_val | is_compressed,
         charset_no);
   }
 }

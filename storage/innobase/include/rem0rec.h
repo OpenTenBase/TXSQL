@@ -230,6 +230,7 @@ clustered index, which has some instantly added columns.
 @param[in]      index   clustered index where the record resides, or nullptr
                         if the record doesn't have instantly added columns
                         for sure
+@param[out]     is_default  whether data comes from instant add column default
 @param[out]     len     length of the field, UNIV_SQL_NULL if SQL null
 @return value of the field, could be either pointer to rec or default value */
 static inline const byte *rec_get_nth_field_instant(const rec_t *rec,

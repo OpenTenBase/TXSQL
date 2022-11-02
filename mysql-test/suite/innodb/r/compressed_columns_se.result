@@ -1,0 +1,51 @@
+SET default_storage_engine = MyISAM;
+CREATE TABLE t1(
+id INT,
+a BLOB COMPRESSED
+);
+ERROR HY000: Table storage engine 'MyISAM' does not support the create option 'COMPRESSED COLUMNS'
+CREATE TABLE t1(
+id INT,
+a BLOB COMPRESSED
+) ENGINE=MyISAM;
+ERROR HY000: Table storage engine 'MyISAM' does not support the create option 'COMPRESSED COLUMNS'
+CREATE TABLE t1(
+id INT,
+a BLOB
+) ENGINE=MyISAM;
+SET default_storage_engine = InnoDB;
+CREATE TABLE t2(
+id INT,
+a BLOB COMPRESSED
+);
+CREATE TABLE t3(
+id INT,
+a BLOB COMPRESSED
+) ENGINE=InnoDB;
+# Showing CREATE TABLE statements
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `id` int DEFAULT NULL,
+  `a` blob
+) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+SHOW CREATE TABLE t2;
+Table	Create Table
+t2	CREATE TABLE `t2` (
+  `id` int DEFAULT NULL,
+  `a` blob /*!80022 COMPRESSED ALGORITHM=ZLIB */
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+SHOW CREATE TABLE t3;
+Table	Create Table
+t3	CREATE TABLE `t3` (
+  `id` int DEFAULT NULL,
+  `a` blob /*!80022 COMPRESSED ALGORITHM=ZLIB */
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+# Trying to change compression attributes in a table created using MyISAM SE.
+SET default_storage_engine = MyISAM;
+ALTER TABLE t1 MODIFY COLUMN a BLOB COMPRESSED;
+ERROR HY000: Table storage engine 'MyISAM' does not support the create option 'COMPRESSED COLUMNS'
+ALTER TABLE t1 ADD COLUMN b BLOB COMPRESSED;
+ERROR HY000: Table storage engine 'MyISAM' does not support the create option 'COMPRESSED COLUMNS'
+DROP TABLE t1, t2, t3;
+SET default_storage_engine = InnoDB;

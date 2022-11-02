@@ -12035,6 +12035,9 @@ ER_READ_TIME_AND_GTS_FROM_RELAYLOG_FAILED
 ER_READ_TIME_AND_GTS_FROM_PREV
   eng "Can't read latest time and gts in current file : %s, move to previous one"
 
+ER_COLUMN_COMPRESSION_GENERAL_ERROR
+  eng "Column Compression: %s"
+
 #
 # Start of server-to-error-log message for parallel execution.
 #

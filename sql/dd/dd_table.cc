@@ -795,6 +795,10 @@ bool fill_dd_columns_from_create_fields(THD *thd, dd::Abstract_table *tab_obj,
       }
     }
 
+    if (field.column_format() == COLUMN_FORMAT_TYPE_COMPRESSED)
+      col_options->set("compressed_algo",
+                       static_cast<uint32>(field.comp_col_algo));
+
     // NOT SECONDARY column option.
     if (field.flags & NOT_SECONDARY_FLAG)
       col_options->set("not_secondary", true);

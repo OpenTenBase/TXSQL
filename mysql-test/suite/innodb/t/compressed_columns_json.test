@@ -1,0 +1,14 @@
+# Test JSON COMPRESSED fulltext
+--source suite/innodb/include/compressed_columns_json_fulltext.inc
+
+# Test JSON COMPRESSED functions
+--source suite/innodb/include/compressed_columns_json_functions.inc
+
+# Test JSON COMPRESSED GENERATED compressed_columns_json_fulltext
+--source suite/innodb/include/compressed_columns_json_gcol.inc
+
+# Test JSON COMPRESSED group concat
+--source suite/innodb/include/compressed_columns_json_group_concat.inc
+
+# Test JSON COMPRESSED insert
+--source suite/innodb/include/compressed_columns_json_insert.inc

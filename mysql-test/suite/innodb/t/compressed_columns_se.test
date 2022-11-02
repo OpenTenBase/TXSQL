@@ -1,0 +1,44 @@
+SET default_storage_engine = MyISAM;
+
+--error ER_ILLEGAL_HA_CREATE_OPTION
+CREATE TABLE t1(
+  id INT,
+  a BLOB COMPRESSED
+);
+
+--error ER_ILLEGAL_HA_CREATE_OPTION
+CREATE TABLE t1(
+  id INT,
+  a BLOB COMPRESSED
+) ENGINE=MyISAM;
+
+CREATE TABLE t1(
+  id INT,
+  a BLOB
+) ENGINE=MyISAM;
+
+SET default_storage_engine = InnoDB;
+CREATE TABLE t2(
+  id INT,
+  a BLOB COMPRESSED
+);
+
+CREATE TABLE t3(
+  id INT,
+  a BLOB COMPRESSED
+) ENGINE=InnoDB;
+
+--echo # Showing CREATE TABLE statements
+SHOW CREATE TABLE t1;
+SHOW CREATE TABLE t2;
+SHOW CREATE TABLE t3;
+
+--echo # Trying to change compression attributes in a table created using MyISAM SE.
+SET default_storage_engine = MyISAM;
+--error ER_ILLEGAL_HA_CREATE_OPTION
+ALTER TABLE t1 MODIFY COLUMN a BLOB COMPRESSED;
+--error ER_ILLEGAL_HA_CREATE_OPTION
+ALTER TABLE t1 ADD COLUMN b BLOB COMPRESSED;
+
+DROP TABLE t1, t2, t3;
+SET default_storage_engine = InnoDB;

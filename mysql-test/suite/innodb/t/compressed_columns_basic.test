@@ -1,0 +1,431 @@
+--echo # TEST COMPRESSED (Compatible with TenDB previous versions)
+--echo # only blob/text/varchar/varbinary/json are supported
+--error ER_UNSUPPORTED_COMPRESSED_COLUMN_TYPE
+CREATE TABLE t1 (a INT COMPRESSED) ENGINE=InnoDB;
+CREATE TABLE t2 (a VARCHAR(100) COMPRESSED) ENGINE=InnoDB;
+SHOW CREATE TABLE t2;
+CREATE TABLE t3 (a BLOB COMPRESSED) ENGINE=InnoDB;
+SHOW CREATE TABLE t3;
+CREATE TABLE t4 (a TEXT COMPRESSED) ENGINE=InnoDB;
+SHOW CREATE TABLE t4;
+CREATE TABLE t5 (a TEXT COLLATE utf8mb4_bin COMPRESSED) ENGINE=InnoDB;
+SHOW CREATE TABLE t5;
+CREATE TABLE t6(a TEXT CHARACTER SET gbk COMPRESSED) ENGINE=InnoDB;
+SHOW CREATE TABLE t6;
+CREATE TABLE t7(a TEXT CHARACTER SET gbk COLLATE gbk_bin COMPRESSED) ENGINE=InnoDB;
+SHOW CREATE TABLE t7;
+CREATE TABLE t8 (a VARBINARY(1000) COMPRESSED) ENGINE=InnoDB;
+SHOW CREATE TABLE t8;
+CREATE TABLE t9 (a VARCHAR(1000) COMPRESSED) ENGINE=InnoDB;
+SHOW CREATE TABLE t9;
+CREATE TABLE t10 (a JSON COMPRESSED) ENGINE=InnoDB;
+SHOW CREATE TABLE t10;
+
+--echo # test index creation
+--echo # compressed columns are not allowed to defined as a part or a key
+--error ER_COMPRESSED_COLUMN_USED_AS_KEY
+CREATE TABLE t1(a BLOB COMPRESSED, KEY(a(10)));
+
+CREATE TABLE t1(a BLOB COMPRESSED);
+--error ER_COMPRESSED_COLUMN_USED_AS_KEY
+ALTER TABLE t3 ADD KEY(a(10));
+
+DROP TABLE t1;
+CREATE TABLE t1 (a BLOB) ENGINE=InnoDB;
+--echo # it's ok if a blob column is not compressed
+ALTER TABLE t1 ADD KEY(a(10));
+
+--echo # test modifying column format
+DROP TABLE t1;
+CREATE TABLE t1 (a BLOB) ENGINE=InnoDB;
+INSERT INTO t1 VALUES (REPEAT('abc',5));
+INSERT INTO t1 VALUES (REPEAT('abc',100));
+SELECT * FROM t1;
+ALTER TABLE t1 MODIFY COLUMN a BLOB COMPRESSED;
+SELECT * FROM t1;
+SHOW CREATE TABLE t1;
+CHECKSUM TABLE t1;
+ALTER TABLE t1 MODIFY COLUMN a VARCHAR(10000) COMPRESSED;
+SHOW CREATE TABLE t1;
+ALTER TABLE t1 MODIFY COLUMN a VARCHAR(10000);
+ALTER TABLE t1 MODIFY COLUMN a BLOB COMPRESSED;
+CHECKSUM TABLE t1;
+
+--echo # test adding column with default value
+DROP TABLE t1;
+CREATE TABLE t1 (a INT AUTO_INCREMENT PRIMARY KEY) ENGINE=InnoDB;
+INSERT INTO t1 VALUES (NULL);
+ALTER TABLE t1 ADD COLUMN b TEXT COMPRESSED;
+INSERT INTO t1 (a) VALUES (NULL);
+ALTER TABLE t1 ADD COLUMN c VARCHAR(1000) COMPRESSED;
+INSERT INTO t1 (a,b,c) VALUES (NULL, "hello!", "world!");
+ALTER TABLE t1 ADD COLUMN d VARCHAR(10000) COMPRESSED DEFAULT "hello, world! see you!";
+INSERT INTO t1 (a,b,c) VALUES (NULL, "hello", "world!");
+SELECT * FROM t1;
+
+--echo # test new option: innodb_zlib_column_compression_level
+SHOW VARIABLES LIKE 'innodb_zlib_column_compression_level';
+SET @old_innodb_zlib_column_compression_level = @@global.innodb_zlib_column_compression_level;
+
+DROP TABLE t1;
+CREATE TABLE t1 (a BLOB COMPRESSED) ENGINE=InnoDB;
+SET GLOBAL innodb_zlib_column_compression_level = -1;
+SELECT @@global.innodb_zlib_column_compression_level;
+INSERT INTO t1 VALUES(REPEAT('abcd', 200));
+
+SET GLOBAL innodb_zlib_column_compression_level = 5;
+SELECT @@global.innodb_zlib_column_compression_level;
+INSERT INTO t1 VALUES(REPEAT('abcd', 200));
+
+SET GLOBAL innodb_zlib_column_compression_level = 9;
+SELECT @@global.innodb_zlib_column_compression_level;
+INSERT INTO t1 VALUES(REPEAT('abcd', 200));
+
+SET GLOBAL innodb_zlib_column_compression_level = 10;
+SELECT @@global.innodb_zlib_column_compression_level;
+
+SELECT MAX(LENGTH(a)) FROM t1;
+
+--echo # test new option: innodb_min_column_compress_length
+SHOW VARIABLES LIKE 'innodb_min_column_compress_length';
+SET @old_innodb_min_column_compress_length = @@global.innodb_min_column_compress_length;
+
+TRUNCATE TABLE t1;
+SET GLOBAL innodb_min_column_compress_length = 0;
+SELECT @@global.innodb_min_column_compress_length;
+INSERT INTO t1 VALUES (REPEAT('abc',10));
+
+SET GLOBAL innodb_min_column_compress_length = 256;
+SELECT @@global.innodb_min_column_compress_length;
+INSERT INTO t1 VALUES (REPEAT('abc',40));
+
+SET GLOBAL innodb_min_column_compress_length = 1000;
+SELECT @@global.innodb_min_column_compress_length;
+INSERT INTO t1 VALUES (REPEAT('abc',1000));
+
+SELECT MAX(LENGTH(a)) from t1;
+
+DROP TABLE t1;
+CREATE TABLE t1 (a INT AUTO_INCREMENT PRIMARY KEY, b INT, c INT, d BLOB COMPRESSED) ENGINE=InnoDB;
+SHOW CREATE TABLE t1;
+INSERT INTO t1 SELECT NULL, 100, 100, REPEAT('abc',100);
+INSERT INTO t1 SELECT NULL, 100, 100, REPEAT('abc',100) FROM t1;
+INSERT INTO t1 SELECT NULL, 100, 100, REPEAT('abc',100) FROM t1 a, t1 b;
+INSERT INTO t1 SELECT NULL, 100, 100, REPEAT('abc',100) FROM t1 a, t1 b;
+INSERT INTO t1 SELECT NULL, 100, 100, REPEAT('abc',100) FROM t1 a, t1 b;
+SELECT COUNT(*) FROM t1;
+SELECT a,b,c FROM t1 LIMIT 10;
+SELECT MAX(LENGTH(d)) FROM t1;
+
+--echo # test checksum
+DROP TABLE t2;
+CREATE TABLE t2 LIKE t1;
+INSERT INTO t2 SELECT * FROM t1;
+ALTER TABLE t2 MODIFY COLUMN d BLOB;
+SHOW CREATE TABLE t2;
+
+CHECKSUM TABLE t1, t2;
+
+--echo # cleanup
+SET GLOBAL innodb_zlib_column_compression_level = @old_innodb_zlib_column_compression_level;
+SET GLOBAL innodb_min_column_compress_length = @old_innodb_min_column_compress_length;
+DROP TABLE t1, t2, t3, t4, t5, t6, t7, t8, t9, t10;
+
+--echo #
+--echo # Bug lp:1621708 "InnoDB: Failing assertion: len <= col->len || col->mtype == 5 || (col->len == 0 && col->mtype == 1) Edit"
+--echo #
+SET @saved_innodb_min_column_compress_length = @@global.innodb_min_column_compress_length;
+
+CREATE TABLE t1(
+  a VARCHAR(1) COMPRESSED
+) ENGINE=InnoDB;
+INSERT IGNORE INTO t1 VALUES(REPEAT('abc',100));
+SELECT * FROM t1;
+DROP TABLE t1;
+
+--let $threshold = `SELECT @@global.innodb_min_column_compress_length`
+--dec $threshold
+eval CREATE TABLE t1(
+  a VARCHAR($threshold) COMPRESSED
+) ENGINE=InnoDB;
+INSERT IGNORE INTO t1 VALUES(REPEAT('abc',100));
+SELECT * FROM t1;
+DROP TABLE t1;
+
+--inc $threshold
+eval CREATE TABLE t1(
+  a VARCHAR($threshold) COMPRESSED
+) ENGINE=InnoDB;
+INSERT IGNORE INTO t1 VALUES(REPEAT('abc',100));
+SELECT * FROM t1;
+SET GLOBAL innodb_min_column_compress_length = 1;
+INSERT IGNORE INTO t1 VALUES(REPEAT('abc',100));
+SELECT * FROM t1;
+DROP TABLE t1;
+
+SET GLOBAL innodb_min_column_compress_length = @saved_innodb_min_column_compress_length;
+
+--echo #
+--echo # Bug lp:1622588 "handle_fatal_signal (sig=11) in free_root from TABLE_SHARE::destroy on ALTER TABLE t1 ADD COLUMN ... COMPRESSED"
+--echo #
+CREATE TABLE t1(
+  id INT
+);
+ALTER TABLE t1 ADD COLUMN c VARCHAR(1000) COMPRESSED;
+
+DROP TABLE t1;
+
+--echo #
+--echo # A bug in row_merge_buf_add(): "ut_ad(len <= col->len || col->mtype == DATA_BLOB)" assertion
+--echo #
+SET @saved_innodb_zlib_column_compression_level = @@global.innodb_zlib_column_compression_level;
+SET GLOBAL innodb_zlib_column_compression_level = 0;
+
+CREATE TABLE t1 (
+  a VARCHAR(254) COMPRESSED,
+  b DATE DEFAULT NULL
+) ENGINE = InnoDB;
+
+SET @inserted_value = REPEAT('z', 254);
+INSERT INTO t1 SET a = @inserted_value;
+SELECT COUNT(*) AS number_of_rows_before_alteration FROM t1 WHERE a = @inserted_value;
+
+ALTER TABLE t1 DROP COLUMN b;
+SELECT COUNT(*) AS number_of_rows_after_alteration FROM t1 WHERE a = @inserted_value;
+
+DROP TABLE t1;
+
+SET GLOBAL innodb_zlib_column_compression_level = @saved_innodb_zlib_column_compression_level;
+
+--echo #
+--echo # Bug lp:1640810 "Adding COMPRESSED attributes to InnoDB special tables fields can lead to server crashes"
+--echo #
+call mtr.add_suppression("InnoDB: Column .* in table .* has unexpected COMPRESSED attribute");
+
+--error ER_NOT_ALLOWED_COMMAND
+ALTER TABLE mysql.innodb_index_stats
+  MODIFY stat_description VARCHAR(1024) COLLATE utf8_bin NOT NULL COMPRESSED;
+
+--echo #
+--echo # Bug PS-5025 Assertion after altering a compressed column
+--echo #
+CREATE TABLE t1 (c1 VARBINARY(5) COMPRESSED) ENGINE=InnoDB;
+ALTER TABLE t1 ADD c2 CHAR(10) FIRST;
+INSERT INTO t1 VALUES(0,11111);
+DROP TABLE t1;
+
+--echo # TEST COLUMN_FORMAT COMPRESSED (Compatible with Percona)
+--echo # only blob/text/varchar/varbinary/json are supported
+--error ER_UNSUPPORTED_COMPRESSED_COLUMN_TYPE
+CREATE TABLE t1 (a INT COLUMN_FORMAT COMPRESSED) ENGINE=InnoDB;
+CREATE TABLE t2 (a VARCHAR(100) COLUMN_FORMAT COMPRESSED) ENGINE=InnoDB;
+SHOW CREATE TABLE t2;
+CREATE TABLE t3 (a BLOB COLUMN_FORMAT COMPRESSED) ENGINE=InnoDB;
+SHOW CREATE TABLE t3;
+CREATE TABLE t4 (a TEXT COLUMN_FORMAT COMPRESSED) ENGINE=InnoDB;
+SHOW CREATE TABLE t4;
+CREATE TABLE t5 (a TEXT COLLATE utf8mb4_bin COLUMN_FORMAT COMPRESSED) ENGINE=InnoDB;
+SHOW CREATE TABLE t5;
+CREATE TABLE t6(a TEXT CHARACTER SET gbk COLUMN_FORMAT COMPRESSED) ENGINE=InnoDB;
+SHOW CREATE TABLE t6;
+CREATE TABLE t7(a TEXT CHARACTER SET gbk COLLATE gbk_bin COLUMN_FORMAT COMPRESSED) ENGINE=InnoDB;
+SHOW CREATE TABLE t7;
+CREATE TABLE t8 (a VARBINARY(1000) COLUMN_FORMAT COMPRESSED) ENGINE=InnoDB;
+SHOW CREATE TABLE t8;
+CREATE TABLE t9 (a VARCHAR(1000) COLUMN_FORMAT COMPRESSED) ENGINE=InnoDB;
+SHOW CREATE TABLE t9;
+CREATE TABLE t10 (a JSON COLUMN_FORMAT COMPRESSED) ENGINE=InnoDB;
+SHOW CREATE TABLE t10;
+
+--echo # test index creation
+--echo # compressed columns are not allowed to defined as a part or a key
+--error ER_COMPRESSED_COLUMN_USED_AS_KEY
+CREATE TABLE t1(a BLOB COLUMN_FORMAT COMPRESSED, KEY(a(10)));
+
+CREATE TABLE t1(a BLOB COLUMN_FORMAT COMPRESSED);
+--error ER_COMPRESSED_COLUMN_USED_AS_KEY
+ALTER TABLE t3 ADD KEY(a(10));
+
+DROP TABLE t1;
+CREATE TABLE t1 (a BLOB) ENGINE=InnoDB;
+--echo # it's ok if a blob column is not compressed
+ALTER TABLE t1 ADD KEY(a(10));
+
+--echo # test modifying column format
+DROP TABLE t1;
+CREATE TABLE t1 (a BLOB) ENGINE=InnoDB;
+INSERT INTO t1 VALUES (REPEAT('abc',5));
+INSERT INTO t1 VALUES (REPEAT('abc',100));
+SELECT * FROM t1;
+ALTER TABLE t1 MODIFY COLUMN a BLOB COLUMN_FORMAT COMPRESSED;
+SELECT * FROM t1;
+SHOW CREATE TABLE t1;
+CHECKSUM TABLE t1;
+ALTER TABLE t1 MODIFY COLUMN a VARCHAR(10000) COLUMN_FORMAT COMPRESSED;
+SHOW CREATE TABLE t1;
+ALTER TABLE t1 MODIFY COLUMN a VARCHAR(10000);
+ALTER TABLE t1 MODIFY COLUMN a BLOB COLUMN_FORMAT COMPRESSED;
+CHECKSUM TABLE t1;
+
+--echo # test adding column with default value
+DROP TABLE t1;
+CREATE TABLE t1 (a INT AUTO_INCREMENT PRIMARY KEY) ENGINE=InnoDB;
+INSERT INTO t1 VALUES (NULL);
+ALTER TABLE t1 ADD COLUMN b TEXT COLUMN_FORMAT COMPRESSED;
+INSERT INTO t1 (a) VALUES (NULL);
+ALTER TABLE t1 ADD COLUMN c VARCHAR(1000) COLUMN_FORMAT COMPRESSED;
+INSERT INTO t1 (a,b,c) VALUES (NULL, "hello!", "world!");
+ALTER TABLE t1 ADD COLUMN d VARCHAR(10000) COLUMN_FORMAT COMPRESSED DEFAULT "hello, world! see you!";
+INSERT INTO t1 (a,b,c) VALUES (NULL, "hello", "world!");
+SELECT * FROM t1;
+
+--echo # test new option: innodb_zlib_column_compression_level
+SHOW VARIABLES LIKE 'innodb_zlib_column_compression_level';
+SET @old_innodb_zlib_column_compression_level = @@global.innodb_zlib_column_compression_level;
+
+DROP TABLE t1;
+CREATE TABLE t1 (a BLOB COLUMN_FORMAT COMPRESSED) ENGINE=InnoDB;
+SET GLOBAL innodb_zlib_column_compression_level = -1;
+SELECT @@global.innodb_zlib_column_compression_level;
+INSERT INTO t1 VALUES(REPEAT('abcd', 200));
+
+SET GLOBAL innodb_zlib_column_compression_level = 5;
+SELECT @@global.innodb_zlib_column_compression_level;
+INSERT INTO t1 VALUES(REPEAT('abcd', 200));
+
+SET GLOBAL innodb_zlib_column_compression_level = 9;
+SELECT @@global.innodb_zlib_column_compression_level;
+INSERT INTO t1 VALUES(REPEAT('abcd', 200));
+
+SET GLOBAL innodb_zlib_column_compression_level = 10;
+SELECT @@global.innodb_zlib_column_compression_level;
+
+SELECT MAX(LENGTH(a)) FROM t1;
+
+--echo # test new option: innodb_min_column_compress_length
+SHOW VARIABLES LIKE 'innodb_min_column_compress_length';
+SET @old_innodb_min_column_compress_length = @@global.innodb_min_column_compress_length;
+
+TRUNCATE TABLE t1;
+SET GLOBAL innodb_min_column_compress_length = 0;
+SELECT @@global.innodb_min_column_compress_length;
+INSERT INTO t1 VALUES (REPEAT('abc',10));
+
+SET GLOBAL innodb_min_column_compress_length = 256;
+SELECT @@global.innodb_min_column_compress_length;
+INSERT INTO t1 VALUES (REPEAT('abc',40));
+
+SET GLOBAL innodb_min_column_compress_length = 1000;
+SELECT @@global.innodb_min_column_compress_length;
+INSERT INTO t1 VALUES (REPEAT('abc',1000));
+
+SELECT MAX(LENGTH(a)) from t1;
+
+DROP TABLE t1;
+CREATE TABLE t1 (a INT AUTO_INCREMENT PRIMARY KEY, b INT, c INT, d BLOB COLUMN_FORMAT COMPRESSED) ENGINE=InnoDB;
+SHOW CREATE TABLE t1;
+INSERT INTO t1 SELECT NULL, 100, 100, REPEAT('abc',100);
+INSERT INTO t1 SELECT NULL, 100, 100, REPEAT('abc',100) FROM t1;
+INSERT INTO t1 SELECT NULL, 100, 100, REPEAT('abc',100) FROM t1 a, t1 b;
+INSERT INTO t1 SELECT NULL, 100, 100, REPEAT('abc',100) FROM t1 a, t1 b;
+INSERT INTO t1 SELECT NULL, 100, 100, REPEAT('abc',100) FROM t1 a, t1 b;
+SELECT COUNT(*) FROM t1;
+SELECT a,b,c FROM t1 LIMIT 10;
+SELECT MAX(LENGTH(d)) FROM t1;
+
+--echo # test checksum
+DROP TABLE t2;
+CREATE TABLE t2 LIKE t1;
+INSERT INTO t2 SELECT * FROM t1;
+ALTER TABLE t2 MODIFY COLUMN d BLOB;
+SHOW CREATE TABLE t2;
+
+CHECKSUM TABLE t1, t2;
+
+--echo # cleanup
+SET GLOBAL innodb_zlib_column_compression_level = @old_innodb_zlib_column_compression_level;
+SET GLOBAL innodb_min_column_compress_length = @old_innodb_min_column_compress_length;
+DROP TABLE t1, t2, t3, t4, t5, t6, t7, t8, t9, t10;
+
+--echo #
+--echo # Bug lp:1621708 "InnoDB: Failing assertion: len <= col->len || col->mtype == 5 || (col->len == 0 && col->mtype == 1) Edit"
+--echo #
+SET @saved_innodb_min_column_compress_length = @@global.innodb_min_column_compress_length;
+
+CREATE TABLE t1(
+  a VARCHAR(1) COLUMN_FORMAT COMPRESSED
+) ENGINE=InnoDB;
+INSERT IGNORE INTO t1 VALUES(REPEAT('abc',100));
+SELECT * FROM t1;
+DROP TABLE t1;
+
+--let $threshold = `SELECT @@global.innodb_min_column_compress_length`
+--dec $threshold
+eval CREATE TABLE t1(
+  a VARCHAR($threshold) COLUMN_FORMAT COMPRESSED
+) ENGINE=InnoDB;
+INSERT IGNORE INTO t1 VALUES(REPEAT('abc',100));
+SELECT * FROM t1;
+DROP TABLE t1;
+
+--inc $threshold
+eval CREATE TABLE t1(
+  a VARCHAR($threshold) COLUMN_FORMAT COMPRESSED
+) ENGINE=InnoDB;
+INSERT IGNORE INTO t1 VALUES(REPEAT('abc',100));
+SELECT * FROM t1;
+SET GLOBAL innodb_min_column_compress_length = 1;
+INSERT IGNORE INTO t1 VALUES(REPEAT('abc',100));
+SELECT * FROM t1;
+DROP TABLE t1;
+
+SET GLOBAL innodb_min_column_compress_length = @saved_innodb_min_column_compress_length;
+
+--echo #
+--echo # Bug lp:1622588 "handle_fatal_signal (sig=11) in free_root from TABLE_SHARE::destroy on ALTER TABLE t1 ADD COLUMN ... COLUMN_FORMAT COMPRESSED"
+--echo #
+CREATE TABLE t1(
+  id INT
+);
+ALTER TABLE t1 ADD COLUMN c VARCHAR(1000) COLUMN_FORMAT COMPRESSED;
+
+DROP TABLE t1;
+
+--echo #
+--echo # A bug in row_merge_buf_add(): "ut_ad(len <= col->len || col->mtype == DATA_BLOB)" assertion
+--echo #
+SET @saved_innodb_zlib_column_compression_level = @@global.innodb_zlib_column_compression_level;
+SET GLOBAL innodb_zlib_column_compression_level = 0;
+
+CREATE TABLE t1 (
+  a VARCHAR(254) COLUMN_FORMAT COMPRESSED,
+  b DATE DEFAULT NULL
+) ENGINE = InnoDB;
+
+SET @inserted_value = REPEAT('z', 254);
+INSERT INTO t1 SET a = @inserted_value;
+SELECT COUNT(*) AS number_of_rows_before_alteration FROM t1 WHERE a = @inserted_value;
+
+ALTER TABLE t1 DROP COLUMN b;
+SELECT COUNT(*) AS number_of_rows_after_alteration FROM t1 WHERE a = @inserted_value;
+
+DROP TABLE t1;
+
+SET GLOBAL innodb_zlib_column_compression_level = @saved_innodb_zlib_column_compression_level;
+
+--echo #
+--echo # Bug lp:1640810 "Adding COMPRESSED attributes to InnoDB special tables fields can lead to server crashes"
+--echo #
+call mtr.add_suppression("InnoDB: Column .* in table .* has unexpected COMPRESSED attribute");
+
+--error ER_NOT_ALLOWED_COMMAND
+ALTER TABLE mysql.innodb_index_stats
+  MODIFY stat_description VARCHAR(1024) COLLATE utf8_bin NOT NULL COLUMN_FORMAT COMPRESSED;
+
+--echo #
+--echo # Bug PS-5025 Assertion after altering a compressed column
+--echo #
+CREATE TABLE t1 (c1 VARBINARY(5) COLUMN_FORMAT COMPRESSED) ENGINE=InnoDB;
+ALTER TABLE t1 ADD c2 CHAR(10) FIRST;
+INSERT INTO t1 VALUES(0,11111);
+DROP TABLE t1;
