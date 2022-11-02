@@ -9440,8 +9440,24 @@ int Rows_log_event::do_scan_and_update(Relay_log_info const *rli) {
               do_post_row_operations(rli, error);
             }
           }
+
+        /*
+        Notes on the third condition "entry":
+        =====================================
+        It indicates whether the last do_apply_row was successfully applied,
+        when the CRC value collision occurred in the process of
+        next_record_scan
+
+          (this->get_type_code() == UPDATE_ROWS_EVENT &&
+            table->s->primary_key >= MAX_KEY &&
+            (entry = m_hash.get(table, &m_cols)))
+
+        The value of is true, which will cause the update row event to be
+        incorrectly applied to another row.
+        */
         } while (this->get_type_code() == binary_log::UPDATE_ROWS_EVENT &&
                  table->s->primary_key >= MAX_KEY &&
+                 entry &&
                  (entry = m_hash.get(table, &m_cols)));
       } break;
 
