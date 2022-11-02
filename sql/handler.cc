@@ -125,6 +125,7 @@
 #include "sql/transaction_info.h"
 #include "sql/xa.h"
 #include "sql/xa/sql_cmd_xa.h"  // Sql_cmd_xa_*
+#include "sql/mysqld_thd_manager.h"
 #include "sql_string.h"
 #include "sql_tmp_table.h"  // free_tmp_table
 #include "template_utils.h"
@@ -2360,8 +2361,69 @@ static bool snapshot_handlerton(THD *thd, plugin_ref plugin, void *arg) {
   return false;
 }
 
+static bool clone_snapshot_handlerton(THD *thd, plugin_ref plugin, void *arg) {
+  handlerton *const hton = plugin_data<handlerton *>(plugin);
+  if (hton->state == SHOW_OPTION_YES && hton->clone_consistent_snapshot) {
+    hton->clone_consistent_snapshot(hton, thd, static_cast<THD *>(arg));
+  }
+
+  return false;
+} 
+
+static int ha_clone_consistent_snapshot(THD *thd) {
+  THD *from_thd;
+  ulong id;
+  Item *val = thd->lex->donor_transaction_id;
+  assert(val);
+
+  if (thd->lex->table_or_sp_used()) {
+    my_error(ER_NOT_SUPPORTED_YET, MYF(0),
+             "Usage of subqueries or stored "
+             "function calls as part of this statement");
+    goto error;
+  } 
+
+  if ((!val->fixed && val->fix_fields(thd, &val)) || val->check_cols(1)) {
+    my_error(ER_SET_CONSTANTS_ONLY, MYF(0));
+    goto error;
+  }
+
+  id = val->val_int();
+  if (thd->thread_id() == id) {
+    my_error(ER_NO_SUCH_THREAD, MYF(0), id); 
+    goto error;
+  }
+
+  {
+    Find_thd_with_id find_thd_with_id(id);
+    THD_ptr from_thd_ptr =
+        Global_THD_manager::get_instance()->find_thd(&find_thd_with_id);
+
+    if (from_thd_ptr == nullptr) {
+      my_error(ER_NO_SUCH_THREAD, MYF(0), id); 
+      goto error;
+    } else {
+      from_thd = from_thd_ptr.get();
+    }
+  }
+
+  plugin_foreach(thd, clone_snapshot_handlerton, MYSQL_STORAGE_ENGINE_PLUGIN,
+      from_thd);
+
+  return 0;
+
+error: 
+
+  return 1;
+}
+
 int ha_start_consistent_snapshot(THD *thd) {
   bool warn = true;
+  
+  /* Clone snapshot */
+  if (thd->lex->donor_transaction_id) {
+    return ha_clone_consistent_snapshot(thd); 
+  }
 
   plugin_foreach(thd, snapshot_handlerton, MYSQL_STORAGE_ENGINE_PLUGIN, &warn);
 

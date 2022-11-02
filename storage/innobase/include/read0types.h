@@ -189,6 +189,7 @@ uint32_t get_state() const {
     m_up_limit_id = 0;
     m_gts = 0;
     m_ids.clear();
+    m_attach_trx_id = 0;
   }
 
   /**
@@ -198,7 +199,7 @@ uint32_t get_state() const {
   /**
   @return the low limit id */
   trx_id_t low_limit_id() const { return (m_low_limit_id.load()); }
-  
+
   trx_id_t up_limit_id() const { return (m_up_limit_id); }
 
   int64_t get_hash_erase_version() const { return m_hash_erase_version.load(std::memory_order_relaxed); }
@@ -225,6 +226,12 @@ uint32_t get_state() const {
   @param[in] trx  transaction object
   @param[in] add_list true if the read view needs adding to list */
   void snapshot(trx_t *trx);
+
+  /** Clone from another read view */
+  void clone(ReadView *other);
+
+  /** Open a read view by cloning from another read view */
+  void open_by_copy(ReadView *other);
 
 #ifdef UNIV_DEBUG
   /**
@@ -280,6 +287,10 @@ uint32_t get_state() const {
   /** trx id of creating transaction, set to TRX_ID_MAX for free
   views. */
   trx_id_t m_creator_trx_id;
+
+  /** trx id which changes has made by it can be seen by current
+  read view. */
+  trx_id_t m_attach_trx_id;
 
   /** Set of RW transactions that was active when this snapshot
   was taken */

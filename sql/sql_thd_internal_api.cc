@@ -264,6 +264,21 @@ size_t thd_query_safe(THD *thd, char *buf, size_t buflen) {
 
 int thd_slave_thread(const THD *thd) { return (thd->slave_thread); }
 
+THD* thd_get_attach_thd(THD *thd) {
+  if (thd->lex == nullptr || thd->lex->attach_session_id == 0) {
+    return nullptr;
+  }
+
+  Find_thd_with_id find_thd_with_id(thd->lex->attach_session_id);
+  THD *from_thd = nullptr;
+  THD_ptr from_thd_ptr =
+    Global_THD_manager::get_instance()->find_thd(&find_thd_with_id);
+  if (from_thd_ptr != nullptr) {
+    from_thd = from_thd_ptr.get();
+  }
+  return from_thd;
+}
+
 int thd_non_transactional_update(const THD *thd) {
   return thd->get_transaction()->has_modified_non_trans_table(
       Transaction_ctx::SESSION);

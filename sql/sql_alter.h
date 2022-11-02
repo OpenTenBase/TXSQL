@@ -614,10 +614,8 @@ class Alter_table_ctx {
   char new_path[FN_REFLEN + 1];
   char tmp_path[FN_REFLEN + 1];
 
-#ifndef NDEBUG
   /** Indicates that we are altering temporary table. Used only in asserts. */
   bool tmp_table;
-#endif
 
   Alter_table_ctx &operator=(const Alter_table_ctx &rhs);  // not implemented
   Alter_table_ctx(const Alter_table_ctx &rhs);             // not implemented

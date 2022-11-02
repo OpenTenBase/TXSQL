@@ -189,6 +189,7 @@ ReadView::ReadView()
     : m_low_limit_id(),
       m_up_limit_id(),
       m_creator_trx_id(),
+      m_attach_trx_id(),
       m_ids(),
       m_low_limit_no(),
       m_hash_erase_version() {
@@ -226,7 +227,7 @@ bool ReadView::changes_visible(trx_id_t id, const table_name_t &name) const {
   ut_ad(id > 0);
   ut_ad(m_up_limit_id > 0);
 
-  if (id < m_up_limit_id || id == m_creator_trx_id) {
+  if (id < m_up_limit_id || id == m_creator_trx_id || id == m_attach_trx_id) {
     return true;
   }
 
@@ -320,6 +321,19 @@ void ReadView::snapshot(trx_t *trx) {
   if (USE_CACHED_READ_VIEW) {
     try_install_cached_view();
   }
+
+  if (trx->mysql_thd != nullptr) {
+    m_attach_trx_id = thd_get_attach_trx_id(trx->mysql_thd);
+  } else {
+    m_attach_trx_id = 0;
+  }
+}
+
+void ReadView::open_by_copy(ReadView *other) {
+  clone_from(other);
+  m_creator_trx_id = 0;
+  m_attach_trx_id = 0;
+  m_state.store(READ_VIEW_STATE_OPEN, std::memory_order_release);
 }
 
 void ReadView::merge(ReadView* other) {

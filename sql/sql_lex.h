@@ -3918,6 +3918,8 @@ struct LEX : public Query_tables_list {
   Sequence_info sequence_info;
   uint64_t gts;   //TDSQL: GTS (global transaction sequence)
   uint64_t gts_xa;    //TDSQL: GTS (global transaction sequence)
+  /* Session id which changes can be session by current session */
+  uint64_t attach_session_id;
   ulong type;
   /**
     This field is used as a work field during resolving to validate
@@ -4431,6 +4433,8 @@ struct LEX : public Query_tables_list {
 
   bool set_wild(LEX_STRING);
   void clear_privileges();
+  /* Session id where current session copies snapshot from */
+  Item *donor_transaction_id;
 
   bool make_sql_cmd(Parse_tree_root *parse_tree);
 

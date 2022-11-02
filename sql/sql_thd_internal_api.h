@@ -174,6 +174,19 @@ int thd_non_transactional_update(const THD *thd);
 int thd_binlog_format(const THD *thd);
 
 /**
+  Get thd object according to attach_session_id stored in thd
+  @param thd current session
+  @return thd which has same thread id stored in current session
+*/
+THD* thd_get_attach_thd(THD *thd);
+
+/**
+  Release LOCK_thd_data of thd
+  @param thd the session which LOCK_thd_data is holded
+*/
+void thd_release_attach_thd(THD *thd);
+
+/**
   Check if binary logging is filtered for thread's current db.
   @param thd Thread handle
   @retval 1 the query is not filtered, 0 otherwise.
