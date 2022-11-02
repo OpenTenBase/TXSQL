@@ -5747,11 +5747,17 @@ void THD::reset_for_next_command() {
   @param parser_state Parser state.
 */
 
-void dispatch_sql_command(THD *thd, Parser_state *parser_state) {
+void dispatch_sql_command(THD *thd, Parser_state *parser_state, bool log_statement) {
   DBUG_TRACE;
   DBUG_PRINT("dispatch_sql_command", ("query: '%s'", thd->query().str));
 
   DBUG_EXECUTE_IF("parser_debug", turn_parser_debug_on(););
+
+  // tdsql store some internal table binlog in statement format
+  bool need_statement_binlog = false;
+  ulong old_transaction_isolation = ISO_READ_UNCOMMITTED;
+  enum_tx_isolation old_tx_isolation = ISO_READ_UNCOMMITTED;
+  ulong old_binlog_format = BINLOG_FORMAT_UNSPEC; 
 
   mysql_reset_thd_for_next_command(thd);
   lex_start(thd);
@@ -5777,6 +5783,22 @@ void dispatch_sql_command(THD *thd, Parser_state *parser_state) {
 
   if (!err) {
     err = parse_sql(thd, parser_state, nullptr);
+
+    if (log_statement && g_log_statement_of_query_event && 
+        thd->lex->query_tables &&
+         // tdsql add internal tables under the two databases
+         (!strcasecmp(thd->lex->query_tables->db, "query_rewrite") ||
+          !strcasecmp(thd->lex->query_tables->db, "sysdb"))) {
+      old_transaction_isolation = thd->variables.transaction_isolation;
+      thd->variables.transaction_isolation = ISO_REPEATABLE_READ; // REPEATABLE-READ
+      old_tx_isolation = thd->tx_isolation;
+      thd->tx_isolation = ISO_REPEATABLE_READ;
+      old_binlog_format = thd->variables.binlog_format;
+      thd->variables.binlog_format = BINLOG_FORMAT_STMT; // STATEMENT
+      thd->clear_current_stmt_binlog_format_row();
+      need_statement_binlog = true;
+    }
+
     if (!err) err = invoke_post_parse_rewrite_plugins(thd, false);
 
     found_semicolon = parser_state->m_lip.found_semicolon;
@@ -5923,6 +5945,17 @@ void dispatch_sql_command(THD *thd, Parser_state *parser_state) {
     assert(thd->is_error());
     DBUG_PRINT("info",
                ("Command aborted. Fatal_error: %d", thd->is_fatal_error()));
+  }
+
+  // restore the log binlog configure
+  if (need_statement_binlog) {
+    thd->variables.transaction_isolation = old_transaction_isolation;
+    thd->variables.binlog_format = old_binlog_format;
+    thd->tx_isolation = old_tx_isolation;
+    if (old_binlog_format == BINLOG_FORMAT_ROW) {
+      thd->set_current_stmt_binlog_format_row();
+    }
+    need_statement_binlog = false;
   }
 
   THD_STAGE_INFO(thd, stage_freeing_items);

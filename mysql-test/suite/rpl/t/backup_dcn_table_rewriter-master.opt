@@ -1,0 +1,1 @@
+--initialize --early-plugin-load="table_rewriter=table_rewriter.so"
