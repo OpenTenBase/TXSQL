@@ -1873,6 +1873,7 @@ typedef ulonglong my_xid;  // this line is the same as in handler.h
 
 class Xid_apply_log_event : public Log_event {
  protected:
+ uint64_t master_gts{0};
 #ifdef MYSQL_SERVER
   Xid_apply_log_event(THD *thd_arg, Log_event_header *header_arg,
                       Log_event_footer *footer_arg)

@@ -533,6 +533,11 @@ class Xid_event : public Binary_log_event {
   void print_event_info(std::ostream &info) override;
   void print_long_info(std::ostream &info) override;
 #endif
+
+#ifdef HAVE_TDSQL
+  bool has_gts = false;
+#endif
+  uint64_t gts{0};
 };
 
 /**

@@ -803,7 +803,7 @@ class Binary_log_event {
      format).
   */
   static const int LOG_EVENT_TYPES = (ENUM_END_EVENT - 1);
-
+  static const int GTS_LEN = 8;
   /**
     The lengths for the fixed data part of each event.
     This is an enum that provides post-header lengths for all events.

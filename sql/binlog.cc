@@ -9420,6 +9420,43 @@ int THD::binlog_setup_trx_data() {
   return 0;
 }
 
+/* read the max event time and gts from relay log at startup */
+void MYSQL_BIN_LOG::init_max_time_and_gts(bool relay_log) {
+  // Gather the set of files to be accessed.
+  auto log_index = this->get_log_index(true);
+  std::list<std::string> filename_list = log_index.second;
+  list<string>::reverse_iterator rit;
+
+  /* search the xid event from last relay log file*/
+  for (rit = filename_list.rbegin(); rit != filename_list.rend(); rit++) {
+    const char *filename = rit->c_str();
+    Binlog_file_reader relaylog_file_reader(opt_source_verify_checksum);
+    if (relaylog_file_reader.open(filename)) {
+      LogErr(ERROR_LEVEL, ER_BINLOG_FILE_OPEN_FAILED, relaylog_file_reader.get_error_str());
+      break;
+    }
+    Log_event *ev = nullptr;
+    while ((ev = relaylog_file_reader.read_event_object()) != nullptr) {
+      if (ev->get_type_code() == binary_log::XID_EVENT) {
+        if (iothreadreadtime < ev->common_header->when.tv_sec)
+          iothreadreadtime = ev->common_header->when.tv_sec;
+        if (iothreadreadgts < ((Xid_log_event*)ev)->gts)
+          iothreadreadgts = ((Xid_log_event*)ev)->gts;
+      }
+    }
+    // have get the data from the latest file and return
+    if (iothreadreadtime != 0 && iothreadreadgts != 0) break;
+  }
+  // report a warning if no time or no gts have read
+  if (iothreadreadtime == 0 || iothreadreadgts == 0) {
+    if (relay_log) {
+      LogErr(WARNING_LEVEL, ER_READ_TIME_AND_GTS_FROM_RELAYLOG_FAILED);
+      // read it from binlog the time is the slave time
+      mysql_bin_log.init_max_time_and_gts(false);
+    }
+  }
+}
+
 /**
 
 */

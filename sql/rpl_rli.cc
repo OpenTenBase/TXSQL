@@ -1676,6 +1676,12 @@ int Relay_log_info::rli_init_info(bool skip_received_gtid_set_recovery) {
       get_sid_lock()->unlock();
 #endif
     }
+
+    /* read the max iothreadreadtime and iothreadreadgts if needed */
+    if (g_enable_backup_dcn_switch) {
+      relay_log.init_max_time_and_gts(true);
+    }
+
     /*
       Configures what object is used by the current log to store processed
       gtid(s). This is necessary in the MYSQL_BIN_LOG::MYSQL_BIN_LOG to

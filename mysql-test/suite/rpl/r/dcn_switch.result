@@ -1,0 +1,36 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+set global enable_backup_dcn_switch=on;
+set global enable_backup_dcn_switch=on;
+create table t(id int primary key);
+insert into t values(1) tdsql_withgts 1;
+update t set id=2 where id=1 tdsql_withgts 2;
+delete from t where id=2 tdsql_withgts 3;
+xa start '1';
+insert into t values(3) tdsql_withgts 4;
+xa end '1';
+xa commit '1' one phase tdsql_withgts 5;
+xa start '2';
+insert into t values(4) tdsql_withgts 6;
+xa end '2';
+xa rollback '2' tdsql_withgts 7;
+xa start '3';
+insert into t values(5);
+xa end '3';
+xa commit '3' one phase tdsql_withgts 8;
+include/sync_slave_sql_with_master.inc
+show status like 'Iothreadreport_gts';
+Variable_name	Value
+Iothreadreport_gts	8
+set global enable_backup_dcn_switch=off;
+insert into t values(6) tdsql_withgts 9;
+include/sync_slave_sql_with_master.inc
+show status like 'Iothreadreport_gts';
+Variable_name	Value
+Iothreadreport_gts	8
+set global enable_backup_dcn_switch=off;
+drop table t;
+include/rpl_end.inc

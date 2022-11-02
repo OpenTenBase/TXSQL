@@ -12028,6 +12028,10 @@ ER_CDB_STATISTICS_CANT_INIT_POOL
 
 ER_CDB_STATISTICS_TRY_TO_KILL
   eng "CDB: try to kill executing %s, manager status:%s (thread id %u)."
+
+ER_READ_TIME_AND_GTS_FROM_RELAYLOG_FAILED
+ eng "Can't read latest time and gts from relay log"
+
 #
 # End of server-to-error-log message for CDB 8.0.
 #
