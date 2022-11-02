@@ -4959,6 +4959,11 @@ int Query_log_event::do_apply_event(Relay_log_info const *rli,
   bool is_invalid_db_name =
       validate_string(system_charset_info, db, db_len, &valid_len, &len_error);
 
+  // tdsql store some internal table binlog in statement format
+  bool need_statement_binlog = false;
+  int old_transaction_isolation = ISO_READ_UNCOMMITTED;
+  enum_tx_isolation old_tx_isolation = ISO_READ_UNCOMMITTED;
+  int old_binlog_format = BINLOG_FORMAT_UNSPEC;
   DBUG_PRINT("debug", ("is_invalid_db_name= %s, valid_len=%zu, len_error=%s",
                        is_invalid_db_name ? "true" : "false", valid_len,
                        len_error ? "true" : "false"));
@@ -4972,6 +4977,16 @@ int Query_log_event::do_apply_event(Relay_log_info const *rli,
   }
 
   need_inc_rewrite_db_filter_counter = set_thd_db(thd, db, db_len);
+  if (g_log_statement_of_query_event && 
+      !strcasecmp(db, "query_rewrite")) {
+    old_transaction_isolation = thd->variables.transaction_isolation;
+    thd->variables.transaction_isolation = ISO_REPEATABLE_READ; // REPEATABLE-READ
+    old_tx_isolation = thd->tx_isolation;
+    thd->tx_isolation = ISO_REPEATABLE_READ;
+    old_binlog_format = thd->variables.binlog_format;
+    thd->variables.binlog_format = BINLOG_FORMAT_STMT; // STATEMENT
+    need_statement_binlog = true;
+  }
 
   /*
     Setting the character set and collation of the current database thd->db.
@@ -5563,6 +5578,13 @@ int Query_log_event::do_apply_event(Relay_log_info const *rli,
   }
 
 end:
+  // restore the log binlog configure
+  if (need_statement_binlog) {
+    thd->variables.transaction_isolation = old_transaction_isolation;
+    thd->variables.binlog_format = old_binlog_format;
+    thd->tx_isolation = old_tx_isolation;
+    need_statement_binlog = false;
+  }
 
   if (thd->temporary_tables) detach_temp_tables_worker(thd, rli);
   /*
@@ -5725,6 +5747,13 @@ Format_description_log_event::Format_description_log_event()
       Log_event(header(), footer())
 #endif
 {
+#ifdef MYSQL_SERVER
+
+  if (g_enable_backup_dcn_switch) {
+    post_header_len[binary_log::XID_EVENT - 1] += GTS_LEN;
+  }
+
+#endif
   common_header->set_is_valid(true);
 }
 
@@ -6511,14 +6540,32 @@ Xid_log_event::Xid_log_event(const char *buf,
     : binary_log::Xid_event(buf, description_event),
       Xid_apply_log_event(header(), footer()) {
   DBUG_TRACE;
+  master_gts = gts;
 }
 
 #ifdef MYSQL_SERVER
 bool Xid_log_event::write(Basic_ostream *ostream) {
   DBUG_EXECUTE_IF("do_not_write_xid", return 0;);
+#ifdef HAVE_TDSQL
+  gts = thd->getGTS();
+
+  {
+    if (g_enable_backup_dcn_switch) {
+      return (write_header(ostream, sizeof(gts) + sizeof(xid)) ||
+              wrapper_my_b_safe_write(ostream, (uchar *)&gts, sizeof(gts)) ||
+              wrapper_my_b_safe_write(ostream, (uchar *)&xid, sizeof(xid)) ||
+              write_footer(ostream));
+    } else {
+      return (write_header(ostream, sizeof(xid)) ||
+              wrapper_my_b_safe_write(ostream, (uchar *)&xid, sizeof(xid)) ||
+              write_footer(ostream));
+    }
+  }
+#else
   return (write_header(ostream, sizeof(xid)) ||
           wrapper_my_b_safe_write(ostream, (uchar *)&xid, sizeof(xid)) ||
           write_footer(ostream));
+#endif
 }
 #endif
 
@@ -6531,7 +6578,17 @@ void Xid_log_event::print(FILE *, PRINT_EVENT_INFO *print_event_info) const {
     longlong10_to_str(xid, buf, 10);
 
     print_header(head, print_event_info, false);
+#ifdef HAVE_TDSQL
+    my_b_printf(head, "\tXid = %s", buf);
+
+    if (has_gts) {
+      longlong10_to_str(gts, buf, 10);
+      my_b_printf(head, "\ttdsql_withgts = %s", buf);
+    }
+    my_b_printf(head, "\n");
+#else
     my_b_printf(head, "\tXid = %s\n", buf);
+#endif
   }
   my_b_printf(head, is_flashback ? "BEGIN%s\n" : "COMMIT%s\n",
               print_event_info->delimiter);
@@ -6578,6 +6635,8 @@ bool Xid_log_event::do_commit(THD *thd_arg) {
     Increment the global status commit count variable
   */
   if (!error) thd_arg->status_var.com_stat[SQLCOM_COMMIT]++;
+
+  if (!error && thd_arg->lex) thd_arg->lex->gts = gts;
 
   return error;
 }
@@ -6632,6 +6691,7 @@ int Xid_apply_log_event::do_apply_event_worker(Slave_worker *w) {
     skipped_commit_pos = false;
     if ((error = w->commit_positions(this, ptr_group, w->is_transactional())))
       goto err;
+    if (thd->lex) thd->lex->gts = master_gts;
   }
 
   DBUG_PRINT(
@@ -6972,10 +7032,14 @@ bool XA_prepare_log_event::do_commit(THD *thd_arg) {
     thd_arg->lex->sql_command = SQLCOM_XA_COMMIT;
     thd_arg->lex->m_sql_cmd =
         new (thd_arg->mem_root) Sql_cmd_xa_commit(&xid, XA_ONE_PHASE);
+    // keep gts in slave binlog
+    if (g_enable_backup_dcn_switch) thd_arg->lex->gts = gts;
     error = thd_arg->lex->m_sql_cmd->execute(thd_arg);
   }
 
   if (!error) error = mysql_bin_log.gtid_end_transaction(thd_arg);
+
+  if (!error && thd_arg->lex) thd_arg->lex->gts = gts;
 
   return error;
 }

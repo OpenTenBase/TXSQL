@@ -317,7 +317,24 @@ Xid_event::Xid_event(const char *buf, const Format_description_event *fde)
   BAPI_ENTER("Xid_event::Xid_event(const char*, ...)");
   READER_TRY_INITIALIZATION;
   READER_ASSERT_POSITION(fde->common_header_len);
+#ifdef HAVE_TDSQL
+  uint8_t post_header_len = fde->post_header_len[XID_EVENT - 1];
+  switch (post_header_len) {
+    case GTS_LEN: {
+      READER_TRY_SET(gts, memcpy<uint64_t>);
+      has_gts = true;
+      READER_ASSERT_POSITION(fde->common_header_len + post_header_len);
+      break;
+    }
+
+    default: {
+      READER_TRY_CALL(forward, post_header_len);
+      break;
+    }
+  }
+#else
   READER_TRY_CALL(forward, fde->post_header_len[XID_EVENT - 1]);
+#endif
   READER_TRY_SET(xid, memcpy<int64_t>);
   READER_CATCH_ERROR;
   BAPI_VOID_RETURN;

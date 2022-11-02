@@ -631,6 +631,7 @@ int init_replica_thread(THD *thd, SLAVE_THD_TYPE thd_type);
 
 /* Changes from TXSQL start. */
 extern uint32_t iothreadreadtime;
+extern uint64_t iothreadreadgts;
 extern "C" void *handle_slave_transmit(void *arg);
 
 void get_current_timestamp(char *buf);

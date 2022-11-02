@@ -980,5 +980,7 @@ extern bool g_mc_gts_check;
 
 extern std::atomic<unsigned long> global_privilege_version;
 extern bool txsql_simplify_priv_check;
+extern bool g_enable_backup_dcn_switch;
+extern bool g_log_statement_of_query_event;
 /* Changes from txsql end. */
 #endif /* MYSQLD_INCLUDED */

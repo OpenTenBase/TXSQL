@@ -8637,4 +8637,54 @@ static Sys_var_bool Sys_mc_gts_check(
     GLOBAL_VAR(g_mc_gts_check),
     CMD_LINE(OPT_ARG), DEFAULT(true), NULL, NOT_IN_BINLOG,
     NULL, NULL);
+
+static bool check_enable_backup_dcn_switch_var(sys_var *self, THD *thd,
+                                               set_var *setv) {
+  bool tmp_enable_backup_dcn_switch = setv->save_result.ulonglong_value;
+  // no need set
+  if (g_enable_backup_dcn_switch == tmp_enable_backup_dcn_switch) return false;
+
+  // aquire the commit mdl to prevent new commit
+  MDL_request mdl_request;
+  MDL_REQUEST_INIT(&mdl_request, MDL_key::COMMIT, "", "", MDL_SHARED,
+                   MDL_EXPLICIT);
+
+  if (thd->mdl_context.acquire_lock(&mdl_request,
+                                    thd->variables.lock_wait_timeout)) {
+    sql_print_warning(
+        "aquire mdl lock failed,\
+                       can't set the enable_backup_dcn_switch");
+    return true;
+  }
+
+  bool ret = false;
+  if (mysql_bin_log.is_open()) {
+    // use the new xid_event format in new binlog file
+    g_enable_backup_dcn_switch = tmp_enable_backup_dcn_switch;
+    if (mysql_bin_log.rotate_and_purge(thd, true)) {
+      sql_print_error(
+          "rotate binlog failed when set enable_backup_dcn_switch,\
+                       the binlog may be corrupt");
+      ret = true;
+    }
+  } else {
+    sql_print_warning(
+        "binlog is not opened,\
+                       the enable_backup_dcn_switch is not changed");
+  }
+
+  thd->mdl_context.release_lock(mdl_request.ticket);
+  return ret;
+}
+static Sys_var_bool Sys_enable_backup_dcn_switch(
+    "enable_backup_dcn_switch", "enable the backup dcn switch",
+    GLOBAL_VAR(g_enable_backup_dcn_switch), CMD_LINE(OPT_ARG), DEFAULT(false),
+    NULL, NOT_IN_BINLOG, ON_CHECK(check_enable_backup_dcn_switch_var),
+    ON_UPDATE(NULL));
+
+static Sys_var_bool Sys_log_statement_of_query_event(
+    "log_statement_of_query_event",
+    "Enable log statement format binlog of query event",
+    GLOBAL_VAR(g_log_statement_of_query_event), CMD_LINE(OPT_ARG),
+    DEFAULT(true));
 /* Changes from txsql end. */

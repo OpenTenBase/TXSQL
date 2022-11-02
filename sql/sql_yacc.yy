@@ -10174,7 +10174,7 @@ select_stmt:
           {
             $$ = NEW_PTN PT_select_stmt($1);
           }
-        | select_stmt_with_into
+        | select_stmt_with_into opt_with_gts
         ;
 
 opt_with_gts:
@@ -13802,6 +13802,7 @@ insert_stmt:
           opt_values_reference         /* #8 */
           opt_insert_update_list       /* #9 */
           opt_returning_clause         /* #10 */
+          opt_with_gts                 /* #11 */
           {
             DBUG_EXECUTE_IF("bug29614521_simulate_oom",
                              DBUG_SET("+d,simulate_out_of_memory"););
@@ -13810,6 +13811,7 @@ insert_stmt:
                                   NULL,
                                   $8.table_alias, $8.column_list,
                                   $9.column_list, $9.value_list, $10);
+            Lex->gts = $11;
             DBUG_EXECUTE_IF("bug29614521_simulate_oom",
                             DBUG_SET("-d,bug29614521_simulate_oom"););
           }
@@ -13824,6 +13826,7 @@ insert_stmt:
           opt_values_reference         /* #9 */
           opt_insert_update_list       /* #10 */
           opt_returning_clause         /* #11 */
+          opt_with_gts                 /* #12 */
           {
             PT_insert_values_list *one_row= NEW_PTN PT_insert_values_list(YYMEM_ROOT);
             if (one_row == NULL || one_row->push_back(&$8.value_list->value))
@@ -13833,6 +13836,7 @@ insert_stmt:
                                   NULL,
                                   $9.table_alias, $9.column_list,
                                   $10.column_list, $10.value_list, $11);
+            Lex->gts = $12;
           }
         | INSERT_SYM                   /* #1 */
           insert_lock_option           /* #2 */
@@ -13843,12 +13847,14 @@ insert_stmt:
           insert_query_expression      /* #7 */
           opt_insert_update_list       /* #8 */
           opt_returning_clause         /* #9 */
+          opt_with_gts                 /* #10 */
           {
             $$= NEW_PTN PT_insert(false, $1, $2, $3, $5, $6,
                                   $7.column_list, NULL,
                                   $7.insert_query_expression,
                                   NULL_CSTR, NULL,
                                   $8.column_list, $8.value_list, $9);
+            Lex->gts = $10;
           }
         ;
 
@@ -13860,12 +13866,14 @@ replace_stmt:
           opt_use_partition             /* #5 */
           insert_from_constructor       /* #6 */
           opt_returning_clause          /* #7 */
+          opt_with_gts                  /* #8 */
           {
             $$= NEW_PTN PT_insert(true, $1, $2, false, $4, $5,
                                   $6.column_list, $6.row_value_list,
                                   NULL,
                                   NULL_CSTR, NULL,
                                   NULL, NULL, $7);
+            Lex->gts = $8;
           }
         | REPLACE_SYM                   /* #1 */
           replace_lock_option           /* #2 */
@@ -13875,6 +13883,7 @@ replace_stmt:
           SET_SYM                       /* #6 */
           update_list                   /* #7 */
           opt_returning_clause          /* #8 */
+          opt_with_gts                  /* #9 */
           {
             PT_insert_values_list *one_row= NEW_PTN PT_insert_values_list(YYMEM_ROOT);
             if (one_row == NULL || one_row->push_back(&$7.value_list->value))
@@ -13884,6 +13893,7 @@ replace_stmt:
                                   NULL,
                                   NULL_CSTR, NULL,
                                   NULL, NULL, $8);
+            Lex->gts = $9;
           }
         | REPLACE_SYM                   /* #1 */
           replace_lock_option           /* #2 */
@@ -13892,12 +13902,14 @@ replace_stmt:
           opt_use_partition             /* #5 */
           insert_query_expression       /* #6 */
           opt_returning_clause          /* #7 */
+          opt_with_gts                  /* #8 */
           {
             $$= NEW_PTN PT_insert(true, $1, $2, false, $4, $5,
                                   $6.column_list, NULL,
                                   $6.insert_query_expression,
                                   NULL_CSTR, NULL,
                                   NULL, NULL, $7);
+            Lex->gts = $8;
           }
         ;
 
@@ -14131,9 +14143,11 @@ update_stmt:
           opt_simple_limit      /* #9 */
           opt_returning_clause  /* #11 */
           into_var_clause       /* #12 */
+          opt_with_gts          /* #13 */
           {
             $$= NEW_PTN PT_update($1, $2, $3, $4, $5, $7.column_list, $7.value_list,
                                   $8, $9, $10, $11, $12);
+            Lex->gts = $13;
           }
         ;
 
@@ -14191,8 +14205,10 @@ delete_stmt:
           opt_simple_limit
           opt_returning_clause
           into_var_clause
+          opt_with_gts
           {
             $$= NEW_PTN PT_delete($1, $2, $3, $5, to_lex_cstring($7), $9, $8, $10, $11, $12, $13, $14);
+            Lex->gts = $15;
           }
         | opt_with_clause
           DELETE_SYM
@@ -14205,8 +14221,10 @@ delete_stmt:
           opt_where_clause
           opt_order_clause
           opt_simple_limit
+          opt_with_gts
           {
             $$= NEW_PTN PT_delete($1, $2, $3, $5, to_lex_cstring($6), $8, $7, $9, $10, $11, nullptr, nullptr);
+            Lex->gts = $12;
           }
         | opt_with_clause
           DELETE_SYM
@@ -14220,8 +14238,10 @@ delete_stmt:
           opt_simple_limit
           opt_returning_clause
           into_var_clause
+          opt_with_gts
           {
             $$= NEW_PTN PT_delete($1, $2, $3, $5, NULL_CSTR, $7, $6, $8, $9, $10, $11, $12);
+            Lex->gts = $13;
           }
         | opt_with_clause
           DELETE_SYM
@@ -14230,8 +14250,10 @@ delete_stmt:
           FROM
           table_reference_list
           opt_where_clause
+          opt_with_gts
           {
             $$= NEW_PTN PT_delete($1, $2, $3, $4, $6, $7);
+            Lex->gts = $8;
           }
         | opt_with_clause
           DELETE_SYM
@@ -14241,8 +14263,10 @@ delete_stmt:
           USING
           table_reference_list
           opt_where_clause
+          opt_with_gts
           {
             $$= NEW_PTN PT_delete($1, $2, $3, $5, $7, $8);
+            Lex->gts = $9;
           }
         ;
 
@@ -18803,10 +18827,11 @@ xa:
             Lex->m_sql_cmd= NEW_PTN Sql_cmd_xa_commit($3, $4);
             Lex->gts = $5;
           }
-        | XA_SYM ROLLBACK_SYM xid opt_xa_rollback_force
+        | XA_SYM ROLLBACK_SYM xid opt_xa_rollback_force opt_with_gts
           {
             Lex->sql_command = SQLCOM_XA_ROLLBACK;
             Lex->m_sql_cmd= NEW_PTN Sql_cmd_xa_rollback($3, $4);
+            Lex->gts = $5;
           }
         | XA_SYM RECOVER_SYM opt_convert_xid opt_with_time
           {

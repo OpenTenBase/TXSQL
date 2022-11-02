@@ -10207,7 +10207,9 @@ SHOW_VAR status_vars[] = {
      SHOW_LONGLONG_STATUS, SHOW_SCOPE_ALL},
     {"Handler_write", (char *)offsetof(System_status_var, ha_write_count),
      SHOW_LONGLONG_STATUS, SHOW_SCOPE_ALL},
-    {"Iothreadreport_newsttime", (char *)&iothreadreadtime, SHOW_INT, SHOW_SCOPE_ALL},
+    {"Iothreadreport_newsttime", (char *)&iothreadreadtime, SHOW_INT,
+     SHOW_SCOPE_ALL},
+    {"Iothreadreport_gts", (char *)&iothreadreadgts, SHOW_LONGLONG, SHOW_SCOPE_ALL},
     {"Key_blocks_not_flushed",
      (char *)offsetof(KEY_CACHE, global_blocks_changed), SHOW_KEY_CACHE_LONG,
      SHOW_SCOPE_GLOBAL},
@@ -13141,3 +13143,5 @@ uint g_simple_slow_logging = 0;
 bool g_mc_enable = false;
 bool g_mc_sleep_mode = false;
 bool g_mc_gts_check = true;
+bool g_enable_backup_dcn_switch = false;
+bool g_log_statement_of_query_event = false;

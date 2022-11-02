@@ -958,6 +958,7 @@ class MYSQL_BIN_LOG : public TC_LOG {
   */
   bool is_rotating_caused_by_incident;
 
+  void init_max_time_and_gts(bool relay_log);
   /* Changes from TXSQL start.*/
  private:
   ulong m_cur_bin_suffix;

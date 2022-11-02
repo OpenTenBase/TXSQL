@@ -248,6 +248,12 @@ int disconnect_slave_event_count = 0, abort_slave_event_count = 0;
 uint32_t iothreadreadtime = 0;
 /* Changes from TXSQL end. */
 
+/*
+ last gts that slave io thread received from master extracted from
+ xa start, xa commit xa roll back
+*/
+uint64_t iothreadreadgts = 0;
+
 static thread_local Master_info *RPL_MASTER_INFO = nullptr;
 
 /**
@@ -7978,6 +7984,26 @@ QUEUE_EVENT_RESULT queue_event(Master_info *mi, const char *buf,
   }
 
   switch (event_type) {
+    case binary_log::XID_EVENT: {
+      Format_description_log_event *fde = mi->get_mi_description_event();
+      assert(fde != NULL);
+      // xid has gts
+      if (fde->post_header_len[binary_log::XID_EVENT - 1] ==
+          Binary_log_event::GTS_LEN) {
+        uint64_t gts = uint8korr(buf + LOG_EVENT_HEADER_LEN);
+        if (iothreadreadgts < gts) iothreadreadgts = gts;
+      }
+      inc_pos = event_len;
+      break;
+    }
+    case binary_log::XA_PREPARE_LOG_EVENT: {
+      if (g_enable_backup_dcn_switch) {
+        XA_prepare_log_event xa_pre(buf, mi->get_mi_description_event());
+        if (iothreadreadgts < xa_pre.gts) iothreadreadgts = xa_pre.gts; 
+      }
+      inc_pos = event_len;
+      break;
+    }
     case binary_log::STOP_EVENT:
       /*
         We needn't write this event to the relay log. Indeed, it just indicates

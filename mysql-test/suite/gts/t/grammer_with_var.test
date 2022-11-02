@@ -1,0 +1,4 @@
+create table t(id int primary key, a int);
+insert into t values(1,1);
+select a from t into @1 tdsql_withgts 1;
+drop table t;
