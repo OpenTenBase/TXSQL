@@ -3583,7 +3583,7 @@ bool thd_trx_xa_is_external(const MYSQL_THD thd) {
   if (!thd->get_transaction() ||
       !thd->get_transaction()->xid_state())
     return false;
-  return thd->get_transaction()->xid_state()->is_external();
+  return thd->is_extrenal_xa();
 }
 
 extern "C" uint64_t thd_get_gts(MYSQL_THD thd) {

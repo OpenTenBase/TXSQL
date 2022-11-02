@@ -1,0 +1,24 @@
+show variables like "%mc_enable%";
+Variable_name	Value
+mc_enable	ON
+xa start '1';
+xa end '1';
+xa rollback '1';
+SET debug = "+d, sleep_after_set_tlog_prepared";
+create table t(id int primary key);
+insert into t values(1) tdsql_withgts 1;
+SET debug = "-d, sleep_after_set_tlog_prepared";
+xa start '1';
+insert into t values(2);
+xa end '1';
+xa prepare '1';
+xa start '2';
+select * from t tdsql_withgts 3 ;
+xa commit '1' tdsql_withgts 2;
+id
+1
+2
+xa end '2';
+xa prepare '2';
+xa commit '2';
+drop table t;
