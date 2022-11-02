@@ -10165,7 +10165,7 @@ select_stmt:
             $$ = NEW_PTN PT_select_stmt($1);
             Lex->gts = $2;
           }
-        | query_expression locking_clause_list
+        | query_expression locking_clause_list opt_with_gts
           {
             $$ = NEW_PTN PT_select_stmt(NEW_PTN PT_locking($1, $2),
                                         nullptr, true);
