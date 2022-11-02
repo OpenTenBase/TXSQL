@@ -4959,11 +4959,6 @@ int Query_log_event::do_apply_event(Relay_log_info const *rli,
   bool is_invalid_db_name =
       validate_string(system_charset_info, db, db_len, &valid_len, &len_error);
 
-  // tdsql store some internal table binlog in statement format
-  bool need_statement_binlog = false;
-  int old_transaction_isolation = ISO_READ_UNCOMMITTED;
-  enum_tx_isolation old_tx_isolation = ISO_READ_UNCOMMITTED;
-  int old_binlog_format = BINLOG_FORMAT_UNSPEC;
   DBUG_PRINT("debug", ("is_invalid_db_name= %s, valid_len=%zu, len_error=%s",
                        is_invalid_db_name ? "true" : "false", valid_len,
                        len_error ? "true" : "false"));
@@ -4977,16 +4972,6 @@ int Query_log_event::do_apply_event(Relay_log_info const *rli,
   }
 
   need_inc_rewrite_db_filter_counter = set_thd_db(thd, db, db_len);
-  if (g_log_statement_of_query_event && 
-      !strcasecmp(db, "query_rewrite")) {
-    old_transaction_isolation = thd->variables.transaction_isolation;
-    thd->variables.transaction_isolation = ISO_REPEATABLE_READ; // REPEATABLE-READ
-    old_tx_isolation = thd->tx_isolation;
-    thd->tx_isolation = ISO_REPEATABLE_READ;
-    old_binlog_format = thd->variables.binlog_format;
-    thd->variables.binlog_format = BINLOG_FORMAT_STMT; // STATEMENT
-    need_statement_binlog = true;
-  }
 
   /*
     Setting the character set and collation of the current database thd->db.
@@ -5292,7 +5277,7 @@ int Query_log_event::do_apply_event(Relay_log_info const *rli,
 
         // binlog_gtid_end_transaction will use the variable
         thd->rollback_injected_by_coord = rollback_injected_by_coord;
-        dispatch_sql_command(thd, &parser_state);
+        dispatch_sql_command(thd, &parser_state, true);
         thd->rollback_injected_by_coord = false;  // reset
 
         enum_sql_command command = thd->lex->sql_command;
@@ -5578,13 +5563,6 @@ int Query_log_event::do_apply_event(Relay_log_info const *rli,
   }
 
 end:
-  // restore the log binlog configure
-  if (need_statement_binlog) {
-    thd->variables.transaction_isolation = old_transaction_isolation;
-    thd->variables.binlog_format = old_binlog_format;
-    thd->tx_isolation = old_tx_isolation;
-    need_statement_binlog = false;
-  }
 
   if (thd->temporary_tables) detach_temp_tables_worker(thd, rli);
   /*
