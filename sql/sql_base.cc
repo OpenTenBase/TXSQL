@@ -9316,7 +9316,8 @@ class Tables_in_user_order_iterator {
 
 bool insert_fields(THD *thd, Query_block *query_block, const char *db_name,
                    const char *table_name, mem_root_deque<Item *> *fields,
-                   mem_root_deque<Item *>::iterator *it, bool any_privileges) {
+                   mem_root_deque<Item *>::iterator *it, bool any_privileges,
+                   int keyno) {
   char name_buff[NAME_LEN + 1];
   DBUG_TRACE;
   DBUG_PRINT("arena", ("stmt arena: %p", thd->stmt_arena));
@@ -9416,12 +9417,19 @@ bool insert_fields(THD *thd, Query_block *query_block, const char *db_name,
         if (tables->cacheable_table) field->cached_table = tables;
       }
 
-      if (!found) {
-        found = true;
-        **it = item; /* Replace '*' with the first found item. */
+      Field *const field = field_iterator.field();
+
+      if (keyno < 0 ||
+          (field && field->part_of_key_not_extended.is_set(keyno))) {
+        if (!found) {
+          found = true;
+          **it = item; /* Replace '*' with the first found item. */
+        } else {
+          /* Add 'item' to the SELECT list, after the current one. */
+          *it = fields->insert(*it + 1, item);
+        }
       } else {
-        /* Add 'item' to the SELECT list, after the current one. */
-        *it = fields->insert(*it + 1, item);
+        continue;
       }
 
       /*
@@ -9454,7 +9462,6 @@ bool insert_fields(THD *thd, Query_block *query_block, const char *db_name,
       thd->lex->current_query_block()->select_list_tables |=
           item->used_tables();
 
-      Field *const field = field_iterator.field();
       if (field) {
         // Register underlying fields in read map if wanted.
         field->table->mark_column_used(field, thd->mark_used_columns);

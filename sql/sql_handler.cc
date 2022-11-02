@@ -585,7 +585,7 @@ retry:
     thd->mark_used_columns = MARK_COLUMNS_READ;
     auto list_it = list.begin();
     if (insert_fields(thd, query_block, tables->db, tables->alias, &list,
-                      &list_it, false))
+                      &list_it, false, m_wanted > 0 ? keyno : -1))
       goto err;
     thd->mark_used_columns = save_mark_columns;
   }
@@ -616,6 +616,14 @@ retry:
   */
   table->bind_value_generators_to_fields();
 
+  if (m_wanted > 0) {
+    select_limit_cnt = m_wanted;
+    if (table->part_info != nullptr) {
+      /* This is partition table */
+      select_limit_cnt *= table->part_info->num_parts; 
+    }
+  }
+
   for (num_rows = 0; num_rows < select_limit_cnt;) {
     switch (mode) {
       case enum_ha_read_modes::RNEXT:
@@ -640,7 +648,8 @@ retry:
       case enum_ha_read_modes::RFIRST:
         if (m_key_name) {
           if (!(error = table->file->ha_index_or_rnd_end()) &&
-              !(error = table->file->ha_index_init(keyno, true)))
+              !(error =
+                    table->file->ha_index_init_with_num(keyno, true, m_wanted)))
             error = table->file->ha_index_first(table->record[0]);
         } else {
           if (!(error = table->file->ha_index_or_rnd_end()) &&

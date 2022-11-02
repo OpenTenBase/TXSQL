@@ -1307,6 +1307,7 @@ row_prebuilt_t *row_create_prebuilt(
   prebuilt->m_mc_sleep_mode = false;
   prebuilt->m_need_release_lock = false;
   prebuilt->m_save_lock_btr = nullptr;
+  prebuilt->key_extracter = nullptr;
 
   return prebuilt;
 }
@@ -5174,6 +5175,339 @@ next_rec:
   ret = row_search_for_mysql(buf, PAGE_CUR_G, prebuilt, 0, ROW_SEL_NEXT);
 
   goto loop;
+}
+
+KeyRangeExtract::KeyRangeExtract(dict_index_t *index, uint64_t n_wanted) {
+  m_index = index;
+  m_n_keys = n_wanted;
+  m_n_poped = 0;
+  m_scanned = false;
+  m_recs.clear();
+
+  m_rec_heap = mem_heap_create(1024, UT_LOCATION_HERE);
+
+  ut_a(m_rec_heap != nullptr);
+}
+
+KeyRangeExtract::~KeyRangeExtract() {
+  m_recs.clear();
+  mem_heap_free(m_rec_heap);
+}
+
+byte *KeyRangeExtract::pop() {
+  if (m_recs.empty() || m_n_poped == m_recs.size()) {
+    return nullptr;
+  }
+
+  byte *rec = m_recs[m_n_poped];
+  m_n_poped++;
+
+  return rec;
+}
+
+static uint64_t row_key_range_scope(dict_index_t *index,
+                                    std::vector<buf_block_t *> &blocks,
+                                    std::vector<ulint> &savepoints,
+                                    uint64_t n_wanted, mtr_t *mtr) {
+  ulint offsets_[REC_OFFS_NORMAL_SIZE];
+  rec_offs_init(offsets_);
+  ulint* offsets;
+
+  btr_pcur_t pcur;
+  btr_pcur_t end_pcur;
+  /* Init cursor before traversing pages. */
+  pcur.init();
+  end_pcur.init();
+  page_cur_t* start_cursor = pcur.get_page_cur();
+  page_cur_t* end_cursor = end_pcur.get_page_cur();
+
+  /* Track from root page */
+  const fil_space_t *space = fil_space_get(index->space);
+  const page_size_t page_size(space->flags);
+  page_id_t left_page_id(dict_index_get_space(index),
+                         dict_index_get_page(index));
+  page_id_t right_page_id(dict_index_get_space(index),
+                          dict_index_get_page(index));
+
+  buf_block_t* left_block = nullptr;
+  buf_block_t* right_block = nullptr;
+  page_t* page = nullptr;
+
+  ulint n_recs = 0;
+  ulint level = 0;
+  bool diverged = false;
+  ulint height = ULINT_UNDEFINED;
+  ulint savepoint = 0;
+  std::map<buf_block_t*, ulint> tree_savepoints;
+  tree_savepoints.clear();
+
+loop:
+  savepoint = mtr_set_savepoint(mtr);
+  left_block = btr_block_get(left_page_id, page_size,
+                             RW_S_LATCH, UT_LOCATION_HERE, index, mtr);
+
+  tree_savepoints.insert(std::pair<buf_block_t*, ulint>(left_block, savepoint));
+
+  page = buf_block_get_frame(left_block);
+
+  level = btr_page_get_level(page);
+  if (height == ULINT_UNDEFINED) {
+    /* We are on root page now */
+    height = level;
+
+    /* There's very few records on page and we skip extracting
+    ranges. */
+    if (page_is_empty(page) || height == 0) {
+      return(ULINT_UNDEFINED);
+    }
+  }
+
+  page_cur_set_before_first(left_block, start_cursor);
+  page_cur_move_to_next(start_cursor);
+
+  if (!diverged) {
+    /* still on same block */
+    right_block = left_block;
+
+    page_cur_set_after_last(right_block, end_cursor);
+    page_cur_move_to_prev(end_cursor);
+
+    n_recs = page_get_n_recs(buf_block_get_frame(left_block));
+  } else if (left_block->get_next_page_no() == right_page_id.page_no()) {
+    savepoint = mtr_set_savepoint(mtr);
+    right_block = btr_block_get(right_page_id, page_size,
+                                RW_S_LATCH, UT_LOCATION_HERE, index, mtr);
+    tree_savepoints.insert(
+        std::pair<buf_block_t *, ulint>(right_block, savepoint));
+
+    page_cur_set_after_last(right_block, end_cursor);
+    page_cur_move_to_prev(end_cursor);
+
+    n_recs = page_get_n_recs(buf_block_get_frame(left_block)) +
+             page_get_n_recs(buf_block_get_frame(right_block));
+  } else {
+    /* Deal with this later and this is rare case */
+    n_recs = 0;
+    right_block = nullptr;
+  }
+
+  if (n_recs > 0 && n_recs < n_wanted && level > 1) {
+    /* Searching next level. */
+    mem_heap_t* heap = mem_heap_create(128, UT_LOCATION_HERE);
+
+    /* Update page number in left path. */
+    rec_t *node_ptr = page_cur_get_rec(start_cursor);
+    offsets = rec_get_offsets(node_ptr, index, offsets_, ULINT_UNDEFINED,
+                              UT_LOCATION_HERE, &heap);
+    left_page_id.set_page_no(btr_node_ptr_get_child_page_no(node_ptr, offsets));
+
+    /* Update page number in right path. */
+    node_ptr = page_cur_get_rec(end_cursor);
+    offsets = rec_get_offsets(node_ptr, index, offsets_, ULINT_UNDEFINED,
+                              UT_LOCATION_HERE, &heap);
+    right_page_id.set_page_no(btr_node_ptr_get_child_page_no(node_ptr, offsets));
+    mem_heap_free(heap);
+
+    diverged = (left_page_id.page_no() != right_page_id.page_no());
+
+    goto loop;
+  }
+
+  blocks.push_back(left_block);
+  if (n_recs == 0) {
+    ut_a(right_block == nullptr);
+    n_recs = page_get_n_recs(buf_block_get_frame(left_block));
+
+    page_id_t page_id(dict_index_get_space(index),
+        btr_page_get_next(buf_block_get_frame(left_block), mtr));
+
+    while (page_id.page_no() != FIL_NULL) { 
+      savepoint = mtr_set_savepoint(mtr);
+      buf_block_t* block = buf_page_get(page_id, page_size,
+                                        RW_S_LATCH, UT_LOCATION_HERE, mtr);
+      tree_savepoints.insert(std::pair<buf_block_t*, ulint>(block,
+            savepoint));
+      blocks.push_back(block);
+      n_recs += page_get_n_recs(buf_block_get_frame(block));
+
+      /* reach end block*/
+      if (page_id.page_no() == right_page_id.page_no()) {
+        break;
+      }
+
+      page_id.set_page_no(block->get_next_page_no());
+    }
+  } else if (right_block != left_block) {
+    ut_a(right_block != nullptr);
+    blocks.push_back(right_block);
+  }
+
+  for (auto block : blocks) {
+    savepoint = tree_savepoints[block];
+    ut_a(savepoint > 0);
+    ut_a(savepoint != ULINT_UNDEFINED);
+
+    savepoints.push_back(savepoint);
+
+    tree_savepoints[block] = ULINT_UNDEFINED;
+  }
+
+  /* Now release latches except the blocks to be scanned later */
+  for (auto elem : tree_savepoints) {
+    if (elem.second == ULINT_UNDEFINED) {
+      continue;
+    }
+
+    mtr_release_block_at_savepoint(mtr, elem.second, elem.first);
+  }
+
+  tree_savepoints.clear();
+
+  uint64_t step = 0;
+  uint64_t upper = n_wanted * 3 / 2;
+
+  if (n_recs > upper) {
+    step = n_recs / (n_wanted + 1);
+  }
+
+  return (step);
+}
+
+void row_key_range_extract(KeyRangeExtract *extracter) {
+  dict_index_t *index = extracter->m_index;
+
+  btr_pcur_t pcur;
+  pcur.init();
+  page_cur_t* page_cursor = pcur.get_page_cur();
+
+  /* Offsets for parsing record */
+  ulint offsets_[REC_OFFS_NORMAL_SIZE];
+  rec_offs_init(offsets_);
+  ulint* offsets;
+
+  /** Store blocks to be traversed */
+  std::vector<buf_block_t*> blocks;
+  blocks.clear();
+
+  /* Store savepoint of each block in mtr */
+  std::vector<ulint> savepoints;
+  savepoints.clear();
+
+  mtr_t mtr;
+  mtr_start(&mtr);
+
+  ulint savepoint = mtr_set_savepoint(&mtr);
+
+  /* SMO is not allowed during the process  */
+  mtr_sx_lock(dict_index_get_lock(index), &mtr, UT_LOCATION_HERE);
+
+  uint64_t step =
+      row_key_range_scope(index, blocks, savepoints, extracter->m_n_keys, &mtr);
+
+  if (step == ULINT_UNDEFINED || blocks.size() == 0) {
+    mtr_commit(&mtr);
+    return;
+  }
+
+  /* We now have latched all blocks with S lock, index lock can
+  be safely released here. */
+  mtr_release_sx_latch_at_savepoint(&mtr, savepoint,
+                                    dict_index_get_lock(index));
+
+  mem_heap_t* heap = mem_heap_create(128, UT_LOCATION_HERE);
+
+  uint64_t move_step = step;
+
+  auto sp_itr = savepoints.begin();
+
+  for (auto block : blocks) {
+    if (block != blocks.front()) {
+      buf_block_t* prev_block = page_cur_get_block(page_cursor);
+      ut_a(prev_block->get_next_page_no() == block->get_page_no());
+
+      /* Release latch on previous block. */
+      mtr_release_block_at_savepoint(&mtr, *sp_itr, prev_block);
+
+      sp_itr++;
+    }
+
+    /* Put cursor on first user record */
+    page_cur_set_before_first(block, page_cursor);
+    page_cur_move_to_next(page_cursor);
+
+    /* Read keys from the block */
+    while (!page_rec_is_supremum(page_cur_get_rec(page_cursor))) {
+      if (move_step > 0) {
+        /* Skip the record and move to next */
+        page_cur_move_to_next(page_cursor);
+        move_step --;
+        continue;
+      }
+
+      const rec_t* rec = page_cur_get_rec(page_cursor);
+      offsets = rec_get_offsets(rec, index, offsets_, ULINT_UNDEFINED,
+                                UT_LOCATION_HERE, &heap);
+
+      if (rec_get_info_bits(rec, rec_offs_comp(offsets)) &
+          REC_INFO_MIN_REC_FLAG) {
+        /* Predefined min record, skip it because the value stored in
+        it maybe not valid. */
+        move_step = 1;
+        continue;
+      }
+
+      /* Check if it's same as previous record in vector */
+      if (!extracter->m_recs.empty()) {
+        ulint prev_offsets_[REC_OFFS_NORMAL_SIZE];
+        rec_offs_init(prev_offsets_);
+        ulint* prev_offsets;
+        ulint matched_fields;
+
+        rec_t* prev_rec = *(extracter->m_recs.rbegin());
+        prev_offsets = rec_get_offsets(prev_rec, index, prev_offsets_,
+            ULINT_UNDEFINED, UT_LOCATION_HERE, &heap);
+
+        cmp_rec_rec_with_match(prev_rec, rec, prev_offsets, offsets, index,
+            false, false, &matched_fields);
+
+        if (matched_fields >= dict_index_get_n_ordering_defined_by_user(index)) {
+          /* Skip the record and goto next */
+          move_step = 1;
+          continue;
+        }
+      }
+
+      /* Take a copy of the record */
+      byte* buf = static_cast<byte *>(mem_heap_alloc(extracter->m_rec_heap,
+                                      rec_offs_size(offsets)));
+      rec_t* copied_rec = rec_copy(buf, rec, offsets);
+
+      extracter->m_recs.push_back(copied_rec);
+
+      if (extracter->m_recs.size() == extracter->m_n_keys) {
+        break;
+      }
+
+      /* Reset the step */
+      move_step = step;
+
+      /* Clear the heap for reusing */
+      mem_heap_empty(heap);
+
+      page_cur_move_to_next(page_cursor);
+    }
+
+    if (extracter->m_recs.size() == extracter->m_n_keys) {
+      break;
+    }
+  }
+
+  mtr_commit(&mtr);
+
+  mem_heap_free(heap);
+
+  blocks.clear();
+  savepoints.clear();
 }
 
 /** Initialize this module */

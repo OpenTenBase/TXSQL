@@ -4896,6 +4896,37 @@ dberr_t row_search_mvcc(byte *buf, page_cur_mode_t mode,
 
   const auto record_buffer = row_sel_get_record_buffer(prebuilt);
 
+  if (prebuilt->key_extracter != nullptr) {
+    ut_a(prebuilt->used_in_HANDLER);
+    KeyRangeExtract *extracter = prebuilt->key_extracter;
+    if (extracter->m_scanned == false) {
+      row_key_range_extract(extracter);
+      extracter->m_scanned = true;
+    }
+
+    byte *rec = extracter->pop();
+    if (rec == nullptr) {
+      err = DB_RECORD_NOT_FOUND;
+      goto func_exit;
+    }
+
+    offsets = rec_get_offsets(rec, prebuilt->index, offsets, ULINT_UNDEFINED,
+                              UT_LOCATION_HERE, &heap);
+
+    /** Now we got a index record, and possiblely on
+    non-leaf page. We must convert it to MySQL Format */
+    bool ret = row_sel_store_mysql_rec(
+        buf, prebuilt, rec, nullptr, prebuilt->index->is_clustered(),
+        prebuilt->index, prebuilt->index, offsets, false, nullptr,
+        prebuilt->blob_heap);
+
+    ut_a(ret);
+
+    /* Return success */
+    err = DB_SUCCESS;
+    goto func_exit;
+  }
+
   if (UNIV_UNLIKELY(direction == 0)) {
     trx->op_info = "starting index read";
 

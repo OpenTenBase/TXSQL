@@ -120,6 +120,22 @@ class PT_handler_index_scan final : public PT_handler_read_base {
   const enum_ha_read_modes m_direction;
 };
 
+class PT_handler_index_range final : public PT_handler_read_base {
+  typedef PT_handler_read_base super;
+
+ public:
+  PT_handler_index_range(const LEX_CSTRING &table, const LEX_CSTRING &index, ulonglong n_keys)
+      : super(table, nullptr, nullptr),
+        m_index(index.str),
+        m_wanted(n_keys) {}
+
+  Sql_cmd *make_cmd(THD *thd) override;
+
+ private:
+  const char *const m_index;
+  ulonglong m_wanted;
+};
+
 class PT_handler_index_range_scan final : public PT_handler_read_base {
   typedef PT_handler_read_base super;
 

@@ -139,6 +139,17 @@ Sql_cmd *PT_handler_index_scan::make_cmd(THD *thd) {
       Sql_cmd_handler_read(m_direction, m_index, nullptr, HA_READ_KEY_EXACT);
 }
 
+Sql_cmd *PT_handler_index_range::make_cmd(THD *thd) {
+  thd->lex->sql_command = SQLCOM_HA_READ;
+
+  Parse_context pc(thd, thd->lex->current_query_block());
+  if (super::contextualize(&pc)) return nullptr;
+
+  return new (thd->mem_root)
+      Sql_cmd_handler_read(enum_ha_read_modes::RFIRST, m_index, nullptr,
+                           HA_READ_KEY_EXACT, m_wanted);
+}
+
 Sql_cmd *PT_handler_index_range_scan::make_cmd(THD *thd) {
   thd->lex->sql_command = SQLCOM_HA_READ;
 

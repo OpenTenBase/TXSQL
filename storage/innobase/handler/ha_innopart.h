@@ -644,6 +644,8 @@ class ha_innopart : public ha_innobase,
   */
   ut::unique_ptr<saved_prebuilt_t[]> m_parts;
 
+  std::map<dict_index_t*, KeyRangeExtract*> m_extracter_parts;
+  
   /** byte array for sql_stat_start bitset */
   byte *m_bitset;
 
@@ -1000,6 +1002,8 @@ class ha_innopart : public ha_innobase,
   This can be called after a row has been read in the processing of
   an UPDATE or a DELETE query. @see ha_innobase::unlock_row(). */
   void unlock_row() override;
+
+  int index_init_with_num(uint index, uint64_t n_wanted, bool sorted) override;
 
   int index_init(uint index, bool sorted) override;
 
