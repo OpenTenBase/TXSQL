@@ -17197,6 +17197,17 @@ handler_stmt:
           ident                 /* #2 */
           READ_SYM              /* #3 */
           ident                 /* #4 */
+          FOR_SYM               /* #5 */
+          ulonglong_num         /* #6 */
+          KEY_SYM               /* #7 */
+        {
+           $$ = NEW_PTN PT_handler_index_range(to_lex_cstring($2),
+                                               to_lex_cstring($4), $6);
+        }
+        | HANDLER_SYM           /* #1 */
+          ident                 /* #2 */
+          READ_SYM              /* #3 */
+          ident                 /* #4 */
           handler_rkey_mode     /* #5 */
           '(' values ')'        /* #6,#7,#8 */
           opt_where_clause      /* #9 */

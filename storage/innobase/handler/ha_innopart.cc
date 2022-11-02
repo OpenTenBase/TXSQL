@@ -602,6 +602,7 @@ ha_innopart::ha_innopart(handlerton *hton, TABLE_SHARE *table_arg)
       m_new_partitions() {
   m_int_table_flags &= ~(HA_INNOPART_DISABLED_TABLE_FLAGS);
 
+  m_extracter_parts.clear();
   /* INNOBASE_SHARE is not used in ha_innopart.
   This also flags for ha_innobase that it is a partitioned table.
   And make it impossible to use legacy share functionality. */
@@ -1303,6 +1304,19 @@ void ha_innopart::set_partition(uint part_id) {
   m_prebuilt->sql_stat_start = m_sql_stat_start_parts.test(part_id);
   m_prebuilt->table = m_part_share->get_table_part(part_id);
   m_prebuilt->index = innopart_get_index(part_id, active_index);
+
+  if (m_prebuilt->key_extracter != nullptr &&
+      m_prebuilt->key_extracter->m_index != m_prebuilt->index) {
+    auto itr = m_extracter_parts.find(m_prebuilt->index);
+    if (itr != m_extracter_parts.end()) {
+      m_prebuilt->key_extracter = itr->second;
+    } else {
+      m_prebuilt->key_extracter = new KeyRangeExtract(
+          m_prebuilt->index, m_prebuilt->key_extracter->m_n_keys);
+      m_extracter_parts.insert(std::pair<dict_index_t *, KeyRangeExtract *>(
+          m_prebuilt->index, m_prebuilt->key_extracter));
+    }
+  }
 }
 
 /** Update active partition.
@@ -1465,6 +1479,31 @@ int ha_innopart::delete_row_in_part(uint part_id, const uchar *record) {
   return error;
 }
 
+int ha_innopart::index_init_with_num(uint keynr, uint64_t n_wanted,
+                                     bool sorted) {
+  if (n_wanted > 0) {
+    m_prebuilt->hint_need_to_fetch_extra_cols = 0;
+    extra(HA_EXTRA_KEYREAD);
+  }
+
+  int ret = index_init(keynr, sorted);
+
+  if (ret != 0) {
+    return ret;
+  }
+
+  /* Create handler for extracting keys */
+  if (n_wanted > 0) {
+    ut_a(m_prebuilt->index != nullptr);
+    m_prebuilt->key_extracter =
+        new KeyRangeExtract(m_prebuilt->index, n_wanted);
+    m_extracter_parts.insert(std::pair<dict_index_t *, KeyRangeExtract *>(
+        m_prebuilt->index, m_prebuilt->key_extracter));
+  }
+
+  return 0;
+}
+
 /** Initializes a handle to use an index.
 @param[in]      keynr   Key (index) number.
 @param[in]      sorted  True if result MUST be sorted according to index.
@@ -1531,6 +1570,16 @@ int ha_innopart::index_end() {
     m_prebuilt->m_no_prefetch = false;
   }
   m_prebuilt->m_read_virtual_key = false;
+  m_prebuilt->key_extracter = nullptr;
+
+  if (m_extracter_parts.size() > 0) {
+    /* Free the map */
+    for (auto elem : m_extracter_parts) {
+      delete elem.second;
+    }
+
+    m_extracter_parts.clear();
+  }
 
   return ha_innobase::index_end();
 }

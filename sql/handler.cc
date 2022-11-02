@@ -2833,6 +2833,17 @@ int handler::ha_index_init(uint idx, bool sorted) {
   return result;
 }
 
+int handler::ha_index_init_with_num(uint idx, bool sorted, uint64_t n_wanted) {
+  int result;
+  DBUG_TRACE;
+  assert(table_share->tmp_table != NO_TMP_TABLE || m_lock_type != F_UNLCK);
+  assert(inited == NONE);
+  if (!(result = index_init_with_num(idx, n_wanted, sorted))) inited = INDEX;
+  mrr_have_range = false;
+  end_range = nullptr;
+  return result;
+}
+
 /**
   End use of index.
 

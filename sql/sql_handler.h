@@ -65,11 +65,11 @@ class Sql_cmd_handler_read : public Sql_cmd {
  public:
   Sql_cmd_handler_read(enum_ha_read_modes read_mode, const char *key_name,
                        mem_root_deque<Item *> *key_expr,
-                       ha_rkey_function rkey_mode)
+                       ha_rkey_function rkey_mode, ulonglong n_keys = 0)
       : m_read_mode(read_mode),
         m_key_name(key_name),
         m_key_expr(key_expr),
-        m_rkey_mode(rkey_mode) {}
+        m_rkey_mode(rkey_mode), m_wanted(n_keys) {}
 
   ~Sql_cmd_handler_read() override = default;
 
@@ -92,6 +92,9 @@ class Sql_cmd_handler_read : public Sql_cmd {
 
   /** Type of condition for key values to be satisfied. */
   enum ha_rkey_function m_rkey_mode;
+
+  /* Read range of keys if non-zero */
+  ulonglong m_wanted;
 };
 
 /**

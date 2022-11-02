@@ -66,6 +66,9 @@ savepoint. */
 #define mtr_release_s_latch_at_savepoint(m, s, l) \
   (m)->release_s_latch_at_savepoint((s), (l))
 
+#define mtr_release_sx_latch_at_savepoint(m, s, l) \
+  (m)->release_sx_latch_at_savepoint((s), (l))
+
 /** Get the logging mode of a mini-transaction.
 @return logging mode: MTR_LOG_NONE, ... */
 #define mtr_get_log_mode(m) (m)->get_log_mode()
@@ -418,6 +421,12 @@ struct mtr_t {
   @param savepoint      value returned by @see set_savepoint.
   @param lock           latch to release */
   inline void release_s_latch_at_savepoint(ulint savepoint, rw_lock_t *lock);
+
+  /** Release the (index tree) sx-latch stored in an mtr memo after a
+  savepoint.
+  @param savepoint	value returned by @see set_savepoint.
+  @param lock		latch to release */
+  inline void release_sx_latch_at_savepoint(ulint savepoint, rw_lock_t *lock);
 
   /** Release the block in an mtr memo after a savepoint. */
   inline void release_block_at_savepoint(ulint savepoint, buf_block_t *block);

@@ -184,6 +184,8 @@ class ha_innobase : public handler {
 
   int index_init(uint index, bool sorted) override;
 
+  int index_init_with_num(uint keynr, uint64_t n_wanted, bool sorted) override;
+
   int index_end() override;
 
   int index_read(uchar *buf, const uchar *key, uint key_len,
@@ -567,7 +569,7 @@ class ha_innobase : public handler {
  private:
   void update_thd();
 
-  int change_active_index(uint keynr);
+  int change_active_index(uint keynr, uint64_t n_wanted = 0);
 
   dberr_t innobase_lock_autoinc();
 

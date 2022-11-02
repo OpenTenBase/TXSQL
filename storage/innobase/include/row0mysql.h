@@ -558,6 +558,28 @@ constexpr uint32_t MYSQL_FETCH_CACHE_THRESHOLD = 4;
 constexpr uint32_t ROW_PREBUILT_ALLOCATED = 78540783;
 constexpr uint32_t ROW_PREBUILT_FREED = 26423527;
 
+/** Helper structure for extracting keys from btree */
+struct KeyRangeExtract {
+public:
+  KeyRangeExtract(dict_index_t *index, uint64_t n_wanted);
+  ~KeyRangeExtract();
+
+  /** Get one record from m_recs set accordingto iterater m_n_poped */
+  byte* pop();
+
+  dict_index_t *m_index;
+
+  bool m_scanned;
+
+  size_t m_n_poped;
+  
+  uint64_t m_n_keys;
+  
+  mem_heap_t *m_rec_heap;
+  
+  std::vector<byte*> m_recs;
+};
+
 /** A struct for (sometimes lazily) prebuilt structures in an Innobase table
 handle used within MySQL; these are used to save CPU time. */
 
@@ -974,6 +996,9 @@ struct row_prebuilt_t {
   /** @return true iff the operation can skip concurrency ticket. */
   bool skip_concurrency_ticket() const;
 
+  /** Helper object for getting keys from btree */
+  KeyRangeExtract* key_extracter;
+
   /** It is unsafe to copy this struct, and moving it would be non-trivial,
   because we want to keep in sync with row_is_reading_range_guard_t. Therefore
   it is much safer/easier to just forbid such operations.  */
@@ -982,6 +1007,8 @@ struct row_prebuilt_t {
   row_prebuilt_t &operator=(row_prebuilt_t &&) = delete;
   row_prebuilt_t(row_prebuilt_t &&) = delete;
 };
+
+void row_key_range_extract(KeyRangeExtract *extracter);
 
 /** Callback for row_mysql_sys_index_iterate() */
 struct SysIndexCallback {

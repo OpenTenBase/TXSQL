@@ -4720,6 +4720,7 @@ class handler {
               const dd::Table *table_def);
   int ha_close(void);
   int ha_index_init(uint idx, bool sorted);
+  int ha_index_init_with_num(uint idx, bool sorted, uint64_t num);
   int ha_index_end();
   int ha_rnd_init(bool scan);
   int ha_rnd_end();
@@ -6514,6 +6515,13 @@ class handler {
     active_index = idx;
     return 0;
   }
+  
+   virtual int index_init_with_num(uint idx, uint64_t n_wanted MY_ATTRIBUTE((unused)),
+                                   bool sorted MY_ATTRIBUTE((unused))) {
+    active_index = idx;
+    return 0;
+  }
+ 
   virtual int index_end() {
     active_index = MAX_KEY;
     return 0;

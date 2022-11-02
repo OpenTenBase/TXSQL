@@ -1,0 +1,56 @@
+create table t1 (a int auto_increment primary key, b int, c int,index idx_b(b,c));
+insert into t1 select null, rand()*100000, rand()*10000;
+insert into t1 select null, rand()*100000, rand()*10000 from t1;
+insert into t1 select null, rand()*100000, rand()*10000 from t1;
+insert into t1 select null, rand()*100000, rand()*10000 from t1;
+insert into t1 select null, rand()*100000, rand()*10000 from t1;
+insert into t1 select null, rand()*100000, rand()*10000 from t1;
+insert into t1 select null, rand()*100000, rand()*10000 from t1;
+insert into t1 select null, rand()*100000, rand()*10000 from t1;
+insert into t1 select null, rand()*100000, rand()*10000 from t1;
+insert into t1 select null, rand()*100000, rand()*10000 from t1;
+insert into t1 select null, rand()*100000, rand()*10000 from t1;
+insert into t1 select null, rand()*100000, rand()*10000 from t1;
+insert into t1 select null, rand()*100000, rand()*10000 from t1;
+insert into t1 select null, rand()*100000, rand()*10000 from t1;
+insert into t1 select null, rand()*100000, rand()*10000 from t1;
+insert into t1 select null, rand()*100000, rand()*10000 from t1;
+insert into t1 select null, rand()*100000, rand()*10000 from t1;
+insert into t1 select null, rand()*100000, rand()*10000 from t1;
+insert into t1 select null, rand()*100000, rand()*10000 from t1;
+insert into t1 select null, rand()*100000, rand()*10000 from t1;
+select min(a),max(a) from t1;
+min(a)	max(a)
+1	720874
+handler t1 open;
+handler t1 read `primary` for 4 key;
+a
+#
+#
+#
+#
+handler t1 read `idx_b` for 4 key;
+b	c
+#	#
+#	#
+#	#
+#	#
+handler t1 close;
+create table t2 (a int auto_increment primary key, b int, c int,index idx_b(b,c)) PARTITION BY KEY(a) PARTITIONS 4;
+insert into t2 select * from t1;
+handler t1 open;
+handler t1 read `primary` for 4 key;
+a
+#
+#
+#
+#
+handler t1 read `idx_b` for 4 key;
+b	c
+#	#
+#	#
+#	#
+#	#
+handler t1 close;
+drop table t1;
+drop table t2;
