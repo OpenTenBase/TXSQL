@@ -87,7 +87,7 @@ static trx_table_map resurrected_trx_tables;
 
 /** Dummy session used currently in MySQL interface */
 sess_t *trx_dummy_sess = nullptr;
-
+bool opt_strict_gtid_commit = true;
 /** Constructor */
 TrxVersion::TrxVersion(trx_t *trx) : m_trx(trx), m_version(trx->version) {
   /* No op */
@@ -1825,7 +1825,7 @@ static void trx_release_impl_and_expl_locks(trx_t *trx, bool serialised) {
       GTID might get committed before the transaction commit on disk.
     2.Before it is removed from serialization list. Otherwise the transaction
       undo could get purged before persisting GTID on disk table. */
-    if (gtid_desc.m_is_set) {
+    if (gtid_desc.m_is_set && opt_strict_gtid_commit) {
       auto &gtid_persistor = clone_sys->get_gtid_persistor();
       /* The gtid_persistor.add(gtid_desc) might release and re-acquire
       the trx_sys_serialisation_mutex, so must be called before trx is
@@ -3034,7 +3034,7 @@ static void trx_set_prepared_in_tc(trx_t *trx) {
   gtid_persistor.get_gtid_info(trx, gtid_desc);
 
   /* Add GTID to be persisted to disk table, if needed. */
-  if (gtid_desc.m_is_set) {
+  if (gtid_desc.m_is_set && opt_strict_gtid_commit) {
     /* The gtid_persistor.add() might release and re-acquire the mutex. */
     trx_sys_mutex_enter();
     gtid_persistor.add(gtid_desc);
