@@ -23675,6 +23675,12 @@ static MYSQL_SYSVAR_BOOL(
     "Print all DDl logs to MySQL error log (off by default)", nullptr, nullptr,
     false);
 
+static MYSQL_SYSVAR_BOOL(
+    strict_gtid_commit, opt_strict_gtid_commit, PLUGIN_VAR_TXSQL,
+    "Strictly write gtid to clone gtid persister if true, else only "
+    "when thread is apply thread or explicitly set gtid_next, it'll "
+    "write gtid.", NULL, NULL, true);
+
 #ifdef UNIV_DEBUG
 static MYSQL_SYSVAR_UINT(trx_rseg_n_slots_debug, trx_rseg_n_slots_debug,
                          PLUGIN_VAR_RQCMDARG,
@@ -24520,6 +24526,7 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(table_drop_mode),
     MYSQL_SYSVAR(log_dummy_cache),
     MYSQL_SYSVAR(txsql_deadlock_history_size),
+    MYSQL_SYSVAR(strict_gtid_commit),
     MYSQL_SYSVAR(page_reserve_factor),
     MYSQL_SYSVAR(page_hash_cell_factor),
     MYSQL_SYSVAR(buffer_pool_snapshot_now),
