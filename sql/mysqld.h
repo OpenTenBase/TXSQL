@@ -947,10 +947,10 @@ extern bool g_txsql_load_data_local_strict_mode;
 extern bool g_tdsql_compat_oracle_mode;
 extern char *opt_cdb_column_encryption_whitelist;
 extern bool cdb_compressed_histogram_enabled;
-extern bool cdb_recycle_bin_enabled;
-extern bool cdb_recycle_bin_db_not_visible;
-extern ulong cdb_recycle_bin_retention;
-extern ulong cdb_recycle_scheduler_interval;
+extern bool txsql_recycle_bin_enabled;
+extern bool txsql_recycle_bin_db_not_visible;
+extern ulong txsql_recycle_bin_retention;
+extern ulong txsql_recycle_scheduler_interval;
 extern const char *recyle_bin_startup_modes[];
 enum enum_recycle_bin_startup_mode : ulong {
   RECYCLE_BIN_NON,
@@ -983,5 +983,8 @@ extern bool txsql_simplify_priv_check;
 extern bool g_enable_backup_dcn_switch;
 extern bool g_log_statement_of_query_event;
 extern bool txsql_parallel_copy_ddl;
+
+extern bool opt_drop_if_exceed_recycle_limit;
+extern ulonglong g_recycle_bin_max_size;
 /* Changes from txsql end. */
 #endif /* MYSQLD_INCLUDED */

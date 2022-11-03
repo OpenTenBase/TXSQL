@@ -11982,7 +11982,7 @@ ER_SEMISYNC_BINLOG_MAY_NOT_BE_SYNC
 ER_SEMISYNC_SLAVE_WAIT_ACK_AND_SLEEP
   eng "slave receive ack then sleep 5s"
 ER_CDB_SYS_RECYCLE_BIN_PURGE_SCHEDULER_DISABLED
-  eng "TXSQL: cdb_recycle_scheduler_interval = 0, recycle_bin_purge_scheduler is disabled."
+  eng "TXSQL: txsql_recycle_scheduler_interval = 0, recycle_bin_purge_scheduler is disabled."
 
 ER_CDB_SYS_RECYCLE_BIN_PURGE_SCHEDULER_INIT_SUCCESSFULLY
   eng "TXSQL: recycle_bin_purge_scheduler initialize successfully."

@@ -1,5 +1,7 @@
 # open recycle bin
 set global cdb_recycle_bin_enabled = on;
+Warnings:
+Warning	1287	'@@cdb_recycle_bin_enabled' is deprecated and will be removed in a future release. Please use txsql_recycle_bin_enabled instead.
 create table t1(a int);
 #
 # test prepare stmt from "truncate ..."
@@ -38,3 +40,5 @@ call sys.recycle_bin_purge_table("<RECYCLED_TABLE>");
 call sys.recycle_bin_purge_table("<RECYCLED_TABLE>");
 call sys.recycle_bin_purge_table("<RECYCLED_TABLE>");
 set global cdb_recycle_bin_enabled=0;
+Warnings:
+Warning	1287	'@@cdb_recycle_bin_enabled' is deprecated and will be removed in a future release. Please use txsql_recycle_bin_enabled instead.

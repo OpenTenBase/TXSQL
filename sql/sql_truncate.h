@@ -84,7 +84,7 @@ class Sql_cmd_recycle_truncate_table : public Sql_cmd {
 
   ~Sql_cmd_recycle_truncate_table() override {}
 
-  bool execute(THD *) override { assert(0); }
+  bool execute(THD *) override { assert(0); return true; }
 
   enum_sql_command sql_command_code() const override {
     return SQLCOM_RENAME_TABLE;

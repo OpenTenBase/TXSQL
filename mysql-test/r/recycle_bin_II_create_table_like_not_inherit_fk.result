@@ -2,6 +2,8 @@
 #  Prepare
 #
 set global cdb_recycle_bin_enabled = on;
+Warnings:
+Warning	1287	'@@cdb_recycle_bin_enabled' is deprecated and will be removed in a future release. Please use txsql_recycle_bin_enabled instead.
 #
 # Run 
 #
@@ -35,5 +37,7 @@ c1
 # Cleanup 
 # 
 set global cdb_recycle_bin_enabled=0;
+Warnings:
+Warning	1287	'@@cdb_recycle_bin_enabled' is deprecated and will be removed in a future release. Please use txsql_recycle_bin_enabled instead.
 drop table if exists stu, sc;
 drop table if exists te;

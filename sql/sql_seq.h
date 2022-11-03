@@ -248,4 +248,9 @@ uint alter_seq_thds(uint from, uint to, int *err);
 const uint MAX_SEQ_WORKER_THDS= 256;
 void inc_seq_version(void);
 bool seq_need_reload();
+
+/* For recyle bin */
+void db_object_recycle(THD *thd, const char *dbname, uint64_t schema_id);
+void db_object_clear(THD *thd, time_t before_time);
+void db_object_restore(THD *thd, const char *dbname, uint64_t schema_id);
 #endif //!SQL_SEQ_H

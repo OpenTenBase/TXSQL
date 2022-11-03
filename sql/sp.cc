@@ -2390,6 +2390,7 @@ uint sp_get_flags_for_command(LEX *lex) {
     case SQLCOM_REPAIR:
     case SQLCOM_SHOW_THREADPOOL_STAT:
     case SQLCOM_SHOW_TLOGS:
+    case SQLCOM_SHOW_RECYCLE_BIN:
       flags = sp_head::MULTI_RESULTS;
       break;
     /*

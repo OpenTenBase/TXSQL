@@ -9951,6 +9951,35 @@ ER_SEQUENCE_NOT_ROW_UNSAFE
 ER_INVALID_TDSQL_GTS
   eng "The current gts %llu is less than innodb_min_purge_gts %llu."
 
+ER_RECYCLE_BIN_CAN_NOT_DROP_TABLES_IN_RECYCLE_BIN
+  eng "Can not drop tables in recycle_bin with other tables together."
+
+ER_RECYCLE_BIN_ERROR_OCCURRED
+  eng "Eerror occurred in recycle_bin : %s."
+
+ER_RECYCLE_BIN_READ_FAILED
+  eng "Failed to read recycle_bin_info."
+
+ER_RECYCLE_BIN_NOT_FOUND
+  eng "No corresponding record was found in recycle_bin."
+
+ER_RECYCLE_BIN_LIMIT_EXCEED
+  eng "Exceed limit size %lu of recycle bin"
+
+ER_RECYCLE_BIN_DUPLICATE_TABLE
+  eng "There's more than one table with %s.%s, please specify timestamp to choose the correct one"
+
+ER_RECYCLE_BIN_TARGET_NOT_CREATED
+  eng "Target database %s is not created"
+
+ER_RECYCLE_BIN_FAIL_OP_OBJECTS
+  eng "Fail to %s %s in database %s, error code %d"
+
+ER_RECYCLE_BIN_FAIL_OF_CONSTRAINT
+  eng "Fail to drop %s.%s because it has trigger %s"
+
+ER_REYCLE_BIN_INVALID_TIME
+  eng "Invalid timestamp, please check the parameters of the timestamp"
 ################################################################################
 # them for other error messages.
 ################################################################################

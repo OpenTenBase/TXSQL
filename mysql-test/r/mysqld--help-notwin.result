@@ -48,6 +48,11 @@ The following options may be given as the first argument:
  --admin-username-prefix=name 
  User name prefixed with this string is treated as admin
  user
+ --allow-access-dd-tables 
+ allow current user to access the dd tables
+ --allow-rollback-last-query 
+ Allow to rollback last query of the transaction by
+ ROLLBACK LAST QUERY
  --allow-suspicious-udfs 
  Allows use of UDFs consisting of only one symbol xxx()
  without corresponding xxx_init() or xxx_deinit(). That
@@ -70,6 +75,21 @@ The following options may be given as the first argument:
  --auto-increment-offset[=#] 
  Offset added to Auto-increment columns. Used when
  auto-increment-increment != 1
+ --auto-perf-node-request 
+ start a new RO node as statistic node.
+ --auto-stats-interval-begin[=name] 
+ start time of auto statistic. This var need to be set
+ together with auto_stats_interval_duration, otherwise
+ this will not take effect.
+ --auto-stats-interval-duration[=#] 
+ Set the duration of auto statistic in hours. This var
+ need to be set together with auto_stats_interval_begin,
+ otherwise this will not take effect.
+ --auto-stats-node-selection[=name] 
+ cdb node_role value to assign when mysqld startup. SLAVE
+ means backup node, STANDBY means read-only node.
+ --auto-stats-thread-monitor-interval[=#] 
+ Interval to monitor from master to slave.
  --autocommit        Set default value for autocommit (0 or 1)
  (Defaults to on; use --skip-autocommit to disable.)
  --automatic-sp-privileges 
@@ -271,6 +291,8 @@ The following options may be given as the first argument:
  audit switch
  --cdb-audit-truncat-sql-len[=#] 
  Audit sql text truncate length 
+ --cdb-auto-statistics-enabled 
+ Enable auto statistics for histogram.
  --cdb-column-encryption-whitelist=name 
  allows user to access column encryption data,if set 0 or
  empty string means no priv limit 
@@ -301,6 +323,13 @@ The following options may be given as the first argument:
  --cdb-hash-scan-max-agg-event-size[=#] 
  Maximum event size allowed after aggregation. Default is
  0 and if variable is 0, the event aggregation never work
+ --cdb-instance-mode[=name] 
+ cdb_instance_mode value to assign when mysqld works.
+ CDB_INSTANCEMODE_READWRITE means accept any requests,
+ CDB_INSTANCEMODE_LOCKWRITE means doesn't accept write
+ requests, CDB_INSTANCEMODE_LOCKREAD means doesn't accept
+ read requests, users with super privilege will be handled
+ uninfluential 
  --cdb-instant-modify-column-enabled 
  Enable instant modify column. Default is FALSE
  --cdb-kill-idle-trans-timeout[=#] 
@@ -330,6 +359,9 @@ The following options may be given as the first argument:
  --cdb-optimize-large-trans-binlog-last-affected-rows-threshold=# 
  Optimize large transaction binlog format from row to
  statement, and it's one of thresholds of sql tatistics.
+ --cdb-optimize-ps-priv-check 
+ This option is deprecated. Use txsql_simplify_priv_check
+ instead.
  --cdb-plan-cache    Plan cache switch. When cdb_plan_cache turns on, some SQL
  execution plan will be saved and optimize once. Currently
  it works on some limited prepare statement. 
@@ -364,15 +396,33 @@ The following options may be given as the first argument:
  usage. (THIS WILL HEAVILY IMPACT PERFORMANCE! DO NOT
  ENABLEIF YOU DON'T KNOW WHAT YOU ARE DOING!)
  --cdb-recycle-bin-db-not-visible 
- switch of recycle bin
+ This option is deprecated. Use
+ txsql_recycle_bin_db_not_visible instead.
  (Defaults to on; use --skip-cdb-recycle-bin-db-not-visible to disable.)
  --cdb-recycle-bin-enabled 
- switch of recycle bin
+ This option is deprecated. Use txsql_recycle_bin_enabled
+ instead.
  --cdb-recycle-bin-retention=# 
- Retention time of each table in recycle bin.
+ This option is deprecated. Use
+ txsql_recycle_bin_retention instead.
  --cdb-recycle-scheduler-interval=# 
- Schedule interval time of each check whether exists table
- to be purged in recycle bin database.
+ This option is deprecated. Use
+ txsql_recycle_scheduler_interval instead.
+ --cdb-replica-host-detection 
+ Autocomplete the Hostname or IP of the slave if the
+ option report_host is not set, deriving from the
+ connection. Auto-detection has the limitation documented
+ with report_host.
+ (Defaults to on; use --skip-cdb-replica-host-detection to disable.)
+ --cdb-role=name     Set the role of the current node in a flat replication
+ cluster. CDB_ROLE_MASTER and CDB_ROLE_SLAVE nodes form a
+ HA group. Changes come from CCDB_ROLE_MASTER and get
+ applied to CDB_ROLE_SLAVE. CDB_ROLE_RO form another group
+ of nodes that also apply changes but do not participate
+ in HA. In most cases, there is only one CDB_ROLE_SLAVE in
+ an HA group, and it does not serve user requests.
+ Changing the role requires stopping or reconnecting the
+ replication channel.
  --cdb-session-var-privilege-check-enabled 
  Enable SESSION_VARIABLES_ADMIN privilege check for some
  session variables which may cause replication problems,
@@ -652,6 +702,9 @@ The following options may be given as the first argument:
  --histogram-history-versions-limit=# 
  The maximum number of records per column in the table
  mysql.column_statistics_history.
+ --histogram-statistics-concurrency[=#] 
+ limitation of concurrency of the histogram statistics.It
+ takes effect only when the slave host and port are set.
  --host-cache-size=# How many host names should be cached to avoid resolving.
  --information-schema-stats-expiry=# 
  The number of seconds after which mysqld server will
@@ -957,6 +1010,8 @@ The following options may be given as the first argument:
  --no-dd-upgrade     Abort restart if automatic upgrade or downgrade of the
  data dictionary is needed. Deprecated option. Use
  --upgrade=NONE instead.
+ --num-seq-threads[=#] 
+ Number of sequence worker threads.
  --offline-mode      Make the server into offline mode
  --old               Use compatible behavior
  --old-alter-table   Use old, non-optimized alter table
@@ -1305,6 +1360,15 @@ The following options may be given as the first argument:
  --read-rnd-buffer-size=# 
  When reading rows in sorted order after a sort, the rows
  are read through this buffer to avoid a disk seeks
+ --recycle-bin-drop-if-exceed-limit 
+ This option is deprecated. Use
+ txsql_recycle_bin_drop_if_exceed_limit instead.
+ --recycle-bin-enabled 
+ This option is deprecated. Use txsql_recycle_bin_enabled
+ instead.
+ --recycle-bin-max-size[=#] 
+ This option is deprecated. Use txsql_recycle_bin_max_size
+ instead.
  --recycle-bin-startup-mode=name 
  Set which database is used by recycle bin. CDB mode
  specifies to use the __cdb_recycle_bin database; TXSQL
@@ -1550,6 +1614,11 @@ The following options may be given as the first argument:
  select_into_sync_disk = ON.
  --select-update-enable-semi-read 
  Enable semi-read for statement like select for update
+ --seq-currval-before-first-nextval-return-error 
+ Currval before first nextval return error if setting to
+ true
+ --sequence-same-nextval-in-query 
+ Same nextval in one statement if setting to true
  --server-id=#       Uniquely identifies the server instance in the community
  of replication partners
  --server-id-bits=#  Set number of significant bits in server-id
@@ -1877,9 +1946,27 @@ The following options may be given as the first argument:
  dive. If histogram for the first index column is missing,
  fall back to index dive. Use guesstimates for other
  columns without histograms.
+ --txsql-recycle-bin-db-not-visible 
+ switch of recycle bin
+ (Defaults to on; use --skip-txsql-recycle-bin-db-not-visible to disable.)
+ --txsql-recycle-bin-drop-if-exceed-limit 
+ drop table if exceeding limit size of recycle bin
+ --txsql-recycle-bin-enabled 
+ switch of recycle bin
+ --txsql-recycle-bin-max-size[=#] 
+ Max size of recycle bin, Note we allow first exceeding
+ limit of size, but next drop will fail
+ --txsql-recycle-bin-retention=# 
+ Retention time of each table in recycle bin.
+ --txsql-recycle-scheduler-interval=# 
+ Schedule interval time of each check whether exists table
+ to be purged in recycle bin database.
  --txsql-root-user-mode=name 
  What kind of root user mode used.
  --txsql-row-count   Sets the total size of the transactional cache
+ --txsql-simplify-priv-check 
+ Enable to optimize privilege checking for prepared
+ statement and stored procedure.
  --txsql-slave-wait-group-done[=#] 
  when run cmd: stop slave, the slave's coordernate thread
  just received unfinish's trx,it will check whether has
@@ -1943,10 +2030,17 @@ admin-ssl-crlpath (No default value)
 admin-ssl-key (No default value)
 admin-tls-ciphersuites (No default value)
 admin-username-prefix tdsqlsys_
+allow-access-dd-tables FALSE
+allow-rollback-last-query FALSE
 allow-suspicious-udfs FALSE
 authentication-policy *,,
 auto-increment-increment 1
 auto-increment-offset 1
+auto-perf-node-request FALSE
+auto-stats-interval-begin 03:00
+auto-stats-interval-duration 1
+auto-stats-node-selection DEDICATED
+auto-stats-thread-monitor-interval 10
 autocommit TRUE
 automatic-sp-privileges TRUE
 avoid-temporal-upgrade FALSE
@@ -1986,6 +2080,7 @@ caching-sha2-password-public-key-path public_key.pem
 cdb-admin-port-allow-for-normal-user TRUE
 cdb-audit-action-enabled FALSE
 cdb-audit-truncat-sql-len 1024
+cdb-auto-statistics-enabled FALSE
 cdb-column-encryption-whitelist (No default value)
 cdb-convert-memory-to-innodb FALSE
 cdb-enable-key-rotate TRUE
@@ -1995,6 +2090,7 @@ cdb-enable-resource-statistics TRUE
 cdb-fire-wall-enabled FALSE
 cdb-forbid-mysql-write FALSE
 cdb-hash-scan-max-agg-event-size 0
+cdb-instance-mode READWRITE
 cdb-instant-modify-column-enabled FALSE
 cdb-kill-idle-trans-timeout 0
 cdb-kill-user-extra (No default value)
@@ -2004,6 +2100,7 @@ cdb-opt-outline-enabled FALSE
 cdb-optimize-large-trans-binlog FALSE
 cdb-optimize-large-trans-binlog-aver-affected-rows-threshold 10000
 cdb-optimize-large-trans-binlog-last-affected-rows-threshold 10000
+cdb-optimize-ps-priv-check FALSE
 cdb-plan-cache FALSE
 cdb-plan-cache-stats FALSE
 cdb-pt-filter TRUE
@@ -2018,6 +2115,8 @@ cdb-recycle-bin-db-not-visible TRUE
 cdb-recycle-bin-enabled FALSE
 cdb-recycle-bin-retention 604800
 cdb-recycle-scheduler-interval 0
+cdb-replica-host-detection TRUE
+cdb-role CDB_ROLE_UNKNOWN
 cdb-session-var-privilege-check-enabled FALSE
 cdb-kill-user-extra (No default value)
 cdb-optimize-large-trans-binlog FALSE
@@ -2102,6 +2201,7 @@ hidden-sensitive-variable FALSE
 histogram-generation-max-mem-size 20000000
 histogram-history-enabled FALSE
 histogram-history-versions-limit 5
+histogram-statistics-concurrency 10
 host-cache-size 279
 information-schema-stats-expiry 86400
 init-connect 
@@ -2202,6 +2302,7 @@ net-retry-count 10
 net-write-timeout 60
 new FALSE
 no-dd-upgrade FALSE
+num-seq-threads 4
 offline-mode FALSE
 old FALSE
 old-alter-table FALSE
@@ -2272,7 +2373,7 @@ performance-schema-max-socket-classes 10
 performance-schema-max-socket-instances -1
 performance-schema-max-sql-text-length 1024
 performance-schema-max-stage-classes 175
-performance-schema-max-statement-classes 231
+performance-schema-max-statement-classes 241
 performance-schema-max-statement-stack 10
 performance-schema-max-table-handles -1
 performance-schema-max-table-instances -1
@@ -2300,6 +2401,9 @@ range-optimizer-max-mem-size 8388608
 read-buffer-size 131072
 read-only FALSE
 read-rnd-buffer-size 262144
+recycle-bin-drop-if-exceed-limit FALSE
+recycle-bin-enabled FALSE
+recycle-bin-max-size 18446744073709551615
 recycle-bin-startup-mode NON
 regexp-stack-limit 8000000
 regexp-time-limit 32
@@ -2345,6 +2449,8 @@ select-into-buffer-size 131072
 select-into-disk-sync FALSE
 select-into-disk-sync-delay 0
 select-update-enable-semi-read FALSE
+seq-currval-before-first-nextval-return-error FALSE
+sequence-same-nextval-in-query FALSE
 server-id 1
 server-id-bits 32
 session-track-gtids OFF
@@ -2434,8 +2540,15 @@ txsql-found-rows 0
 txsql-load-data-local-strict-mode FALSE
 txsql-parallel-ddl-merge-sort-k-value 2
 txsql-range-estimation-by-histogram FALSE
+txsql-recycle-bin-db-not-visible TRUE
+txsql-recycle-bin-drop-if-exceed-limit FALSE
+txsql-recycle-bin-enabled FALSE
+txsql-recycle-bin-max-size 18446744073709551615
+txsql-recycle-bin-retention 604800
+txsql-recycle-scheduler-interval 0
 txsql-root-user-mode TENCENT_ROOT
 txsql-row-count 0
+txsql-simplify-priv-check FALSE
 txsql-slave-wait-group-done 60
 txsql-use-db 
 updatable-views-with-limit YES

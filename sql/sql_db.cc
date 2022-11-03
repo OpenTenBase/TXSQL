@@ -754,6 +754,18 @@ bool mysql_rm_db(THD *thd, const LEX_CSTRING &db, bool if_exists) {
     return true;
   }
 
+  bool is_recyle_bin = (strcasecmp(db.str, RECYCLE_BIN_SCHEMA_NAME.str) == 0);
+
+  bool enable_recycle = (!is_recyle_bin && txsql_recycle_bin_enabled &&
+                         thd->system_thread != SYSTEM_THREAD_SLAVE_SQL &&
+                         thd->system_thread != SYSTEM_THREAD_SLAVE_WORKER);
+
+  /** Only txsql or tdsql user allows to drop recycle bin database */
+  if (is_recyle_bin && !(thd->is_system_thread())) {
+    my_error(ER_NO_SYSTEM_SCHEMA_ACCESS, MYF(0), db.str);
+    return true;
+  }
+
   if (lock_schema_name(thd, db.str)) return true;
 
   build_table_filename(path, sizeof(path) - 1, db.str, "", "", 0);
@@ -825,6 +837,13 @@ bool mysql_rm_db(THD *thd, const LEX_CSTRING &db, bool if_exists) {
         lock_db_routines(thd, *schema) || lock_trigger_names(thd, tables))
       return true;
 
+    if (enable_recycle) {
+      /** Temp tables are directly dropped. */
+      bool failback = false;
+      tables = mysql_recycle_list(thd, tables, error, failback);
+      if (error) return true;
+    }
+
     /* mysql_ha_rm_tables() requires a non-null TABLE_LIST. */
     if (tables) mysql_ha_rm_tables(thd, tables);
 
@@ -869,9 +888,15 @@ bool mysql_rm_db(THD *thd, const LEX_CSTRING &db, bool if_exists) {
       thd->clear_error(); /* @todo Do not ignore errors */
       Disable_binlog_guard binlog_guard(thd);
       error = Events::drop_schema_events(thd, *schema);
-      error = (error || sp_drop_db_routines(thd, *schema));
       if (!error) {
-        drop_db_sequences(thd, db.str);
+        if (enable_recycle) {
+          db_object_recycle(thd, db.str, schema->id());
+        } else {
+          error = (error || sp_drop_db_routines(thd, *schema));
+          if (!error) {
+            drop_db_sequences(thd, db.str);
+          }
+        }
       }
     }
     thd->pop_internal_handler();
@@ -882,7 +907,13 @@ bool mysql_rm_db(THD *thd, const LEX_CSTRING &db, bool if_exists) {
       If database exists and there was no error we should
       write statement to binary log and remove DD entry.
     */
-    if (!error) error = write_db_cmd_to_binlog(thd, db.str, true);
+    if (!error) {
+      if (enable_recycle) {
+        thd->get_transaction()->xid_state()->reset();
+        thd->get_transaction()->xid_state()->set_query_id(next_query_id());
+      }
+      error = write_db_cmd_to_binlog(thd, db.str, true);
+    }
 
     if (!error) error = trans_commit_stmt(thd) || trans_commit(thd);
 

@@ -343,7 +343,7 @@ Query_block *build_show_databases_query(const POS &pos, THD *thd, String *wild,
           FROM information_schema.schemata NOT LIKE RECYCLE_BIN_SCHEMA_NAME.str;
     ...
   */
-  if (cdb_recycle_bin_db_not_visible) {
+  if (txsql_recycle_bin_db_not_visible) {
     String *cond = new (thd->mem_root)
         String(RECYCLE_BIN_SCHEMA_NAME.str, system_charset_info);
     if (!cond) return nullptr;

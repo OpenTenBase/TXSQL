@@ -3732,7 +3732,10 @@ LEX::LEX()
       is_lex_started(false),
       in_update_value_clause(false),
       will_contextualize(true),
-      wait_time(ULONG_MAX) {
+      wait_time(ULONG_MAX),
+      restore_table(nullptr),
+      restore_time(0),
+      clear_before_time(0) {
   reset_query_tables_list(true);
   gts = 0;
   gts_xa = 0;

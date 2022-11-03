@@ -1,0 +1,2 @@
+--txsql_root_user_mode=TDSQL_ROOT
+--skip_event_scheduler=on

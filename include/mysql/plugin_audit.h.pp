@@ -352,6 +352,10 @@ enum enum_sql_command {
   SQLCOM_SHOW_STATS_TASKS,
   SQLCOM_SHOW_STATS_NODE,
   SQLCOM_SHOW_TLOGS,
+  SQLCOM_RESTORE_FROM_RECYCLE_BIN,
+  SQLCOM_CLEAR_FROM_RECYCLE_BIN,
+  SQLCOM_SHOW_RECYCLE_BIN,
+  SQLCOM_END
 };
 #include "plugin_audit_message_types.h"
 typedef enum {

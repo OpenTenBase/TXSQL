@@ -4220,6 +4220,31 @@ struct LEX : public Query_tables_list {
   */
   ulong wait_time;
 
+  /** Restore the table from recycle bin. The format is db.name */
+  Table_ident *restore_table;
+
+  /** Restore all tables that belong to the db from recycle bin */
+  const char *restore_db;
+
+  /** Restore the table with this timestamp */
+  time_t restore_time;
+
+  /** Whether restore_table is the recycle_name in recycle_bin_info */
+  const char *recycle_name;
+
+  /** Clear tables before the timestamp from recycle bin */
+  time_t clear_before_time;
+
+  /** False if it wants to drop the table directly without moving
+  it to recycle bin */
+  bool drop_without_recycle;
+
+  /** The tablename to be cleared, format db.name. If all is not specified,
+  then only the oldest one is removed from recycle bin */
+  Table_ident *clear_table_name;
+
+  bool clear_all_name;
+
   LEX();
 
   virtual ~LEX();

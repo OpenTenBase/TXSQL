@@ -9,8 +9,12 @@ Note	####	Storing MySQL user name or password information in the master info rep
 call mtr.add_suppression("access __txsql_recycle_bin__ fail, the query string is");
 # open recycle bin on master
 set global cdb_recycle_bin_enabled = on;
+Warnings:
+Warning	1287	'@@cdb_recycle_bin_enabled' is deprecated and will be removed in a future release. Please use txsql_recycle_bin_enabled instead.
 # open recycle bin on slave
 set global cdb_recycle_bin_enabled = on;
+Warnings:
+Warning	1287	'@@cdb_recycle_bin_enabled' is deprecated and will be removed in a future release. Please use txsql_recycle_bin_enabled instead.
 #
 # Run 
 #
@@ -21,6 +25,8 @@ set global cdb_recycle_bin_enabled = on;
 # case1.1. replicate truncate table while the cdb_recycle_bin_enable of
 #          slave is off
 set global cdb_recycle_bin_enabled= off;
+Warnings:
+Warning	1287	'@@cdb_recycle_bin_enabled' is deprecated and will be removed in a future release. Please use txsql_recycle_bin_enabled instead.
 create table t1 (a int);
 show create table t1;
 Table	Create Table
@@ -66,6 +72,8 @@ t1	CREATE TABLE `t1` (
 # case1.2. replicate truncate table while the cdb_recycle_bin_enable of
 #          slave is on
 set global cdb_recycle_bin_enabled= on;
+Warnings:
+Warning	1287	'@@cdb_recycle_bin_enabled' is deprecated and will be removed in a future release. Please use txsql_recycle_bin_enabled instead.
 create table t2 (a int);
 show create table t2;
 Table	Create Table
@@ -255,6 +263,8 @@ call mtr.add_suppression("is missing!");
 # case3.1 crash before first commit
 #        
 set global cdb_recycle_bin_enabled = on;
+Warnings:
+Warning	1287	'@@cdb_recycle_bin_enabled' is deprecated and will be removed in a future release. Please use txsql_recycle_bin_enabled instead.
 set session debug="+d,rb_crash_before_commit1";
 #
 # crash at rb_crash_before_commit1
@@ -273,6 +283,8 @@ debug
 # case3.2 crash after first commit
 #        
 set global cdb_recycle_bin_enabled = on;
+Warnings:
+Warning	1287	'@@cdb_recycle_bin_enabled' is deprecated and will be removed in a future release. Please use txsql_recycle_bin_enabled instead.
 set session debug="+d,rb_crash_after_commit1";
 #
 # crash at rb_crash_after_commit1
@@ -307,6 +319,8 @@ insert into t6 values(2);
 # case3.3 crash after second commit
 #        
 set global cdb_recycle_bin_enabled = on;
+Warnings:
+Warning	1287	'@@cdb_recycle_bin_enabled' is deprecated and will be removed in a future release. Please use txsql_recycle_bin_enabled instead.
 set session debug="+d,rb_crash_after_commit2";
 #
 # crash at rb_crash_after_commit2
@@ -343,6 +357,8 @@ Tables_in___txsql_recycle_bin__
 # case4.1 create table like error 
 #        
 set global cdb_recycle_bin_enabled = on;
+Warnings:
+Warning	1287	'@@cdb_recycle_bin_enabled' is deprecated and will be removed in a future release. Please use txsql_recycle_bin_enabled instead.
 create table t7(a int);
 insert into t7 values(1);
 set session debug="+d,rb_fail_to_create_table";
@@ -372,6 +388,8 @@ set session debug="-d,rb_fail_to_create_table";
 # case4.2 with foreign key 
 #  
 set global cdb_recycle_bin_enabled = on;
+Warnings:
+Warning	1287	'@@cdb_recycle_bin_enabled' is deprecated and will be removed in a future release. Please use txsql_recycle_bin_enabled instead.
 create table t8_parent(a int primary key);
 create table t8_child(
 a int not null,
@@ -463,6 +481,10 @@ call sys.recycle_bin_purge_table("<RECYCLED_TABLE>");
 # Cleanup 
 # 
 set global cdb_recycle_bin_enabled=0;
+Warnings:
+Warning	1287	'@@cdb_recycle_bin_enabled' is deprecated and will be removed in a future release. Please use txsql_recycle_bin_enabled instead.
 set global cdb_recycle_bin_enabled=0;
+Warnings:
+Warning	1287	'@@cdb_recycle_bin_enabled' is deprecated and will be removed in a future release. Please use txsql_recycle_bin_enabled instead.
 [connection master]
 include/rpl_end.inc
