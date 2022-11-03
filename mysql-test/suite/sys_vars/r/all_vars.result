@@ -16,8 +16,14 @@ left join t1 on variable_name=test_name where test_name is null ORDER BY variabl
 There should be *no* variables listed below:
 activate_all_roles_on_login
 activate_all_roles_on_login
+admin_username_prefix
+admin_username_prefix
+allow_rollback_last_query
+allow_rollback_last_query
 authentication_policy
 authentication_policy
+auto_stats_node_selection
+auto_stats_node_selection
 binlog_encryption
 binlog_encryption
 binlog_expire_logs_auto_purge
@@ -130,6 +136,8 @@ innodb_page_hash_cell_factor
 innodb_page_hash_cell_factor
 innodb_page_reserve_factor
 innodb_page_reserve_factor
+innodb_stats_recalc_with_histogram
+innodb_stats_recalc_with_histogram
 innodb_stats_skip_adjustment_for_primary_key
 innodb_stats_skip_adjustment_for_primary_key
 innodb_txsql_ddl_buffer_size
@@ -158,6 +166,8 @@ merge_join_buffer_size
 merge_join_buffer_size
 new_connection_action_when_resource_group_overrun
 new_connection_action_when_resource_group_overrun
+num_seq_threads
+num_seq_threads
 optimizer_max_subgraph_pairs
 optimizer_max_subgraph_pairs
 partial_revokes
@@ -228,6 +238,10 @@ select_into_disk_sync_delay
 select_into_disk_sync_delay
 select_update_enable_semi_read
 select_update_enable_semi_read
+seq_currval_before_first_nextval_return_error
+seq_currval_before_first_nextval_return_error
+sequence_same_nextval_in_query
+sequence_same_nextval_in_query
 session_track_lock
 session_track_lock
 session_track_udf_var

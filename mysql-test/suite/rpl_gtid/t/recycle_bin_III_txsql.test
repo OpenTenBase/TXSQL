@@ -1,0 +1,583 @@
+--source include/have_log_bin.inc
+--source include/have_binlog_format_row.inc
+--source include/master-slave.inc
+--source include/have_debug.inc
+
+--echo #
+--echo #  Prepare
+--echo #
+
+connect (con_tencentroot_master, 127.0.0.1, tencentroot, '', '', $MASTER_MYPORT);
+--let $txsql_recycle_bin_enabled_default= `select @@txsql_recycle_bin_enabled`
+--echo # open recycle bin on master
+set global txsql_recycle_bin_enabled = on;
+
+connect (con_tencentroot_slave, 127.0.0.1, tencentroot, '', '', $SLAVE_MYPORT);
+--echo # open recycle bin on slave
+set global txsql_recycle_bin_enabled = on;
+
+--echo #
+--echo # Run 
+--echo #
+
+--echo #
+--echo # case1. Test clear stmt
+--echo #
+
+--echo #
+--echo # case1.1. clear table while the txsql_recycle_bin_enable of slave is off
+--echo #
+
+--connection con_tencentroot_slave
+set global txsql_recycle_bin_enabled= off;
+
+--connection con_tencentroot_master
+
+CREATE DATABASE test_recycle_bin;
+use test_recycle_bin;
+
+create table aa(a int);
+create table bb(a int);
+create table cc(a int);
+create table dd(a int);
+create view vb as select * from bb;
+
+drop table aa;
+drop table bb;
+drop table cc;
+drop table dd;
+create table aa(a int);
+create table bb(a int);
+create table cc(a int);
+create table dd(a int);
+drop database test_recycle_bin;
+
+--replace_column 1 #
+show tables from __txsql_recycle_bin__;
+--replace_column 3 # 4 # 5 #
+show recycle_bin;
+
+--sync_slave_with_master
+--connection con_tencentroot_slave
+
+--replace_column 1 #
+show tables from __txsql_recycle_bin__;
+--replace_column 3 # 4 # 5 #
+show recycle_bin;
+
+--connection con_tencentroot_master
+
+clear recycle_bin test_recycle_bin.zz;
+
+clear recycle_bin test_recycle_bin.aa before timestamp(DATE_SUB(NOW(), INTERVAL 10 DAY));
+
+# Only the oldest one is deleted by default.
+clear recycle_bin test_recycle_bin.aa before timestamp(DATE_ADD(NOW(), INTERVAL 10 DAY));
+
+# Delete all tables with the name bb .
+clear recycle_bin all test_recycle_bin.bb;
+
+--replace_column 1 #
+show tables from __txsql_recycle_bin__;
+--replace_column 3 # 4 # 5 #
+show recycle_bin;
+
+--sync_slave_with_master
+--connection con_tencentroot_slave
+
+--replace_column 1 #
+show tables from __txsql_recycle_bin__;
+--replace_column 3 # 4 # 5 #
+show recycle_bin;
+
+--connection con_tencentroot_master
+
+# clear all.
+clear recycle_bin;
+
+--replace_column 1 #
+show tables from __txsql_recycle_bin__;
+--replace_column 3 # 4 # 5 #
+show recycle_bin;
+
+--sync_slave_with_master
+--connection con_tencentroot_slave
+
+--replace_column 1 #
+show tables from __txsql_recycle_bin__;
+--replace_column 3 # 4 # 5 #
+show recycle_bin;
+
+--echo #
+--echo # case1.2. clear table while the txsql_recycle_bin_enable of slave is on
+--echo #
+
+--connection con_tencentroot_slave
+set global txsql_recycle_bin_enabled= off;
+--connection con_tencentroot_master
+
+CREATE DATABASE test_recycle_bin;
+use test_recycle_bin;
+
+create table aa(a int);
+create table bb(a int);
+create table cc(a int);
+create table dd(a int);
+create view vb as select * from bb;
+
+drop table aa;
+drop table bb;
+drop table cc;
+drop table dd;
+create table aa(a int);
+create table bb(a int);
+create table cc(a int);
+create table dd(a int);
+drop database test_recycle_bin;
+
+--replace_column 1 #
+show tables from __txsql_recycle_bin__;
+--replace_column 3 # 4 # 5 #
+show recycle_bin;
+
+--sync_slave_with_master
+--connection con_tencentroot_slave
+
+--replace_column 1 #
+show tables from __txsql_recycle_bin__;
+--replace_column 3 # 4 # 5 #
+show recycle_bin;
+
+--connection con_tencentroot_master
+
+clear recycle_bin test_recycle_bin.zz;
+
+clear recycle_bin test_recycle_bin.aa before timestamp(DATE_SUB(NOW(), INTERVAL 10 DAY));
+
+# Only the oldest one is deleted by default.
+clear recycle_bin test_recycle_bin.aa before timestamp(DATE_ADD(NOW(), INTERVAL 10 DAY));
+
+# Delete all tables with the name bb .
+clear recycle_bin all test_recycle_bin.bb;
+
+--replace_column 1 #
+show tables from __txsql_recycle_bin__;
+--replace_column 3 # 4 # 5 #
+show recycle_bin;
+
+--sync_slave_with_master
+--connection con_tencentroot_slave
+
+--replace_column 1 #
+show tables from __txsql_recycle_bin__;
+--replace_column 3 # 4 # 5 #
+show recycle_bin;
+
+--connection con_tencentroot_master
+
+# clear all.
+clear recycle_bin;
+
+--replace_column 1 #
+show tables from __txsql_recycle_bin__;
+--replace_column 3 # 4 # 5 #
+show recycle_bin;
+
+--sync_slave_with_master
+--connection con_tencentroot_slave
+
+--replace_column 1 #
+show tables from __txsql_recycle_bin__;
+--replace_column 3 # 4 # 5 #
+show recycle_bin;
+
+--echo #
+--echo # case2. Test restore stmt
+--echo #
+
+--echo #
+--echo # case2.1. restore table while the txsql_recycle_bin_enable of slave is off
+--echo #
+
+--connection con_tencentroot_slave
+set global txsql_recycle_bin_enabled= off;
+--connection con_tencentroot_master
+
+CREATE DATABASE test_recycle_bin;
+use test_recycle_bin;
+
+create table aa(a int);
+create table bb(a int);
+create table cc(a int);
+create table dd(a int);
+create view vb as select * from bb;
+drop table aa;
+drop table bb;
+drop table cc;
+drop table dd;
+sleep 2;
+create table aa(a int);
+create table bb(a int);
+create table cc(a int);
+create table dd(a int);
+drop database test_recycle_bin;
+
+--error ER_BAD_DB_ERROR
+restore test_recycle_bin.aa from recycle_bin;
+
+--error ER_RECYCLE_BIN_DUPLICATE_TABLE
+restore database test_recycle_bin from recycle_bin;
+
+create database test_recycle_bin;
+
+--error ER_RECYCLE_BIN_NOT_FOUND
+restore test_recycle_bin.zz from recycle_bin;
+
+--error ER_RECYCLE_BIN_NOT_FOUND
+restore test_recycle_bin.aa from recycle_bin with recycle_name aaa;
+
+--error ER_RECYCLE_BIN_NOT_FOUND
+restore test_recycle_bin.aa from recycle_bin with timestamp(DATE_ADD(NOW(), INTERVAL 10 DAY));
+
+# will only restore the latest table
+restore test_recycle_bin.aa from recycle_bin;
+
+let $recycle_name = `select table_name from mysql.recycle_bin_info where origin_table = 'bb' limit 1;`;
+--replace_regex /__txsql_.*__/<recycle_name>/
+eval restore test_recycle_bin.bb from recycle_bin with recycle_name $recycle_name;
+
+let $drop_time = `select drop_time from mysql.recycle_bin_info where origin_table = 'cc' limit 1;`;
+--replace_regex /'.*-.*'/<drop_tim>/
+eval restore test_recycle_bin.cc from recycle_bin with timestamp('$drop_time');
+
+--replace_column 1 #
+show tables from __txsql_recycle_bin__;
+--replace_column 3 # 4 # 5 #
+show recycle_bin;
+
+--sync_slave_with_master
+--connection con_tencentroot_slave
+
+--replace_column 1 #
+show tables from __txsql_recycle_bin__;
+--replace_column 3 # 4 # 5 #
+show recycle_bin;
+--connection con_tencentroot_master
+
+--error ER_RECYCLE_BIN_DUPLICATE_TABLE
+restore database test_recycle_bin from recycle_bin;
+
+set global txsql_recycle_bin_enabled= off;
+drop database test_recycle_bin;
+create database test_recycle_bin;
+set global txsql_recycle_bin_enabled= on;
+
+--error ER_RECYCLE_BIN_DUPLICATE_TABLE
+restore database test_recycle_bin from recycle_bin;
+
+clear recycle_bin test_recycle_bin.dd;
+restore database test_recycle_bin from recycle_bin;
+
+--replace_column 1 #
+show tables from __txsql_recycle_bin__;
+--replace_column 3 # 4 # 5 #
+show recycle_bin;
+
+--sync_slave_with_master
+--connection con_tencentroot_slave
+
+--replace_column 1 #
+show tables from __txsql_recycle_bin__;
+--replace_column 3 # 4 # 5 #
+show recycle_bin;
+--connection con_tencentroot_master
+
+drop database test_recycle_bin;
+clear recycle_bin;
+
+--echo #
+--echo # case2.2. restore table while the txsql_recycle_bin_enable of slave is on
+--echo #
+
+--connection con_tencentroot_slave
+set global txsql_recycle_bin_enabled= on;
+--connection con_tencentroot_master
+
+CREATE DATABASE test_recycle_bin;
+use test_recycle_bin;
+
+create table aa(a int);
+create table bb(a int);
+create table cc(a int);
+create table dd(a int);
+create view vb as select * from bb;
+drop table aa;
+drop table bb;
+drop table cc;
+drop table dd;
+sleep 2;
+create table aa(a int);
+create table bb(a int);
+create table cc(a int);
+create table dd(a int);
+
+drop database test_recycle_bin;
+
+--error ER_BAD_DB_ERROR
+restore test_recycle_bin.aa from recycle_bin;
+
+--error ER_RECYCLE_BIN_DUPLICATE_TABLE
+restore database test_recycle_bin from recycle_bin;
+
+create database test_recycle_bin;
+
+--error ER_RECYCLE_BIN_NOT_FOUND
+restore test_recycle_bin.zz from recycle_bin;
+
+--error ER_RECYCLE_BIN_NOT_FOUND
+restore test_recycle_bin.aa from recycle_bin with recycle_name aaa;
+
+--error ER_RECYCLE_BIN_NOT_FOUND
+restore test_recycle_bin.aa from recycle_bin with timestamp(DATE_ADD(NOW(), INTERVAL 10 DAY));
+
+# will only restore the latest table
+restore test_recycle_bin.aa from recycle_bin;
+
+let $recycle_name = `select table_name from mysql.recycle_bin_info where origin_table = 'bb' limit 1;`;
+--replace_regex /__txsql_.*__/<recycle_name>/
+eval restore test_recycle_bin.bb from recycle_bin with recycle_name $recycle_name;
+
+let $drop_time = `select drop_time from mysql.recycle_bin_info where origin_table = 'cc' limit 1;`;
+--replace_regex /'.*-.*'/<drop_tim>/
+eval restore test_recycle_bin.cc from recycle_bin with timestamp('$drop_time');
+
+--replace_column 1 #
+show tables from __txsql_recycle_bin__;
+--replace_column 3 # 4 # 5 #
+show recycle_bin;
+
+--sync_slave_with_master
+--connection con_tencentroot_slave
+
+--replace_column 1 #
+show tables from __txsql_recycle_bin__;
+--replace_column 3 # 4 # 5 #
+show recycle_bin;
+--connection con_tencentroot_master
+
+--error ER_RECYCLE_BIN_DUPLICATE_TABLE
+restore database test_recycle_bin from recycle_bin;
+
+set global txsql_recycle_bin_enabled= off;
+drop database test_recycle_bin;
+create database test_recycle_bin;
+set global txsql_recycle_bin_enabled= on;
+
+--error ER_RECYCLE_BIN_DUPLICATE_TABLE
+restore database test_recycle_bin from recycle_bin;
+
+clear recycle_bin test_recycle_bin.dd;
+
+restore database test_recycle_bin from recycle_bin;
+
+--replace_column 1 #
+show tables from __txsql_recycle_bin__;
+--replace_column 3 # 4 # 5 #
+show recycle_bin;
+
+--sync_slave_with_master
+--connection con_tencentroot_slave
+
+--replace_column 1 #
+show tables from __txsql_recycle_bin__;
+--replace_column 3 # 4 # 5 #
+show recycle_bin;
+--connection con_tencentroot_master
+
+drop database test_recycle_bin;
+clear recycle_bin;
+
+--echo #
+--echo # case3. Test recycle_bin_max_size and recycle_bin_drop_if_exceed_limit
+--echo #
+--connection con_tencentroot_master
+use test;
+create table aa(a int);
+create table bb(a int);
+
+set global txsql_recycle_bin_max_size = 1;
+set global txsql_recycle_bin_drop_if_exceed_limit = 0;
+
+drop table bb;
+--error ER_RECYCLE_BIN_LIMIT_EXCEED
+drop table aa;
+
+set global txsql_recycle_bin_drop_if_exceed_limit = 1;
+drop table aa;
+
+set global txsql_recycle_bin_max_size = default;
+set global txsql_recycle_bin_drop_if_exceed_limit = default;
+
+clear recycle_bin;
+
+--replace_column 1 #
+show tables from __txsql_recycle_bin__;
+--replace_column 3 # 4 # 5 #
+show recycle_bin;
+
+--sync_slave_with_master
+--connection con_tencentroot_slave
+
+--replace_column 1 #
+show tables from __txsql_recycle_bin__;
+--replace_column 3 # 4 # 5 #
+show recycle_bin;
+--connection con_tencentroot_master
+
+--echo #
+--echo # case4. Test recycle sequence
+--echo #
+
+create database db_a;
+use db_a;
+create tdsql_sequence sb_seq;
+select sb_seq.nextval;
+
+--sync_slave_with_master
+--connection con_tencentroot_slave
+--replace_regex /.*__recycle_bin__db_a/__recycle_bin__db_a/
+select * from mysql.tdsql_sequences;
+--connection con_tencentroot_master
+
+drop database db_a;
+
+--sync_slave_with_master
+--connection con_tencentroot_slave
+--replace_regex /.*__recycle_bin__db_a/__recycle_bin__db_a/
+select * from mysql.tdsql_sequences;
+--connection con_tencentroot_master
+
+create database db_a;
+restore database db_a from RECYCLE_BIN;
+use db_a;
+select sb_seq.nextval;
+
+--sync_slave_with_master
+--connection con_tencentroot_slave
+--replace_regex /.*__recycle_bin__db_a/__recycle_bin__db_a/
+select * from mysql.tdsql_sequences;
+--connection con_tencentroot_master
+
+drop database db_a;
+clear recycle_bin;
+
+--echo #
+--echo # case5. Test recycle function and procedure
+--echo #
+--connection con_tencentroot_master
+create database db_a;
+use db_a;
+
+CREATE FUNCTION hello (s CHAR(20)) RETURNS CHAR(50) DETERMINISTIC RETURN CONCAT('Hello, ',s,'!');
+select hello("wx");
+drop database db_a;
+
+create database db_a;
+use db_a;
+--error ER_SP_DOES_NOT_EXIST
+select hello("wx");
+
+restore database db_a from RECYCLE_BIN;
+select hello("wx2");
+
+--sync_slave_with_master
+--connection con_tencentroot_slave
+use db_a;
+set allow_access_dd_tables=on;
+select * from mysql.routines where name like '%hello%';
+--error ER_SP_DOES_NOT_EXIST
+select hello("wx2");
+--connection con_tencentroot_master
+
+drop database db_a;
+clear recycle_bin;
+
+create database db_a;
+use db_a;
+
+create table t1 (a int);
+insert into t1 values (1);
+
+delimiter //;
+create procedure p1()
+begin
+  select * from t1;
+end//
+delimiter ;//
+
+call p1();
+
+drop database db_a;
+create database db_a;
+use db_a;
+--error ER_SP_DOES_NOT_EXIST
+call p1();
+
+restore database db_a from RECYCLE_BIN;
+use db_a;
+call p1();
+
+--sync_slave_with_master
+--connection con_tencentroot_slave
+use db_a;
+--error ER_SP_DOES_NOT_EXIST
+call p1();
+--connection con_tencentroot_master
+
+drop database db_a;
+clear recycle_bin;
+
+--echo #
+--echo # case6. Test drop table if exists
+--echo #
+
+--connection con_tencentroot_master
+
+CREATE DATABASE test_recycle_bin;
+use test_recycle_bin;
+
+create table aa(a int);
+create table bb(a int);
+
+drop table if exists aa, bb, cc, dd;
+
+--replace_column 1 #
+show tables from __txsql_recycle_bin__;
+--replace_column 3 # 4 # 5 #
+show recycle_bin;
+
+--sync_slave_with_master
+--connection con_tencentroot_slave
+
+--replace_column 1 #
+show tables from __txsql_recycle_bin__;
+--replace_column 3 # 4 # 5 #
+show recycle_bin;
+
+--connection con_tencentroot_master
+drop database test_recycle_bin;
+clear recycle_bin;
+
+--echo #
+--echo # Cleanup 
+--echo # 
+
+--connection con_tencentroot_slave
+--eval set global txsql_recycle_bin_enabled=$txsql_recycle_bin_enabled_default
+
+
+--connection con_tencentroot_master
+--eval set global txsql_recycle_bin_enabled=$txsql_recycle_bin_enabled_default
+
+--source include/rpl_connection_master.inc
+--source include/rpl_end.inc

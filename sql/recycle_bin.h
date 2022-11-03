@@ -17,6 +17,7 @@
 #include "sql/system_variables.h"
 #include "sql/rpl_table_access.h"
 #include "sql/sql_class.h"
+#include "sql/dd/impl/raw/raw_record.h"
 
 /**
   @todo learn and complete the doxygen style comment
@@ -35,8 +36,10 @@ enum enum_recycle_bin_op : int {
   RB_RECYCLE_TABLE_BY_DROP,    // for master drop table
   RB_RECYCLE_TABLE_BY_RENAME,  // for slave drop table or truncate table
   RB_PURGE_TABLE,              // purge recycle bin table
-  RB_RECOVERY_TABLE,           // recovery table from recycle bin
-  RB_RECYCLE_TABLE_BY_TRUNCATE // for master truncate table
+  RB_RECOVERY_TABLE_BY_RENAME, // recovery table by rename
+  RB_RECOVERY_TABLE_BY_RESTORE,// recovery table by restore
+  RB_RECYCLE_TABLE_BY_TRUNCATE,// for master truncate table
+  RB_RECYCLE_TABLE_BY_DROP_DATABASE
 };
 
 #define RB_DEBUG_INFO    "recycle_bin_info"
@@ -221,6 +224,16 @@ class Recycle_bin_persistor {
     FIELDS_COUNT
   };
 
+  enum KEYS {
+    KEY_PRIMARY = 0,
+    KEY_PURGE_TIME,
+    KEY_DROP_TIME,
+    KEY_SCHEMA_TABLE,
+    KEY_COUNT
+  };
+
+  static const uint key_parts[KEY_COUNT];
+
   Recycle_bin_persistor() = default;
   virtual ~Recycle_bin_persistor() = default;
 
@@ -291,6 +304,34 @@ class Recycle_bin_persistor {
   */
   int drop(THD *thd, Prealloced_array<TABLE_LIST *, 1> &tables);
 
+  /**
+    Show recycle bin info.
+
+    @param  thd Thread handler
+
+    @retval 0    OK.
+    @retval -1   Error.
+  */
+  int show_recycle_bin(THD *thd);
+
+  std::string find_latest_table(THD *thd, const char *db_name, const char *name,
+                                time_t timestamp, bool &error);
+
+  std::string find_latest_table_by_reycle_name(THD *thd,
+                                               const char *recycle_name,
+                                               time_t timestamp,
+                                               bool &error);
+
+  bool find_tables_before_time(THD *thd, time_t before_time,
+                               const char *db_name, const char *table_name,
+                               bool all, std::vector<std::string> &tables);
+
+  bool find_tables_before_time(THD *thd, time_t before_time, bool all,
+                               std::vector<std::string> &tables);
+
+  bool find_tables_from_db(THD *thd, const char *db_name,
+                           std::vector<Recycle_table_record> &tables);
+
  private:
   /**
     Write a row into the recycle_bin_info table.
@@ -323,6 +364,12 @@ class Recycle_bin_persistor {
     @retval -1   Error.
   */
   int delete_row(TABLE *table, const Recycle_table_record *record);
+
+  static bool match_schema_table_key(dd::Raw_record &record, const char *db,
+                                     const char *name);
+
+  static bool match_primary_key(dd::Raw_record &record,
+                                const char *recycle_name);
 };
 
 /**
@@ -445,6 +492,17 @@ static inline LEX_CSTRING make_lex_cstring(MEM_ROOT *mem_root,
   LEX_STRING lex_str = make_lex_string(mem_root, str);
   return LEX_CSTRING{lex_str.str, lex_str.length};
 }
+
+class Table_ident;
+bool is_recycle_bin_table(THD *thd, TABLE_LIST *table);
+size_t recycle_bin_data_size();
+TABLE_LIST* mysql_recycle_list(THD* thd, TABLE_LIST *tables, bool& error, bool& failback);
+bool mysql_restore_table(THD *thd, const char *db_name, const char *tb_name,
+                         const char *recycle_name, time_t timestamp);
+bool mysql_restore_db(THD *thd, const char  *db_name);
+bool mysql_clear_tables(THD *thd, time_t before_time, Table_ident *table_name, bool all);
+bool mysql_rename_tables(THD *thd, TABLE_LIST *table_list);
+bool show_recycle_bin(THD *thd);
 
 
 /**

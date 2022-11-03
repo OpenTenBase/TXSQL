@@ -20,6 +20,13 @@
 #include "sql/auth/sql_security_ctx.h"
 #include "include/mysql/components/services/log_builtins.h"
 #include "sql/dd/impl/raw/raw_record.h"
+#include "sql/protocol.h"
+#include "sql/sql_table.h"
+#include "sql/thd_raii.h"
+#include "sql/auth/auth_acls.h"
+#include "sql/dd/cache/dictionary_client.h"
+#include "sql/sp_cache.h"
+#include "sql/sp.h"
 /**
   @addtogroup  recycle_bin
   @{
@@ -29,6 +36,29 @@ const LEX_CSTRING Recycle_bin_access_context::TABLE_NAME = {
     STRING_WITH_LEN("recycle_bin_info")};
 const LEX_CSTRING Recycle_bin_access_context::DB_NAME = {
     STRING_WITH_LEN("mysql")};
+const uint Recycle_bin_persistor::key_parts[] = {1, 1, 1, 2};
+
+static TABLE_LIST *build_table_list(THD *thd, const char *db_name,
+                                    const char *table_name) {
+  TABLE_LIST *table_list = new (thd->mem_root) TABLE_LIST;
+  if (table_list == nullptr) {
+    return nullptr;
+  }
+
+  table_list->db = thd->mem_strdup(db_name);
+  table_list->db_length = strlen(db_name);
+  table_list->table_name = thd->mem_strdup(table_name);
+  table_list->table_name_length = strlen(table_name);
+  table_list->open_type = OT_BASE_ONLY;
+  table_list->alias = table_list->table_name;
+  table_list->internal_tmp_table = false;
+  MDL_REQUEST_INIT(&table_list->mdl_request, MDL_key::TABLE, table_list->db,
+                   table_list->table_name, MDL_EXCLUSIVE, MDL_TRANSACTION);
+  table_list->next_global = nullptr;
+  table_list->next_local = nullptr;
+
+  return table_list;
+}
 
 void Recycle_bin_access_context::before_open(THD *thd) {
   DBUG_TRACE;
@@ -301,17 +331,376 @@ end:
   return error;
 }
 
+int Recycle_bin_persistor::show_recycle_bin(THD *thd) {
+  int err = 0;
+  TABLE *table = nullptr;
+  Recycle_bin_access_context table_access_ctx;
+
+  /* Prepare list */
+  mem_root_deque<Item *> field_list(thd->mem_root);
+  Protocol *protocol = thd->get_protocol();
+  MYSQL_TIME time;
+
+  field_list.push_back(new Item_empty_string("db", NAME_LEN));
+  field_list.push_back(new Item_empty_string("table", NAME_LEN));
+  field_list.push_back(new Item_empty_string("recycle_table", NAME_LEN));
+  field_list.push_back(new Item_temporal(
+      MYSQL_TYPE_DATETIME, Name_string("drop_time", sizeof("drop_time") - 1), 0,
+      0));
+  field_list.push_back(new Item_temporal(
+      MYSQL_TYPE_DATETIME, Name_string("purge_time", sizeof("purge_time") - 1),
+      0, 0));
+
+  if (thd->send_result_metadata(field_list,
+                                Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF)) {
+    return true;
+  }
+
+  if (table_access_ctx.init(&thd, &table, true)) {
+    err = -1;
+    goto end;
+  }
+  /* Traverse all the record in recycle_bin_info. */
+  {
+    empty_record(table);
+    dd::Raw_record record{table};
+
+    if ((err = table->file->ha_index_init(0, true))) {
+      err = -1;
+      goto end;
+    }
+
+    for (err = table->file->ha_index_first(table->record[0]); !err;
+         err = table->file->ha_index_next(table->record[0])) {
+      protocol->start_row();
+      protocol->store(record.read_str(FIELD_ORIGIN_SCHEMA).c_str(),
+                      system_charset_info);
+      protocol->store(record.read_str(FIELD_ORIGIN_TABLE).c_str(),
+                      system_charset_info);
+      protocol->store(record.read_str(FIELD_TABLE_NAME).c_str(),
+                      system_charset_info);
+      thd->variables.time_zone->gmt_sec_to_TIME(
+          &time, (my_time_t)record.read_timestamp(FIELD_DROP_TIME).m_tv_sec);
+      protocol->store_datetime(time, 0);
+      thd->variables.time_zone->gmt_sec_to_TIME(
+          &time, (my_time_t)record.read_timestamp(FIELD_PURGE_TIME).m_tv_sec);
+      protocol->store_datetime(time, 0);
+      if (protocol->end_row()) {
+        break;
+        err = -1;
+      }
+    }
+
+    table->file->ha_index_end();
+
+    if (err != HA_ERR_END_OF_FILE) err = -1;
+    else err = 0;
+
+    my_eof(thd);
+  }
+
+end:
+  table_access_ctx.deinit(thd, table);
+
+  return err;
+}
+
+bool Recycle_bin_persistor::match_schema_table_key(
+    dd::Raw_record &record, const char *db, const char *table) {
+  bool match_field_db =
+      db != nullptr &&
+      my_strcasecmp(system_charset_info,
+                    record.read_str(FIELD_ORIGIN_SCHEMA).c_str(), db) == 0;
+  bool match_tield_table =
+      table == nullptr ||
+      my_strcasecmp(system_charset_info,
+                    record.read_str(FIELD_ORIGIN_TABLE).c_str(), table) == 0;
+  return match_field_db && match_tield_table;
+}
+
+bool Recycle_bin_persistor::match_primary_key(
+    dd::Raw_record &record, const char *recycle_name) {
+  bool match = recycle_name != nullptr &&
+               my_strcasecmp(system_charset_info,
+                             record.read_str(FIELD_TABLE_NAME).c_str(),
+                             recycle_name) == 0;
+  return match;
+}
+
+std::string Recycle_bin_persistor::find_latest_table(THD *thd,
+                                                     const char *db_name,
+                                                     const char *table_name,
+                                                     time_t timestamp,
+                                                     bool &error) {
+  TABLE *table = nullptr;
+  Recycle_bin_access_context table_access_ctx;
+  std::string latest_recycle_table;
+  int err = 0;
+  if (table_access_ctx.init(&thd, &table, false)) {
+    goto end;
+  }
+
+  {
+    empty_record(table);
+    dd::Raw_record record{table};
+
+    err = record.store(FIELD_ORIGIN_SCHEMA, dd::String_type(db_name)) ||
+          record.store(FIELD_ORIGIN_TABLE, dd::String_type(table_name));
+    if (err) goto end;
+
+    uchar user_key[MAX_KEY_LENGTH] = {0};
+    uint key_no = KEY_SCHEMA_TABLE;
+    KEY *key_info = table->key_info + key_no;
+    my_timeval latest_time = {0, 0};
+    latest_recycle_table.clear();
+
+    key_copy(user_key, table->record[0], key_info,
+             key_info->key_length);
+
+    if ((err = table->file->ha_index_init(key_no, true))) {
+      table->file->print_error(err, MYF(0));
+      goto end;
+    }
+
+    for ((err = table->file->ha_index_read_map(
+              table->record[0], user_key,
+              make_prev_keypart_map(key_parts[key_no]), HA_READ_PREFIX_LAST));
+         !err && match_schema_table_key(record, db_name, table_name);
+         (err = table->file->ha_index_prev(table->record[0]))) {
+      my_timeval time = record.read_timestamp(FIELD_DROP_TIME);
+      if (timestamp && timestamp != time.m_tv_sec) continue;
+
+      if (latest_time.m_tv_sec < time.m_tv_sec ||
+          (latest_time.m_tv_sec == time.m_tv_sec &&
+           latest_time.m_tv_usec < time.m_tv_usec)) {
+        latest_time = time;
+        latest_recycle_table.assign(record.read_str(FIELD_TABLE_NAME));
+      }
+    }
+
+    table->file->ha_index_end();
+    if (err == HA_ERR_END_OF_FILE || err == HA_ERR_KEY_NOT_FOUND) err = 0;
+  }
+end:
+  table_access_ctx.deinit(thd, table);
+  error = err;
+  return latest_recycle_table;
+}
+
+std::string Recycle_bin_persistor::find_latest_table_by_reycle_name(
+    THD *thd, const char *recycle_name, time_t timestamp, bool &error) {
+  TABLE *table = nullptr;
+  Recycle_bin_access_context table_access_ctx;
+  std::string latest_recycle_table;
+  int err = 0;
+  if (table_access_ctx.init(&thd, &table, false)) {
+    goto end;
+  }
+
+  {
+    empty_record(table);
+    dd::Raw_record record{table};
+
+    err = record.store(FIELD_TABLE_NAME, dd::String_type(recycle_name));
+    if (err) goto end;
+
+    uchar user_key[MAX_KEY_LENGTH] = {0};
+    uint key_no = KEY_PRIMARY;
+    KEY *key_info = table->key_info + key_no;
+    my_timeval latest_time = {0, 0};
+    latest_recycle_table.clear();
+
+    key_copy(user_key, table->record[0], key_info,
+             key_info->key_length);
+
+    if ((err = table->file->ha_index_init(key_no, true))) {
+      table->file->print_error(err, MYF(0));
+      goto end;
+    }
+
+    for ((err = table->file->ha_index_read_map(
+              table->record[0], user_key,
+              make_prev_keypart_map(key_parts[key_no]), HA_READ_PREFIX_LAST));
+         !err && match_primary_key(record, recycle_name);
+         (err = table->file->ha_index_prev(table->record[0]))) {
+      my_timeval time = record.read_timestamp(FIELD_DROP_TIME);
+      if (timestamp && timestamp != time.m_tv_sec) continue;
+
+      if (latest_time.m_tv_sec < time.m_tv_sec ||
+          (latest_time.m_tv_sec == time.m_tv_sec &&
+           latest_time.m_tv_usec < time.m_tv_usec)) {
+        latest_time = time;
+        latest_recycle_table.assign(record.read_str(FIELD_TABLE_NAME));
+      }
+    }
+
+    table->file->ha_index_end();
+    if (err == HA_ERR_END_OF_FILE || err == HA_ERR_KEY_NOT_FOUND) err = 0;
+  }
+end:
+  table_access_ctx.deinit(thd, table);
+  error = err;
+  return latest_recycle_table;
+}
+
+bool Recycle_bin_persistor::find_tables_before_time(
+    THD *thd, time_t before_time, const char *db_name, const char *table_name,
+    bool all, std::vector<std::string> &tables) {
+  assert(db_name && table_name);
+  int err = 0;
+  TABLE *table = nullptr;
+  Recycle_bin_access_context table_access_ctx;
+
+  if (table_access_ctx.init(&thd, &table, true)) {
+    err = -1;
+    goto end;
+  }
+
+  {
+    empty_record(table);
+    dd::Raw_record record{table};
+
+    if (record.store(FIELD_ORIGIN_SCHEMA, dd::String_type(db_name)) ||
+        record.store(FIELD_ORIGIN_TABLE, dd::String_type(table_name)))
+      return true;
+
+    uchar user_key[MAX_KEY_LENGTH];
+    uint key_no = KEY_SCHEMA_TABLE;
+    KEY *key_info = table->key_info + key_no;
+    key_copy(user_key, table->record[0], key_info, key_info->key_length);
+
+    if ((err = table->file->ha_index_init(key_no, true))) {
+      table->file->print_error(err, MYF(0));
+      goto end;
+    }
+
+    my_timeval oldest_table = {INT64_MAX, INT64_MAX};
+    for ((err = table->file->ha_index_read_map(
+              table->record[0], user_key,
+              make_prev_keypart_map(key_parts[KEY_SCHEMA_TABLE]),
+              HA_READ_PREFIX_LAST));
+         !err && match_schema_table_key(record, db_name, table_name);
+         (err = table->file->ha_index_prev(table->record[0]))) {
+      my_timeval now = record.read_timestamp(FIELD_DROP_TIME);
+      if (before_time && now.m_tv_sec >= before_time) break;
+
+      if (!all && (now.m_tv_sec < oldest_table.m_tv_sec ||
+                   (now.m_tv_sec == oldest_table.m_tv_sec &&
+                    now.m_tv_usec < oldest_table.m_tv_usec))) {
+        tables.clear();
+        tables.push_back(record.read_str(FIELD_TABLE_NAME).c_str());
+      } else if (all) {
+        tables.push_back(record.read_str(FIELD_TABLE_NAME).c_str());
+      }
+    }
+    table->file->ha_index_end();
+    if (err == HA_ERR_END_OF_FILE || err == HA_ERR_KEY_NOT_FOUND) err = 0;
+  }
+
+end:
+  table_access_ctx.deinit(thd, table);
+
+  return err;
+}
+
+bool Recycle_bin_persistor::find_tables_before_time(
+    THD *thd, time_t before_time, bool all, std::vector<std::string> &tables) {
+  int err = 0;
+  TABLE *table = nullptr;
+  Recycle_bin_access_context table_access_ctx;
+  if (table_access_ctx.init(&thd, &table, true)) {
+    err = -1;
+    goto end;
+  }
+
+  {
+    empty_record(table);
+    dd::Raw_record record{table};
+
+    if ((err = table->file->ha_index_init(KEY_DROP_TIME, true))) {
+      table->file->print_error(err, MYF(0));
+      goto end;
+    }
+
+    for (err = table->file->ha_index_first(table->record[0]); !err;
+         err = table->file->ha_index_next(table->record[0])) {
+      my_timeval now = record.read_timestamp(FIELD_DROP_TIME);
+      if (before_time && now.m_tv_sec >= before_time) break;
+      tables.push_back(record.read_str(FIELD_TABLE_NAME).c_str());
+      if (!all) break;
+    }
+
+    table->file->ha_index_end();
+    if (err == HA_ERR_END_OF_FILE) err = 0;
+  }
+
+end:
+  table_access_ctx.deinit(thd, table);
+
+  return err;
+}
+
+bool Recycle_bin_persistor::find_tables_from_db(
+    THD *thd, const char *db_name, std::vector<Recycle_table_record> &tables) {
+  assert(db_name);
+  int err = 0;
+  TABLE *table = nullptr;
+  Recycle_bin_access_context table_access_ctx;
+  if (table_access_ctx.init(&thd, &table, true)) {
+    err = -1;
+    goto end;
+  }
+  {
+    empty_record(table);
+    dd::Raw_record record{table};
+
+    if (record.store(FIELD_ORIGIN_SCHEMA, dd::String_type(db_name)))
+      return true;
+
+    uint key_parts = 1;
+    uchar user_key[MAX_KEY_LENGTH];
+    uint key_no = KEY_SCHEMA_TABLE;
+    KEY *key_info = table->key_info + key_no;
+    key_copy(user_key, table->record[0], key_info, key_info->key_length);
+
+    if ((err = table->file->ha_index_init(KEY_SCHEMA_TABLE, true))) {
+      table->file->print_error(err, MYF(0));
+      goto end;
+    }
+
+    for ((err = table->file->ha_index_read_map(table->record[0], user_key,
+                                               make_prev_keypart_map(key_parts),
+                                               HA_READ_PREFIX_LAST));
+         !err && match_schema_table_key(record, db_name, nullptr);
+         (err = table->file->ha_index_prev(table->record[0]))) {
+      assert(record.read_str(FIELD_ORIGIN_SCHEMA) == dd::String_type(db_name));
+      Recycle_table_record rec;
+      rec.set_origin_table(record.read_str(FIELD_ORIGIN_TABLE).c_str());
+      rec.set_table_name(record.read_str(FIELD_TABLE_NAME).c_str());
+      rec.set_origin_schema(record.read_str(FIELD_ORIGIN_SCHEMA).c_str());
+      tables.push_back(rec);
+    }
+    table->file->ha_index_end();
+    if (err == HA_ERR_END_OF_FILE || err == HA_ERR_KEY_NOT_FOUND) err = 0;
+  }
+
+end:
+  table_access_ctx.deinit(thd, table);
+
+  return err;
+}
+
 /**
    Mark wheather the recycle bin feature is turned on.
  */ 
 bool recycle_bin_enabled(THD *thd) {
-  return cdb_recycle_bin_enabled ||
+  return txsql_recycle_bin_enabled ||
          thd->system_thread == SYSTEM_THREAD_SLAVE_SQL ||
          thd->system_thread == SYSTEM_THREAD_SLAVE_WORKER;
 }
 
 bool recycle_bin_enabled_in_user_thread(THD *thd) {
-  return cdb_recycle_bin_enabled &&
+  return txsql_recycle_bin_enabled &&
          thd->system_thread != SYSTEM_THREAD_SLAVE_SQL &&
          thd->system_thread != SYSTEM_THREAD_SLAVE_WORKER;
 }
@@ -375,7 +764,7 @@ bool deny_access_recycle_bin_schema(THD *thd, TABLE_LIST *all_tables) {
     Allow binlog relative thread user to access the
     recycle bin.
   */
-  if (thd_system_privilege(thd))
+  if (thd->is_system_thread())
     return false;
 
   /*
@@ -493,11 +882,11 @@ bool Recycle_bin_event::init_queue_element(THD* thd,
 bool Recycle_bin_event::queue_event(THD *thd, Event_queue *event_queue) {
 
   /**
-    @todo: 1. set cdb_recycle_scheduler_interval as rw variable
+    @todo: 1. set txsql_recycle_scheduler_interval as rw variable
               instead of read only -by dct
   */
-  ulong interval_time = cdb_recycle_scheduler_interval;
-  if (interval_time == 0 || cdb_recycle_bin_enabled == false) {
+  ulong interval_time = txsql_recycle_scheduler_interval;
+  if (interval_time == 0 || txsql_recycle_bin_enabled == false) {
     LogErr(SYSTEM_LEVEL,
             ER_CDB_SYS_RECYCLE_BIN_PURGE_SCHEDULER_DISABLED);
     return false;
@@ -545,7 +934,7 @@ bool Recycle_bin_event::queue_event(THD *thd, Event_queue *event_queue) {
 
 bool Recycle_bin_event::is_recycle_bin_event(LEX_CSTRING &db_name,
                                              LEX_CSTRING &event_name) {
-  return ((cdb_recycle_scheduler_interval != 0) &&
+  return ((txsql_recycle_scheduler_interval != 0) &&
           (my_strcasecmp(system_charset_info, db_name.str,
                          RECYCLE_BIN_SCHEMA_NAME.str) == 0 &&
            my_strcasecmp(system_charset_info, event_name.str,
@@ -586,6 +975,415 @@ error:
   DBUG_PRINT(RB_DEBUG_INFO, ("purge table job data init failed."));
   my_error(ER_CDB_RECYCLE_BIN_PURGE_WORKER_FAILED, MYF(0));
   return true;
+}
+
+size_t recycle_bin_data_size() {
+  char path[2 * FN_REFLEN + 16];
+  build_table_filename(path, sizeof(path) - 1,
+                       RECYCLE_BIN_SCHEMA_NAME.str, "", "", 0);
+
+  MY_DIR *dir = my_dir(path, MYF(MYF(MY_WANT_STAT)));
+
+  if (!dir) {
+    return 0;
+  }
+
+  size_t size = 0;
+  for (uint i = 0; i < dir->number_off_files; ++i) {
+    if (strcmp(dir->dir_entry[i].name, ".") == 0 ||
+        strcmp(dir->dir_entry[i].name, "..") == 0) {
+      continue;
+    }
+    size += dir->dir_entry[i].mystat->st_size;
+  }
+
+  my_dirend(dir);
+
+  return size;
+}
+
+/** Show information of tables inside recycle bin */
+bool show_recycle_bin(THD *thd) {
+  Recycle_bin_persistor recycle_bin_info;
+  int err = recycle_bin_info.show_recycle_bin(thd);
+  if (err) my_error(ER_RECYCLE_BIN_READ_FAILED, MYF(0));
+  return err;
+}
+
+static TABLE_LIST *find_table_name_from_recycle_bin(THD *thd,
+                                                    const char *db_name,
+                                                    const char *table_name,
+                                                    const char *recycle_name,
+                                                    time_t timestamp) {
+  Recycle_bin_persistor recycle_bin_info;
+  TABLE_LIST *table_list = nullptr;
+  bool error = false;
+  bool with_recycle_name = thd->lex->recycle_name != nullptr;
+  std::string latest_recycle_table;
+  if (with_recycle_name)
+    latest_recycle_table = recycle_bin_info.find_latest_table_by_reycle_name(
+        thd, recycle_name, timestamp, error);
+  else
+    latest_recycle_table = recycle_bin_info.find_latest_table(
+        thd, db_name, table_name, timestamp, error);
+  if (error) {
+    my_error(ER_RECYCLE_BIN_READ_FAILED, MYF(0));
+    return nullptr;
+  } else if (latest_recycle_table.length() == 0) {
+    my_error(ER_RECYCLE_BIN_NOT_FOUND, MYF(0));
+    return nullptr;
+  }
+  table_list = build_table_list(thd, RECYCLE_BIN_SCHEMA_NAME.str,
+                                latest_recycle_table.c_str());
+  if (table_list == nullptr) {
+    my_error(ER_DA_OOM, MYF(0));
+  }
+  return table_list;
+}
+
+bool mysql_clear_tables(THD *thd, time_t before_time, Table_ident *table_ident,
+                        bool all) {
+  Recycle_bin_persistor recycle_bin_info;
+  std::vector<std::string> tables_to_clear;
+  bool err = false;
+  if (table_ident)
+    err = recycle_bin_info.find_tables_before_time(
+        thd, before_time, table_ident->db.str, table_ident->table.str,
+        all, tables_to_clear);
+  else
+    err = recycle_bin_info.find_tables_before_time(thd, before_time,
+                                                   true, tables_to_clear);
+
+  if (err) {
+    my_error(ER_RECYCLE_BIN_READ_FAILED, MYF(0));
+    return true;
+  } else if (tables_to_clear.size() == 0) {
+    push_warning(thd, Sql_condition::SL_WARNING, ER_RECYCLE_BIN_NOT_FOUND,
+                 ER_THD(thd, ER_RECYCLE_BIN_NOT_FOUND));
+  }
+
+  if (tables_to_clear.empty()) {
+    if (table_ident == nullptr) {
+      if (before_time == 0) {
+        db_object_clear(thd, time(nullptr));
+      } else {
+        db_object_clear(thd, before_time);
+      }
+    }
+
+    my_ok(thd);
+    return false;
+  }
+
+  TABLE_LIST *head = nullptr;;
+  TABLE_LIST *end = nullptr;
+  for (auto table_name : tables_to_clear) {
+    TABLE_LIST *tl =
+        build_table_list(thd, RECYCLE_BIN_SCHEMA_NAME.str, table_name.c_str());
+    if (tl != nullptr) {
+      if (head == nullptr) {
+        head = tl;
+        end = tl;
+      } else {
+        end->next_local = tl;
+        end->next_global = tl;
+        end = tl;
+      }
+    }
+  }
+
+  thd->lex->recycle_bin_op = RB_PURGE_TABLE;
+
+  bool error =  mysql_rm_table(thd, head, true, false);
+
+  /** Clear objects */
+  if (!error && table_ident == nullptr) {
+    if (before_time == 0) {
+      db_object_clear(thd, time(nullptr));
+    } else {
+      db_object_clear(thd, before_time);
+    }
+  }
+
+  return error;
+}
+
+bool mysql_restore_db(THD *thd, const char *db_name) {
+  thd->lex->recycle_bin_op = RB_RECOVERY_TABLE_BY_RESTORE;
+  std::vector<Recycle_table_record> tables;
+  Recycle_bin_persistor recycle_bin_info;
+  bool err = recycle_bin_info.find_tables_from_db(thd, db_name, tables);
+
+  if (err) {
+    my_error(ER_RECYCLE_BIN_READ_FAILED, MYF(0));
+    return true;
+  } else if (tables.size() == 0) {
+    push_warning(thd, Sql_condition::SL_WARNING, ER_RECYCLE_BIN_NOT_FOUND,
+                 ER_THD(thd, ER_RECYCLE_BIN_NOT_FOUND));
+  }
+
+  std::sort(tables.begin(), tables.end(),
+            [](Recycle_table_record &a, Recycle_table_record &b) {
+              return my_strcasecmp(system_charset_info,
+                                   a.origin_table().c_str(),
+                                   b.origin_table().c_str());
+            });
+  std::string tmp = "";
+  for (auto &r : tables) {
+    if (my_strcasecmp(system_charset_info, tmp.c_str(),
+                      r.origin_table().c_str()) == 0) {
+      my_error(ER_RECYCLE_BIN_DUPLICATE_TABLE, MYF(0), db_name,
+               r.origin_table().c_str());
+      return true;
+    }
+    tmp = r.origin_table();
+  }
+
+  /* Now let's build table list for moving */
+  TABLE_LIST *head = nullptr;
+  TABLE_LIST *curr = nullptr;
+  for (auto table : tables) {
+    TABLE_LIST *from = build_table_list(thd, RECYCLE_BIN_SCHEMA_NAME.str,
+                                        table.table_name().c_str());
+    TABLE_LIST *to = build_table_list(thd, table.origin_schema().c_str(),
+                                      table.origin_table().c_str());
+    if (from == nullptr || to == nullptr) {
+      my_error(ER_DA_OOM, MYF(0));
+      return true;
+    }
+
+    if (curr != nullptr) {
+      curr->next_local = from;
+      curr->next_global = from;
+    }
+
+    from->next_local = to;
+    from->next_global = to;
+
+    if (head == nullptr) {
+      head = from;
+    }
+
+    curr = to;
+  }
+
+  bool error = false;
+
+  if (head != nullptr) {
+    error = mysql_rename_tables(thd, head);
+  }
+
+  if (!error) {
+    dd::cache::Dictionary_client::Auto_releaser releaser(thd->dd_client());
+
+    /* Check if target database exists */
+    if (head == nullptr && lock_schema_name(thd, db_name)) {
+      return true;
+    }
+
+    const dd::Schema *target_schema = nullptr;
+    if (thd->dd_client()->acquire(db_name, &target_schema)) {
+      return true;
+    }
+
+    if (target_schema == nullptr) {
+      /* doesn't exist, return error */
+      my_error(ER_RECYCLE_BIN_TARGET_NOT_CREATED, MYF(0), db_name);
+      return true;
+    }
+    db_object_restore(thd, db_name, target_schema->id());
+
+    if (lock_db_routines(thd, *target_schema)) {
+      return true;
+    }
+
+    // Vector for the stored routines of the schema.
+    std::vector<const dd::Routine *> routines;
+    // Fetch stored routines of the schema.
+    if (thd->dd_client()->fetch_schema_components(target_schema, &routines))
+      return true;
+    for (const dd::Routine *routine : routines) {
+      thd->dd_client()->invalidate(routine);
+    }
+
+    if (head == nullptr) my_ok(thd);
+  }
+
+  return error;
+}
+
+bool mysql_restore_table(THD *thd, const char *db, const char *table_name,
+                         const char *recycle_name, time_t timestamp) {
+  const char *db_name = (db == nullptr ? thd->db().str : db);
+
+  if (db_name == nullptr) {
+    my_error(ER_NO_DB_ERROR, MYF(0));
+    return true;
+  }
+
+  /* Create table list for table */
+  TABLE_LIST *old_tl = build_table_list(thd, db_name, table_name);
+  assert(old_tl != nullptr);
+
+  /** Check access to database */
+  if (check_access(thd, INSERT_ACL | CREATE_ACL, old_tl->db,
+        &old_tl->grant.privilege,
+        &old_tl->grant.m_internal, false, false)) {
+    return true;
+  }
+
+  /** Check access to table */
+  if (check_grant(thd, INSERT_ACL | CREATE_ACL, old_tl, false, 1, false)) {
+    return true;
+  }
+
+  TABLE_LIST *tl = find_table_name_from_recycle_bin(
+      thd, (db == nullptr ? thd->db().str : db), table_name, recycle_name,
+      timestamp);
+  if (tl == nullptr) {
+    return true;
+  }
+
+  tl->next_local = old_tl;
+  tl->next_global = old_tl;
+  old_tl->next_local = nullptr;
+  old_tl->next_global = nullptr;
+
+  bool error = mysql_rename_tables(thd, tl);
+
+  return error;
+}
+
+/* Map drop table to rename table. */
+bool mysql_recycle_tables(THD *thd, TABLE_LIST *table_list) {
+  TABLE_LIST *curr = nullptr;
+  TABLE_LIST *next = nullptr;
+  curr = table_list;
+
+  while (curr != nullptr) {
+    next = curr->next_local;
+    LEX_CSTRING table_name = get_recycle_bin_table_name(thd);
+
+    TABLE_LIST *ptr =
+        build_table_list(thd, RECYCLE_BIN_SCHEMA_NAME.str, table_name.str);
+    if (ptr == nullptr) {
+      my_error(ER_DA_OOM, MYF(0));
+      return true;
+    }
+    ptr->query_block = curr->query_block;
+    ptr->set_tableno(0);
+    ptr->set_lock({TL_IGNORE, THR_DEFAULT});
+
+    /* Lock the new table name */
+    if (lock_table_names(thd, ptr, nullptr, thd->variables.lock_wait_timeout,
+                         0)) {
+      return true;
+    }
+
+    curr->next_local = ptr;
+    ptr->next_local = next;
+
+    curr = next;
+  }
+
+  return mysql_rename_tables(thd, table_list);
+}
+
+TABLE_LIST* mysql_recycle_list(THD* thd, TABLE_LIST *tables, bool& error, bool& failback) {
+  error = false;
+  if (tables == nullptr) {
+    return nullptr;
+  }
+
+  failback = false;
+
+  if (recycle_bin_data_size() >= g_recycle_bin_max_size) {
+    if (!opt_drop_if_exceed_recycle_limit) {
+      /* through an error and set error to true*/
+      my_error(ER_RECYCLE_BIN_LIMIT_EXCEED, MYF(0), g_recycle_bin_max_size);
+      error = true;
+      return nullptr;
+    } else {
+      push_warning_printf(
+          thd, Sql_condition::SL_WARNING,
+          ER_RECYCLE_BIN_LIMIT_EXCEED,
+          ER_THD(thd, ER_RECYCLE_BIN_LIMIT_EXCEED), g_recycle_bin_max_size);
+      failback = true;
+      return tables;
+    }
+  }
+
+  for (TABLE_LIST *curr = tables; curr != nullptr; curr = curr->next_local) {
+    if (strcasecmp(curr->db, RECYCLE_BIN_SCHEMA_NAME.str) == 0) {
+      failback = true;
+      return tables;
+    }
+  }
+
+  std::vector<TABLE_LIST*> not_recycle_tables;
+  not_recycle_tables.clear();
+
+  TABLE_LIST *curr;
+  TABLE_LIST *prev = nullptr;
+  TABLE_LIST *head = tables;
+
+  for (curr = tables; curr != nullptr; curr = curr->next_local) {
+    dd::cache::Dictionary_client::Auto_releaser releaser(thd->dd_client());
+    const dd::Table *table_def = nullptr;
+    if (thd->dd_client()->acquire(curr->db, curr->table_name,
+          &table_def)) {
+      /* Error should have been reported by data-dictionary subsystem. */
+      error = true;
+      return nullptr;
+    }
+
+    /* Moving view from one schema to another is not allowed. So we don't
+    recycle view. */
+    if (!(table_def &&
+          table_def->type() == dd::enum_table_type::BASE_TABLE)) {
+      not_recycle_tables.push_back(curr);
+
+      if (prev == nullptr) {
+        /* This is first table, remove it from head */
+        head = curr->next_local;
+      } else {
+        /* Remove it from list. */
+        prev->next_local = curr->next_local;
+      }
+
+      continue;
+    }
+
+    prev = curr;
+  }
+
+  if (head != nullptr) {
+    error = mysql_recycle_tables(thd, head);
+
+    if (error) {
+      /* error happens, return directly */
+      return nullptr;
+    }
+  }
+
+  /* Construct new list to be dropped */
+  if (not_recycle_tables.empty()) {
+    return nullptr;
+  }
+
+  head = *(not_recycle_tables.begin());
+  prev = nullptr;
+  for (auto tl : not_recycle_tables) {
+    if (prev != nullptr) {
+      prev->next_local = tl;
+    }
+
+    tl->next_local = nullptr;
+
+    prev = tl;
+  }
+
+  return head;
 }
 
 /**

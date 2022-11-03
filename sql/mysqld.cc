@@ -4685,6 +4685,18 @@ SHOW_VAR com_status_vars[] = {
     {"show_tlogs",
      (char *)offsetof(System_status_var, com_stat[(uint)SQLCOM_SHOW_TLOGS]),
      SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
+    {"clear_from_recyle_bin",
+     (char *)offsetof(System_status_var,
+                      com_stat[(uint)SQLCOM_CLEAR_FROM_RECYCLE_BIN]),
+     SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
+    {"show_recycle_bin",
+     (char*) offsetof(System_status_var,
+                      com_stat[(uint) SQLCOM_SHOW_RECYCLE_BIN]),
+     SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
+    {"restore_from_recyle_bin",
+     (char *)offsetof(System_status_var,
+                      com_stat[(uint)SQLCOM_RESTORE_FROM_RECYCLE_BIN]),
+     SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
     {NullS, NullS, SHOW_LONG, SHOW_SCOPE_ALL}};
 
 /* Changes from TXSQL start. */
@@ -10080,6 +10092,14 @@ static int show_tls_library_version(THD *, SHOW_VAR *var, char *buff) {
   return 0;
 }
 
+/* Changes from txsql start. */
+static int show_recycle_bin_size(THD *, SHOW_VAR *var, char *buff) {
+  var->type = SHOW_LONGLONG;
+  var->value = buff;
+  *((size_t *)buff) = recycle_bin_data_size();
+  return 0;
+}
+/* Changes from txsql end. */
 SHOW_VAR status_vars[] = {
     {"Aborted_clients", (char *)&aborted_threads, SHOW_LONG, SHOW_SCOPE_GLOBAL},
     {"Aborted_connects", (char *)&show_aborted_connects, SHOW_FUNC,
@@ -10457,6 +10477,8 @@ SHOW_VAR status_vars[] = {
      SHOW_SCOPE_GLOBAL},
     {"Auto_perf_node_state", (char*) &auto_perf_node_state, SHOW_INT,
      SHOW_SCOPE_GLOBAL},
+    {"recycle_bin_size", (char *)&show_recycle_bin_size,
+     SHOW_FUNC, SHOW_SCOPE_GLOBAL},
     {NullS, NullS, SHOW_LONG, SHOW_SCOPE_ALL}};
 
 void add_terminator(vector<my_option> *options) {
@@ -13105,12 +13127,14 @@ bool g_tdsql_compat_oracle_mode = false;
 bool cdb_compressed_histogram_enabled = false;
 bool cdb_instant_modify_column_enabled = false;
 bool unix_socket_lock_error = false;
-bool cdb_recycle_bin_enabled = false;
-bool cdb_recycle_bin_db_not_visible = true;
-ulong cdb_recycle_bin_retention = 0;
-ulong cdb_recycle_scheduler_interval = 0;
+bool txsql_recycle_bin_enabled = false;
+bool txsql_recycle_bin_db_not_visible = true;
+ulong txsql_recycle_bin_retention = 0;
+ulong txsql_recycle_scheduler_interval = 0;
 const char *recyle_bin_startup_modes[] = {"NON", "CDB", "TXSQL", NullS};
 long recycle_bin_startup_mode = RECYCLE_BIN_NON;
+bool opt_drop_if_exceed_recycle_limit = true;
+ulonglong g_recycle_bin_max_size;
 bool cdb_more_gtid_feature_supported = false;
 char *cdb_server_version;
 

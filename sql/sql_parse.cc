@@ -629,6 +629,9 @@ bool stmt_causes_implicit_commit(const THD *thd, uint mask) {
         START TRANSACTION, do implicit commit */
       return (lex->create_info->options & HA_LEX_CREATE_TMP_TABLE ||
               lex->create_info->m_transactional_ddl) == 0;
+    case SQLCOM_RESTORE_FROM_RECYCLE_BIN:
+    case SQLCOM_CLEAR_FROM_RECYCLE_BIN:
+      return true;  // implicitity commit previous transaction
     case SQLCOM_SET_OPTION:
       /* Implicitly commit a transaction started by a SET statement */
       return lex->autocommit;
@@ -761,6 +764,10 @@ void init_sql_command_flags() {
                                         CF_CAN_GENERATE_ROW_EVENTS;
   sql_command_flags[SQLCOM_DROP_SEQ] = CF_CHANGES_DATA | CF_REEXECUTION_FRAGILE |
                                        CF_CAN_GENERATE_ROW_EVENTS;
+  sql_command_flags[SQLCOM_RESTORE_FROM_RECYCLE_BIN] =
+      CF_CHANGES_DATA | CF_AUTO_COMMIT_TRANS;
+  sql_command_flags[SQLCOM_CLEAR_FROM_RECYCLE_BIN] =
+      CF_CHANGES_DATA | CF_AUTO_COMMIT_TRANS;
 
   // (1) so that subquery is traced when doing "SET @var = (subquery)"
   /*
@@ -845,6 +852,9 @@ void init_sql_command_flags() {
   sql_command_flags[SQLCOM_SHOW_TABLE_STATUS] =
       (CF_STATUS_COMMAND | CF_SHOW_TABLE_COMMAND | CF_HAS_RESULT_SET |
        CF_REEXECUTION_FRAGILE);
+  sql_command_flags[SQLCOM_SHOW_RECYCLE_BIN] =
+      CF_STATUS_COMMAND | CF_REEXECUTION_FRAGILE | CF_HAS_RESULT_SET;
+
   /**
     ACL DDLs do not access data-dictionary tables. However, they still
     need to be marked to avoid autocommit. This is necessary because
@@ -1010,6 +1020,8 @@ void init_sql_command_flags() {
   sql_command_flags[SQLCOM_PRELOAD_KEYS] |= CF_PREOPEN_TMP_TABLES;
   sql_command_flags[SQLCOM_ASSIGN_TO_KEYCACHE] |= CF_PREOPEN_TMP_TABLES;
   sql_command_flags[SQLCOM_CHECK_INDEX] |= CF_PREOPEN_TMP_TABLES;
+  sql_command_flags[SQLCOM_RESTORE_FROM_RECYCLE_BIN] |= CF_PREOPEN_TMP_TABLES;
+  sql_command_flags[SQLCOM_CLEAR_FROM_RECYCLE_BIN] |= CF_PREOPEN_TMP_TABLES;
 
   /*
     DDL statements that should start with closing opened handlers.
@@ -1029,6 +1041,8 @@ void init_sql_command_flags() {
   sql_command_flags[SQLCOM_DROP_INDEX] |= CF_HA_CLOSE;
   sql_command_flags[SQLCOM_PRELOAD_KEYS] |= CF_HA_CLOSE;
   sql_command_flags[SQLCOM_ASSIGN_TO_KEYCACHE] |= CF_HA_CLOSE;
+  sql_command_flags[SQLCOM_RESTORE_FROM_RECYCLE_BIN] |= CF_HA_CLOSE;
+  sql_command_flags[SQLCOM_CLEAR_FROM_RECYCLE_BIN] |= CF_HA_CLOSE;
 
   /*
     Mark statements that always are disallowed in read-only
@@ -1084,6 +1098,8 @@ void init_sql_command_flags() {
   sql_command_flags[SQLCOM_IMPORT] |= CF_DISALLOW_IN_RO_TRANS;
   sql_command_flags[SQLCOM_CREATE_SRS] |= CF_DISALLOW_IN_RO_TRANS;
   sql_command_flags[SQLCOM_DROP_SRS] |= CF_DISALLOW_IN_RO_TRANS;
+  sql_command_flags[SQLCOM_RESTORE_FROM_RECYCLE_BIN] |= CF_DISALLOW_IN_RO_TRANS;
+  sql_command_flags[SQLCOM_CLEAR_FROM_RECYCLE_BIN] |= CF_DISALLOW_IN_RO_TRANS;
 
   /*
     Mark statements that have __txsql_recycle_bin__ schema access.
@@ -1250,6 +1266,10 @@ void init_sql_command_flags() {
   sql_command_flags[SQLCOM_END] |= CF_ALLOW_PROTOCOL_PLUGIN;
   sql_command_flags[SQLCOM_CREATE_SRS] |= CF_ALLOW_PROTOCOL_PLUGIN;
   sql_command_flags[SQLCOM_DROP_SRS] |= CF_ALLOW_PROTOCOL_PLUGIN;
+  sql_command_flags[SQLCOM_RESTORE_FROM_RECYCLE_BIN] |=
+      CF_ALLOW_PROTOCOL_PLUGIN;
+  sql_command_flags[SQLCOM_CLEAR_FROM_RECYCLE_BIN] |= CF_ALLOW_PROTOCOL_PLUGIN;
+  sql_command_flags[SQLCOM_SHOW_RECYCLE_BIN] |= CF_ALLOW_PROTOCOL_PLUGIN;
 
   /*
     Mark DDL statements which require that auto-commit mode to be temporarily
@@ -1314,6 +1334,10 @@ void init_sql_command_flags() {
   sql_command_flags[SQLCOM_CREATE_SRS] |=
       CF_NEEDS_AUTOCOMMIT_OFF | CF_POTENTIAL_ATOMIC_DDL;
   sql_command_flags[SQLCOM_DROP_SRS] |=
+      CF_NEEDS_AUTOCOMMIT_OFF | CF_POTENTIAL_ATOMIC_DDL;
+  sql_command_flags[SQLCOM_RESTORE_FROM_RECYCLE_BIN] |=
+      CF_NEEDS_AUTOCOMMIT_OFF | CF_POTENTIAL_ATOMIC_DDL;
+  sql_command_flags[SQLCOM_CLEAR_FROM_RECYCLE_BIN] |=
       CF_NEEDS_AUTOCOMMIT_OFF | CF_POTENTIAL_ATOMIC_DDL;
 
   /*
@@ -3625,7 +3649,7 @@ int mysql_execute_command(THD *thd, bool first_level) {
     checks there is no security problem here as closing open
     HANDLER doesn't require any privileges anyway.
   */
-  if (sql_command_flags[lex->sql_command] & CF_HA_CLOSE)
+  if (sql_command_flags[lex->sql_command] & CF_HA_CLOSE && all_tables)
     mysql_ha_rm_tables(thd, all_tables);
 
   /*
@@ -5197,6 +5221,23 @@ int mysql_execute_command(THD *thd, bool first_level) {
       clear_sequence_cache(false);
       res = false;
       my_ok(thd);
+      break;
+    case SQLCOM_SHOW_RECYCLE_BIN:
+      res = show_recycle_bin(thd);
+      break;
+    case SQLCOM_RESTORE_FROM_RECYCLE_BIN:
+      if (lex->restore_db == nullptr) {
+        res = mysql_restore_table(thd, lex->restore_table->db.str,
+                                  lex->restore_table->table.str,
+                                  lex->recycle_name, lex->restore_time);
+      } else {
+        assert(lex->restore_db != nullptr);
+        res = mysql_restore_db(thd, lex->restore_db);
+      }
+      break;
+    case SQLCOM_CLEAR_FROM_RECYCLE_BIN:
+      res = mysql_clear_tables(thd, lex->clear_before_time,
+                               lex->clear_table_name, lex->clear_all_name);
       break;
     case SQLCOM_ALTER_USER: {
       if (check_reserved_account(thd, lex->users_list))

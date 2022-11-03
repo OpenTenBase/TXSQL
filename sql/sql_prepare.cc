@@ -3510,10 +3510,9 @@ bool Prepared_statement::execute(String *expanded_query, bool open_cursor) {
       ‘execute stmt’ may be called multiple times. It needs
       to rename a different recycle bin table name each time.
     */
-    if (recycle_bin_enabled(thd) &&
-        (thd->lex->recycle_bin_op == RB_RECYCLE_TABLE_BY_DROP ||
-         thd->lex->recycle_bin_op == RB_RECYCLE_TABLE_BY_RENAME ||
-         thd->lex->recycle_bin_op == RB_RECYCLE_TABLE_BY_TRUNCATE)) {
+    if (thd->lex->recycle_bin_op == RB_RECYCLE_TABLE_BY_DROP ||
+        thd->lex->recycle_bin_op == RB_RECYCLE_TABLE_BY_RENAME ||
+        thd->lex->recycle_bin_op == RB_RECYCLE_TABLE_BY_TRUNCATE) {
       for (TABLE_LIST *tables = lex->query_tables; tables;
            tables = tables->next_global) {
         tables->open_strategy = TABLE_LIST::OPEN_NORMAL;

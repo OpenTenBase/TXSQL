@@ -501,7 +501,7 @@ void warn_about_deprecated_binary(THD *thd)
   2. We should not introduce new shift/reduce conflicts any more.
 */
 
-%expect 63
+%expect 107
 
 /*
    MAINTAINER:
@@ -1414,6 +1414,9 @@ void warn_about_deprecated_binary(THD *thd)
 %token TXSQL_RETURNING_SYM 1298
 %token TDSQL_TLOG_SYM 1299
 %token TDSQL_WITHGTS_SYM 1300            /* TDSQL */
+
+%token<lexer.keyword> RECYCLE_BIN_SYM 1301
+%token<lexer.keyword> RECYCLE_NAME_SYM 1302
 /* Changes from txsql end. */
 
 /*
@@ -1503,6 +1506,7 @@ void warn_about_deprecated_binary(THD *thd)
 
 %type <simple_string>
         opt_db
+        opt_with_name
 
 %type <string>
         text_string opt_gconcat_separator
@@ -1522,6 +1526,7 @@ void warn_about_deprecated_binary(THD *thd)
         view_check_option
         signed_num
         opt_ignore_unknown_user
+        opt_recycle
 
 
 %type <order_direction>
@@ -1555,6 +1560,8 @@ void warn_about_deprecated_binary(THD *thd)
 %type <ulonglong_number>
         ulonglong_num real_ulonglong_num size_number
         option_autoextend_size opt_with_gts
+        opt_with_timestamp
+        opt_before_timestamp
 
 %type <lock_type>
         replace_lock_option opt_low_priority insert_lock_option load_data_lock
@@ -1972,8 +1979,13 @@ void warn_about_deprecated_binary(THD *thd)
         update_stmt
         ddl_statement
         parse_ddl_statement
+        show_recycle_bin_stmt
+        restore_stmt
+        clear_stmt
 
 %type <table_ident> table_ident_opt_wild
+
+%type <table_ident> opt_table_name
 
 %type <table_ident_list> table_alias_ref_list table_locking_list
 
@@ -2540,6 +2552,9 @@ simple_statement:
         | show_variables_stmt
         | show_warnings_stmt
         | shutdown_stmt
+        | show_recycle_bin_stmt
+        | restore_stmt
+        | clear_stmt
         | signal_stmt                   { $$= nullptr; }
         | start                         { $$= nullptr; }
         | start_replica_stmt            { $$= nullptr; }
@@ -10036,14 +10051,13 @@ table_to_table:
           {
             LEX *lex=Lex;
             Query_block *sl= Select;
-            if (recycle_bin_enabled(lex->thd) &&
-                lex->recycle_bin_op == RB_NO_OP &&
+            if (recycle_bin_enabled(lex->thd) && lex->recycle_bin_op == RB_NO_OP &&
                 lex->sql_command == SQLCOM_RENAME_TABLE)
             {
               if(($1->db.str && !my_strcasecmp(system_charset_info, $1->db.str, RECYCLE_BIN_SCHEMA_NAME.str)) ||
                 (lex->thd->db().str && !my_strcasecmp(system_charset_info, lex->thd->db().str, RECYCLE_BIN_SCHEMA_NAME.str)))
               {
-                lex->recycle_bin_op= RB_RECOVERY_TABLE;
+                lex->recycle_bin_op= RB_RECOVERY_TABLE_BY_RENAME;
               }
 
               if(($4->db.str && !my_strcasecmp(system_charset_info, $4->db.str, RECYCLE_BIN_SCHEMA_NAME.str)) ||
@@ -13359,61 +13373,102 @@ do_stmt:
 */
 
 drop_table_stmt:
-          DROP opt_temporary table_or_tables if_exists
+          DROP opt_temporary table_or_tables if_exists table_list opt_wait opt_restrict opt_recycle
           {
-            // Note: opt_restrict ($6) is ignored!
-            LEX *lex= Lex;
-            lex->sql_command= SQLCOM_DROP_TABLE;
+            // Note: opt_restrict ($7) is ignored!
+            LEX *lex=Lex;
             lex->drop_temporary= $2;
             lex->drop_if_exists= $4;
-            /* 
-              Recycle bin not support drop temporary table and 
-              drop table if exists.
-              */
+            lex->drop_without_recycle= $8;
+            Lex->wait_time= $6;
+
+            /* Init for recycle_bin. */
             /**
               @todo: we need to set flags in thd to indicate the recycle
               bin switch is open or close. keep consistent in context
               -by dct
              */
-            if (!lex->drop_temporary &&
-                !lex->drop_if_exists &&
-                recycle_bin_enabled_in_user_thread(lex->thd))
-            {
+            Mem_root_array<Table_ident *> *tables= $5;
+            bool is_recycle= !$8 && recycle_bin_enabled_in_user_thread(lex->thd) &&
+                             !lex->drop_temporary;
+
+            /* Count the number of tables in recycle_bin to set the type of recycle_bin_op. */
+            uint tables_in_recycle_bin = 0;
+            for (auto *table : *tables) {
+              if (((table->db.str && !my_strcasecmp(system_charset_info,
+                                                    table->db.str,
+                                                    RECYCLE_BIN_SCHEMA_NAME.str)) ||
+                  (!table->db.str && lex->thd->db().str && !my_strcasecmp(system_charset_info,
+                                                        lex->thd->db().str,
+                                                        RECYCLE_BIN_SCHEMA_NAME.str)))) {
+                ++tables_in_recycle_bin;
+                continue;
+              }
+              if (tables_in_recycle_bin) break;
+            }
+
+            if (!is_recycle || tables_in_recycle_bin > 0) {
+              if (tables_in_recycle_bin && tables_in_recycle_bin != tables->size()) {
+                my_error(ER_RECYCLE_BIN_CAN_NOT_DROP_TABLES_IN_RECYCLE_BIN, MYF(0));
+                MYSQL_YYABORT;
+              }
+              YYPS->m_lock_type= TL_UNLOCK;
+              YYPS->m_mdl_type= MDL_EXCLUSIVE;
+              lex->sql_command= SQLCOM_DROP_TABLE;
+              if (tables_in_recycle_bin)
+                lex->recycle_bin_op= RB_PURGE_TABLE;
+              else
+                lex->recycle_bin_op= RB_NO_OP;
+              if (Select->add_tables(YYTHD, $5, TL_OPTION_UPDATING,
+                                     TL_UNLOCK, MDL_EXCLUSIVE))
+                MYSQL_YYABORT;
+            } else {
+              for (auto *table : *tables) {
+                LEX_CSTRING recycle_bin_db =
+                    make_lex_cstring(YYTHD->mem_root, RECYCLE_BIN_SCHEMA_NAME);
+                LEX_CSTRING recycle_bin_table= get_recycle_bin_table_name(YYTHD);
+                Table_ident *recycle_bin= NEW_PTN Table_ident(recycle_bin_db, recycle_bin_table);
+                if (!recycle_bin) MYSQL_YYABORT; // OOM
+
+                if (!Select->add_table_to_list(YYTHD, table, NULL, TL_OPTION_UPDATING,
+                                               TL_IGNORE, MDL_EXCLUSIVE) ||
+                    !Select->add_table_to_list(YYTHD, recycle_bin, NULL, TL_OPTION_UPDATING,
+                                               TL_IGNORE, MDL_EXCLUSIVE))
+                  MYSQL_YYABORT;
+              }
               lex->sql_command= SQLCOM_RENAME_TABLE;
               lex->recycle_bin_op= RB_RECYCLE_TABLE_BY_DROP;
             }
-            else
-            {
-              YYPS->m_lock_type= TL_UNLOCK;
-              YYPS->m_mdl_type= MDL_EXCLUSIVE;
-            }
           }
-          drop_table_or_tables
         ;
 
-drop_table_or_tables:
-        drop_table_list opt_wait opt_restrict
-        {
-          /*
-            If you drop the table in the recycle bin, then delete it directly.
-          */
-          if (recycle_bin_enabled(Lex->thd)) {
-            LEX *lex= Lex;
-            if (lex->recycle_bin_op == RB_PURGE_TABLE && 
-                lex->sql_command == SQLCOM_DROP_TABLE)
-            {
-              YYPS->m_lock_type= TL_UNLOCK;
-              YYPS->m_mdl_type= MDL_EXCLUSIVE;
+opt_recycle:
+            /* empty */
+            { 
+              if (recycle_bin_enabled_in_user_thread(YYTHD)) {
+                if (recycle_bin_data_size() >= g_recycle_bin_max_size) {
+                  if (!opt_drop_if_exceed_recycle_limit) {
+                    my_error(ER_RECYCLE_BIN_LIMIT_EXCEED, MYF(0), g_recycle_bin_max_size);
+                    MYSQL_YYABORT;
+                  } else {
+                    push_warning_printf(
+                        YYTHD, Sql_condition::SL_WARNING,
+                        ER_RECYCLE_BIN_LIMIT_EXCEED,
+                        ER_THD(YYTHD, ER_RECYCLE_BIN_LIMIT_EXCEED),
+                        g_recycle_bin_max_size);
+                    $$= true;
+                  }
+                } else {
+                  $$ = false;
+                }
+              } else {
+                $$ = false;
+              }
             }
-          }
-          
-          if (Select->add_tables(YYTHD, $1, TL_OPTION_UPDATING,
-                                 TL_UNLOCK, MDL_EXCLUSIVE))
-            MYSQL_YYABORT;
-
-          Lex->wait_time = $2;
-        }
-;
+          | WITHOUT_SYM RECYCLE_BIN_SYM {
+              $$= true;
+            }
+          ;
 
 drop_index_stmt:
           DROP INDEX_SYM ident ON_SYM table_ident opt_index_lock_and_algorithm opt_wait
@@ -13432,6 +13487,8 @@ drop_database_stmt:
             lex->sql_command= SQLCOM_DROP_DB;
             lex->drop_if_exists=$3;
             lex->name= $4;
+            if (recycle_bin_enabled_in_user_thread(YYTHD))
+              lex->recycle_bin_op = RB_RECYCLE_TABLE_BY_DROP_DATABASE;
           }
         ;
 
@@ -13660,61 +13717,6 @@ drop_role_stmt:
           DROP ROLE_SYM if_exists role_list
           {
             $$= NEW_PTN PT_drop_role($3, $4);
-          }
-        ;
-
-drop_table_list:
-          table_ident
-          {
-            $$= NEW_PTN Mem_root_array<Table_ident *>(YYMEM_ROOT);
-            if ($$->push_back($1))
-              MYSQL_YYABORT; // OOM
-
-            if (recycle_bin_enabled(Lex->thd)) {
-              LEX *lex= Lex;      
-              if ((($1->db.str && !my_strcasecmp(system_charset_info, $1->db.str, RECYCLE_BIN_SCHEMA_NAME.str)) ||
-                  (lex->thd->db().str && !my_strcasecmp(system_charset_info, lex->thd->db().str, RECYCLE_BIN_SCHEMA_NAME.str))))
-              {
-                lex->sql_command= SQLCOM_DROP_TABLE;
-                lex->recycle_bin_op= RB_PURGE_TABLE;
-              }
-
-              if (lex->recycle_bin_op == RB_RECYCLE_TABLE_BY_DROP)
-              {
-                LEX_CSTRING recycle_bin_db =
-                    make_lex_cstring(YYTHD->mem_root, RECYCLE_BIN_SCHEMA_NAME);
-                LEX_CSTRING recycle_bin_table= get_recycle_bin_table_name(YYTHD);
-                Table_ident *recycle_bin= NEW_PTN Table_ident(recycle_bin_db, recycle_bin_table);
-                if (!recycle_bin || $$->push_back(recycle_bin))
-                  MYSQL_YYABORT; // OOM
-              }
-            }
-          }
-        | drop_table_list ',' table_ident
-          {
-            $$= $1;
-            if ($$ == NULL || $$->push_back($3))
-              MYSQL_YYABORT; // OOM
-
-            if (recycle_bin_enabled(Lex->thd)) {
-              LEX *lex= Lex;
-              if ((($3->db.str && !my_strcasecmp(system_charset_info, $3->db.str, RECYCLE_BIN_SCHEMA_NAME.str)) ||
-                  (lex->thd->db().str && !my_strcasecmp(system_charset_info, lex->thd->db().str, RECYCLE_BIN_SCHEMA_NAME.str))))
-              {
-                lex->sql_command= SQLCOM_DROP_TABLE;
-                lex->recycle_bin_op= RB_PURGE_TABLE;
-              }
-
-              if (lex->recycle_bin_op == RB_RECYCLE_TABLE_BY_DROP)
-              {
-                LEX_CSTRING recycle_bin_db =
-                    make_lex_cstring(YYTHD->mem_root, RECYCLE_BIN_SCHEMA_NAME);
-                LEX_CSTRING recycle_bin_table= get_recycle_bin_table_name(YYTHD);
-                Table_ident *recycle_bin= NEW_PTN Table_ident(recycle_bin_db, recycle_bin_table);
-                if (!recycle_bin || $$->push_back(recycle_bin))
-                  MYSQL_YYABORT; // OOM
-              }
-            }
           }
         ;
 
@@ -14520,6 +14522,13 @@ show_warnings_stmt:
             $$ = NEW_PTN PT_show_warnings(@$, $3);
           }
         ;
+
+show_recycle_bin_stmt:
+         SHOW RECYCLE_BIN_SYM
+         {
+           Lex->sql_command = SQLCOM_SHOW_RECYCLE_BIN;
+         }
+         ;
 
 show_errors_stmt:
           SHOW ERRORS opt_limit_clause
@@ -16485,6 +16494,9 @@ ident_keywords_unambiguous:
         | XML_SYM
         | YEAR_SYM
         | ZONE_SYM
+        | CLEAR_SYM
+        | RECYCLE_NAME_SYM
+        | RECYCLE_BIN_SYM
         ;
 
 /*
@@ -17058,6 +17070,93 @@ shutdown_stmt:
             Lex->sql_command= SQLCOM_SHUTDOWN;
             $$= NEW_PTN PT_shutdown();
           }
+        ;
+
+clear_stmt:
+        CLEAR_SYM RECYCLE_BIN_SYM opt_all_table opt_table_name opt_before_timestamp
+        {
+            Lex->sql_command = SQLCOM_CLEAR_FROM_RECYCLE_BIN;
+            Lex->recycle_bin_op = RB_PURGE_TABLE;
+            Lex->clear_table_name = $4;
+            Lex->clear_before_time = $5;
+        }
+        ;
+
+opt_all_table:
+      /* empty */ { Lex->clear_all_name = false; }
+      | ALL { Lex->clear_all_name = true; }
+      ;
+
+restore_stmt:
+         RESTORE_SYM table_ident FROM RECYCLE_BIN_SYM opt_restore_cond
+         {
+            Lex->sql_command = SQLCOM_RESTORE_FROM_RECYCLE_BIN;
+            Lex->recycle_bin_op = RB_RECOVERY_TABLE_BY_RESTORE;
+            Lex->restore_table = $2;
+            Lex->restore_db = nullptr;
+         }
+        | RESTORE_SYM DATABASE ident FROM RECYCLE_BIN_SYM
+         {
+           Lex->sql_command = SQLCOM_RESTORE_FROM_RECYCLE_BIN;
+           Lex->recycle_bin_op = RB_RECOVERY_TABLE_BY_RESTORE;
+           Lex->restore_table = nullptr;
+           Lex->restore_db = $3.str;
+         }
+        ;
+
+opt_table_name:
+        /* empty */ { $$ = nullptr; }
+        | table_ident { $$ = $1; }
+        ;
+
+opt_restore_cond:
+          /* empty */ {
+            Lex->restore_time = 0;
+            Lex->recycle_name = nullptr;
+          }
+        | WITH opt_with_timestamp opt_with_name {
+            Lex->restore_time = $2;
+            Lex->recycle_name = $3;
+          }
+        ;
+
+opt_with_timestamp:
+        /* empty */ { $$ = 0; }
+        | TIMESTAMP_SYM '(' expr ')' {
+            Item *timestamp= $3;
+            ITEMIZE(timestamp, &timestamp);
+            if (timestamp->fix_fields(YYTHD, &timestamp)) {
+              my_error(ER_REYCLE_BIN_INVALID_TIME, MYF(0));
+              MYSQL_YYABORT;
+            }
+            int warning = 0;
+            my_timeval tm;
+            timestamp->get_timeval(&tm, &warning);
+            $$= tm.m_tv_sec;
+        }
+        ;
+
+opt_with_name:
+       /* empty */ { $$ = nullptr; }
+       | RECYCLE_NAME_SYM ident {
+          $$ = $2.str;
+       }
+       ;
+
+opt_before_timestamp:
+        /* empty */ { $$ = 0; }
+        | BEFORE_SYM TIMESTAMP_SYM '(' expr ')' {
+            Item *timestamp= $4;
+            ITEMIZE(timestamp, &timestamp);
+            if (timestamp->fix_fields(YYTHD, &timestamp)) {
+              my_error(ER_REYCLE_BIN_INVALID_TIME, MYF(0));
+              MYSQL_YYABORT;
+            }
+            int warning = 0;
+            my_timeval tm;
+            timestamp->get_timeval(&tm, &warning);
+            $$= tm.m_tv_sec;
+        }
         ;
 
 restart_server_stmt:

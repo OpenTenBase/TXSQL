@@ -4447,20 +4447,22 @@ Query_log_event::Query_log_event(THD *thd_arg, const char *query_arg,
 
     Transaction_ctx *trn_ctx = thd->get_transaction();
 
-    bool is_rb_truncate =
-        (recycle_bin_enabled(thd) &&
-         thd->lex->recycle_bin_op == RB_RECYCLE_TABLE_BY_TRUNCATE);
+    bool is_rb_truncate_or_drop_db =
+        (thd->lex->recycle_bin_op == RB_RECYCLE_TABLE_BY_TRUNCATE ||
+         thd->lex->recycle_bin_op == RB_RECYCLE_TABLE_BY_DROP_DATABASE);
     /* Transaction needs to be active for xid to be assigned, */
-    assert(is_rb_truncate || trn_ctx->is_active(Transaction_ctx::SESSION));
+    assert(is_rb_truncate_or_drop_db ||
+           trn_ctx->is_active(Transaction_ctx::SESSION));
     /* and the transaction's xid has been already computed. */
-    assert(is_rb_truncate || !trn_ctx->xid_state()->get_xid()->is_null());
+    assert(is_rb_truncate_or_drop_db ||
+           !trn_ctx->xid_state()->get_xid()->is_null());
 
     my_xid xid = trn_ctx->xid_state()->get_xid()->get_my_xid();
 
     /*
       xid uniqueness: the last time used not equal to the current one
     */
-    assert(is_rb_truncate || thd->debug_binlog_xid_last.is_null() ||
+    assert(is_rb_truncate_or_drop_db || thd->debug_binlog_xid_last.is_null() ||
            thd->debug_binlog_xid_last.get_my_xid() != xid);
 
     ddl_xid = xid;

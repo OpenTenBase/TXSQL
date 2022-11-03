@@ -8192,7 +8192,7 @@ static Sys_var_double Sys_pfs_events_statements_histogram_bucket_base_factor(
 #endif /* WITH_PERFSCHEMA_STORAGE_ENGINE */
 
 /* false for successfull, true for fail*/
-static bool check_cdb_recycle_bin(sys_var *, THD *thd, set_var *var) {
+static bool check_txsql_recycle_bin(sys_var *, THD *thd, set_var *var) {
   if (!static_cast<bool>(var->save_result.ulonglong_value)) return false;
 
   bool exists = false;
@@ -8206,33 +8206,47 @@ static bool check_cdb_recycle_bin(sys_var *, THD *thd, set_var *var) {
   return false;
 }
 
-static Sys_var_bool Sys_cdb_recycle_bin_enabled(
-    "cdb_recycle_bin_enabled",
-    "switch of recycle bin",
-    GLOBAL_VAR(cdb_recycle_bin_enabled), CMD_LINE(OPT_ARG),
+static Sys_var_bool Sys_txsql_recycle_bin_enabled(
+    "txsql_recycle_bin_enabled", "switch of recycle bin",
+    GLOBAL_VAR(txsql_recycle_bin_enabled), CMD_LINE(OPT_ARG),
     DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG,
-    ON_CHECK(check_cdb_recycle_bin), ON_UPDATE(nullptr));
+    ON_CHECK(check_txsql_recycle_bin), ON_UPDATE(nullptr));
 
-static Sys_var_bool Sys_cdb_recycle_bin_db_not_visible(
-    "cdb_recycle_bin_db_not_visible",
+static Sys_var_deprecated_alias Sys_cdb_recycle_bin_enabled(
+    "cdb_recycle_bin_enabled", Sys_txsql_recycle_bin_enabled);
+
+static Sys_var_deprecated_alias Sys_recycle_bin_enabled(
+    "recycle_bin_enabled", Sys_txsql_recycle_bin_enabled);
+
+static Sys_var_bool Sys_txsql_recycle_bin_db_not_visible(
+    "txsql_recycle_bin_db_not_visible",
     "switch of recycle bin",
-    GLOBAL_VAR(cdb_recycle_bin_db_not_visible), CMD_LINE(OPT_ARG),
+    GLOBAL_VAR(txsql_recycle_bin_db_not_visible), CMD_LINE(OPT_ARG),
     DEFAULT(true), NO_MUTEX_GUARD, NOT_IN_BINLOG);
 
-static Sys_var_ulong Sys_cdb_recycle_bin_retention(
-    "cdb_recycle_bin_retention",
-    "Retention time of each table in recycle bin.",
-    GLOBAL_VAR(cdb_recycle_bin_retention),
-    CMD_LINE(REQUIRED_ARG), VALID_RANGE(0, (ulong)~(intptr)0), DEFAULT(604800),
-    BLOCK_SIZE(1), ON_CHECK(0));
+static Sys_var_deprecated_alias Sys_cdb_recycle_bin_db_not_visible(
+    "cdb_recycle_bin_db_not_visible", Sys_txsql_recycle_bin_db_not_visible);
 
-static Sys_var_ulong Sys_cdb_recycle_scheduler_interval(
-    "cdb_recycle_scheduler_interval",
+static Sys_var_ulong Sys_txsql_recycle_bin_retention(
+    "txsql_recycle_bin_retention",
+    "Retention time of each table in recycle bin.",
+    GLOBAL_VAR(txsql_recycle_bin_retention), CMD_LINE(REQUIRED_ARG),
+    VALID_RANGE(0, (ulong) ~(intptr)0), DEFAULT(604800), BLOCK_SIZE(1),
+    ON_CHECK(0));
+
+static Sys_var_deprecated_alias Sys_cdb_recycle_bin_retention(
+    "cdb_recycle_bin_retention", Sys_txsql_recycle_bin_retention);
+
+static Sys_var_ulong Sys_txsql_recycle_scheduler_interval(
+    "txsql_recycle_scheduler_interval",
     "Schedule interval time of each check whether exists table to be purged in"
     " recycle bin database.",
-    GLOBAL_VAR(cdb_recycle_scheduler_interval),
+    GLOBAL_VAR(txsql_recycle_scheduler_interval),
     CMD_LINE(REQUIRED_ARG), VALID_RANGE(0, (ulong)~(intptr)0), DEFAULT(0),
     BLOCK_SIZE(1), ON_CHECK(0));
+
+static Sys_var_deprecated_alias Sys_cdb_recycle_scheduler_interval(
+    "cdb_recycle_scheduler_interval", Sys_txsql_recycle_scheduler_interval);
 
 static Sys_var_enum Sys_recyle_bin_startup_mode(
     "recycle_bin_startup_mode",
@@ -8531,6 +8545,26 @@ static Sys_var_bool Sys_mc_wait_mode(
     GLOBAL_VAR(g_mc_sleep_mode),
     CMD_LINE(OPT_ARG), DEFAULT(false), NULL, NOT_IN_BINLOG,
     NULL, NULL);
+
+static Sys_var_bool Sys_txsql_recycle_bin_drop_if_exceed_limit(
+    "txsql_recycle_bin_drop_if_exceed_limit",
+    "drop table if exceeding limit size of recycle bin",
+    GLOBAL_VAR(opt_drop_if_exceed_recycle_limit), CMD_LINE(OPT_ARG),
+    DEFAULT(false));
+
+static Sys_var_deprecated_alias Sys_recycle_bin_drop_if_exceed_limit(
+    "recycle_bin_drop_if_exceed_limit",
+    Sys_txsql_recycle_bin_drop_if_exceed_limit);
+
+static Sys_var_ulonglong Sys_txsql_recycle_bin_max_size(
+    "txsql_recycle_bin_max_size",
+    "Max size of recycle bin, Note we allow first exceeding limit "
+    "of size, but next drop will fail",
+    GLOBAL_VAR(g_recycle_bin_max_size), CMD_LINE(OPT_ARG),
+    VALID_RANGE(1, ULLONG_MAX), DEFAULT(ULLONG_MAX), BLOCK_SIZE(1));
+
+static Sys_var_deprecated_alias Sys_recycle_bin_max_size(
+    "recycle_bin_max_size", Sys_txsql_recycle_bin_max_size);
 
 #ifdef HAVE_TDSQL
 static Sys_var_bool Sys_threadpool_eager_mode(

@@ -1608,6 +1608,9 @@ PREPARE stmt FROM @str;
 EXECUTE stmt;
 DROP PREPARE stmt;
 
+ALTER TABLE recycle_bin_info ADD INDEX idx_drop_time(drop_time);
+ALTER TABLE recycle_bin_info ADD INDEX idx_schema_table(origin_schema, origin_table);
+
 --
 -- recycle bin database
 --

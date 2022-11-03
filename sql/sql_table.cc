@@ -3185,8 +3185,7 @@ bool mysql_rm_table_no_locks(THD *thd, TABLE_LIST *tables, bool if_exists,
     name of each table in the drop table list that is placed in
     the recycle bin.
   */
-  const bool is_rb_purge_table =
-      (recycle_bin_enabled(thd) && thd->lex->recycle_bin_op == RB_PURGE_TABLE);
+  const bool is_rb_purge_table = thd->lex->recycle_bin_op == RB_PURGE_TABLE;
   bool is_rb_error = false;
 
   if (drop_ctx.has_base_non_atomic_tables()) {
@@ -10999,8 +10998,8 @@ bool mysql_create_like_table(THD *thd, TABLE_LIST *table, TABLE_LIST *src_table,
   Tablespace_hash_set tablespace_set(PSI_INSTRUMENT_ME);
   handlerton *post_ddl_ht = nullptr;
   dd::cache::Dictionary_client::Auto_releaser releaser(thd->dd_client());
-  bool is_commit_trans = !(recycle_bin_enabled(thd) &&
-    thd->lex->recycle_bin_op == RB_RECYCLE_TABLE_BY_TRUNCATE);
+  bool is_commit_trans =
+      !(thd->lex->recycle_bin_op == RB_RECYCLE_TABLE_BY_TRUNCATE);
 
   DBUG_TRACE;
 

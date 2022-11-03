@@ -1,0 +1,3 @@
+--txsql_root_user_mode=TDSQL_ROOT
+--gtid_mode=ON
+--enforce_gtid_consistency
