@@ -217,9 +217,11 @@ trx_t* trx_sys_t::find(trx_t *caller_trx, trx_id_t id, bool do_ref_count) {
 }
 
 void trx_sys_t::assign_new_trx_no(trx_t *trx) {
+  rw_lock_s_lock(lock);
   trx->no = get_new_trx_id_no_refresh();
   trx->rw_trx_hash_element->no = trx->no;
   refresh_rw_trx_hash_version();
+  rw_lock_s_unlock(lock);
 }
 
 bool trx_sys_t::copy_one_id(rw_trx_hash_element_t *element,
