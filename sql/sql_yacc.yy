@@ -2087,7 +2087,7 @@ void warn_about_deprecated_binary(THD *thd)
 
 %type <opt_restrict> opt_restrict;
 
-%type <table_list> table_list opt_table_list drop_table_list
+%type <table_list> table_list opt_table_list
 
 %type <ternary_option> ternary_option;
 
