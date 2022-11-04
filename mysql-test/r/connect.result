@@ -35,6 +35,7 @@ slave_relay_log_info
 slave_worker_info
 slow_log
 tables_priv
+tdsql_sequences
 time_zone
 time_zone_leap_second
 time_zone_name
@@ -87,6 +88,7 @@ slave_relay_log_info
 slave_worker_info
 slow_log
 tables_priv
+tdsql_sequences
 time_zone
 time_zone_leap_second
 time_zone_name

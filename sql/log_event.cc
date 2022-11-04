@@ -5728,11 +5728,11 @@ Format_description_log_event::Format_description_log_event()
 #endif
 {
 #ifdef MYSQL_SERVER
-
+#ifdef HAVE_TDSQL
   if (g_enable_backup_dcn_switch) {
     post_header_len[binary_log::XID_EVENT - 1] += GTS_LEN;
   }
-
+#endif
 #endif
   common_header->set_is_valid(true);
 }

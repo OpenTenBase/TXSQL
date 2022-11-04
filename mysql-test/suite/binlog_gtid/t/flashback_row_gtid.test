@@ -69,7 +69,7 @@ SET BINLOG_FORMAT = ROW;
 let $MYSQLD_DATADIR= `select @@datadir`;
 --replace_result $MYSQLTEST_VARDIR MYSQLTEST_VARDIR
 --replace_regex /SQL_LOAD_MB-[0-9]-[0-9]/SQL_LOAD_MB-#-#/ /exec_time=[0-9]*/exec_time=#/ /end_log_pos [0-9]*/end_log_pos #/ /# at [0-9]*/# at #/ /Xid = [0-9]*/Xid = #/ /thread_id=[0-9]*/thread_id=#/ /table id [0-9]*/table id #/ /mapped to number [0-9]*/mapped to number #/ /server v [^ ]*/server v #.##.##/ /CRC32 0x[0-9a-f]*/CRC32 XXX/ /collation_server=[0-9]+/collation_server=X/ /character_set_client=[0-9]+/character_set_client=X/ /collation_connection=[0-9]+/collation_connection=X/ /sql_mode=[0-9]+/sql_mode=X/ /(original_commit[a-z]*_timestamp)=[0-9]+/\1=X/ /immediate_commit_timestamp=[0-9]+/immediate_commit_timestamp=X/ /transaction_length=[0-9]+/transaction_length=X/ /[0-9]+-[0-9]+-[0-9]+ [0-9]+:[0-9]+:[0-9]+.[0-9]* GMT/X-X-X X:X:X.X GMT/ /(original_server_version)=[0-9]+/\1=X/ /(immediate_server_version)=[0-9]+/\1=X/
---exec $MYSQL_BINLOG -B --base64-output=decode-rows -v -v $MYSQLD_DATADIR/binlog.000001
+--exec $MYSQL_BINLOG -B --filter-statement-match-ignore=CREATE,ALTER,DROP,INSERT --base64-output=decode-rows -v -v $MYSQLD_DATADIR/binlog.000001
 
 --echo #
 --echo # Insert data to t1
@@ -103,7 +103,7 @@ FLUSH LOGS;
 
 let $MYSQLD_DATADIR= `select @@datadir`;
 --replace_result $MYSQLTEST_VARDIR MYSQLTEST_VARDIR
---exec $MYSQL_BINLOG -B -vv $MYSQLD_DATADIR/binlog.000001 > $MYSQLTEST_VARDIR/tmp/mysqlbinlog_row_flashback_1.sql
+--exec $MYSQL_BINLOG -B --filter-statement-match-ignore=CREATE,ALTER,DROP,INSERT -vv $MYSQLD_DATADIR/binlog.000001 > $MYSQLTEST_VARDIR/tmp/mysqlbinlog_row_flashback_1.sql
 --exec $MYSQL -e "SET binlog_format= ROW; source $MYSQLTEST_VARDIR/tmp/mysqlbinlog_row_flashback_1.sql;"
 
 SELECT * FROM t1;
@@ -126,7 +126,7 @@ FLUSH LOGS;
 
 let $MYSQLD_DATADIR= `select @@datadir`;
 --replace_result $MYSQLTEST_VARDIR MYSQLTEST_VARDIR
---exec $MYSQL_BINLOG -B -vv $MYSQLD_DATADIR/binlog.000001 > $MYSQLTEST_VARDIR/tmp/mysqlbinlog_row_flashback_2.sql
+--exec $MYSQL_BINLOG -B --filter-statement-match-ignore=CREATE,ALTER,DROP,INSERT -vv $MYSQLD_DATADIR/binlog.000001 > $MYSQLTEST_VARDIR/tmp/mysqlbinlog_row_flashback_2.sql
 --exec $MYSQL -e "SET binlog_format= ROW; source $MYSQLTEST_VARDIR/tmp/mysqlbinlog_row_flashback_2.sql;"
 
 SELECT * FROM t1;
@@ -150,7 +150,7 @@ DELETE FROM T2;
 FLUSH LOGS;
 let $MYSQLD_DATADIR= `select @@datadir`;
 --replace_result $MYSQLTEST_VARDIR MYSQLTEST_VARDIR
---exec $MYSQL_BINLOG -B --table=T1 -vv $MYSQLD_DATADIR/binlog.000001 > $MYSQLTEST_VARDIR/tmp/mysqlbinlog_row_flashback_3.sql
+--exec $MYSQL_BINLOG -B --filter-statement-match-ignore=CREATE,ALTER,DROP,INSERT --table=T1 -vv $MYSQLD_DATADIR/binlog.000001 > $MYSQLTEST_VARDIR/tmp/mysqlbinlog_row_flashback_3.sql
 --exec $MYSQL -e "SET binlog_format= ROW; source $MYSQLTEST_VARDIR/tmp/mysqlbinlog_row_flashback_3.sql;"
 SELECT *FROM T1;
 SELECT *FROM T2;
@@ -181,7 +181,7 @@ FLUSH LOGS;
 
 let $MYSQLD_DATADIR= `select @@datadir`;
 --replace_result $MYSQLTEST_VARDIR MYSQLTEST_VARDIR
---exec $MYSQL_BINLOG -B -vv $MYSQLD_DATADIR/binlog.000001 > $MYSQLTEST_VARDIR/tmp/mysqlbinlog_row_flashback_4.sql
+--exec $MYSQL_BINLOG -B --filter-statement-match-ignore=CREATE,ALTER,DROP,INSERT -vv $MYSQLD_DATADIR/binlog.000001 > $MYSQLTEST_VARDIR/tmp/mysqlbinlog_row_flashback_4.sql
 --exec $MYSQL -e "SET binlog_format= ROW; source $MYSQLTEST_VARDIR/tmp/mysqlbinlog_row_flashback_4.sql;"
 
 SELECT * FROM t1;

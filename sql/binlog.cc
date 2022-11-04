@@ -9443,6 +9443,8 @@ void MYSQL_BIN_LOG::init_max_time_and_gts(bool relay_log) {
         if (iothreadreadgts < ((Xid_log_event*)ev)->gts)
           iothreadreadgts = ((Xid_log_event*)ev)->gts;
       }
+      delete ev;
+      ev = nullptr;
     }
     // have get the data from the latest file and return
     if (iothreadreadtime != 0 && iothreadreadgts != 0) break;

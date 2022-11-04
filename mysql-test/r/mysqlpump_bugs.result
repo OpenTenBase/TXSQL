@@ -33,6 +33,7 @@ CREATE TABLE `mysql`.`help_category` (
 CREATE TABLE `mysql`.`help_keyword` (
 CREATE TABLE `mysql`.`help_relation` (
 CREATE TABLE `mysql`.`help_topic` (
+CREATE TABLE `mysql`.`outline` (
 CREATE TABLE `mysql`.`password_history` (
 CREATE TABLE `mysql`.`plugin` (
 CREATE TABLE `mysql`.`recycle_bin_info` (
@@ -43,12 +44,13 @@ CREATE TABLE `mysql`.`replication_group_member_actions` (
 CREATE TABLE `mysql`.`server_cost` (
 CREATE TABLE `mysql`.`servers` (
 CREATE TABLE `mysql`.`slave_worker_info` (
+CREATE TABLE `mysql`.`tdsql_sequences` (
 CREATE TABLE `mysql`.`time_zone` (
 CREATE TABLE `mysql`.`time_zone_leap_second` (
 CREATE TABLE `mysql`.`time_zone_name` (
 CREATE TABLE `mysql`.`time_zone_transition` (
 CREATE TABLE `mysql`.`time_zone_transition_type` (
-Occurrences of 'CREATE TABLE' in the input file: 21
+Occurrences of 'CREATE TABLE' in the input file: 26
 #
 # Bug #83144: mysqlpump reads mysql_dump group, not mysqlpump in config-group
 #
