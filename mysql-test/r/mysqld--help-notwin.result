@@ -549,6 +549,8 @@ The following options may be given as the first argument:
  before storage engine initialization, where each plugin
  is identified as name=library, where name is the plugin
  name and library is the plugin library in plugin_dir.
+ --enable-backup-dcn-switch 
+ enable the backup dcn switch
  --end-markers-in-json 
  In JSON output ("EXPLAIN FORMAT=JSON" and optimizer
  trace), if variable is set to 1, repeats the structure's
@@ -821,6 +823,8 @@ The following options may be given as the first argument:
  --log-isam[=name]   Log all MyISAM changes to file.
  --log-output=name   Syntax: log-output=value[,value...], where "value" could
  be TABLE, FILE or NONE
+ --log-profile-in-slow-log 
+ Log thd profile in slow log file
  --log-queries-not-using-indexes 
  Log queries that are executed without benefit of any
  index to the slow log if it is open
@@ -847,6 +851,11 @@ The following options may be given as the first argument:
  --log-slow-slave-statements 
  This option is deprecated. Use
  log_slow_replica_statements instead.
+ --log-slow-verbosity=name 
+ Verbosity level for the slow log(explain/0 supported)
+ --log-statement-of-query-event 
+ Enable log statement format binlog of query event
+ (Defaults to on; use --skip-log-statement-of-query-event to disable.)
  --log-statements-unsafe-for-binlog 
  Log statements considered unsafe when using statement
  based binary logging.
@@ -957,6 +966,13 @@ The following options may be given as the first argument:
  --max-write-lock-count=# 
  After this many write locks, allow some read locks to run
  in between
+ --mc-enable         Global transaction sequence switch.Set to on to open, set
+ to off to close
+ --mc-gts-check      After turning on mc_gts_check, gts from statment cann't
+ less than innodb_min_purge_gts.
+ (Defaults to on; use --skip-mc-gts-check to disable.)
+ --mc-sleep-mode     After turning on mc_enable, use sleep instead of row lock
+ for prepare records.
  --memlock           Lock mysqld in memory.
  --merge-join-buffer-size=# 
  The size of the buffer that is used for the sort merge
@@ -1822,8 +1838,13 @@ The following options may be given as the first argument:
  values are OFF, COMMIT or ROLLBACK.
  --tdsql-allow-access-internal-table 
  allow current user to access tdsql internal table
+ --tdsql-buffer-pool-optimize-pct=# 
+ use this variable to limit the innodb buffer pool real
+ size
  --tdsql-compat-oracle-mode 
  Keep tdsql compatible with oracle if it's set.
+ --tdsql-forbid-write 
+ tdsql forbid write if set, is not the same with read_only
  --tdsql-hide-partitions[=name] 
  TDSQL: Partitions to disable, effective for partitions of
  all partitioned tables on the DB instance. Specifiy as
@@ -1931,14 +1952,23 @@ The following options may be given as the first argument:
  This option is used to let the server know when to
  extract the write set which will be used for various
  purposes. 
+ --txsql-compute-query-time-for-slow-logging[=#] 
+ Compute query time for slow logging by measuring from
+ query reception(2) or query start(1) or after locking(0)
+ to end time.
  --txsql-disable-gtid-in-undo 
  Do not record GTID in undo log header which cause
  performance degradation. If set to ON, clone statement is
  not allowed.
+ --txsql-extend-slow-log-level=# 
+ Control the level of extended information in slow log.
  --txsql-found-rows  Sets the total size of the transactional cache
  --txsql-load-data-local-strict-mode 
  Whether to emit errors (or warnings) in strict mode when
  executing LOAD DATA LOCAL INFILE statement
+ --txsql-parallel-copy-ddl 
+ Enable to use parallel processing for ddl with copy
+ algorithm.
  --txsql-parallel-ddl-merge-sort-k-value[=#] 
  K-ways merge sort when using parallel ddl.
  --txsql-range-estimation-by-histogram 
@@ -2164,6 +2194,7 @@ disabled-storage-engines
 disconnect-on-expired-password TRUE
 disconnect-slave-event-count 0
 div-precision-increment 4
+enable-backup-dcn-switch FALSE
 end-markers-in-json FALSE
 enforce-gtid-consistency FALSE
 eq-range-index-dive-limit 200
@@ -2239,6 +2270,7 @@ log-error-suppression-list
 log-error-verbosity 2
 log-isam myisam.log
 log-output FILE
+log-profile-in-slow-log FALSE
 log-queries-not-using-indexes FALSE
 log-raw FALSE
 log-replica-updates FALSE
@@ -2248,6 +2280,8 @@ log-slow-admin-statements FALSE
 log-slow-extra FALSE
 log-slow-replica-statements FALSE
 log-slow-slave-statements FALSE
+log-slow-verbosity 
+log-statement-of-query-event TRUE
 log-statements-unsafe-for-binlog TRUE
 log-tc tc.log
 log-tc-size #####
@@ -2283,6 +2317,9 @@ max-sort-length 1024
 max-sp-recursion-depth 0
 max-user-connections 0
 max-write-lock-count 18446744073709551615
+mc-enable FALSE
+mc-gts-check TRUE
+mc-sleep-mode FALSE
 memlock FALSE
 merge-join-buffer-size 262144
 min-examined-row-limit 0
@@ -2373,7 +2410,7 @@ performance-schema-max-socket-classes 10
 performance-schema-max-socket-instances -1
 performance-schema-max-sql-text-length 1024
 performance-schema-max-stage-classes 175
-performance-schema-max-statement-classes 241
+performance-schema-max-statement-classes 239
 performance-schema-max-statement-stack 10
 performance-schema-max-table-handles -1
 performance-schema-max-table-instances -1
@@ -2509,7 +2546,9 @@ table-open-cache-instances 16
 tablespace-definition-cache 256
 tc-heuristic-recover OFF
 tdsql-allow-access-internal-table FALSE
+tdsql-buffer-pool-optimize-pct 1
 tdsql-compat-oracle-mode FALSE
+tdsql-forbid-write FALSE
 tdsql-hide-partitions 
 temptable-max-mmap 1073741824
 temptable-max-ram 1073741824
@@ -2535,9 +2574,12 @@ transaction-isolation REPEATABLE-READ
 transaction-prealloc-size 4096
 transaction-read-only FALSE
 transaction-write-set-extraction XXHASH64
+txsql-compute-query-time-for-slow-logging 0
 txsql-disable-gtid-in-undo FALSE
+txsql-extend-slow-log-level 0
 txsql-found-rows 0
 txsql-load-data-local-strict-mode FALSE
+txsql-parallel-copy-ddl FALSE
 txsql-parallel-ddl-merge-sort-k-value 2
 txsql-range-estimation-by-histogram FALSE
 txsql-recycle-bin-db-not-visible TRUE
