@@ -336,7 +336,7 @@ end:
     return 0;
 }
 
-int Gtid_table_persistor::save(THD *thd, const Gtid *gtid) {
+int Gtid_table_persistor::save(THD *thd, const Gtid *gtid, bool set_owned_gtid) {
   DBUG_TRACE;
   int error = 0;
   TABLE *table = nullptr;
@@ -357,7 +357,12 @@ int Gtid_table_persistor::save(THD *thd, const Gtid *gtid) {
   /* Write directly to gtid_executed table only to satisfy debug test. */
   DBUG_EXECUTE_IF("disable_se_persists_gtid",
                   { error = write_row(table, buf, gtid->gno, gtid->gno); });
-
+  /* set the gtid to owned_gtid and persist it to gtid_executed table */
+  if (set_owned_gtid) {
+    assert(thd->owned_gtid.is_empty());
+    thd->owned_gtid = *gtid;
+    thd->owned_sid = sid;
+  }
   thd->request_persist_gtid_by_se();
 
   DBUG_EXECUTE_IF("simulate_err_on_write_gtid_into_table", {
