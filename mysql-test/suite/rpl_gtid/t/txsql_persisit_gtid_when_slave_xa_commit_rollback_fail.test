@@ -59,6 +59,7 @@ connection slave;
 #show processlist;
 set sql_log_bin=0;
 xa commit 'xa_id';
+let $count_before=`select count(*) from mysql.gtid_executed`;
 
 connection master;
 --source include/sync_slave_sql_with_master.inc
@@ -74,6 +75,13 @@ connection slave;
 let $slave_gtid=`select @@global.gtid_executed`;
 if($master_gtid != $slave_gtid) {
 	--echo "master gtid:$master_gtid != slave gtid:$slave_gtid"
+}
+
+--sleep 1
+#the mysql.gtid_executed has one row more than before
+let $count_after=`select count(*) - 1 from mysql.gtid_executed`;
+if($count_before != $count_after) {
+        --echo "gtid of failed xa commit doesn't persist to gtid_executed table will lost after kill server"
 }
 
 --echo "master gtid == slave gtid:,so it is fixed issue_141"
@@ -96,6 +104,7 @@ connection slave;
 #show processlist;
 set sql_log_bin=0;
 xa rollback 'xa_id';
+let $count_before=`select count(*) from mysql.gtid_executed`;
 
 connection master;
 --source include/sync_slave_sql_with_master.inc
@@ -111,6 +120,13 @@ connection slave;
 let $slave_gtid=`select @@global.gtid_executed`;
 if($master_gtid != $slave_gtid) {
 	--echo "master gtid:$master_gtid != slave gtid:$slave_gtid"
+}
+
+--sleep 1
+#the mysql.gtid_executed has one row more than before
+let $count_after=`select count(*) - 1 from mysql.gtid_executed`;
+if($count_before != $count_after) {
+        --echo "gtid of failed xa commit doesn't persist to gtid_executed table will lost after kill server"
 }
 
 --echo "master gtid == slave gtid:,so it is fixed issue_141"

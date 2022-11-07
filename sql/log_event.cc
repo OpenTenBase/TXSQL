@@ -4894,7 +4894,7 @@ bool persist_gtid_when_xa_commmit_or_rollback_fail(THD * thd) {
 
   }else {
     THD *tmp_thd= NULL;
-    if (gtid_table_persistor->save(tmp_thd, &gtid0) != 0)
+    if (gtid_table_persistor->save(tmp_thd, &gtid0, true) != 0)
     {
       // tls vars changed during persister->save() call since it used a tmp thd.
       thd->store_globals();

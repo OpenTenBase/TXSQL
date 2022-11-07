@@ -127,6 +127,7 @@ class Gtid_table_persistor {
 
     @param thd  Thread requesting to save gtid into the table
     @param gtid holds the sidno and the gno.
+    @param set_owned_gtid set the gtid to thd->owned_gtid
 
     @retval
       0    OK
@@ -135,7 +136,7 @@ class Gtid_table_persistor {
     @retval
       -1   Error
   */
-  int save(THD *thd, const Gtid *gtid);
+  int save(THD *thd, const Gtid *gtid, bool set_owned_gtid = false);
   /**
     Insert the gtid set into table.
 
