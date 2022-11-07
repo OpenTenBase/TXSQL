@@ -849,15 +849,6 @@ static AccessPath *BuildFinalAggregateAccessPath(THD *thd, JOIN *join, AccessPat
       Cached_item *tmp = new_Cached_item(join->thd, *group->item);
       if (!tmp || join->final_group_feilds.push_front(tmp)) goto build_err;
     }
-    // reset group_list
-    if (stream_agg && group) {
-      final_order = CreateOrderForGroupList(thd, join, group, REF_SLICE_SAVED_BASE,
-                                            curr_slice);
-      if (final_order == nullptr) {
-        assert(false);
-        goto build_err;
-      }
-    }
     join->set_ref_item_slice(REF_SLICE_SAVED_BASE);
   }
 
@@ -871,6 +862,16 @@ static AccessPath *BuildFinalAggregateAccessPath(THD *thd, JOIN *join, AccessPat
     uint curr_tmp_table = join->primary_tables;
     tab = &join->qep_tab[curr_tmp_table];
     if (tab->table()) {
+      // reset group_list
+      ORDER *tmp_group = tab->table()->group;
+      if (tmp_group != nullptr) {
+        final_order = CreateOrderForGroupList(thd, join, tmp_group, REF_SLICE_SAVED_BASE,
+                                              curr_slice);
+        if (final_order == nullptr) {
+          assert(false);
+          goto build_err;
+        }
+      }
       close_tmp_table(tab->table());
       free_tmp_table(tab->table());
       tab->set_table(nullptr);

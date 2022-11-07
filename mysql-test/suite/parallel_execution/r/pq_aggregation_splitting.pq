@@ -408,5 +408,31 @@ SELECT b, MAX(a) AS ma FROM t4 GROUP BY b HAVING ma < (SELECT MAX(t2.a) FROM t2 
 b	ma
 10	1
 SET @@optimizer_switch=@optimizer_switch_saved;
+#
+# make sortorder fail when sort for distinct
+#
+CREATE TABLE t1 (a INTEGER, b INTEGER);
+INSERT INTO t1 VALUES(1, 1), (2, 2), (3, 3);
+ANALYZE TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+EXPLAIN FORMAT = TREE SELECT DISTINCT SQL_BIG_RESULT a FROM t1 GROUP BY a,b ORDER BY a DESC;
+EXPLAIN
+-> Sort: t1.a DESC, t1.b
+    -> Sort with duplicate removal: t1.a DESC
+        -> Stream results  (cost=*** rows=***)
+            -> Group (no aggregates)
+                -> PX Receiver (merge sort; slice: 0; workers: 1)
+                    -> PX Sender (slice: 1; workers: 3)
+                        -> Group (no aggregates)  (cost=*** rows=***)
+                            -> Sort: t1.a DESC, t1.b  (cost=*** rows=***)
+                                -> Parallel table scan on t1  (cost=*** rows=***)
+
+SELECT DISTINCT SQL_BIG_RESULT a FROM t1 GROUP BY a,b ORDER BY a DESC;
+a
+3
+2
+1
+DROP TABLE t1;
 # --include set_px_to_saved.inc
 DROP TABLE t2, t4;
