@@ -407,9 +407,22 @@ bool Grant_validator::validate_dynamic_privileges() {
         for future improvements where all privileges objects have their own
         grant option.
       */
-      if (check_access(m_thd, UPDATE_ACL, consts::mysql.c_str(), nullptr,
-                       nullptr, true, true) &&
-          !sctx->has_global_grant(priv->str, priv->length).second) {
+      const bool no_access_on_mysql =
+          check_access(m_thd, UPDATE_ACL, consts::mysql.c_str(), nullptr,
+                       nullptr, true, true);
+      const bool has_grant_privilege =
+          sctx->has_global_grant(priv->str, priv->length).second;
+      if (no_access_on_mysql && !has_grant_privilege) {
+        my_error(ER_SPECIFIC_ACCESS_DENIED_ERROR, MYF(0), "GRANT OPTION");
+        return true;
+      }
+      /*
+        When cdb_forbid_mysql_write is enabled, user without a GRANT_OPTION
+        on the specific dynamic privilege can't grant privilege to others.
+        Tencentroot or tdsqlroot is not limited.
+      */
+      if (cdb_forbid_mysql_write && !m_thd->is_tencent_or_tdsql_root() &&
+          !has_grant_privilege) {
         my_error(ER_SPECIFIC_ACCESS_DENIED_ERROR, MYF(0), "GRANT OPTION");
         return true;
       }
