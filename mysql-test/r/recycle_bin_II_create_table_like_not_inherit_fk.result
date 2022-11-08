@@ -23,10 +23,18 @@ ERROR HY000: the "truncate table with foreign key" is not supported in recycle b
 #
 # case2. fix it doesn't inherit data directory and index directory
 #
+# restart:--innodb-directories=MYSQL_TMP_DIR/recycle_bin_tmp
+SHOW TABLES;
+Tables_in_test
+sc
+stu
+set global cdb_recycle_bin_enabled = on;
+Warnings:
+Warning	1287	'@@cdb_recycle_bin_enabled' is deprecated and will be removed in a future release. Please use txsql_recycle_bin_enabled instead.
 CREATE TABLE `te` (
 `c1` int NOT NULL,
 PRIMARY KEY (`c1`)
-) ENGINE=InnoDB  DATA DIRECTORY=<DATA DIRECTORY>';
+) ENGINE=InnoDB  DATA DIRECTORY='MYSQL_TMP_DIR/recycle_bin_tmp';
 insert into te values(1);
 truncate te;
 ERROR HY000: the "truncate table with DATA DIRECTORY or INDEX DIRECTORY" is not supported in recycle bin.
@@ -36,8 +44,9 @@ c1
 #
 # Cleanup 
 # 
-set global cdb_recycle_bin_enabled=0;
+set global cdb_recycle_bin_enabled = off;
 Warnings:
 Warning	1287	'@@cdb_recycle_bin_enabled' is deprecated and will be removed in a future release. Please use txsql_recycle_bin_enabled instead.
-drop table if exists stu, sc;
-drop table if exists te;
+drop table stu, sc;
+drop table te;
+# restart:

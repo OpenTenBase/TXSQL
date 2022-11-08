@@ -560,9 +560,14 @@ int Gtid_table_persistor::compress_first_consecutive_range(TABLE *table,
     get_gtid_interval(table, cur_sid, cur_gno_start, cur_gno_end);
     /*
       Check if gtid intervals of previous gtid and current gtid
-      are consecutive.
+      are consecutive. Note, sometimes testcase
+      'rpl_gtid.rpl_gtids_table_disable_binlog_on_slave' fails because
+      previous gno_end is the same as cur_gno_start(that's very strange
+      and it can be seen on official mysql-8.0.30), we should handle
+      this circumstance.
     */
-    if (sid == cur_sid && gno_end + 1 == cur_gno_start) {
+    if (sid == cur_sid && ((gno_end + 1 == cur_gno_start) ||
+                           (gno_end != 0 && gno_end == cur_gno_start))) {
       find_first_consecutive_gtids = true;
       gno_end = cur_gno_end;
       /* Delete the consecutive gtid. We do not delete the first
@@ -588,12 +593,17 @@ int Gtid_table_persistor::compress_first_consecutive_range(TABLE *table,
 
   if (err != HA_ERR_END_OF_FILE && err != 0)
     ret = -1;
-  else if (find_first_consecutive_gtids)
+  else if (find_first_consecutive_gtids) {
+    DBUG_EXECUTE_IF("compress_gtid_table", {
+      sql_print_information("compressed gtid: %s:%ld-%ld", sid.c_str(),
+                            gno_start, gno_end);
+    });
     /*
       Update the gno_end of the first consecutive gtid with the gno_end of
       the last consecutive gtid for the first consecutive range of gtids.
     */
     ret = update_row(table, sid.c_str(), gno_start, gno_end);
+  }
 
   return ret;
 }

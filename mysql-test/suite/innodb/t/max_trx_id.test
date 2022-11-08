@@ -2,6 +2,7 @@
 --source include/have_debug_sync.inc
 --source include/not_valgrind.inc
 --source include/count_sessions.inc
+--skip Test requires InnoDB trx_sys_write_max_trx_id
 
 --echo # Initialize new data directory and restart MySQL on that data directory.
 --echo # The new data directory will be initialized by instance which has:

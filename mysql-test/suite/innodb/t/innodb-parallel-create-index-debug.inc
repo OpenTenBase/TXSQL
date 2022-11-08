@@ -11,5 +11,3 @@ ALTER TABLE t1 ADD INDEX k_c2(c2), add unique index k_c3(c3);
 SELECT COUNT(*) FROM t1;
 
 CHECK TABLE t1;
-
-SHOW INDEX FROM t1;

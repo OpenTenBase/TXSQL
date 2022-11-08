@@ -1,6 +1,7 @@
 --source include/have_debug_sync.inc
 --source include/count_sessions.inc
-
+# We have optimized trx_prepare without releasing locks when there are no gap locks
+--skip Test is skipped because of trx_prepare optimization
 # This test scenario exercises a rare case in which READ COMMITTED
 # (or UNCOMMITTED) transaction tries to release read locks during PREPARE stage
 # (as is typical for XA or in group replication) and is interupted MAX_FAILURES
