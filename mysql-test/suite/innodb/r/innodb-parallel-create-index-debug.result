@@ -25,9 +25,6 @@ COUNT(*)
 CHECK TABLE t1;
 Table	Op	Msg_type	Msg_text
 test.t1	check	status	OK
-SHOW INDEX FROM t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
-t1	0	PRIMARY	1	c1	A	957	NULL	NULL		BTREE			YES	NULL
 SET SESSION innodb_txsql_parallel_ddl=ON;
 set debug= '+d,crash_after_merge_sort_before_build_btree';
 ALTER TABLE t1 ADD INDEX k_c2(c2), add unique index k_c3(c3);
@@ -38,9 +35,6 @@ COUNT(*)
 CHECK TABLE t1;
 Table	Op	Msg_type	Msg_text
 test.t1	check	status	OK
-SHOW INDEX FROM t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
-t1	0	PRIMARY	1	c1	A	957	NULL	NULL		BTREE			YES	NULL
 SET SESSION innodb_txsql_parallel_ddl=ON;
 set debug= '+d,crash_after_build_subtree_before_merge_subtree';
 ALTER TABLE t1 ADD INDEX k_c2(c2), add unique index k_c3(c3);
@@ -51,9 +45,6 @@ COUNT(*)
 CHECK TABLE t1;
 Table	Op	Msg_type	Msg_text
 test.t1	check	status	OK
-SHOW INDEX FROM t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
-t1	0	PRIMARY	1	c1	A	957	NULL	NULL		BTREE			YES	NULL
 SET SESSION innodb_txsql_parallel_ddl=ON;
 set debug= '+d,crash_after_merge_subtree_before_compress_tree';
 ALTER TABLE t1 ADD INDEX k_c2(c2), add unique index k_c3(c3);
@@ -64,9 +55,6 @@ COUNT(*)
 CHECK TABLE t1;
 Table	Op	Msg_type	Msg_text
 test.t1	check	status	OK
-SHOW INDEX FROM t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
-t1	0	PRIMARY	1	c1	A	957	NULL	NULL		BTREE			YES	NULL
 SET SESSION innodb_txsql_parallel_ddl=ON;
 set debug= '+d,crash_after_compress_tree';
 ALTER TABLE t1 ADD INDEX k_c2(c2), add unique index k_c3(c3);
@@ -77,9 +65,6 @@ COUNT(*)
 CHECK TABLE t1;
 Table	Op	Msg_type	Msg_text
 test.t1	check	status	OK
-SHOW INDEX FROM t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
-t1	0	PRIMARY	1	c1	A	957	NULL	NULL		BTREE			YES	NULL
 SET SESSION innodb_txsql_parallel_ddl=ON;
 set debug= '+d,crash_during_compress_tree';
 ALTER TABLE t1 ADD INDEX k_c2(c2), add unique index k_c3(c3);
@@ -90,9 +75,6 @@ COUNT(*)
 CHECK TABLE t1;
 Table	Op	Msg_type	Msg_text
 test.t1	check	status	OK
-SHOW INDEX FROM t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
-t1	0	PRIMARY	1	c1	A	957	NULL	NULL		BTREE			YES	NULL
 SET SESSION innodb_txsql_parallel_ddl=ON;
 SET session debug= @old_debug;
 set debug = '+d,get_child_page_id_failed';

@@ -3725,6 +3725,7 @@ LEX::LEX()
       // Quite unlikely to overflow initial allocation, so no instrumentation.
       plugins(PSI_NOT_INSTRUMENTED),
       insert_update_values_map(nullptr),
+      type(0),
       option_type(OPT_DEFAULT),
       drop_temporary(false),
       sphead(nullptr),

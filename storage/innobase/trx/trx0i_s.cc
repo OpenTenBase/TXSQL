@@ -930,8 +930,7 @@ static bool fetch_rw_data_into_cache_callback(
     i_s_locks_row_t *requested_lock_row;
     trx_mutex_enter(trx);
 
-    if (!trx_was_started(trx) ||
-        (trx->id != 0 && !trx->read_only)) {
+    if (!trx_was_started(trx)) {
       trx_mutex_exit(trx);
       mutex_exit(&element->mutex);
 

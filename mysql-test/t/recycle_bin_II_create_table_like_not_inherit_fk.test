@@ -34,11 +34,25 @@ truncate sc;
 --echo #
 --echo # case2. fix it doesn't inherit data directory and index directory
 --echo #
-replace_regex /DIRECTORY=.*tmp/DIRECTORY=<DATA DIRECTORY>/ ;
+
+LET $MYSQLD_DATADIR=`select @@datadir`;
+LET $recycle_bin_tmp=$MYSQL_TMP_DIR/recycle_bin_tmp;
+--mkdir $recycle_bin_tmp
+
+disconnect con_tencentroot_master;
+LET $restart_parameters = restart:--innodb-directories=$recycle_bin_tmp;
+--replace_result $MYSQL_TMP_DIR MYSQL_TMP_DIR
+--source include/restart_mysqld.inc
+
+SHOW TABLES;
+
+connect (con_tencentroot_master, 127.0.0.1, tencentroot, '', '', $MASTER_MYPORT);
+set global cdb_recycle_bin_enabled = on;
+--replace_result $MYSQL_TMP_DIR MYSQL_TMP_DIR
 eval CREATE TABLE `te` (
   `c1` int NOT NULL,
   PRIMARY KEY (`c1`)
-) ENGINE=InnoDB  DATA DIRECTORY='/tmp';
+) ENGINE=InnoDB  DATA DIRECTORY='$recycle_bin_tmp';
 
 insert into te values(1);
 
@@ -51,9 +65,13 @@ select * from te;
 --echo # Cleanup 
 --echo # 
 
---connection con_tencentroot_master
---eval set global cdb_recycle_bin_enabled=$cdb_recycle_bin_enabled_default
+set global cdb_recycle_bin_enabled = off;
+drop table stu, sc;
+drop table te;
 
-drop table if exists stu, sc;
-drop table if exists te;
+let $restart_parameters = restart:;
+--source include/start_mysqld.inc
 
+--rmdir $recycle_bin_tmp/test
+--rmdir $recycle_bin_tmp/__txsql_recycle_bin__
+--rmdir $recycle_bin_tmp
