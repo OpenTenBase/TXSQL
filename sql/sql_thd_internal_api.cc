@@ -406,3 +406,16 @@ bool add_auto_statistics_task(const char* db_name,
                                 table_name, table_name_length,
                                 columns, num_buckets, time_now);
 }
+
+bool thd_is_unnested_single_table_stmt(const THD *thd) {
+  assert(thd != nullptr);
+
+  Query_expression *unit = thd->lex->unit;
+  Query_block *select = unit->first_query_block();
+  return (unit->is_simple() &&
+          !select->next_query_block() &&
+          thd->lex->current_query_block()->first_inner_query_expression() == nullptr &&
+          thd->lex->current_query_block()->outer_query_block() == nullptr &&
+          select->get_table_list()->is_base_table() &&
+          select->leaf_table_count == 1);
+}

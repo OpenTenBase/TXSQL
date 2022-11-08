@@ -340,6 +340,10 @@ static bool innobase_create_status_file = false;
 bool innobase_stats_on_metadata = true;
 static bool innodb_optimize_fulltext_only = false;
 
+bool srv_skip_dive_for_unique_key = true;
+double srv_skip_dive_threshold_pct = 0.01;
+int srv_skip_dive_threshold_record = 100;
+
 static char *innodb_version_str = (char *)INNODB_VERSION_STR;
 
 static Innodb_data_lock_inspector innodb_data_lock_inspector;
@@ -17793,6 +17797,102 @@ int ha_innobase::records(ha_rows *num_rows) /*!< out: number of rows */
   return 0;
 }
 
+/** Estimates the number of index records in a range without dive.
+    For the PK/UK that ends with an integer column type, subject to
+    the unique value constraint, the range query of the integer column
+    can be estimated. For example, the range query of PK[5,10] can
+    hit 6 records at most (5, 6, 7, 8, 9, 10).
+
+    Thus, we can directly estimate the maximum possible number of records.
+    If the range is small enough, or the proportion in the total number of
+    records is small enough, it can be considered that the estimation error
+    is small to a certain extent.
+
+    In detail, we first calculate the range interval according to the
+    range_start and the range_end. If the range interval is small enough
+    (under the srv_skip_dive_threshold_record or srv_skip_dive_threshold_pct),
+    we return the guessed row number directly.
+ @param[in]     range_start            start of the range.
+ @param[in]     range_end              end of the range.
+ @param[in]     skip_dive_threshold_record  threshold estimated by diff.
+ @param[in]     range_flag             correction of closed interval.
+ @return estimated number of rows or HA_POS_ERROR */
+ha_rows guess_n_rows_in_range(
+    dtuple_t *range_start,
+    dtuple_t *range_end,
+    double skip_dive_threshold_record,
+    int range_flag) {
+  dfield_t *dfield_start;
+  dfield_t *dfield_end;
+  const dtype_t *dtype_start;
+  const dtype_t *dtype_end;
+
+  dfield_start = dtuple_get_nth_field(range_start, range_start->n_fields - 1);
+  dtype_start = dfield_get_type(dfield_start);
+  ulint col_len_start = dtype_get_len(dtype_start);
+  bool usign = (dtype_get_prtype(dtype_start) & DATA_UNSIGNED) != 0;
+
+  dfield_end = dtuple_get_nth_field(range_end, range_start->n_fields - 1);
+  dtype_end = dfield_get_type(dfield_end);
+
+  if (dfield_get_data(dfield_start) && // not null
+      dtype_get_mtype(dtype_start) == DATA_INT &&
+      dtype_get_mtype(dtype_end) == DATA_INT &&
+      col_len_start == dtype_get_len(dtype_end) &&
+      usign == ((dtype_get_prtype(dtype_end) & DATA_UNSIGNED) != 0)) {
+    auto ret_start = mach_read_int_type(
+                        static_cast<const byte *>(dfield_get_data(dfield_start)),
+                        col_len_start,
+                        usign);
+    auto ret_end = mach_read_int_type(
+                        static_cast<const byte *>(dfield_get_data(dfield_end)),
+                        col_len_start,
+                        usign);
+
+    int64_t range = INT_MAX64;
+    if (col_len_start == 1) {
+      range = std::abs((int8_t)ret_start - (int8_t)ret_end);
+    } else if (col_len_start == 2) {
+      range = std::abs((int16_t)ret_start - (int16_t)ret_end);
+    } else if (col_len_start == 4) {
+      range = std::abs((int32_t)ret_start - (int32_t)ret_end);
+    } else {
+      range = std::abs((int64_t)ret_start - (int64_t)ret_end);
+    }
+    range += range_flag;
+
+    if (range <= srv_skip_dive_threshold_record ||
+        range <= skip_dive_threshold_record) {
+      if (range_start->n_fields == 1) {
+        return (ha_rows)range;
+      }
+
+      uint16_t col_no = 0;
+      for (; col_no < range_start->n_fields - 1 ; col_no++) {
+        dfield_start = dtuple_get_nth_field(range_start, col_no);
+        dtype_start = dfield_get_type(dfield_start);
+        col_len_start = dtype_get_len(dtype_start);
+
+        dfield_end = dtuple_get_nth_field(range_end, col_no);
+        dtype_end = dfield_get_type(dfield_end);
+        if (dfield_get_data(dfield_start) && // not null
+            (dtype_get_mtype(dtype_start) != dtype_get_mtype(dtype_end) ||
+             col_len_start != dtype_get_len(dtype_end) ||
+             memcmp(dfield_get_data(dfield_start),
+                    dfield_get_data(dfield_end),
+                    col_len_start) != 0)) {
+          break;
+        }
+      }
+
+      if (col_no == range_start->n_fields - 1) {
+        return (ha_rows)range;
+      }
+    }
+  }
+  return HA_POS_ERROR;
+}
+
 /** Estimates the number of index records in a range.
  @return estimated number of rows */
 
@@ -17880,6 +17980,54 @@ ha_rows ha_innobase::records_in_range(
       (ulint)(max_key ? max_key->length : 0));
 
   assert(max_key ? range_end->n_fields > 0 : range_end->n_fields == 0);
+
+  /* For PK/UK integer range estimation, we can directly estimate
+    the maximum possible number of records. If the range is small enough,
+    or the proportion in the total number of records is small enough,
+    it can be considered that the estimation error is small to a certain
+    extent. Thus, the estimation results directly replace the index dive
+    estimation process, saving CPU and IO overhead.
+
+    Index dive can be skipped if the following conditions are satisfied:
+     a) Open the function switch.
+     b) Valid threshold configured by percentage.
+     c) Valid threshold configured by record number.
+     d) Non empty start range with full fields.
+     e) Non empty end range with full fields.
+     f) CLUSTERED or UNIQUE index.
+     g) Unnested single table query. */
+  if (srv_skip_dive_for_unique_key &&
+      srv_skip_dive_threshold_pct > 0 &&
+      srv_skip_dive_threshold_record > 0 &&
+      index->type &&
+      min_key &&
+      max_key &&
+      !(key->key_part->field->is_nullable() && !*(min_key->key)) &&
+      range_start->n_fields == key->user_defined_key_parts &&
+      range_start->n_fields == range_end->n_fields &&
+      (index->type | DICT_CLUSTERED | DICT_UNIQUE) ==
+        (DICT_CLUSTERED | DICT_UNIQUE) &&
+      thd_is_unnested_single_table_stmt(ha_thd())) {
+    ha_rows estimated_rows =
+        guess_n_rows_in_range(
+            range_start,
+            range_end,
+            index->stat_n_non_null_key_vals[range_end->n_fields - 1]
+                * srv_skip_dive_threshold_pct,
+            (min_key->flag == HA_READ_KEY_EXACT ? 1 : 0)
+                + (max_key->flag == HA_READ_AFTER_KEY ? 0 : -1));
+
+    if (estimated_rows != HA_POS_ERROR) {
+      DBUG_EXECUTE_IF(
+          "print_guess_n_rows_in_range_return_value",
+          push_warning_printf(ha_thd(), Sql_condition::SL_WARNING, ER_NO_DEFAULT,
+                              "guess_n_rows_in_range(): %llu", estimated_rows););
+
+      mem_heap_free(heap);
+
+      return estimated_rows;
+    }
+  }
 
   mode1 = convert_search_mode_to_innobase(min_key ? min_key->flag
                                                   : HA_READ_KEY_EXACT);
@@ -24786,6 +24934,30 @@ static MYSQL_SYSVAR_BOOL(
     "Skip adjustment NDV for estimating primary key in the leaf page "
     "when calculating persistent statistics of clustered index",
     nullptr, nullptr, false);
+
+static MYSQL_SYSVAR_BOOL(
+    skip_dive_for_unique_key,
+    srv_skip_dive_for_unique_key, PLUGIN_VAR_OPCMDARG,
+    "Skip index dive for estimating records in range "
+    "when statistics of primary key or unique key",
+    nullptr, nullptr, true);
+
+static MYSQL_SYSVAR_DOUBLE(skip_dive_percentage_threshold,
+                           srv_skip_dive_threshold_pct,
+                           PLUGIN_VAR_OPCMDARG,
+                           "Percentage threshold of the total row count. "
+                           "If the estimated row count is lower than the given "
+                           "threshold, we use the number instead of dive.",
+                           nullptr, nullptr, 0.1, 0, 10.00, 0);
+
+static MYSQL_SYSVAR_INT(skip_dive_record_threshold,
+                        srv_skip_dive_threshold_record,
+                        PLUGIN_VAR_OPCMDARG,
+                        "Threshold of the estimated row count. "
+                        "If the estimated row count is lower than the given "
+                        "threshold, we use the number instead of dive.",
+                        nullptr, nullptr, 100, 1, 1000, 0);
+
 static MYSQL_SYSVAR_BOOL(fast_ddl, innodb_fast_ddl,
     PLUGIN_VAR_OPCMDARG,
     "Enable fast ddl to optimize cleaning and romoving pages in flush list. "
@@ -24993,6 +25165,9 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(doublewrite_pages),
     MYSQL_SYSVAR(stats_include_delete_marked),
     MYSQL_SYSVAR(stats_skip_adjustment_for_primary_key),
+    MYSQL_SYSVAR(skip_dive_for_unique_key),
+    MYSQL_SYSVAR(skip_dive_percentage_threshold),
+    MYSQL_SYSVAR(skip_dive_record_threshold),
     MYSQL_SYSVAR(api_enable_binlog),
     MYSQL_SYSVAR(api_enable_mdl),
     MYSQL_SYSVAR(api_disable_rowlock),

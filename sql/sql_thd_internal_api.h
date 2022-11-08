@@ -315,4 +315,10 @@ bool auto_statistics_is_running();
 bool add_auto_statistics_task(const char* db_name,
     const int db_name_length, const char* table_name,
     const int table_name_length, const std::vector<std::string> &columns);
+
+/**
+  Check whether the SQL is single table select and non-nested.
+*/
+bool thd_is_unnested_single_table_stmt(const THD *thd);
+
 #endif  // SQL_THD_INTERNAL_API_INCLUDED

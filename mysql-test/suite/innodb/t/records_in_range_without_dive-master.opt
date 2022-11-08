@@ -1,0 +1,4 @@
+--tencent-root-cnf=tmy.conf
+--innodb_skip_dive_for_unique_key=ON
+--innodb_skip_dive_record_threshold=50
+--innodb_skip_dive_percentage_threshold=1
