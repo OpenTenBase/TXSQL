@@ -1466,6 +1466,9 @@ enum check_index_type_enum {
   UNCOMPRESSED_INDEX = 4
 };
 extern bool innodb_fast_ddl;
+extern bool srv_skip_dive_for_unique_key;
+extern double srv_skip_dive_threshold_pct;
+extern int srv_skip_dive_threshold_record;
 /* Changes from txsql end. */
 
 #endif /* ha_innodb_h */

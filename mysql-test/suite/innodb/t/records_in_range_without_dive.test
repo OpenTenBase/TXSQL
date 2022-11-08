@@ -1,0 +1,284 @@
+#
+# Test guess_n_rows_in_range() which is used by
+# ha_innobase::records_in_range()
+#
+-- source include/have_debug.inc
+-- source include/not_hypergraph.inc   # Does not use the same estimators.
+
+CREATE TABLE records_in_range_test (
+	c1 VARCHAR(16),
+	c2 int,
+	PRIMARY KEY (c1,c2)
+) ENGINE=INNODB;
+
+INSERT INTO records_in_range_test VALUES
+('ccc', 1),
+('kkk01', 1),
+('kkk02', 1),
+('kkk03', 1),
+('kkk04', 1),
+('kkk05', 1),
+('kkk06', 1),
+('kkk07', 1),
+('kkk08', 1),
+('mmm', 1),
+('nnn', 1),
+('uuu01', 3),
+('uuu02', 3),
+('uuu03', 3),
+('uuu04', 3),
+('uuu05', 3),
+('uuu06', 3),
+('uuu07', 3),
+('uuu08', 3),
+('xxx', 3);
+
+ANALYZE TABLE records_in_range_test;
+
+# We exploit the warning mechanism here to display the return value from
+# guess_n_rows_in_range()
+SET SESSION DEBUG='+d,print_guess_n_rows_in_range_return_value';
+# should not effect the results
+SET SESSION DEBUG='+d,print_btr_estimate_n_rows_in_range_return_value';
+
+-- echo
+-- echo In all SELECTs below the number of the records in the range returned
+-- echo by COUNT(*) must be the same as the number returned by
+-- echo guess_n_rows_in_range() which can be seen inside the artificial
+-- echo warning
+
+-- echo
+-- echo Test left-unbounded, right-open intervals
+-- echo
+SELECT COUNT(*) FROM records_in_range_test WHERE c1 < 'aaa' and c2 between 1 and 2;
+
+-- echo
+-- echo Test left-unbounded, right-closed intervals
+-- echo
+SELECT COUNT(*) FROM records_in_range_test WHERE c1 <= 'aaa' and c2 between 1 and 2;
+
+-- echo
+-- echo Test left-open, right-unbounded intervals
+-- echo
+SELECT COUNT(*) FROM records_in_range_test WHERE c1 > 'aaa' and c2 between 1 and 2;
+
+-- echo
+-- echo Test left-closed, right-unbounded intervals
+-- echo
+SELECT COUNT(*) FROM records_in_range_test WHERE c1 >= 'aaa' and c2 between 1 and 2;
+
+-- echo
+-- echo Test left-open, right-open intervals
+-- echo In some cases here the optimizer is smart enough not to call
+-- echo ha_innobase::records_in_range() at all, so we get no warning containing
+-- echo the value returned from btr_estimate_n_rows_in_range()
+-- echo
+SELECT COUNT(*) FROM records_in_range_test WHERE c1 > 'aaa' AND c1 < 'bbb' and c2 between 1 and 2;
+
+-- echo
+-- echo Test left-closed, right-open intervals
+-- echo In some cases here the optimizer is smart enough not to call
+-- echo ha_innobase::records_in_range() at all, so we get no warning containing
+-- echo the value returned from btr_estimate_n_rows_in_range()
+-- echo
+SELECT COUNT(*) FROM records_in_range_test WHERE c1 >= 'aaa' AND c1 < 'bbb' and c2 between 1 and 2;
+
+-- echo
+-- echo Test left-open, right-closed intervals
+-- echo In some cases here the optimizer is smart enough not to call
+-- echo ha_innobase::records_in_range() at all, so we get no warning containing
+-- echo the value returned from btr_estimate_n_rows_in_range()
+-- echo
+SELECT COUNT(*) FROM records_in_range_test WHERE c1 > 'aaa' AND c1 <= 'bbb' and c2 between 1 and 2;
+
+-- echo
+-- echo Test left-closed, right-closed intervals
+-- echo In some cases here the optimizer is smart enough not to call
+-- echo ha_innobase::records_in_range() at all, so we get no warning containing
+-- echo the value returned from btr_estimate_n_rows_in_range()
+-- echo
+SELECT COUNT(*) FROM records_in_range_test WHERE c1 >= 'aaa' AND c1 <= 'bbb' and c2 between 1 and 2;
+
+-- echo
+-- echo Test left-closed, right-closed point
+-- echo In some cases here the optimizer is smart enough not to call
+-- echo ha_innobase::records_in_range() at all, so we get no warning containing
+-- echo the value returned from guess_n_rows_in_range()
+-- echo
+SELECT COUNT(*) FROM records_in_range_test WHERE c1 >= 'aaa' AND c1 <= 'aaa' and c2 between 1 and 2;
+SELECT COUNT(*) FROM records_in_range_test WHERE c1 = 'aaa' and c2 between 1 and 2;
+SELECT COUNT(*) FROM records_in_range_test WHERE c1 = 'aaa' and c2 between 1 and 200;
+SELECT COUNT(*) FROM records_in_range_test WHERE c2 between 1 and 2;
+SELECT COUNT(*) FROM records_in_range_test WHERE c2 between 1 and 200;
+
+DROP TABLE records_in_range_test;
+
+-- echo
+-- echo Test primary key (TEXT, int)
+-- echo
+
+CREATE TABLE records_in_range_test (
+	c1 TEXT,
+	c2 int,
+	PRIMARY KEY (c1(10),c2)
+) ENGINE=INNODB;
+
+INSERT INTO records_in_range_test VALUES
+('ccc', 1),
+('kkk01', 1),
+('kkk02', 1),
+('kkk03', 1),
+('kkk04', 1),
+('kkk05', 1),
+('kkk06', 1),
+('kkk07', 1),
+('kkk08', 1),
+('mmm', 1),
+('nnn', 1),
+('uuu01', 3),
+('uuu02', 3),
+('uuu03', 3),
+('uuu04', 3),
+('uuu05', 3),
+('uuu06', 3),
+('uuu07', 3),
+('uuu08', 3),
+('xxx', 3);
+
+SELECT COUNT(*) FROM records_in_range_test WHERE c1 >= 'aaa' AND c1 <= 'aaa' and c2 between 1 and 2;
+SELECT COUNT(*) FROM records_in_range_test WHERE c1 = 'aaa' and c2 between 1 and 2;
+SELECT COUNT(*) FROM records_in_range_test WHERE c1 = 'aaa' and c2 between 1 and 200;
+SELECT COUNT(*) FROM records_in_range_test WHERE c2 between 1 and 2;
+SELECT COUNT(*) FROM records_in_range_test WHERE c2 between 1 and 200;
+
+DROP TABLE records_in_range_test;
+
+-- echo
+-- echo Test primary key (BLOB, int)
+-- echo
+
+CREATE TABLE records_in_range_test (
+	c1 BLOB,
+	c2 int,
+	PRIMARY KEY (c1(10),c2)
+) ENGINE=INNODB;
+
+INSERT INTO records_in_range_test VALUES
+('ccc', 1),
+('kkk01', 1),
+('kkk02', 1),
+('kkk03', 1),
+('kkk04', 1),
+('kkk05', 1),
+('kkk06', 1),
+('kkk07', 1),
+('kkk08', 1),
+('mmm', 1),
+('nnn', 1),
+('uuu01', 3),
+('uuu02', 3),
+('uuu03', 3),
+('uuu04', 3),
+('uuu05', 3),
+('uuu06', 3),
+('uuu07', 3),
+('uuu08', 3),
+('xxx', 3);
+
+SELECT COUNT(*) FROM records_in_range_test WHERE c1 >= 'aaa' AND c1 <= 'ccc' and c2 between 1 and 2;
+SELECT COUNT(*) FROM records_in_range_test WHERE c1 >= 'aaa' AND c1 <= 'aaa' and c2 between 1 and 2;
+SELECT COUNT(*) FROM records_in_range_test WHERE c1 = 'aaa' and c2 between 1 and 2;
+SELECT COUNT(*) FROM records_in_range_test WHERE c1 = 'aaa' and c2 between 1 and 200;
+SELECT COUNT(*) FROM records_in_range_test WHERE c2 between 1 and 2;
+SELECT COUNT(*) FROM records_in_range_test WHERE c2 between 1 and 200;
+
+DROP TABLE records_in_range_test;
+
+-- echo
+-- echo Test primary key (double, int)
+-- echo
+
+CREATE TABLE records_in_range_test (
+	c1 double,
+	c2 int,
+	PRIMARY KEY (c1,c2)
+) ENGINE=INNODB;
+
+INSERT INTO records_in_range_test VALUES
+(1, 1),
+(2, 1),
+(3, 1),
+(4, 1),
+(5, 1),
+(6, 1),
+(7, 1),
+(8, 1),
+(9, 1),
+(10, 1),
+(1, 3),
+(2, 3),
+(3, 3),
+(4, 3),
+(5, 3),
+(6, 3),
+(7, 3),
+(8, 3),
+(9, 3),
+(10, 3);
+
+SELECT COUNT(*) FROM records_in_range_test WHERE c1 >= 1 AND c1 <= 3 and c2 between 1 and 2;
+SELECT COUNT(*) FROM records_in_range_test WHERE c1 >= 1 AND c1 <= 1 and c2 between 1 and 2;
+SELECT COUNT(*) FROM records_in_range_test WHERE c1 = 1 and c2 between 1 and 2;
+SELECT COUNT(*) FROM records_in_range_test WHERE c1 = 1 and c2 between 1 and 200;
+SELECT COUNT(*) FROM records_in_range_test WHERE c2 between 1 and 2;
+SELECT COUNT(*) FROM records_in_range_test WHERE c2 between 1 and 200;
+
+DROP TABLE records_in_range_test;
+
+-- echo
+-- echo Test primary key (int, int)
+-- echo
+
+CREATE TABLE records_in_range_test (
+	c1 int,
+	c2 int,
+	PRIMARY KEY (c1,c2)
+) ENGINE=INNODB;
+
+INSERT INTO records_in_range_test VALUES
+(1, 1),
+(2, 1),
+(3, 1),
+(4, 1),
+(5, 1),
+(6, 1),
+(7, 1),
+(8, 1),
+(9, 1),
+(10, 1),
+(1, 3),
+(2, 3),
+(3, 3),
+(4, 3),
+(5, 3),
+(6, 3),
+(7, 3),
+(8, 3),
+(9, 3),
+(10, 3);
+
+SELECT COUNT(*) FROM records_in_range_test WHERE c1 >= 1 AND c1 <= 3 and c2 between 1 and 2;
+SELECT COUNT(*) FROM records_in_range_test WHERE c1 >= 1 AND c1 <= 1 and c2 between 1 and 2;
+SELECT COUNT(*) FROM records_in_range_test WHERE c1 = 1 and c2 between 1 and 2;
+SELECT COUNT(*) FROM records_in_range_test WHERE c1 = 1 and c2 between 1 and 200;
+SELECT COUNT(*) FROM records_in_range_test WHERE c2 between 1 and 2;
+SELECT COUNT(*) FROM records_in_range_test WHERE c2 between 1 and 200;
+SELECT COUNT(*) FROM records_in_range_test WHERE c1 between 1 and 2;
+SELECT COUNT(*) FROM records_in_range_test WHERE c1 between 1 and 200;
+
+DROP TABLE records_in_range_test;
+
+--source include/select.inc
+
+SET SESSION DEBUG='-d,print_guess_n_rows_in_range_return_value';
+SET SESSION DEBUG='-d,print_btr_estimate_n_rows_in_range_return_value';
