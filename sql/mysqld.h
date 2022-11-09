@@ -439,6 +439,7 @@ extern uint g_sqlAsynWarnTimeout;
 extern uint g_log_prepared_xid_list_instances;
 extern uint g_simple_slow_logging;
 extern uint g_sqlAsyncNSlaves;
+extern bool g_txsql_recalc_table_stats_after_manual_close;
 
 class CThdBottomHalf;
 extern CThdBottomHalf *g_thdBottomHalf;

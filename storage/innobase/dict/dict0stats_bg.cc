@@ -114,7 +114,8 @@ static void dict_stats_recalc_pool_deinit() {
 void dict_stats_recalc_pool_add(
     const dict_table_t *table) /*!< in: table to add */
 {
-  ut_ad(!srv_read_only_mode);
+  ut_ad(!srv_read_only_mode ||
+        g_txsql_recalc_table_stats_after_manual_close);
 
   mutex_enter(&recalc_pool_mutex);
 

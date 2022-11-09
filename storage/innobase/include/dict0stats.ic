@@ -33,6 +33,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "dict0dict.h"
 #include "dict0types.h"
 #include "srv0srv.h"
+#include "dict0stats_bg.h"
 
 /** Set the persistent statistics flag for a given table. This is set only
  in the in-memory table object and is not saved on disk. It will be read
@@ -157,6 +158,17 @@ void dict_stats_init(dict_table_t *table) /*!< in/out: table */
 
   if (dict_stats_is_persistent_enabled(table)) {
     opt = DICT_STATS_FETCH_ONLY_IF_NOT_IN_MEMORY;
+    /* 
+     * stat_modified_counter > 0 indicate that the table
+     * is closed manually but not by ddls
+     */
+    if (g_txsql_recalc_table_stats_after_manual_close &&
+        table->stat_modified_counter > 0) {
+      if (dict_stats_auto_recalc_is_enabled(table)) {
+        dict_stats_recalc_pool_add(table);
+        table->stat_modified_counter = 0;
+      }
+    }
   } else {
     opt = DICT_STATS_RECALC_TRANSIENT;
   }

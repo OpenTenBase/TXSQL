@@ -1,0 +1,78 @@
+create table t (id int primary key, c int);
+--disable_query_log
+--disable_result_log
+let $i=1;
+while ($i < 10001)
+{
+eval insert into t values($i,$i);
+inc $i;
+}
+analyze table t;
+--enable_result_log
+--enable_query_log
+select n_rows from mysql.innodb_table_stats where table_name='t';
+#at least 10 seconds between two calculation and let the background
+#thread process all the calculation requests
+--sleep 20 
+--disable_query_log
+--disable_result_log
+let $i=10001;
+while ($i < 10501)
+{
+eval insert into t values($i,$i);
+inc $i;
+}
+flush table with read lock;
+unlock tables;
+let $i=10501;
+while ($i < 11501)
+{
+eval insert into t values($i,$i);
+inc $i;
+}
+--enable_result_log
+--enable_query_log
+#let the background to finish calculation
+--sleep 10 
+#the stats not change after flush table with read lock
+select n_rows from mysql.innodb_table_stats where table_name='t';
+drop table t;
+
+set global txsql_recalc_table_stats_after_manual_close=on;
+create table t (id int primary key, c int);
+--disable_query_log
+--disable_result_log
+let $i=1;
+while ($i < 10001)
+{
+eval insert into t values($i,$i);
+inc $i;
+}
+analyze table t;
+--enable_result_log
+--enable_query_log
+select n_rows from mysql.innodb_table_stats where table_name='t';
+--sleep 20 
+--disable_query_log
+--disable_result_log
+let $i=10001;
+while ($i < 10501)
+{
+eval insert into t values($i,$i);
+inc $i;
+}
+flush table with read lock;
+unlock tables;
+let $i=10501;
+while ($i < 11501)
+{
+eval insert into t values($i,$i);
+inc $i;
+}
+--enable_result_log
+--enable_query_log
+--sleep 10 
+#the stats has changed
+select n_rows from mysql.innodb_table_stats where table_name='t';
+drop table t;
+set global txsql_recalc_table_stats_after_manual_close=off;

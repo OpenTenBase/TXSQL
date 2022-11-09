@@ -1079,6 +1079,7 @@ bool g_txsql_optimize_xa_recover = false;
 bool g_simplify_priv_check = false;
 CThdBottomHalf *g_thdBottomHalf = nullptr;
 rpl_slave_ack_thread * global_slave_ack_thread = NULL;
+bool g_txsql_recalc_table_stats_after_manual_close = false;
 
 void clean_txsql_thread_resouce() {
   if(global_slave_ack_thread) {
