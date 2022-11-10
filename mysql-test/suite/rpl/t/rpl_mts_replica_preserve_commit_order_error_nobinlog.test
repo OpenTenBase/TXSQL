@@ -62,6 +62,11 @@ INSERT INTO t_w4 VALUES(1);
 
 # Wait until all workers are blocked by LOCK TABLE t1 WRITE. It implies all
 # transactions are registered into the order commit queue.
+#select sleep(10);
+#SELECT @@GLOBAL.replica_parallel_workers;
+#SELECT * FROM INFORMATION_SCHEMA.PROCESSLIST;
+#show slave status;
+#select sleep(600);
 --let $number_workers =`SELECT @@GLOBAL.replica_parallel_workers`
 let $wait_condition= SELECT count(*) = $number_workers FROM INFORMATION_SCHEMA.PROCESSLIST WHERE State = 'Waiting for table metadata lock';
 --source include/wait_condition.inc

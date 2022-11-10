@@ -80,8 +80,9 @@ static inline size_t _cache_line_size() {
 static inline size_t _cache_line_size() {
   long size = sysconf(_SC_LEVEL1_DCACHE_LINESIZE);
   if (size == -1) return 64;
-#if defined(__s390x__)
+#if defined(__s390x__) || defined(__arm__) || defined(__arm) || defined(__aarch64__) || defined(__aarch64)
   // returns 0 on s390x RHEL 7.x
+  // returns 0 on huawei ARM platform
   if (size == 0) {
     FILE *p = fopen(
         "/sys/devices/system/cpu/cpu0/cache/index0/coherency_line_size", "r");

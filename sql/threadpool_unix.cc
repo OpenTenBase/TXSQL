@@ -240,14 +240,31 @@ struct alignas(128) thread_group_t {
   */
   ulonglong total_usecs_in_queue;
 
+#if defined(__arm__) || defined(__arm) || defined(__aarch64__) || defined(__aarch64)
+#ifdef HAVE_TDSQL
+  ulonglong oversubscribed_paral_num;
+  char padding[64];
+#else
+  char padding[72];
+#endif /* HAVE_TDSQL */
+#else
 #ifdef HAVE_TDSQL
   ulonglong oversubscribed_paral_num;
   char padding[192];
 #else
   char padding[200];
 #endif /* HAVE_TDSQL */
+#endif
+
 };
 
+/*
+  For compile time promot sizeof( thread_group_t ) real size. ARM has different padding.
+  If the assertion of "sizeof(thread_group_t) == 512" failed, remove the comment below.
+  The compiler will calculate the real size and print error with real byte number of
+  sizeof( thread_group_t ).
+*/
+//char (*__kaboom)[sizeof( thread_group_t )] = 1;  
 static_assert(sizeof(thread_group_t) == 512,
               "sizeof(thread_group_t) must be 512 to avoid false sharing");
 
