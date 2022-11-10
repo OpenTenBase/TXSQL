@@ -35,17 +35,15 @@ this program; if not, write to the Free Software Foundation, Inc.,
 
 #include <algorithm>
 #include "dict0mem.h"
-#include <emmintrin.h> // for _mm_pause
 #include "trx0types.h"
 #include "trx0tlog.h"
 
+/*
+_mm_pause is x86 platform call for spinlock optimizing. ARM platform has no such
+function, we use yield for subtitution.
+*/
 inline void PAUSE() {
-  _mm_pause();
-  /*
-   or use the one of the two following instead.
-     -  std::this_thread::yield();
-     -  __asm__ volatile("pause");
-  */
+  UT_RELAX_CPU();
 }
 
 class trx_t;
