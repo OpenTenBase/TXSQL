@@ -3418,9 +3418,12 @@ bool os_file_rename_func(const char *oldpath, const char *newpath) {
 directly this function!
 Renames a file (can also move it to another directory). It is safest
 that the file is closed before calling this function.
+
+If the oldpath file doesn't exist, it may drop by another client,
+we treated as success, and set the third param 'exist' to false.
 @param[in]  oldpath   old file path as a null-terminated string
 @param[in]  newpath   new file path
-@param[out] exist     indicate if file pre-exist
+@param[in,out] exist  indicate if file pre-exist
 @return true if success */
 bool
 os_file_rename_if_exists_func(const char *oldpath, const char *newpath,
@@ -3432,16 +3435,11 @@ os_file_rename_if_exists_func(const char *oldpath, const char *newpath,
 
   int ret = rename(oldpath, newpath);
 
-  if (ret == 0) {
-    return (false);
-  }
-
-  if (errno == ENOENT) {
+  if (ret != 0 && errno == ENOENT) {
     if (exist != nullptr) {
       *exist = false;
     }
-    return(false);
-  } else {
+  } else if (ret != 0 && errno != ENOENT) {
     os_file_handle_error_no_exit(oldpath, "rename", false);
     return(false);
   }

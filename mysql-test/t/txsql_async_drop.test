@@ -1,16 +1,14 @@
 --source include/have_debug.inc
 
-let $MYSQLD_TMPDIR = `select @@global.tmpdir`;
+let $MYSQLD_TMPDIR = `select @@global.datadir`;
 let $MYSQLD_DATADIR = `select @@global.datadir`;
-use test;
-create table at(a int);
 
 --error ER_GLOBAL_VARIABLE
-set session innodb_async_drop_tmp_dir= @@global.tmpdir;
+set session innodb_async_drop_tmp_dir= @@global.datadir;
 
---echo === now try to set global innodb_table_drop_mode and innodb_async_drop_tmp_dir ===
-set global innodb_table_drop_mode= 'async_drop';
-set global innodb_async_drop_tmp_dir= @@global.tmpdir;
+--echo == now try to check table with small size ==
+set global innodb_table_drop_mode= 'rename_only';
+set global innodb_async_drop_tmp_dir= @@global.datadir;
 
 let $DROP_TMPDIR = `select @@innodb_async_drop_tmp_dir`;
 if ($DROP_TMPDIR != $MYSQLD_TMPDIR)
@@ -18,7 +16,30 @@ if ($DROP_TMPDIR != $MYSQLD_TMPDIR)
   die Failed to set innodb_async_drop_tmp_dir;
 }
 
-set global debug='d,ib_before_row_truncate_file';
+use test;
+create table t(a int);
+
+drop table t;
+--echo here should NOT see any file
+--exec if [ -f $MYSQLD_DATADIR/test/t.ibd ]; then echo "[ERROR]Found .ibd"; else echo "no .ibd"; fi;
+--exec if [ -f $DROP_TMPDIR/._test_t.trh* ]; then echo "[ERROR]Found .trh"; else echo "no .trh"; fi;
+
+set global debug='+d,ib_set_big_table';
+set global debug='+d,ib_before_row_truncate_file';
+
+--echo === now try to set global innodb_table_drop_mode and innodb_async_drop_tmp_dir ===
+use test;
+create table at(a int);
+
+set global innodb_table_drop_mode= 'async_drop';
+set global innodb_async_drop_tmp_dir= @@global.datadir;
+
+let $DROP_TMPDIR = `select @@innodb_async_drop_tmp_dir`;
+if ($DROP_TMPDIR != $MYSQLD_TMPDIR)
+{
+  die Failed to set innodb_async_drop_tmp_dir;
+}
+
 drop table at;
 --echo here should see trash file
 --exec if [ -f $MYSQLD_DATADIR/test/at.ibd ]; then echo "[ERROR]Found .ibd"; else echo "no .ibd"; fi;
@@ -31,10 +52,9 @@ drop table at;
 --echo === now change the param dynamically ===
 create table bt(a int);
 insert into bt values(1),(2);
-set global debug='d,ib_before_row_truncate_file';
 drop table bt;
 --echo get a warning while setting innodb_async_drop_tmp_dir since truncate task list isn't empty
-set global innodb_async_drop_tmp_dir= @@global.tmpdir;
+set global innodb_async_drop_tmp_dir= @@global.datadir;
 show warnings;
 --echo here should see trash file
 --exec if [ -f $MYSQLD_DATADIR/test/bt.ibd ]; then echo "[ERROR]Found .ibd"; else echo "no .ibd"; fi;
@@ -59,7 +79,6 @@ create table ct(a int);
 insert into ct values(1),(2);
 --echo set innodb_table_drop_mode to sync_drop
 set global innodb_table_drop_mode= 'sync_drop';
-set global debug='d,ib_before_row_truncate_file';
 drop table ct;
 --echo here should NOT see trash file
 --exec if [ -f $MYSQLD_DATADIR/test/ct.ibd ]; then echo "[ERROR]Found .ibd"; else echo "no .ibd"; fi;
@@ -73,7 +92,6 @@ drop table ct;
 create table dt(a int);
 insert into dt values(1),(2);
 set global innodb_table_drop_mode= 'rename_only';
-set global debug='d,ib_before_row_truncate_file';
 drop table dt;
 --echo here should see trash file
 --exec if [ -f $MYSQLD_DATADIR/test/dt.ibd ]; then echo "[ERROR]Found .ibd"; else echo "no .ibd"; fi;
@@ -87,7 +105,6 @@ drop table dt;
 create table et(a int);
 insert into et values(1),(2);
 set global innodb_table_drop_mode= 'async_drop';
-set global debug='d,ib_before_row_truncate_file';
 drop table et;
 --echo here should see trash file
 --exec if [ -f $DROP_TMPDIR/._test_dt.trh* ]; then echo "Found .trh"; else echo "no .trh"; fi;
@@ -103,7 +120,7 @@ drop table et;
 --exec fallocate -l 2m $DROP_TMPDIR/._test_at.trh.1
 --exec fallocate -l 2m $DROP_TMPDIR/._test_bt.trh.1
 --replace_result $DROP_TMPDIR DROP_TMPDIR
---let $restart_parameters=restart:--innodb-table-drop-mode=async_drop --innodb-async-drop-tmp-dir=$DROP_TMPDIR
+--let $restart_parameters=restart: --innodb-table-drop-mode=async_drop --innodb-async-drop-tmp-dir=$DROP_TMPDIR
 --source include/restart_mysqld.inc
 --sleep 3
 --echo here should NOT see trash file
@@ -116,3 +133,6 @@ set global innodb_async_drop_tmp_dir= @@global.datadir;
 --sleep 3
 --echo here should NOT see trash file
 --exec if [ -f $MYSQLD_DATADIR/._test_* ]; then echo "[ERROR]Found .trh"; else echo "no .trh"; fi;
+
+set global debug='-d,ib_set_big_table';
+set global debug='-d,ib_before_row_truncate_file';

@@ -21507,7 +21507,7 @@ static void innodb_async_drop_tmp_dir_update(THD *thd, SYS_VAR *var,
   ut_a(save != nullptr);
 
   /* Check if task list is empty or not. */
-  mutex_enter(&row_truncate_sys_mutex);
+  mutex_enter(&row_truncate_list_mutex);
   if (row_get_background_truncate_list_len() != 0) {
     push_warning_printf(thd, Sql_condition::SL_WARNING,
                         HA_ERR_NOT_ALLOWED_COMMAND,
@@ -21517,14 +21517,16 @@ static void innodb_async_drop_tmp_dir_update(THD *thd, SYS_VAR *var,
 
   char *new_dir = (*(char **) save);
   *static_cast<const char **>(var_ptr) = new_dir;
-  mutex_exit(&row_truncate_sys_mutex);
+  mutex_exit(&row_truncate_list_mutex);
 
   ut_a(!new_dir || strcmp(new_dir, "") != 0);
   sql_print_information("aysnc_drop tmp dir changed to=%s, try to truncate "
                         "list from new_dir.", new_dir);
 
   /* Add orphaned trash files in new_dir to truncate list. */
-  add_orphaned_file_to_truncate_list_if_needed();
+  if (srv_table_drop_mode == SRV_ASYNC_DROP) {
+    add_orphaned_file_to_truncate_list(new_dir);
+  }
 }
 
 /** Validate innodb_table_drop_mode parameter.
@@ -21556,13 +21558,16 @@ static int innodb_table_drop_mode_validate(THD *thd, SYS_VAR *var, void *save,
 @param[in]  save      immediate result from check function */
 static void innodb_table_drop_mode_update(THD *thd, SYS_VAR *var,
                                           void *var_ptr, const void *save) {
-  mutex_enter(&row_truncate_sys_mutex);
+  mutex_enter(&row_truncate_list_mutex);
   *(unsigned long*)var_ptr = *(unsigned long*)save;
-  mutex_exit(&row_truncate_sys_mutex);
+  mutex_exit(&row_truncate_list_mutex);
 
   /* If srv_async_drop_tmp_dir and SRV_ASYNC_DROP have been set, add orphaned
   trash files in srv_async_drop_tmp_dir to truncate list. */
-  add_orphaned_file_to_truncate_list_if_needed();
+  if (*(unsigned long *)var_ptr == SRV_ASYNC_DROP &&
+      srv_async_drop_tmp_dir != nullptr) {
+    add_orphaned_file_to_truncate_list(srv_async_drop_tmp_dir);
+  }
 }
 
 static SHOW_VAR innodb_status_variables_export[] = {

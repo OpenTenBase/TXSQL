@@ -2334,7 +2334,7 @@ static void srv_master_do_active_tasks(void) {
 
 
   srv_main_thread_op_info = "doing background file truncate";
-  row_truncate_file_for_mysql_in_background_if_needed();
+  row_truncate_file_for_mysql_in_background();
 
   /* Do an ibuf merge */
   srv_main_thread_op_info = "doing insert buffer merge";
@@ -2394,7 +2394,7 @@ static void srv_master_do_idle_tasks(void) {
   }
 
   srv_main_thread_op_info = "doing background file truncate";
-  row_truncate_file_for_mysql_in_background_if_needed();
+  row_truncate_file_for_mysql_in_background();
 
   /* Do an ibuf merge */
   counter_time = ut_time_monotonic_us();
@@ -2446,6 +2446,9 @@ static bool srv_master_do_pre_dd_shutdown_tasks(
     srv_main_thread_op_info = "doing background drop tables";
     n_tables_to_drop = row_drop_tables_for_mysql_in_background();
   }
+
+  srv_main_thread_op_info = "doing background file truncate";
+  row_truncate_file_for_mysql_in_background_shutdown();
 
   /* Print progress message every 60 seconds during shutdown */
   srv_shutdown_print_master_pending(last_print_time, n_tables_to_drop, 0);

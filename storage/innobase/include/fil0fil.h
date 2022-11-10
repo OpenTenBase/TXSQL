@@ -1861,4 +1861,30 @@ and old name are same, no update done.
 @param[in]	name		new name for tablespace */
 void fil_space_update_name(fil_space_t *space, const char *name);
 
+/** Build a temp file name for a table space file to be dropped according to
+its database and current time.
+@param[in] name file name
+@return file name or NULL on error */
+char *build_tmp_name(char *name);
+
+/** A fault-tolerant function that tries to read the next file name in the
+directory. We retry 100 times if os_file_readdir_next_file() returns -1. The
+idea is to read as much good data as we can and jump over bad data.
+@return 0 if ok, -1 if error even after the retries, 1 if at the end
+of the directory.
+@param[out]     err      this is set to DB_ERROR if an error
+@param[in]      dirname  directory name or path
+@param[in]      dir      directory stream
+@param[in,out]  info     buffer where the info is returned
+@return true if a matching tablespace exists in the InnoDB tablespace memory
+cache. */
+int fil_file_readdir_next_file(dberr_t *err, const char *dirname,
+                                             os_file_dir_t dir,
+                                             os_file_stat_t *info);
+
+/** Check if dir_input is valid for async_drop_tmp_dir.
+ @param[in] thd MySQL thread handle
+ @param[in] dir_input to be check 
+ @return true if valid. */
+bool check_async_drop_tmp_dir(THD *thd, const char *dir_input);
 #endif /* fil0fil_h */

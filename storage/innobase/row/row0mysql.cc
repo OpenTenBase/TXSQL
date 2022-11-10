@@ -140,11 +140,11 @@ struct row_mysql_truncate_t {
 };
 
 /** @brief List of files we should truncate in background.
-Protected by row_truncate_sys_mutex. */
+Protected by row_truncate_list_mutex. */
 static UT_LIST_BASE_NODE_T(row_mysql_truncate_t) row_mysql_truncate_list;
 
 /** Mutex protecting the background file truncate list. */
-ib_mutex_t row_truncate_sys_mutex;
+ib_mutex_t row_truncate_list_mutex;
 
 /** If a table is not yet in the drop list, adds the table to the list of tables
  which the master thread drops in background. We need this on Unix because in
@@ -3768,11 +3768,16 @@ static ibool row_add_table_to_background_drop_list(
  which we must delete in background after DROP TABLE have ended. Such lazy
  dropping of files is needed to alleviate I/O and dict_sys->mutex bottleneck
  of DROP TABLE. */
-static void row_truncate_file_for_mysql_in_background(void) {
-  ut_ad(mutex_own(&row_truncate_sys_mutex));
+void row_truncate_file_for_mysql_in_background(void) {
+  if (srv_table_drop_mode != SRV_ASYNC_DROP) {
+    return;
+  }
+
   row_mysql_truncate_t *trun;
 
+  mutex_enter(&row_truncate_list_mutex);
   trun = UT_LIST_GET_FIRST(row_mysql_truncate_list);
+  mutex_exit(&row_truncate_list_mutex);
 
   if (trun == nullptr) {
     /* All files dropped */
@@ -3781,7 +3786,7 @@ static void row_truncate_file_for_mysql_in_background(void) {
 
   DBUG_EXECUTE_IF("ib_before_row_truncate_file",
                   {
-                    os_thread_sleep(1000000);
+                    std::this_thread::sleep_for(std::chrono::seconds(1));
                     ib::info() << "enter debug ib_before_row_truncate_file";
                   });
 
@@ -3796,16 +3801,16 @@ static void row_truncate_file_for_mysql_in_background(void) {
     } else {
       trun->fail_count++;
       if (trun->fail_count > MAX_TRUNCATE_FAIL_COUNT) {
-        ib::error() << "Failed to find the file: " << trun->file_name
-                    << " in the backgound file truncation.";
-        goto already_dropped;
+        ib::error() << "error in truncating trash files in background: "
+                       "failed to get the truncate file.";
+        goto already_dropped; /* no more retry on this file */
       } else {
-        return;
+        return; /* master thread would retry */
       }
     }
   }
 
-  if ((ulong)st.st_size <= srv_async_table_size*1024*1024) {
+  if ((ulong)st.st_size <= srv_async_truncate_size*1024*1024) {
     unlink(trun->file_name);
   } else {
     truncate(trun->file_name, st.st_size - srv_async_truncate_size*1024*1024);
@@ -3813,29 +3818,20 @@ static void row_truncate_file_for_mysql_in_background(void) {
   }
 
 already_dropped:
+  mutex_enter(&row_truncate_list_mutex);
   UT_LIST_REMOVE(row_mysql_truncate_list, trun);
+  mutex_exit(&row_truncate_list_mutex);
 
   ut_free(trun->file_name);
   ut_free(trun);
 }
 
-/** The master thread in srv0srv.cc calls this regularly to truncate files
- which we must delete in background after DROP TABLE have ended. Such lazy
- dropping of files is needed to alleviate I/O and dict_sys->mutex bottleneck
- of DROP TABLE. */
-void row_truncate_file_for_mysql_in_background_if_needed(void) {
-  mutex_enter(&row_truncate_sys_mutex);
-  if (srv_table_drop_mode == SRV_ASYNC_DROP) {
-    row_truncate_file_for_mysql_in_background();
-  }
-  mutex_exit(&row_truncate_sys_mutex);
-}
-
 /** The master thread in srv0srv.cc calls this when shutdown innodb,
- we delete all temp files left by unlink now, instead of truncate. */
-static void row_truncate_file_for_mysql_in_background_shutdown(void) {
-  ut_ad(mutex_own(&row_truncate_sys_mutex));
+we delete all temp files left by unlink now, instead of truncate. */
+void row_truncate_file_for_mysql_in_background_shutdown(void) {
   row_mysql_truncate_t *truncate, *next;
+
+  mutex_enter(&row_truncate_list_mutex);
 
   /* Unlink all trash files in the truncate list when shutdown */
   for (truncate = UT_LIST_GET_FIRST(row_mysql_truncate_list);
@@ -3848,62 +3844,54 @@ static void row_truncate_file_for_mysql_in_background_shutdown(void) {
     ut_free(truncate);
     truncate = next;
   }
-}
 
-/** The master thread in srv0srv.cc calls this when shutdown innodb,
- we delete all temp files left by unlink now, instead of truncate. */
-void row_truncate_file_for_mysql_in_background_shutdown_if_needed(void) {
-  mutex_enter(&row_truncate_sys_mutex);
-  if (srv_table_drop_mode == SRV_ASYNC_DROP) {
-    row_truncate_file_for_mysql_in_background_shutdown();
-  }
-  mutex_exit(&row_truncate_sys_mutex);
-}
-
-/** Get the background truncate list length.
- NOTE: the caller must own the row_truncate_sys_mutex.
- @return how many tables in list */
-ulint row_get_background_truncate_list_len(void) {
-  ut_ad(mutex_own(&row_truncate_sys_mutex));
-  return (UT_LIST_GET_LEN(row_mysql_truncate_list));
+  mutex_exit(&row_truncate_list_mutex);
+  ut_a(UT_LIST_GET_LEN(row_mysql_truncate_list) == 0);
 }
 
 /** If a file is not yet in the truncate list, adds the file to the list of
- files which the master thread truncates in background.
- @param[in] name  file name
- CAUTION: this func should be called under row_truncate_sys_mutex protect
- @return true if the file was not yet in the list, and was added there,
- false if the file was already in the list. */
-static bool row_add_file_to_background_truncate_list(const char *name) {
-  ut_ad(mutex_own(&row_truncate_sys_mutex));
-  row_mysql_truncate_t *truncate;
-
+files which the master thread truncates in background.
+@param[in] name  file name
+CAUTION: this func should be called under row_truncate_list_mutex protect
+@return true if the file was not yet in the list, and was added there,
+false if the file was already in the list. */
+bool row_add_file_to_background_truncate_list(const char *name) {
   /* Check if the file is already in the truncate list */
-  for (truncate = UT_LIST_GET_FIRST(row_mysql_truncate_list);
+  mutex_enter(&row_truncate_list_mutex);
+  for (auto truncate = UT_LIST_GET_FIRST(row_mysql_truncate_list);
        truncate != nullptr;
        truncate = UT_LIST_GET_NEXT(row_mysql_truncate_list, truncate)) {
     if (strcmp(truncate->file_name, name) == 0) {
+      /* Already in the list */
+      mutex_exit(&row_truncate_list_mutex);
       return false;
     }
   }
 
-  truncate = static_cast<row_mysql_truncate_t*>(
+  row_mysql_truncate_t *truncate = static_cast<row_mysql_truncate_t *>(
       ut_malloc_nokey(sizeof(row_mysql_truncate_t)));
 
   truncate->file_name = mem_strdup(name);
   truncate->fail_count = 0;
 
   UT_LIST_ADD_LAST(row_mysql_truncate_list, truncate);
+  mutex_exit(&row_truncate_list_mutex);
 
   return true;
+}
+
+/** Get the background truncate list length.
+ NOTE: the caller must own the row_truncate_list_mutex.
+ @return how many tables in list */
+ulint row_get_background_truncate_list_len(void) {
+  return (UT_LIST_GET_LEN(row_mysql_truncate_list));
 }
 
 /** Add orphaned trash files under specific directory to the list which master
  thread would truncate in background.
  @param[in] dir_path trash file path */
-static void add_orphaned_file_to_truncate_list(char *dir_path) {
-  ut_ad(mutex_own(&row_truncate_sys_mutex));
-  row_mysql_truncate_t *truncate = NULL;
+void add_orphaned_file_to_truncate_list(char *dir_path) {
+  row_mysql_truncate_t *truncate = nullptr;
   os_file_dir_t dir;
   os_file_stat_t fileinfo;
   dberr_t err = DB_SUCCESS;
@@ -3929,7 +3917,9 @@ static void add_orphaned_file_to_truncate_list(char *dir_path) {
     truncate->file_name = mem_strdup(full_name);
     truncate->fail_count = 0;
 
+    mutex_enter(&row_truncate_list_mutex);
     UT_LIST_ADD_LAST(row_mysql_truncate_list, truncate);
+    mutex_exit(&row_truncate_list_mutex);
 
     ut_free(full_name);
   }
@@ -3937,157 +3927,43 @@ static void add_orphaned_file_to_truncate_list(char *dir_path) {
   closedir(dir);
 }
 
-
-/** Check if dir_input is valid for async_drop_tmp_dir.
- @param[in] thd MySQL thread handle
- @param[in] dir_input to be check 
- @return true if valid. */
-bool check_async_drop_tmp_dir(THD *thd, const char *dir_input);
-
-/** Build a temp file name for a table space file to be dropped according to
-its database name and current time.
-@param[in] name file name
-@return file name or NULL on error */
-static char *build_async_drop_file_name(char *name) {
-  ut_ad(mutex_own(&row_truncate_sys_mutex));
-  ut_ad(srv_async_drop_tmp_dir != nullptr);
-
-  char time_str[24] = "";
-  ib_time_monotonic_us_t time = ut_time_monotonic_us();
-
-  sprintf(time_str, "%" PRId64 "", time);
-  int time_len = strlen(time_str);
-
-  if (!check_async_drop_tmp_dir(nullptr, srv_async_drop_tmp_dir)) {
-    return nullptr;
-  }
-
-  int dir_len = 0;
-  if (srv_async_drop_tmp_dir[strlen(srv_async_drop_tmp_dir) - 1] ==
-      OS_PATH_SEPARATOR) {
-    dir_len = strlen(srv_async_drop_tmp_dir);
-  } else {
-    dir_len = strlen(srv_async_drop_tmp_dir) + 1;
-  }
-
-  int full_len = dir_len + strlen(name) + time_len + 1;
-
-  char *tmp_name = static_cast<char *>(ut_malloc_nokey(full_len + 1));
-  if (tmp_name == nullptr) {
-    return nullptr;
-  }
-
-  memcpy(tmp_name, srv_async_drop_tmp_dir, dir_len);
-
-  tmp_name[dir_len - 1] = OS_PATH_SEPARATOR;
-  for (ulint i = 0; i < strlen(name); i++) {
-    if (*(name + i) == OS_PATH_SEPARATOR) {
-      *(tmp_name + dir_len + i) = '_';
-    } else {
-      *(tmp_name + dir_len + i) = *(name + i);
-    }
-  }
-  tmp_name[dir_len + strlen(name)] = '.';
-  memcpy(tmp_name + dir_len + strlen(name) + 1, time_str, strlen(time_str));
-  tmp_name[full_len] = '\0';
-
-  return tmp_name;
-}
-
 /** Try process one trash name.
- build tmp_name first and then try add to background task list
- @param[in]  path  to be processed ibd_file path
- @return DB_SUCCESS if process success */
-static dberr_t row_process_async_drop(const char *path) {
-  ut_ad(mutex_own(&row_truncate_sys_mutex));
+build tmp_name first and then try add to background task list
+@param[in]  path  to be processed ibd_file path
+@return DB_SUCCESS if process success */
+dberr_t row_process_async_drop(const char *path) {
   dberr_t err = DB_SUCCESS;
   std::string empty;
 
   /* Modify suffix from IBD to TRH. */
-  char *trash_name = nullptr;
-  char *tmp_name = nullptr;
-  bool exist = true;
-
-  trash_name = Fil_path::make(path, empty, TRH, false);
-  if (trash_name == nullptr) {
-    err = DB_OUT_OF_MEMORY;
-    ib::info() << "Creating async drop task: make filpath failed for " << path;
-    goto end;
-  }
-
-  /* Build a file name with current time and the database name
-     of the table to drop. */
-  tmp_name = build_async_drop_file_name(trash_name);
-  if (tmp_name == nullptr) {
-    err = DB_IO_ERROR;
-    ib::info() << "Creating async drop task: build tmp name failed for " << path;
-    goto end;
-  }
-
-  /* The rename is common for both SRV_ASYNC_DROP and SRV_RENAME_ONLY
-    of srv_table_drop_mode. The row_add_file_to_background_truncate_list
-    is just for SRV_ASYNC_DROP. */
-  if (!os_file_rename_if_exists(innodb_data_file_key, path, tmp_name, &exist)) {
-    err = DB_IO_ERROR;
-    ib::info() << "Creating async drop task: rename file failed for " << path;
-    goto end;
-  }
-
-  if (srv_table_drop_mode == SRV_ASYNC_DROP) {
-    row_add_file_to_background_truncate_list(tmp_name);
-  }
-
-end:
-  if (trash_name != nullptr)
-    ut_free(trash_name);
-  
-  if (tmp_name != nullptr)
-    ut_free(tmp_name);
-
-  return err;
-}
-
-static bool async_drop_can_be_executed() {
-  ut_ad(mutex_own(&row_truncate_sys_mutex));
-  if (srv_async_drop_tmp_dir != nullptr &&
-      srv_table_drop_mode == SRV_ASYNC_DROP)
-    return true;
-
-  return false;
-}
-
-static bool async_drop_or_rename_only_can_be_executed() {
-  ut_ad(mutex_own(&row_truncate_sys_mutex));
-  if (srv_async_drop_tmp_dir != nullptr &&
-     (srv_table_drop_mode == SRV_ASYNC_DROP ||
-      srv_table_drop_mode == SRV_RENAME_ONLY))
-    return true;
-
-  return false;
-}
-
-dberr_t row_process_async_drop_if_needed(const char *path) {
-  mutex_enter(&row_truncate_sys_mutex);
-  dberr_t err = DB_UNSUPPORTED;
-  if (async_drop_or_rename_only_can_be_executed()) {
-    err = row_process_async_drop(path);
-    if (DB_SUCCESS != err) {
-      ib::error() << "Creating async drop task for tablespace failed path= "
-                    << path << " error=" << err;
+  char *trash_name = Fil_path::make(path, empty, TRH, false);
+  if (trash_name != nullptr) {
+    /* Build a file name with current time and the database name of the table to
+    drop. */
+    char *tmp_name = build_tmp_name(trash_name);
+    if (tmp_name != nullptr) {
+      /* If ibd_file path doesn't exist, os_file_rename_if_exists will return
+      true(success), exist will be false. */
+      bool exist = true;
+      if (!os_file_rename_if_exists(innodb_data_file_key, path,
+                                    tmp_name, &exist)) {
+        err = DB_IO_ERROR;
+        ib::info() << " os_file_rename_if_exists failed for " << path;
+      } else if (exist && srv_table_drop_mode == SRV_ASYNC_DROP) {
+        row_add_file_to_background_truncate_list(tmp_name);
+      }
+      ut_free(tmp_name);
+    } else {
+      err = DB_IO_ERROR;
+      ib::info() << "build_tmp_name failed for " << path;
     }
-  }
-  mutex_exit(&row_truncate_sys_mutex);
-  return err;
-}
 
-/** Add orphaned trash files under specific directory to the list which master
- thread would truncate in background. */
-void add_orphaned_file_to_truncate_list_if_needed(void) {
-  mutex_enter(&row_truncate_sys_mutex);
-  if (async_drop_can_be_executed()) {
-    add_orphaned_file_to_truncate_list(srv_async_drop_tmp_dir);
+    ut_free(trash_name);
+  } else {
+    err = DB_OUT_OF_MEMORY;
+    ib::info() << "fil_make_filpath failed for " << path;
   }
-  mutex_exit(&row_truncate_sys_mutex);
+  return err;
 }
 
 /** Reassigns the table identifier of a table.
@@ -5623,11 +5499,14 @@ void row_mysql_init(void) {
 
   row_mysql_drop_list_inited = TRUE;
 
-  mutex_create(LATCH_ID_ROW_TRUNCATE_LIST, &row_truncate_sys_mutex);
+  mutex_create(LATCH_ID_ROW_TRUNCATE_LIST, &row_truncate_list_mutex);
   UT_LIST_INIT(row_mysql_truncate_list,
                &row_mysql_truncate_t::row_mysql_truncate_list);
 
-  add_orphaned_file_to_truncate_list_if_needed();
+  if (srv_async_drop_tmp_dir != nullptr &&
+      srv_table_drop_mode == SRV_ASYNC_DROP) {
+    add_orphaned_file_to_truncate_list(srv_async_drop_tmp_dir);
+  }
 }
 
 /** Close this module */
@@ -5638,7 +5517,7 @@ void row_mysql_close(void) {
 
   row_mysql_drop_list_inited = FALSE;
 
-  mutex_free(&row_truncate_sys_mutex);
+  mutex_free(&row_truncate_list_mutex);
 }
 
 /** Can a record buffer or a prefetch cache be utilized for prefetching

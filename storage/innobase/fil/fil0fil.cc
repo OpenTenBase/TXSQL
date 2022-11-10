@@ -1599,6 +1599,57 @@ int fil_file_readdir_next_file(dberr_t *err, const char *dirname,
   return(-1);
 }
 
+/** Build a temp file name for a table space file to be dropped according to
+its database name and current time.
+@param[in] name file name
+@return file name or NULL on error */
+char *build_tmp_name(char *name) {
+  assert(srv_async_drop_tmp_dir != nullptr);
+
+  char time_str[24] = "";
+  ib_time_monotonic_us_t time = ut_time_monotonic_us();
+
+  sprintf(time_str, "%ju", time);
+  int time_len = strlen(time_str);
+
+  mutex_enter(&row_truncate_list_mutex);
+  if (!check_async_drop_tmp_dir(nullptr, srv_async_drop_tmp_dir)) {
+    return nullptr;
+  }
+
+  int dir_len = 0;
+  if (srv_async_drop_tmp_dir[strlen(srv_async_drop_tmp_dir) - 1] ==
+      OS_PATH_SEPARATOR) {
+    dir_len = strlen(srv_async_drop_tmp_dir);
+  } else {
+    dir_len = strlen(srv_async_drop_tmp_dir) + 1;
+  }
+
+  int full_len = dir_len + strlen(name) + time_len + 1;
+
+  char *tmp_name = static_cast<char *>(ut_malloc_nokey(full_len + 1));
+  if (tmp_name == nullptr) {
+    return nullptr;
+  }
+
+  memcpy(tmp_name, srv_async_drop_tmp_dir, dir_len);
+  mutex_exit(&row_truncate_list_mutex);
+
+  tmp_name[dir_len - 1] = OS_PATH_SEPARATOR;
+  for (ulint i = 0; i < strlen(name); i++) {
+    if (*(name + i) == OS_PATH_SEPARATOR) {
+      *(tmp_name + dir_len + i) = '_';
+    } else {
+      *(tmp_name + dir_len + i) = *(name + i);
+    }
+  }
+  tmp_name[dir_len + strlen(name)] = '.';
+  memcpy(tmp_name + dir_len + strlen(name) + 1, time_str, strlen(time_str));
+  tmp_name[full_len] = '\0';
+
+  return tmp_name;
+}
+
 /** Replay a file rename operation if possible.
 @param[in]	page_id		Space ID and first page number in the file
 @param[in]	old_name	old file name
@@ -4151,7 +4202,24 @@ dberr_t Fil_shard::space_delete(space_id_t space_id, buf_remove_t buf_remove) {
     space_free_low(space);
     ut_a(space == nullptr);
 
-    if (DB_UNSUPPORTED == row_process_async_drop_if_needed(path)) {
+    struct stat st;
+    int ret = stat(path, &st);
+
+    DBUG_EXECUTE_IF("ib_set_big_table",
+                    {
+                      st.st_size = srv_async_table_size*1024*1024;
+                      ib::info() << "enter debug ib_set_big_table";
+                    });
+
+    if ((ret == 0 && (ulong)st.st_size >= srv_async_table_size*1024*1024) &&
+        srv_table_drop_mode != SRV_SYNC_DROP &&
+        srv_async_drop_tmp_dir != nullptr) {
+      dberr_t err = row_process_async_drop(path);
+      if (DB_SUCCESS != err) {
+        ib::error() << "Creating async drop task for tablespace failed path= "
+                    << path << " error=" << err;
+      }
+    } else {
       if (!os_file_delete(innodb_data_file_key, path) &&
           !os_file_delete_if_exists(innodb_data_file_key, path, nullptr)) {
         /* Note: This is because we have removed the tablespace instance
@@ -8498,7 +8566,14 @@ bool fil_delete_file(const char *path) {
   bool success = true;
 
   /* Force a delete of any stale .ibd files that are left. */
-  if (DB_UNSUPPORTED == row_process_async_drop_if_needed(path)) {
+  if (srv_table_drop_mode != SRV_SYNC_DROP &&
+      srv_async_drop_tmp_dir != nullptr) {
+    dberr_t err = row_process_async_drop(path);
+    if (DB_SUCCESS != err) {
+      ib::error() << "Creating async drop task for table ibd failed path="
+                  << path << " error=" << err;
+    }
+  } else {
     success = os_file_delete_if_exists(innodb_data_file_key, path, nullptr);
   }
 
