@@ -421,7 +421,7 @@ bool Grant_validator::validate_dynamic_privileges() {
         on the specific dynamic privilege can't grant privilege to others.
         Tencentroot or tdsqlroot is not limited.
       */
-      if (cdb_forbid_mysql_write && !m_thd->is_tencent_or_tdsql_root() &&
+      if (!m_thd->security_context()->check_access(SUPER_ACL) &&
           !has_grant_privilege) {
         my_error(ER_SPECIFIC_ACCESS_DENIED_ERROR, MYF(0), "GRANT OPTION");
         return true;
