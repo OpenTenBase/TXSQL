@@ -1028,7 +1028,8 @@ static byte *parse_index_column_counts(byte *ptr, const byte *end_ptr,
 @return pointer to log buffer */
 static byte *parse_index_fields(byte *ptr, const byte *end_ptr, uint16_t n,
                                 uint16_t n_uniq, bool is_versioned,
-                                dict_index_t *&ind, dict_table_t *&table) {
+                                dict_index_t *&ind, dict_table_t *&table,
+                                bool is_cached_index = false) {
   for (size_t i = 0; i < n; i++) {
     /* For redundant, col len metadata isn't needed for recovery as it is
     part of record itself. */
@@ -1057,7 +1058,12 @@ static byte *parse_index_fields(byte *ptr, const byte *end_ptr, uint16_t n,
     dict_index_add_col(ind, table, table->get_col(i), 0, true);
   }
 
-  dict_table_add_system_columns(table, table->heap);
+  if (is_cached_index) {
+    table->n_def += DATA_N_SYS_COLS;
+    table->n_t_def += DATA_N_SYS_COLS;
+  } else {
+    dict_table_add_system_columns(table, table->heap);
+  }
 
   /* Identify DB_TRX_ID and DB_ROLL_PTR in the index. */
   if (is_versioned || (n_uniq != n)) {
@@ -1273,20 +1279,42 @@ byte *mlog_parse_index(byte *ptr, const byte *end_ptr, dict_index_t **index) {
   }
   ut_ad(inst_cols == 0 || is_instant);
 
-  /* Create a dummy dict_table_t */
-  dict_table_t *table =
-      dict_mem_table_create(RECOVERY_INDEX_TABLE_NAME, DICT_HDR_SPACE, n, 0, 0,
-                            is_comp ? DICT_TF_COMPACT : 0, 0);
+  dict_index_t *ind = nullptr;
+  dict_table_t *table = nullptr;
+  bool found = false;
+  if (srv_log_dummy_cache) {
+    ind = dummy_index_search(n);
+  }
+
+  if (!ind) {
+    /* Create a dummy dict_table_t */
+    table = dict_mem_table_create(RECOVERY_INDEX_TABLE_NAME, DICT_HDR_SPACE, n,
+                                  0, 0, is_comp ? DICT_TF_COMPACT : 0, 0);
+    /* Create a dummy dict_index_t */
+    ind = dict_mem_index_create(RECOVERY_INDEX_TABLE_NAME,
+                                RECOVERY_INDEX_TABLE_NAME,
+                                DICT_HDR_SPACE, 0, n);
+    ind->table = table;
+
+    if (srv_log_dummy_cache) {
+      dict_index_dummy tmp;
+
+      tmp.n_cols = n;
+      tmp.index = ind;
+      dummy_index_cache->insert(tmp);
+    }
+  } else {
+    table = ind->table;
+    table->flags = (unsigned int)(is_comp ? DICT_TF_COMPACT : 0);
+    found = true;
+  }
 
   if (inst_cols > 0) {
     table->set_instant_cols(inst_cols);
+  } else {
+    table->n_instant_cols = table->n_cols;
   }
 
-  /* Create a dummy dict_index_t */
-  dict_index_t *ind =
-      dict_mem_index_create(RECOVERY_INDEX_TABLE_NAME,
-                            RECOVERY_INDEX_TABLE_NAME, DICT_HDR_SPACE, 0, n);
-  ind->table = table;
   ind->n_uniq = (unsigned int)n_uniq;
   if (n_uniq != n) {
     ut_a(n_uniq + DATA_ROLL_PTR <= n);
@@ -1295,7 +1323,8 @@ byte *mlog_parse_index(byte *ptr, const byte *end_ptr, dict_index_t **index) {
 
   if (is_comp) {
     /* Read each index field info */
-    ptr = parse_index_fields(ptr, end_ptr, n, n_uniq, is_versioned, ind, table);
+    ptr = parse_index_fields(ptr, end_ptr, n, n_uniq, is_versioned, ind, table,
+                             found);
     if (ptr == nullptr) {
       *index = ind;
       return ptr;
@@ -1484,7 +1513,8 @@ static void update_instant_info_8029(instant_fields_list_t f,
 @return pointer to log buffer */
 static byte *parse_index_fields_8029(byte *ptr, const byte *end_ptr, uint16_t n,
                                      uint16_t n_uniq, bool is_versioned,
-                                     dict_index_t *&ind, dict_table_t *&table) {
+                                     dict_index_t *&ind, dict_table_t *&table,
+                                     bool is_cached_index = false) {
   for (size_t i = 0; i < n; i++) {
     /* For redundant, col len metadata isn't needed for recovery as it is
     part of record itself. */
@@ -1513,7 +1543,12 @@ static byte *parse_index_fields_8029(byte *ptr, const byte *end_ptr, uint16_t n,
     dict_index_add_col(ind, table, table->get_col(i), 0, true);
   }
 
-  dict_table_add_system_columns(table, table->heap);
+  if (is_cached_index) {
+    table->n_def += DATA_N_SYS_COLS;
+    table->n_t_def += DATA_N_SYS_COLS;
+  } else {
+    dict_table_add_system_columns(table, table->heap);
+  }
 
   /* Identify DB_TRX_ID and DB_ROLL_PTR in the index. */
   if (is_versioned || (n_uniq != n)) {
@@ -1562,20 +1597,42 @@ static byte *mlog_parse_index_8029(byte *ptr, const byte *end_ptr,
   }
   ut_ad(inst_cols == 0 || is_instant);
 
-  /* Create a dummy dict_table_t */
-  dict_table_t *table =
-      dict_mem_table_create(RECOVERY_INDEX_TABLE_NAME, DICT_HDR_SPACE, n, 0, 0,
-                            is_comp ? DICT_TF_COMPACT : 0, 0);
+  dict_index_t *ind = nullptr;
+  dict_table_t *table = nullptr;
+  bool found = false;
+  if (srv_log_dummy_cache) {
+    ind = dummy_index_search(n);
+  }
+
+  if (!ind) {
+    /* Create a dummy dict_table_t */
+    table = dict_mem_table_create(RECOVERY_INDEX_TABLE_NAME, DICT_HDR_SPACE, n,
+                                  0, 0, is_comp ? DICT_TF_COMPACT : 0, 0);
+    /* Create a dummy dict_index_t */
+    ind = dict_mem_index_create(RECOVERY_INDEX_TABLE_NAME,
+                                RECOVERY_INDEX_TABLE_NAME,
+                                DICT_HDR_SPACE, 0, n);
+    ind->table = table;
+
+    if (srv_log_dummy_cache) {
+      dict_index_dummy tmp;
+
+      tmp.n_cols = n;
+      tmp.index = ind;
+      dummy_index_cache->insert(tmp);
+    }
+  } else {
+    table = ind->table;
+    table->flags = (unsigned int)(is_comp ? DICT_TF_COMPACT : 0);
+    found = true;
+  }
 
   if (inst_cols > 0) {
     table->set_instant_cols(inst_cols);
+  } else {
+    table->n_instant_cols = table->n_cols;
   }
 
-  /* Create a dummy dict_index_t */
-  dict_index_t *ind =
-      dict_mem_index_create(RECOVERY_INDEX_TABLE_NAME,
-                            RECOVERY_INDEX_TABLE_NAME, DICT_HDR_SPACE, 0, n);
-  ind->table = table;
   ind->n_uniq = (unsigned int)n_uniq;
   if (n_uniq != n) {
     ut_a(n_uniq + DATA_ROLL_PTR <= n);
@@ -1585,7 +1642,7 @@ static byte *mlog_parse_index_8029(byte *ptr, const byte *end_ptr,
   if (is_comp) {
     /* Read each index field info */
     ptr = parse_index_fields_8029(ptr, end_ptr, n, n_uniq, is_versioned, ind,
-                                  table);
+                                  table, found);
     if (ptr == nullptr) {
       *index = ind;
       return ptr;

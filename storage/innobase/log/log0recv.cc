@@ -4477,8 +4477,12 @@ dict_index_t *dummy_index_search(ulint n_cols) {
     ind->type = 0;
     ind->n_nullable = 0;
     ind->n_instant_nullable = 0;
+    ind->row_versions = false;
     table->n_def = 0;
     table->n_t_def = 0;
+    table->current_row_version = 0;
+    table->instant_modified_cols_cnt = 0;
+    table->m_upgraded_instant = 0;
   }
 
   return ind;
