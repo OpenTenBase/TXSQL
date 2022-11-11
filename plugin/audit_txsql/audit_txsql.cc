@@ -27,6 +27,12 @@ static bool  rotate_write = false;
 
 static audit_handler normal_user;
 
+static ulong log_safety_level = 0;
+int log_safe_factor = 0;
+#define AUDIT_LOG_SAFETY_NORMAL 0
+#define AUDIT_LOG_SAFETY_SAFE 1
+#define AUDIT_LOG_SAFETY_SAFEST 2
+
 static char str10[] = "0123456789";
 static char str100[] = "0001020304050607080910111213141516171819202122232425"
                        "2627282930313233343536373839404142434445464748495051"
@@ -71,21 +77,29 @@ void *check_save_file_thread(void *ptr) {
   int cur_write, cur_flush, cur_end;
   char *mem = handler->share_mem;
   time_t cur_time;
+  int current_log_safety_level;
 
   time(&handler->last_flush);
 
   while (handler->is_running) {
+    current_log_safety_level = log_safety_level;
+
+    if (current_log_safety_level) mysql_mutex_lock(&handler->mem_lock);
     cur_flush = ((share_mem_head *)mem)->flush_pos;
     cur_write = ((share_mem_head *)mem)->write_pos;
     cur_end = ((share_mem_head *)mem)->end_pos;
+    if (current_log_safety_level) mysql_mutex_unlock(&handler->mem_lock);
 
-    usleep(500);
+    usleep(current_log_safety_level == AUDIT_LOG_SAFETY_SAFE
+               ? log_safe_factor * 1000
+               : 4000);
     if (audit_mode != AUDIT_ALL && audit_mode != AUDIT_FILTER) {
       continue;
     }
     time(&cur_time);
 
-    if (!rotate_write && labs(cur_time - handler->fps.date_start_time) > SECONDS_OF_A_DAY) {
+    if (!rotate_write &&
+        labs(cur_time - handler->fps.date_start_time) > SECONDS_OF_A_DAY) {
       char log_name[512] = {0};
       mysql_mutex_lock(&(handler->file_lock));
       if (NULL == handler->log_file_fp || NULL == handler->file_pos_fp ) {
@@ -123,7 +137,9 @@ void *check_save_file_thread(void *ptr) {
       if (handler->save_to_file(mem + cur_flush, cur_write - cur_flush)) {
         continue;
       }
+      if (current_log_safety_level) mysql_mutex_lock(&handler->mem_lock);
       ((share_mem_head *)mem)->flush_pos = cur_write;
+      if (current_log_safety_level) mysql_mutex_unlock(&handler->mem_lock);
     }
 
     /* When flush_pos > write_pos,  The data to be saved is from the
@@ -136,15 +152,18 @@ void *check_save_file_thread(void *ptr) {
         continue;
       }
 
+      if (current_log_safety_level) mysql_mutex_lock(&handler->mem_lock);
       ((share_mem_head *)mem)->end_pos = 0;
       ((share_mem_head *)mem)->flush_pos = SHARE_MEM_HEAD_SIZE;
+      if (current_log_safety_level) mysql_mutex_unlock(&handler->mem_lock);
       if (handler->save_to_file(mem + SHARE_MEM_HEAD_SIZE,
                                 cur_write - SHARE_MEM_HEAD_SIZE)) {
         continue;
       }
+      if (current_log_safety_level) mysql_mutex_lock(&handler->mem_lock);
       ((share_mem_head *)mem)->flush_pos = cur_write;
+      if (current_log_safety_level) mysql_mutex_unlock(&handler->mem_lock);
     }
-    usleep(4000);
   }
   return NULL;
 }
@@ -183,6 +202,7 @@ void audit_handler::convert_to_json(struct mysql_event_general *event_general) {
   int sent_rows_len = 0, affect_row_len = 0, check_row_len = 0;
   int lock_wait_len = 0, cpu_time_len = 0, io_wait_len = 0,
       ns_time_len = 0, trx_time_len = 0;
+  int current_log_safety_level = log_safety_level;
 
   ulonglong thread_id = (ulonglong) event_general->general_thread_id;
 
@@ -243,7 +263,8 @@ void audit_handler::convert_to_json(struct mysql_event_general *event_general) {
     ((share_mem_head*)share_mem)->end_pos = tmp_write;
     mem_pos = SHARE_MEM_HEAD_SIZE;
   }
-  mysql_mutex_unlock(&mem_lock);
+  if (current_log_safety_level < AUDIT_LOG_SAFETY_SAFEST)
+    mysql_mutex_unlock(&mem_lock);
 
   /* Start memory copy after free the lock. */
   FORMAT_NUMBER_JSON("{\"timestamp\":", FORMAT_TIMESTAMP_LEN,
@@ -314,6 +335,8 @@ void audit_handler::convert_to_json(struct mysql_event_general *event_general) {
                      event_general->general_sql_command.length);
   memcpy(CUR_AUDIT_MEM_PTR, "\"}\n", FORMAT_END_LEN);
   mem_pos += FORMAT_END_LEN;
+  if (current_log_safety_level == AUDIT_LOG_SAFETY_SAFEST)
+    mysql_mutex_unlock(&mem_lock);
 }
 
 /**
@@ -781,8 +804,6 @@ static int audit_directory_validate(THD *thd,
   return (0);
 }
 
-
-
 static void update_rotate_write_log(MYSQL_THD thd MY_ATTRIBUTE((unused)),
                                     SYS_VAR *var MY_ATTRIBUTE((unused)),
                                     void *ptr,
@@ -840,9 +861,6 @@ void audit_handler::deinit(void) {
   mysql_mutex_destroy(&mem_lock);
   mysql_mutex_destroy(&file_lock);
 }
-
-
-
 
 static MYSQL_SYSVAR_ENUM(
   audit_mode,
@@ -922,6 +940,34 @@ static MYSQL_SYSVAR_INT(rotate_file_count, rotate_count, PLUGIN_VAR_RQCMDARG,
                         10,                           /* Maximum */
                         1);                           /* Step    */
 
+static const char *audit_log_safety_level_names[4] = {"normal", "safe",
+                                                      "safest", NullS};
+static TYPELIB audit_log_safety_level_typelib = {
+    array_elements(audit_log_safety_level_names) - 1, "audit_log_safety_level",
+    audit_log_safety_level_names, nullptr};
+
+static MYSQL_SYSVAR_ENUM(
+    log_safety_level, log_safety_level, PLUGIN_VAR_RQCMDARG,
+    "Audit log safety level. 'normal' means recording audit log in high speed, "
+    "but may generate garbled audit logs in extreme scenarios. 'safe' means "
+    "the speed of recording audit logs is almost the same as 'normal', but the "
+    "probability of generating garbled audit logs is reduced, and the "
+    "probability of ignoring audit logs is increased. The probability can be "
+    "controlled by 'log_safe_factor'. 'safest' means there is no probability "
+    "to record garbled audit logs, but the performance of mysqld is greatly "
+    "affected.", nullptr, nullptr, 0, &audit_log_safety_level_typelib);
+
+static MYSQL_SYSVAR_INT(
+    log_safe_factor, log_safe_factor, PLUGIN_VAR_RQCMDARG,
+    "Parameter used when log_safety_level is equal to safe. Used to control "
+    "the copy time of audit logs in memory, in milliseconds. The higher the "
+    "value, the lower the risk of garbled audit logs and the higher the "
+    "probability of ignoring audit logs.",
+    nullptr, nullptr, 10, /* Default */
+    5,                    /* Minimum */
+    500,                  /* Maximum */
+    1);                   /* Step    */
+
 static SYS_VAR* audit_system_variables[] = {
   MYSQL_SYSVAR(audit_mode),
   MYSQL_SYSVAR(truncate_length),
@@ -932,6 +978,8 @@ static SYS_VAR* audit_system_variables[] = {
   MYSQL_SYSVAR(log_file_max_size),
   MYSQL_SYSVAR(rotate_file_count),
   MYSQL_SYSVAR(rotate_write_log),
+  MYSQL_SYSVAR(log_safety_level),
+  MYSQL_SYSVAR(log_safe_factor),
   NULL
 };
 
