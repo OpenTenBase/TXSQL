@@ -2126,10 +2126,16 @@ SET GLOBAL sql_require_primary_key= ON;
 SELECT @@global.sql_require_primary_key;
 @@global.sql_require_primary_key
 1
+select @@global.reject_table_no_pk;
+@@global.reject_table_no_pk
+1
 # Checking variable at session level
 # Should not affect this session
 SELECT @@session.sql_require_primary_key;
 @@session.sql_require_primary_key
+0
+select @@session.reject_table_no_pk;
+@@session.reject_table_no_pk
 0
 CREATE TABLE t1(i INT);
 CREATE TABLE t2(i INT PRIMARY KEY, j INT);
@@ -2147,7 +2153,7 @@ ALTER TABLE t1 DROP COLUMN i;
 ERROR HY000: Unable to create or change a table without a primary key, when the system variable 'sql_require_primary_key' is set. Add a primary key to the table or unset this variable to avoid this message. Note that tables without a primary key can cause performance problems in row-based replication, so please consult your DBA before changing this setting.
 DROP TABLE t1;
 # Overdide inherited global setting locally
-SET SESSION sql_require_primary_key= OFF;
+SET SESSION reject_table_no_pk= OFF;
 SELECT @@session.sql_require_primary_key;
 @@session.sql_require_primary_key
 0
@@ -2158,7 +2164,10 @@ DROP TABLE t2;
 DROP TABLE t1;
 # Verify CREATE LIKE
 CREATE TABLE t1(i INT);
-SET SESSION sql_require_primary_key= ON;
+SET SESSION reject_table_no_pk= ON;
+select @@session.sql_require_primary_key;
+@@session.sql_require_primary_key
+1
 CREATE TABLE t2 LIKE t1;
 ERROR HY000: Unable to create or change a table without a primary key, when the system variable 'sql_require_primary_key' is set. Add a primary key to the table or unset this variable to avoid this message. Note that tables without a primary key can cause performance problems in row-based replication, so please consult your DBA before changing this setting.
 # Verify CREATE AS SELECT ...
@@ -2290,7 +2299,10 @@ CREATE TABLE IF NOT EXISTS t1(i INT);
 Warnings:
 Note	1050	Table 't1' already exists
 # Cleanup
-SET SESSION sql_require_primary_key=DEFAULT;
+SET SESSION reject_table_no_pk=DEFAULT;
+select @@session.sql_require_primary_key;
+@@session.sql_require_primary_key
+0
 DROP TABLE t1;
 #
 # WL#13127: Deprecate integer display width and ZEROFILL option

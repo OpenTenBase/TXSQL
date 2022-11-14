@@ -64,7 +64,6 @@ SELECT ((@id := id) - id) FROM t2;
 ((@id := id) - id)
 0
 Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
-Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
 Warnings:
 KILL @id;
 SET DEBUG_SYNC= "now SIGNAL killed";

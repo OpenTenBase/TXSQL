@@ -7,8 +7,7 @@
 #
 CREATE TABLE t1 (a INT NOT NULL AUTO_INCREMENT PRIMARY KEY, b INT) ROW_FORMAT=DYNAMIC;
 INSERT INTO t1 VALUES(0, 1), (0, 2), (0, 3), (0, 4), (0, 5);
-ALTER TABLE t1 MODIFY COLUMN a BIGINT, ALGORITHM=INSTANT;
-ERROR 0A000: ALGORITHM=INSTANT is not supported. Reason: Cannot change column type INPLACE. Try ALGORITHM=COPY/INPLACE.
+ALTER TABLE t1 MODIFY COLUMN a BIGINT AUTO_INCREMENT, ALGORITHM=INSTANT;
 ALTER TABLE t1 MODIFY COLUMN b BIGINT, ALGORITHM=INSTANT;
 INSERT INTO t1(a, b) VALUES(0, 1);
 SELECT * FROM t1;
@@ -43,7 +42,7 @@ a	b	c3	c4	c5
 7	NULL	11	NULL	NULL
 8	NULL	10	ABCD EFGH	abcdefg hijklmn 
 ALTER TABLE t1 MODIFY COLUMN c4 CHAR(100), ALGORITHM=INSTANT;
-ERROR 0A000: ALGORITHM=INSTANT is not supported. Reason: Cannot change column type INPLACE. Try ALGORITHM=COPY/INPLACE.
+ERROR 0A000: ALGORITHM=INSTANT is not supported. Reason: Need to rebuild the table to change column type. Try ALGORITHM=COPY/INPLACE.
 INSERT INTO t1(a, c4, c5) VALUES(0, 'ABCD EFGH', 'abcdefg hijklmn ');
 SELECT * FROM t1;
 a	b	c3	c4	c5
@@ -58,8 +57,7 @@ a	b	c3	c4	c5
 9	NULL	10	ABCD EFGH	abcdefg hijklmn 
 ALTER TABLE t1 ADD COLUMN m1 CHAR(50) default 'The fox jumps over', ADD COLUMN m2 VARCHAR(50) DEFAULT 'The fox jumps over the lazy dog.', ALGORITHM=inplace;
 Table ID differed
-SELECT 2 = instant_cols AS `Instant columns equal` FROM information_schema.innodb_tables WHERE name like '%t1%';
-Instant columns equal
+count(*) = 2
 0
 CHECK TABLE t1;
 Table	Op	Msg_type	Msg_text
@@ -127,7 +125,7 @@ test.t1	check	status	OK
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `a` int NOT NULL AUTO_INCREMENT,
+  `a` bigint NOT NULL AUTO_INCREMENT,
   `b` bigint DEFAULT NULL,
   `c3` int NOT NULL DEFAULT '10',
   `c4` char(50) DEFAULT NULL,
@@ -493,8 +491,7 @@ DROP TABLE t1;
 #
 CREATE TABLE t1 (a INT NOT NULL AUTO_INCREMENT PRIMARY KEY, b INT) ROW_FORMAT=COMPACT;
 INSERT INTO t1 VALUES(0, 1), (0, 2), (0, 3), (0, 4), (0, 5);
-ALTER TABLE t1 MODIFY COLUMN a BIGINT, ALGORITHM=INSTANT;
-ERROR 0A000: ALGORITHM=INSTANT is not supported. Reason: Cannot change column type INPLACE. Try ALGORITHM=COPY/INPLACE.
+ALTER TABLE t1 MODIFY COLUMN a BIGINT AUTO_INCREMENT, ALGORITHM=INSTANT;
 ALTER TABLE t1 MODIFY COLUMN b BIGINT, ALGORITHM=INSTANT;
 INSERT INTO t1(a, b) VALUES(0, 1);
 SELECT * FROM t1;
@@ -529,7 +526,7 @@ a	b	c3	c4	c5
 7	NULL	11	NULL	NULL
 8	NULL	10	ABCD EFGH	abcdefg hijklmn 
 ALTER TABLE t1 MODIFY COLUMN c4 CHAR(100), ALGORITHM=INSTANT;
-ERROR 0A000: ALGORITHM=INSTANT is not supported. Reason: Cannot change column type INPLACE. Try ALGORITHM=COPY/INPLACE.
+ERROR 0A000: ALGORITHM=INSTANT is not supported. Reason: Need to rebuild the table to change column type. Try ALGORITHM=COPY/INPLACE.
 INSERT INTO t1(a, c4, c5) VALUES(0, 'ABCD EFGH', 'abcdefg hijklmn ');
 SELECT * FROM t1;
 a	b	c3	c4	c5
@@ -544,8 +541,7 @@ a	b	c3	c4	c5
 9	NULL	10	ABCD EFGH	abcdefg hijklmn 
 ALTER TABLE t1 ADD COLUMN m1 CHAR(50) default 'The fox jumps over', ADD COLUMN m2 VARCHAR(50) DEFAULT 'The fox jumps over the lazy dog.', ALGORITHM=inplace;
 Table ID differed
-SELECT 2 = instant_cols AS `Instant columns equal` FROM information_schema.innodb_tables WHERE name like '%t1%';
-Instant columns equal
+count(*) = 2
 0
 CHECK TABLE t1;
 Table	Op	Msg_type	Msg_text
@@ -613,7 +609,7 @@ test.t1	check	status	OK
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `a` int NOT NULL AUTO_INCREMENT,
+  `a` bigint NOT NULL AUTO_INCREMENT,
   `b` bigint DEFAULT NULL,
   `c3` int NOT NULL DEFAULT '10',
   `c4` char(50) DEFAULT NULL,

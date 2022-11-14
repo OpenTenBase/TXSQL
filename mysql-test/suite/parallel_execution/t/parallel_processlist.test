@@ -170,6 +170,7 @@ set debug_sync='schedule_before_schedule_kill SIGNAL waiting wait_for killed';
 
 connection conn1;
 SET DEBUG_SYNC= 'now WAIT_FOR waiting';
+--replace_column 2 ##
 --replace_result $id <id>
 --eval KILL QUERY $id + 1
 SET DEBUG_SYNC= 'now SIGNAL killed';
@@ -187,6 +188,7 @@ set debug_sync='schedule_before_schedule_kill SIGNAL waiting wait_for killed';
 
 connection conn1;
 SET DEBUG_SYNC= 'now WAIT_FOR waiting';
+--replace_column 2 ##
 --replace_result $id <id>
 --eval KILL CONNECTION $id + 1
 SET DEBUG_SYNC= 'now SIGNAL killed';
@@ -204,6 +206,7 @@ set debug_sync='schedule_one_loop_kill SIGNAL waiting wait_for killed';
 
 connection conn1;
 SET DEBUG_SYNC= 'now WAIT_FOR waiting';
+--replace_column 2 ##
 --replace_result $id <id>
 --eval KILL QUERY $id + 1
 SET DEBUG_SYNC= 'now SIGNAL killed';
@@ -221,6 +224,7 @@ set debug_sync='schedule_one_loop_kill SIGNAL waiting wait_for killed';
 
 connection conn1;
 SET DEBUG_SYNC= 'now WAIT_FOR waiting';
+--replace_column 2 ##
 --replace_result $id <id>
 --eval KILL CONNECTION $id + 1
 SET DEBUG_SYNC= 'now SIGNAL killed';
@@ -238,6 +242,7 @@ set debug_sync='run_root_sending_data_kill SIGNAL waiting wait_for killed';
 
 connection conn1;
 SET DEBUG_SYNC= 'now WAIT_FOR waiting';
+--replace_column 2 ##
 --replace_result $id <id>
 --eval KILL QUERY $id + 1
 SET DEBUG_SYNC= 'now SIGNAL killed';
@@ -255,6 +260,7 @@ set debug_sync='run_root_sending_data_kill SIGNAL waiting wait_for killed';
 
 connection conn1;
 SET DEBUG_SYNC= 'now WAIT_FOR waiting';
+--replace_column 2 ##
 --replace_result $id <id>
 --eval KILL CONNECTION $id + 1
 SET DEBUG_SYNC= 'now SIGNAL killed';

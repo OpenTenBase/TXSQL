@@ -930,11 +930,17 @@ CREATE TABLE t1 (a int);
 SET sql_mode='';
 EXPLAIN FORMAT=tree SELECT a IN (SELECT a FROM (table t1) AS d) FROM t1 GROUP BY (@b:=5);
 EXPLAIN
--> Group (no aggregates)
+-> Group (no aggregates)  (cost=0.45 rows=1)
     -> PX Receiver (slice: 0; workers: 1)
         -> PX Sender (slice: 1; workers: 1)
-            -> Group (no aggregates)  (cost=0.45 rows=1)
-                -> Parallel table scan on t1  (cost=0.35 rows=1)
+            -> Parallel table scan on t1  (cost=0.35 rows=1)
+-> Select #2 (subquery in projection; dependent)
+    -> Limit: 1 row(s)  (cost=0.45..0.45 rows=1)
+        -> Filter: <if>(outer_field_is_not_null, <is_not_null_test>(d.a), true)  (cost=0.45..0.45 rows=1)
+            -> Alternative plans for IN subquery: Index lookup unless a IS NULL [other sub-iterators not shown]
+                -> Covering index lookup on d using <auto_key0> (a=<cache>(t1.a) or NULL)
+                    -> Materialize  (cost=0.45..0.45 rows=1)
+                        -> Table scan on t1  (cost=0.35 rows=1)
 
 Warnings:
 Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.

@@ -26,8 +26,8 @@ event_scheduler
 Variable_name	Value
 cdb_working_mode	OFFLINE
 ----- switch to default -----
-ERROR HY000: MySQL server has gone away
-ERROR HY000: MySQL server has gone away
+ERROR HY000: Lost connection to MySQL server during query
+ERROR HY000: Lost connection to MySQL server during query
 --- new connection test ---
 ERROR HY000: The server is currently in offline mode
 ----- Stage 2. switch to tencent_conn to switch to READONLY -----
@@ -57,8 +57,8 @@ USER
 tencentroot
 event_scheduler
 ----- switch to default -----
-ERROR HY000: MySQL server has gone away
-ERROR HY000: MySQL server has gone away
+ERROR HY000: Lost connection to MySQL server during query
+ERROR HY000: Lost connection to MySQL server during query
 ----- switch to default -----
 USER
 root

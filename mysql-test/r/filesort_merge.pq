@@ -53,8 +53,8 @@ SELECT * from t1 WHERE topic IN
 LIMIT 2
 ;
 topic
-1135
-1136
+1369
+1370
 SET @@session.sort_buffer_size=DEFAULT;
 drop table t1;
 set optimizer_switch=default;

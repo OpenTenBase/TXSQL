@@ -2,7 +2,7 @@
 show grants;
 Grants for root@localhost
 GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, RELOAD, SHUTDOWN, PROCESS, FILE, REFERENCES, INDEX, ALTER, SHOW DATABASES, SUPER, CREATE TEMPORARY TABLES, LOCK TABLES, EXECUTE, REPLICATION SLAVE, REPLICATION CLIENT, CREATE VIEW, SHOW VIEW, CREATE ROUTINE, ALTER ROUTINE, CREATE USER, EVENT, TRIGGER, CREATE TABLESPACE, CREATE ROLE, DROP ROLE ON *.* TO `root`@`localhost` WITH GRANT OPTION
-GRANT APPLICATION_PASSWORD_ADMIN,AUDIT_ABORT_EXEMPT,AUDIT_ADMIN,AUTHENTICATION_POLICY_ADMIN,BACKUP_ADMIN,BINLOG_ADMIN,BINLOG_ENCRYPTION_ADMIN,CLONE_ADMIN,CONNECTION_ADMIN,ENCRYPTION_KEY_ADMIN,FIREWALL_EXEMPT,FLUSH_OPTIMIZER_COSTS,FLUSH_STATUS,FLUSH_TABLES,FLUSH_USER_RESOURCES,GROUP_REPLICATION_ADMIN,GROUP_REPLICATION_STREAM,INNODB_REDO_LOG_ARCHIVE,INNODB_REDO_LOG_ENABLE,PASSWORDLESS_USER_ADMIN,PERSIST_RO_VARIABLES_ADMIN,REPLICATION_APPLIER,REPLICATION_SLAVE_ADMIN,RESOURCE_GROUP_ADMIN,RESOURCE_GROUP_USER,ROLE_ADMIN,SENSITIVE_VARIABLES_OBSERVER,SERVICE_CONNECTION_ADMIN,SESSION_VARIABLES_ADMIN,SET_USER_ID,SHOW_ROUTINE,SYSTEM_USER,SYSTEM_VARIABLES_ADMIN,TABLE_ENCRYPTION_ADMIN,XA_RECOVER_ADMIN ON *.* TO `root`@`localhost` WITH GRANT OPTION
+GRANT APPLICATION_PASSWORD_ADMIN,AUDIT_ABORT_EXEMPT,AUDIT_ADMIN,AUTHENTICATION_POLICY_ADMIN,BACKUP_ADMIN,BINLOG_ADMIN,BINLOG_ENCRYPTION_ADMIN,CLONE_ADMIN,CONNECTION_ADMIN,ENCRYPTION_KEY_ADMIN,FIREWALL_EXEMPT,FLUSH_OPTIMIZER_COSTS,FLUSH_STATUS,FLUSH_TABLES,FLUSH_USER_RESOURCES,GROUP_REPLICATION_ADMIN,GROUP_REPLICATION_STREAM,INNODB_REDO_LOG_ARCHIVE,INNODB_REDO_LOG_ENABLE,PASSWORDLESS_USER_ADMIN,PERSIST_RO_VARIABLES_ADMIN,READ_MASK,REPLICATION_APPLIER,REPLICATION_SLAVE_ADMIN,RESOURCE_GROUP_ADMIN,RESOURCE_GROUP_USER,ROLE_ADMIN,SENSITIVE_VARIABLES_OBSERVER,SERVICE_CONNECTION_ADMIN,SESSION_VARIABLES_ADMIN,SET_USER_ID,SHOW_ROUTINE,SYSTEM_USER,SYSTEM_VARIABLES_ADMIN,TABLE_ENCRYPTION_ADMIN,XA_RECOVER_ADMIN ON *.* TO `root`@`localhost` WITH GRANT OPTION
 GRANT PROXY ON ``@`` TO `root`@`localhost` WITH GRANT OPTION
 select user();
 user()
@@ -103,7 +103,7 @@ select /*+no_bnl(t1,t2)*/ t1.* from t1,t2 where t1.a = t2.a;;
 SET DEBUG_SYNC= 'now WAIT_FOR waiting';
 KILL QUERY <id> + 1;
 Warnings:
-Warning	8508	Killing worker is not allowed, please kill query/connection <id>
+Warning	##	Killing worker is not allowed, please kill query/connection <id>
 SET DEBUG_SYNC= 'now SIGNAL killed';
 a	b	c	d
 1	2	3	4
@@ -114,7 +114,7 @@ set debug_sync='schedule_before_schedule_kill SIGNAL waiting wait_for killed';
 SET DEBUG_SYNC= 'now WAIT_FOR waiting';
 KILL CONNECTION <id> + 1;
 Warnings:
-Warning	8508	Killing worker is not allowed, please kill query/connection <id>
+Warning	##	Killing worker is not allowed, please kill query/connection <id>
 SET DEBUG_SYNC= 'now SIGNAL killed';
 a	sum(b)
 1	1
@@ -125,7 +125,7 @@ select a,b from t1 union (select a,b from t2 order by a);;
 SET DEBUG_SYNC= 'now WAIT_FOR waiting';
 KILL QUERY <id> + 1;
 Warnings:
-Warning	8508	Killing worker is not allowed, please kill query/connection <id>
+Warning	##	Killing worker is not allowed, please kill query/connection <id>
 SET DEBUG_SYNC= 'now SIGNAL killed';
 a	b
 1	1
@@ -138,7 +138,7 @@ set debug_sync='schedule_one_loop_kill SIGNAL waiting wait_for killed';
 SET DEBUG_SYNC= 'now WAIT_FOR waiting';
 KILL CONNECTION <id> + 1;
 Warnings:
-Warning	8508	Killing worker is not allowed, please kill query/connection <id>
+Warning	##	Killing worker is not allowed, please kill query/connection <id>
 SET DEBUG_SYNC= 'now SIGNAL killed';
 a	b	c	d
 1	1	1	1
@@ -151,7 +151,7 @@ set debug_sync='run_root_sending_data_kill SIGNAL waiting wait_for killed';
 SET DEBUG_SYNC= 'now WAIT_FOR waiting';
 KILL QUERY <id> + 1;
 Warnings:
-Warning	8508	Killing worker is not allowed, please kill query/connection <id>
+Warning	##	Killing worker is not allowed, please kill query/connection <id>
 SET DEBUG_SYNC= 'now SIGNAL killed';
 a	b	sum(c)
 1	1	2.0000
@@ -164,7 +164,7 @@ set debug_sync='run_root_sending_data_kill SIGNAL waiting wait_for killed';
 SET DEBUG_SYNC= 'now WAIT_FOR waiting';
 KILL CONNECTION <id> + 1;
 Warnings:
-Warning	8508	Killing worker is not allowed, please kill query/connection <id>
+Warning	##	Killing worker is not allowed, please kill query/connection <id>
 SET DEBUG_SYNC= 'now SIGNAL killed';
 a	b	c	d
 1	1	1	1

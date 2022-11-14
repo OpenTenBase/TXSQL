@@ -136,9 +136,9 @@ class IndexRangeScanIterator : public RowIDCapableRowIterator {
     return file->ref;
   }
 
+#if defined(HAVE_PX)
   virtual std::string str() override { return "IndexRangeScan"; }
   virtual PhysicalRowIteratorType type() override { return PHY_INDEX_RANGE_SCAN; }
-#if defined(HAVE_PX)
   virtual std::shared_ptr<PX_table_descriptor> get_table_descriptor() const override;
   bool prepare_for_parallel_query() override;
 #endif /* defined(HAVE_PX) */

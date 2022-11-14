@@ -2,8 +2,8 @@
 show grants;
 Grants for root@localhost
 GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, RELOAD, SHUTDOWN, PROCESS, FILE, REFERENCES, INDEX, ALTER, SHOW DATABASES, SUPER, CREATE TEMPORARY TABLES, LOCK TABLES, EXECUTE, REPLICATION SLAVE, REPLICATION CLIENT, CREATE VIEW, SHOW VIEW, CREATE ROUTINE, ALTER ROUTINE, CREATE USER, EVENT, TRIGGER, CREATE TABLESPACE, CREATE ROLE, DROP ROLE ON *.* TO `root`@`localhost` WITH GRANT OPTION
-GRANT APPLICATION_PASSWORD_ADMIN,AUDIT_ADMIN,BACKUP_ADMIN,BINLOG_ADMIN,BINLOG_ENCRYPTION_ADMIN,CLONE_ADMIN,CONNECTION_ADMIN,ENCRYPTION_KEY_ADMIN,GROUP_REPLICATION_ADMIN,INNODB_REDO_LOG_ARCHIVE,INNODB_REDO_LOG_ENABLE,PERSIST_RO_VARIABLES_ADMIN,REPLICATION_APPLIER,REPLICATION_SLAVE_ADMIN,RESOURCE_GROUP_ADMIN,RESOURCE_GROUP_USER,ROLE_ADMIN,SERVICE_CONNECTION_ADMIN,SESSION_VARIABLES_ADMIN,SET_USER_ID,SHOW_ROUTINE,SYSTEM_USER,SYSTEM_VARIABLES_ADMIN,TABLE_ENCRYPTION_ADMIN,XA_RECOVER_ADMIN ON *.* TO `root`@`localhost` WITH GRANT OPTION
-GRANT PROXY ON ''@'' TO 'root'@'localhost' WITH GRANT OPTION
+GRANT APPLICATION_PASSWORD_ADMIN,AUDIT_ABORT_EXEMPT,AUDIT_ADMIN,AUTHENTICATION_POLICY_ADMIN,BACKUP_ADMIN,BINLOG_ADMIN,BINLOG_ENCRYPTION_ADMIN,CLONE_ADMIN,CONNECTION_ADMIN,ENCRYPTION_KEY_ADMIN,FIREWALL_EXEMPT,FLUSH_OPTIMIZER_COSTS,FLUSH_STATUS,FLUSH_TABLES,FLUSH_USER_RESOURCES,GROUP_REPLICATION_ADMIN,GROUP_REPLICATION_STREAM,INNODB_REDO_LOG_ARCHIVE,INNODB_REDO_LOG_ENABLE,PASSWORDLESS_USER_ADMIN,PERSIST_RO_VARIABLES_ADMIN,READ_MASK,REPLICATION_APPLIER,REPLICATION_SLAVE_ADMIN,RESOURCE_GROUP_ADMIN,RESOURCE_GROUP_USER,ROLE_ADMIN,SENSITIVE_VARIABLES_OBSERVER,SERVICE_CONNECTION_ADMIN,SESSION_VARIABLES_ADMIN,SET_USER_ID,SHOW_ROUTINE,SYSTEM_USER,SYSTEM_VARIABLES_ADMIN,TABLE_ENCRYPTION_ADMIN,XA_RECOVER_ADMIN ON *.* TO `root`@`localhost` WITH GRANT OPTION
+GRANT PROXY ON ``@`` TO `root`@`localhost` WITH GRANT OPTION
 set global cdb_opt_outline_enabled = off;
 select user();
 user()
@@ -463,9 +463,9 @@ a	b	c	a	b	c
 explain format=tree select * from t1 where t1.a in (select b from t2);
 EXPLAIN
 -> Nested loop inner join  (cost=1.45 rows=4)
-    -> Filter: (`<subquery2>`.b is not null)  (cost=0.80 rows=4)
-        -> Table scan on <subquery2>  (cost=0.80 rows=4)
-            -> Materialize with deduplication  (cost=0.65 rows=4)
+    -> Filter: (`<subquery2>`.b is not null)  (cost=0.99..0.80 rows=4)
+        -> Table scan on <subquery2>  (cost=0.64..2.55 rows=4)
+            -> Materialize with deduplication  (cost=1.69..3.60 rows=4)
                 -> Filter: (t2.b is not null)  (cost=0.65 rows=4)
                     -> Table scan on t2  (cost=0.65 rows=4)
     -> Single-row index lookup on t1 using idx1 (a=`<subquery2>`.b)  (cost=0.35 rows=1)
@@ -1036,8 +1036,8 @@ a
 6
 explain format=tree select * from (select * from t1) as t1_alias;
 EXPLAIN
--> Table scan on t1_alias  (cost=3.18 rows=6)
-    -> Materialize  (cost=0.85 rows=6)
+-> Table scan on t1_alias  (cost=0.43..2.58 rows=6)
+    -> Materialize  (cost=1.88..4.03 rows=6)
         -> Table scan on t1  (cost=0.85 rows=6)
 
 explain format=json select * from (select * from t1) as t1_alias;
@@ -1115,11 +1115,11 @@ a	b	c
 6	3	4
 explain format=tree select count(*) from t1 join t2 on t1.a = t2.a;
 EXPLAIN
--> Aggregate: count(0)
+-> Aggregate: count(0)  (cost=2.45 rows=1)
     -> Nested loop inner join  (cost=2.05 rows=4)
         -> Filter: (t2.a is not null)  (cost=0.65 rows=4)
             -> Index scan on t2 using idx2  (cost=0.65 rows=4)
-        -> Single-row index lookup on t1 using idx1 (a=t2.a)  (cost=0.28 rows=1)
+        -> Single-row covering index lookup on t1 using idx1 (a=t2.a)  (cost=0.28 rows=1)
 
 explain format=json select count(*) from t1 join t2 on t1.a = t2.a;
 EXPLAIN
@@ -1305,7 +1305,7 @@ EXPLAIN
     -> Filter: (t1.a is not null)  (cost=0.85 rows=6)
         -> Index scan on t1 using idx1  (cost=0.85 rows=6)
     -> Single-row index lookup on <subquery2> using <auto_distinct_key> (b=t1.a)
-        -> Materialize with deduplication  (cost=2.05 rows=4)
+        -> Materialize with deduplication  (cost=2.45..2.45 rows=4)
             -> Filter: (t1.b is not null)  (cost=2.05 rows=4)
                 -> Nested loop inner join  (cost=2.05 rows=4)
                     -> Filter: (t2.a is not null)  (cost=0.65 rows=4)
@@ -1769,7 +1769,7 @@ EXPLAIN
         -> Filter: (t2.a is not null)  (cost=0.65 rows=4)
             -> Index scan on t2 using idx2  (cost=0.65 rows=4)
         -> Single-row index lookup on t1 using idx1 (a=t2.a)  (cost=0.28 rows=1)
-    -> Single-row index lookup on t1 using idx1 (a=t2.a)  (cost=0.28 rows=1)
+    -> Single-row covering index lookup on t1 using idx1 (a=t2.a)  (cost=0.28 rows=1)
 
 explain format=json select * from t1 where t1.a in (select t1.a from t1,t2 where t1.a = t2.a);
 EXPLAIN
@@ -1893,10 +1893,10 @@ EXPLAIN
     -> Left hash join (no condition), extra conditions: (t1.a = t2.a)  (cost=9.96 rows=96)
         -> Nested loop inner join  (cost=7.20 rows=24)
             -> Inner hash join (no condition)  (cost=3.30 rows=24)
-                -> Index range scan on t1 using idx1, with index condition: (t1.a is not null)  (cost=0.21 rows=6)
+                -> Index range scan on t1 using idx1 over (NULL < a), with index condition: (t1.a is not null)  (cost=0.21 rows=6)
                 -> Hash
                     -> Index scan on t2 using idx2  (cost=0.65 rows=4)
-            -> Single-row index lookup on t1 using idx1 (a=t1.a)  (cost=0.07 rows=1)
+            -> Single-row covering index lookup on t1 using idx1 (a=t1.a)  (cost=0.07 rows=1)
         -> Hash
             -> Index scan on t3 using idx3  (cost=0.11 rows=4)
 
@@ -2051,11 +2051,11 @@ EXPLAIN
         -> Nested loop inner join  (cost=11.10 rows=24)
             -> Nested loop left join  (cost=7.20 rows=24)
                 -> Inner hash join (no condition)  (cost=3.30 rows=24)
-                    -> Index range scan on t1 using idx1, with index condition: (t1.a is not null)  (cost=0.21 rows=6)
+                    -> Index range scan on t1 using idx1 over (NULL < a), with index condition: (t1.a is not null)  (cost=0.21 rows=6)
                     -> Hash
                         -> Index scan on t2 using idx2  (cost=0.65 rows=4)
                 -> Single-row index lookup on t4 using idx4 (a=t1.a)  (cost=0.07 rows=1)
-            -> Single-row index lookup on t1 using idx1 (a=t1.a)  (cost=0.07 rows=1)
+            -> Single-row covering index lookup on t1 using idx1 (a=t1.a)  (cost=0.07 rows=1)
         -> Hash
             -> Index scan on t3 using idx3  (cost=0.11 rows=4)
 
@@ -2370,8 +2370,8 @@ EXPLAIN
                                 -> Table scan on t2  (cost=0.65 rows=4)
                         -> Single-row index lookup on t4 using idx4 (a=t3.a)  (cost=0.07 rows=1)
             -> Nested loop left join  (cost=1.12 rows=1)
-                -> Single-row index lookup on t1 using idx1 (a=t5.a)  (cost=0.02 rows=1)
-                -> Single-row index lookup on t2 using idx2 (a=t5.a)  (cost=0.02 rows=1)
+                -> Single-row covering index lookup on t1 using idx1 (a=t5.a)  (cost=0.02 rows=1)
+                -> Single-row covering index lookup on t2 using idx2 (a=t5.a)  (cost=0.02 rows=1)
 
 explain format=json select * from t1,t2,t3 left join t4 on t3.a = t4.a, t5 left join (select t1.a from t1 left join t2 on t1.a = t2.a) as v on t5.a = v.a;
 EXPLAIN
@@ -2967,9 +2967,9 @@ EXPLAIN
         -> Filter: (t1.b is not null)  (cost=0.27 rows=1)
             -> Single-row index lookup on t1 using idx1 (a=t1.a)  (cost=0.27 rows=1)
     -> Nested loop left join  (cost=1.87 rows=1)
-        -> Single-row index lookup on t1 using idx1 (a=t1.b)  (cost=0.27 rows=1)
+        -> Single-row covering index lookup on t1 using idx1 (a=t1.b)  (cost=0.27 rows=1)
         -> Filter: (t1.a = t2.a)  (cost=0.27 rows=1)
-            -> Single-row index lookup on t2 using idx2 (a=t1.b)  (cost=0.27 rows=1)
+            -> Single-row covering index lookup on t2 using idx2 (a=t1.b)  (cost=0.27 rows=1)
 
 explain format=json select * from t1 where t1.a in (select t1.a from t1 where t1.b in (select t1.a from t1 left join t2 on t1.a = t2.a));
 EXPLAIN

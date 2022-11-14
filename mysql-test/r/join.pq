@@ -187,8 +187,6 @@ d
 1000-01-01
 2001-08-01
 Warning	1365	Division by 0
-Warning	1365	Division by 0
-Warning	1365	Division by 0
 Warnings:
 DROP TABLE t1,t2;
 CREATE TABLE t1 (
@@ -912,7 +910,7 @@ Handler_read_last	0
 Handler_read_next	0
 Handler_read_prev	0
 Handler_read_rnd	0
-Handler_read_rnd_next	0
+Handler_read_rnd_next	5
 drop table t1, t2, t3;
 create table t1 (a int);
 insert into t1 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);

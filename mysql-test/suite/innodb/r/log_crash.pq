@@ -15,11 +15,11 @@ INSERT INTO t(a) VALUES(42);
 # Kill the server
 # Start MySQL...
 # Verify...
-Pattern "Database was not shutdown normally" not found
-Pattern "Starting crash recovery" not found
-Pattern "Applying a batch of.*redo log records" not found
-Pattern "Apply batch completed" not found
-Pattern "innodb-unknown-compound-v" not found
+Pattern "Database was not shutdown normally" found
+Pattern "Starting crash recovery" found
+Pattern "Applying a batch of.*redo log records" found
+Pattern "Apply batch completed" found
+Pattern "innodb-unknown-compound-v" found
 # Remove the data directory...
 ############################################################################################
 # Cleanup...

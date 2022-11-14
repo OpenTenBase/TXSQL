@@ -1,0 +1,540 @@
+call mtr.add_suppression("\\[Error\\] .*MY-\\d+.* Can't generate new master key for tablespace encryption, please check the keyring plugin is loaded.");
+call mtr.add_suppression("\\[Error\\] .*MY-\\d+.* Encryption can't find master key, please check the keyring plugin is loaded.");
+call mtr.add_suppression("\\[ERROR\\] .*MY-\\d+.* Function 'keyring_file' already exists");
+call mtr.add_suppression("\\[ERROR\\] .*MY-\\d+.* Couldn't load plugin named 'keyring_file' with soname 'keyring_file.*'.");
+call mtr.add_suppression("\\[ERROR\\] .*MY-\\d+.* illegal user or without master key can only read encrypted data of the encrypted .*");
+call mtr.add_suppression("Plugin keyring_file reported");
+call mtr.add_suppression("Encryption can't find master key");
+CREATE TABLE t1(c1 varchar(1) ENCRYPTION, c2 varchar(1) ENCRYPTION algorithm=aes256, c3 varchar(1) column_format ENCRYPTION, c4 varchar(1) column_format ENCRYPTION algorithm=aes128, 
+c5 varchar(1) ENCRYPTION algorithm=SM4 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `c1` varchar(1) /*!80022 ENCRYPTION ALGORITHM = AES192 */ DEFAULT NULL,
+  `c2` varchar(1) /*!80022 ENCRYPTION ALGORITHM = AES256 */ DEFAULT NULL,
+  `c3` varchar(1) /*!80022 ENCRYPTION ALGORITHM = AES192 */ DEFAULT NULL,
+  `c4` varchar(1) /*!80022 ENCRYPTION ALGORITHM = AES128 */ DEFAULT NULL,
+  `c5` varchar(1) /*!80022 ENCRYPTION ALGORITHM = SM4 */ DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+insert into t1 values('a','b','c','d', 'e');
+insert into t1 values('数','据','库','系', '统');
+SELECT * FROM t1;
+c1	c2	c3	c4	c5
+a	b	c	d	e
+数	据	库	系	统
+CREATE TABLE vc_t1 (c1 varchar(255) ENCRYPTION, c2 varchar(255) ENCRYPTION algorithm=SM4) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+SHOW CREATE TABLE vc_t1;
+Table	Create Table
+vc_t1	CREATE TABLE `vc_t1` (
+  `c1` varchar(255) /*!80022 ENCRYPTION ALGORITHM = AES192 */ DEFAULT NULL,
+  `c2` varchar(255) /*!80022 ENCRYPTION ALGORITHM = SM4 */ DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+insert into vc_t1 values('a','a');
+insert into vc_t1 values('数','数');
+insert into vc_t1 values(repeat('a',255), repeat('a',255));
+insert into vc_t1 values(repeat('数',255),repeat('数',255));
+SELECT c1,c2,length(c1),length(c2) FROM vc_t1;
+c1	c2	length(c1)	length(c2)
+a	a	1	1
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	255	255
+数	数	3	3
+数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数	数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数数	765	765
+CREATE TABLE vc_t2 (c1 varchar(255) ENCRYPTION, c2 varchar(255) ENCRYPTION algorithm=SM4) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+SHOW CREATE TABLE vc_t2;
+Table	Create Table
+vc_t2	CREATE TABLE `vc_t2` (
+  `c1` varchar(255) /*!80022 ENCRYPTION ALGORITHM = AES192 */ DEFAULT NULL,
+  `c2` varchar(255) /*!80022 ENCRYPTION ALGORITHM = SM4 */ DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+insert into vc_t2 values('a','a');
+insert into vc_t2 values(repeat('a',255),repeat('a',255));
+SELECT c1,c2,length(c1),length(c2) FROM vc_t2;
+c1	c2	length(c1)	length(c2)
+a	a	1	1
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	255	255
+CREATE TABLE vc_t3(c1 varchar(1) ENCRYPTION, c2 varchar(1) ENCRYPTION ALGORITHM=SM4) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+SHOW CREATE TABLE vc_t3;
+Table	Create Table
+vc_t3	CREATE TABLE `vc_t3` (
+  `c1` varchar(1) /*!80022 ENCRYPTION ALGORITHM = AES192 */ DEFAULT NULL,
+  `c2` varchar(1) /*!80022 ENCRYPTION ALGORITHM = SM4 */ DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+insert into vc_t3 values('a','a');
+insert into vc_t3 values('数','数');
+SELECT c1,c2,length(c1),length(c2) FROM vc_t3;
+c1	c2	length(c1)	length(c2)
+a	a	1	1
+数	数	3	3
+CREATE TABLE vc_t4(c1 varchar(1) ENCRYPTION, c2 varchar(1) ENCRYPTION ALGORITHM=SM4) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+SHOW CREATE TABLE vc_t4;
+Table	Create Table
+vc_t4	CREATE TABLE `vc_t4` (
+  `c1` varchar(1) /*!80022 ENCRYPTION ALGORITHM = AES192 */ DEFAULT NULL,
+  `c2` varchar(1) /*!80022 ENCRYPTION ALGORITHM = SM4 */ DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+insert into vc_t4 values('a','a');
+SELECT c1,c2,length(c1),length(c2) FROM vc_t4;
+c1	c2	length(c1)	length(c2)
+a	a	1	1
+CREATE TABLE vc_t5(c1 varchar(1024) ENCRYPTION) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+SHOW CREATE TABLE vc_t5;
+Table	Create Table
+vc_t5	CREATE TABLE `vc_t5` (
+  `c1` varchar(1024) /*!80022 ENCRYPTION ALGORITHM = AES192 */ DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+insert into vc_t5 values('a');
+insert into vc_t5 values('数');
+insert into vc_t5 values(repeat('a',255));
+insert into vc_t5 values(repeat('数',255));
+insert into vc_t5 values(repeat('a',1024));
+insert into vc_t5 values(repeat('a',1024));
+SELECT left(c1,1), right(c1,1), length(c1) FROM vc_t5;
+left(c1,1)	right(c1,1)	length(c1)
+a	a	1
+a	a	1024
+a	a	1024
+a	a	255
+数	数	3
+数	数	765
+CREATE TABLE vc_t6(c1 varchar(1024) ENCRYPTION) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+SHOW CREATE TABLE vc_t6;
+Table	Create Table
+vc_t6	CREATE TABLE `vc_t6` (
+  `c1` varchar(1024) /*!80022 ENCRYPTION ALGORITHM = AES192 */ DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+insert into vc_t6 values('a');
+insert into vc_t6 values(repeat('a',255));
+insert into vc_t6 values(repeat('a',1024));
+insert into vc_t6 values(repeat('a',1024));
+SELECT left(c1,1), right(c1,1), length(c1) FROM vc_t6;
+left(c1,1)	right(c1,1)	length(c1)
+a	a	1
+a	a	1024
+a	a	1024
+a	a	255
+FLUSH TABLES;
+CREATE TABLE t2 like vc_t1;
+insert into t2 select * from vc_t2;
+CREATE TABLE t3 like vc_t3;
+insert into t3 select * from vc_t3;
+CREATE TABLE t4 like vc_t3;
+insert into t4 select * from vc_t4;
+CREATE TABLE t5 like vc_t5;
+insert into t5 select * from vc_t5;
+CREATE TABLE t6 as select * from vc_t6;
+CREATE TABLE t7 as select * from t1;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `c1` varchar(1) /*!80022 ENCRYPTION ALGORITHM = AES192 */ DEFAULT NULL,
+  `c2` varchar(1) /*!80022 ENCRYPTION ALGORITHM = AES256 */ DEFAULT NULL,
+  `c3` varchar(1) /*!80022 ENCRYPTION ALGORITHM = AES192 */ DEFAULT NULL,
+  `c4` varchar(1) /*!80022 ENCRYPTION ALGORITHM = AES128 */ DEFAULT NULL,
+  `c5` varchar(1) /*!80022 ENCRYPTION ALGORITHM = SM4 */ DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+SHOW CREATE TABLE t2;
+Table	Create Table
+t2	CREATE TABLE `t2` (
+  `c1` varchar(255) /*!80022 ENCRYPTION ALGORITHM = AES192 */ DEFAULT NULL,
+  `c2` varchar(255) /*!80022 ENCRYPTION ALGORITHM = SM4 */ DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+SHOW CREATE TABLE t3;
+Table	Create Table
+t3	CREATE TABLE `t3` (
+  `c1` varchar(1) /*!80022 ENCRYPTION ALGORITHM = AES192 */ DEFAULT NULL,
+  `c2` varchar(1) /*!80022 ENCRYPTION ALGORITHM = SM4 */ DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+SHOW CREATE TABLE t4;
+Table	Create Table
+t4	CREATE TABLE `t4` (
+  `c1` varchar(1) /*!80022 ENCRYPTION ALGORITHM = AES192 */ DEFAULT NULL,
+  `c2` varchar(1) /*!80022 ENCRYPTION ALGORITHM = SM4 */ DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+SHOW CREATE TABLE t5;
+Table	Create Table
+t5	CREATE TABLE `t5` (
+  `c1` varchar(1024) /*!80022 ENCRYPTION ALGORITHM = AES192 */ DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+SHOW CREATE TABLE t6;
+Table	Create Table
+t6	CREATE TABLE `t6` (
+  `c1` varchar(1024) CHARACTER SET latin1 /*!80022 ENCRYPTION ALGORITHM = AES192 */ DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+SHOW CREATE TABLE t7;
+Table	Create Table
+t7	CREATE TABLE `t7` (
+  `c1` varchar(1) /*!80022 ENCRYPTION ALGORITHM = AES192 */ DEFAULT NULL,
+  `c2` varchar(1) /*!80022 ENCRYPTION ALGORITHM = AES256 */ DEFAULT NULL,
+  `c3` varchar(1) /*!80022 ENCRYPTION ALGORITHM = AES192 */ DEFAULT NULL,
+  `c4` varchar(1) /*!80022 ENCRYPTION ALGORITHM = AES128 */ DEFAULT NULL,
+  `c5` varchar(1) /*!80022 ENCRYPTION ALGORITHM = SM4 */ DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+SELECT left(c1,1), right(c1,1), length(c1) FROM t1;
+left(c1,1)	right(c1,1)	length(c1)
+a	a	1
+数	数	3
+SELECT left(c1,1), right(c1,1), length(c1) FROM t2;
+left(c1,1)	right(c1,1)	length(c1)
+a	a	1
+a	a	255
+SELECT left(c1,1), right(c1,1), length(c1) FROM t3;
+left(c1,1)	right(c1,1)	length(c1)
+a	a	1
+数	数	3
+SELECT left(c1,1), right(c1,1), length(c1) FROM t4;
+left(c1,1)	right(c1,1)	length(c1)
+a	a	1
+SELECT left(c1,1), right(c1,1), length(c1) FROM t5;
+left(c1,1)	right(c1,1)	length(c1)
+a	a	1
+a	a	1024
+a	a	1024
+a	a	255
+数	数	3
+数	数	765
+SELECT left(c1,1), right(c1,1), length(c1) FROM t6;
+left(c1,1)	right(c1,1)	length(c1)
+a	a	1
+a	a	1024
+a	a	1024
+a	a	255
+SELECT left(c1,1), right(c1,1), length(c1) FROM t7;
+left(c1,1)	right(c1,1)	length(c1)
+a	a	1
+数	数	3
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `c1` varchar(1) /*!80022 ENCRYPTION ALGORITHM = AES192 */ DEFAULT NULL,
+  `c2` varchar(1) /*!80022 ENCRYPTION ALGORITHM = AES256 */ DEFAULT NULL,
+  `c3` varchar(1) /*!80022 ENCRYPTION ALGORITHM = AES192 */ DEFAULT NULL,
+  `c4` varchar(1) /*!80022 ENCRYPTION ALGORITHM = AES128 */ DEFAULT NULL,
+  `c5` varchar(1) /*!80022 ENCRYPTION ALGORITHM = SM4 */ DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+SHOW CREATE TABLE t2;
+Table	Create Table
+t2	CREATE TABLE `t2` (
+  `c1` varchar(255) /*!80022 ENCRYPTION ALGORITHM = AES192 */ DEFAULT NULL,
+  `c2` varchar(255) /*!80022 ENCRYPTION ALGORITHM = SM4 */ DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+SHOW CREATE TABLE t3;
+Table	Create Table
+t3	CREATE TABLE `t3` (
+  `c1` varchar(1) /*!80022 ENCRYPTION ALGORITHM = AES192 */ DEFAULT NULL,
+  `c2` varchar(1) /*!80022 ENCRYPTION ALGORITHM = SM4 */ DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+SHOW CREATE TABLE t4;
+Table	Create Table
+t4	CREATE TABLE `t4` (
+  `c1` varchar(1) /*!80022 ENCRYPTION ALGORITHM = AES192 */ DEFAULT NULL,
+  `c2` varchar(1) /*!80022 ENCRYPTION ALGORITHM = SM4 */ DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+SHOW CREATE TABLE t5;
+Table	Create Table
+t5	CREATE TABLE `t5` (
+  `c1` varchar(1024) /*!80022 ENCRYPTION ALGORITHM = AES192 */ DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+SHOW CREATE TABLE t6;
+Table	Create Table
+t6	CREATE TABLE `t6` (
+  `c1` varchar(1024) CHARACTER SET latin1 /*!80022 ENCRYPTION ALGORITHM = AES192 */ DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+SHOW CREATE TABLE t7;
+Table	Create Table
+t7	CREATE TABLE `t7` (
+  `c1` varchar(1) /*!80022 ENCRYPTION ALGORITHM = AES192 */ DEFAULT NULL,
+  `c2` varchar(1) /*!80022 ENCRYPTION ALGORITHM = AES256 */ DEFAULT NULL,
+  `c3` varchar(1) /*!80022 ENCRYPTION ALGORITHM = AES192 */ DEFAULT NULL,
+  `c4` varchar(1) /*!80022 ENCRYPTION ALGORITHM = AES128 */ DEFAULT NULL,
+  `c5` varchar(1) /*!80022 ENCRYPTION ALGORITHM = SM4 */ DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+SELECT left(c1,1), right(c1,1), length(c1) FROM t1;
+left(c1,1)	right(c1,1)	length(c1)
+a	a	1
+数	数	3
+SELECT left(c1,1), right(c1,1), length(c1) FROM t2;
+left(c1,1)	right(c1,1)	length(c1)
+a	a	1
+a	a	255
+SELECT left(c1,1), right(c1,1), length(c1) FROM t3;
+left(c1,1)	right(c1,1)	length(c1)
+a	a	1
+数	数	3
+SELECT left(c1,1), right(c1,1), length(c1) FROM t4;
+left(c1,1)	right(c1,1)	length(c1)
+a	a	1
+SELECT left(c1,1), right(c1,1), length(c1) FROM t5;
+left(c1,1)	right(c1,1)	length(c1)
+a	a	1
+a	a	1024
+a	a	1024
+a	a	255
+数	数	3
+数	数	765
+SELECT left(c1,1), right(c1,1), length(c1) FROM t6;
+left(c1,1)	right(c1,1)	length(c1)
+a	a	1
+a	a	1024
+a	a	1024
+a	a	255
+SELECT left(c1,1), right(c1,1), length(c1) FROM t7;
+left(c1,1)	right(c1,1)	length(c1)
+a	a	1
+数	数	3
+CREATE TABLE te(c1 INT, c2 varchar(20) encryption) ENCRYPTION="Y" ENGINE = InnoDB;
+SHOW CREATE TABLE te;
+Table	Create Table
+te	CREATE TABLE `te` (
+  `c1` int DEFAULT NULL,
+  `c2` varchar(20) /*!80022 ENCRYPTION ALGORITHM = AES192 */ DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ENCRYPTION='Y'
+INSERT INTO te VALUES(0, "aaaaa");
+INSERT INTO te VALUES(1, "bbbbb");
+INSERT INTO te VALUES(2, "ccccc");
+INSERT INTO te VALUES(3, "ddddd");
+INSERT INTO te VALUES(4, "eeeee");
+INSERT INTO te VALUES(5, "fffff");
+INSERT INTO te VALUES(6, "ggggg");
+INSERT INTO te VALUES(7, "hhhhh");
+INSERT INTO te VALUES(8, "iiiii");
+INSERT INTO te VALUES(9, "jjjjj");
+INSERT INTO te select * from te;
+INSERT INTO te select * from te;
+INSERT INTO te select * from te;
+INSERT INTO te select * from te;
+INSERT INTO te select * from te;
+INSERT INTO te select * from te;
+select * from te limit 10;
+c1	c2
+0	aaaaa
+1	bbbbb
+2	ccccc
+3	ddddd
+4	eeeee
+5	fffff
+6	ggggg
+7	hhhhh
+8	iiiii
+9	jjjjj
+CREATE TABLE tc(c1 INT auto_increment primary key, c2 varchar(1024) encryption) ROW_FORMAT = DYNAMIC ENGINE = InnoDB;
+SHOW CREATE TABLE tc;
+Table	Create Table
+tc	CREATE TABLE `tc` (
+  `c1` int NOT NULL AUTO_INCREMENT,
+  `c2` varchar(1024) /*!80022 ENCRYPTION ALGORITHM = AES192 */ DEFAULT NULL,
+  PRIMARY KEY (`c1`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC
+INSERT INTO tc VALUES(1, repeat("b", 255));
+INSERT INTO tc VALUES(2, repeat("c", 255));
+INSERT INTO tc VALUES(3, repeat("d", 255));
+INSERT INTO tc VALUES(4, repeat("e", 255));
+INSERT INTO tc VALUES(5, repeat("f", 255));
+INSERT INTO tc VALUES(6, repeat("g", 255));
+INSERT INTO tc VALUES(7, repeat("h", 255));
+INSERT INTO tc VALUES(8, repeat("i", 255));
+INSERT INTO tc VALUES(9, repeat("j", 255));
+INSERT INTO tc(c2) select c2 from tc;
+INSERT INTO tc(c2) select c2 from tc;
+INSERT INTO tc(c2) select c2 from tc;
+INSERT INTO tc(c2) select c2 from tc;
+INSERT INTO tc(c2) select c2 from tc;
+INSERT INTO tc(c2) select c2 from tc;
+select * from tc order by c1 limit 10;
+c1	c2
+1	bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+2	ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+3	ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+4	eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+5	fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+6	ggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+7	hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
+8	iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
+9	jjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+10	bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+#test for tencentroot slow query log
+set global cdb_column_encryption_whitelist = '';
+select * from t1 where c1='数' or c2 ='据' or c3='库' or c4='系' or c5='统';
+c1	c2	c3	c4	c5
+数	据	库	系	统
+select '数'=c1, '据'=c2, '库'=c3, '系'=c4, '统'=c5 from t1 where length(c1)=3;
+'数'=c1	'据'=c2	'库'=c3	'系'=c4	'统'=c5
+1	1	1	1	1
+select length(c1), length(c2), length(c3), length(c4), length(c5) from t1;
+length(c1)	length(c2)	length(c3)	length(c4)	length(c5)
+1	1	1	1	1
+3	3	3	3	3
+select c1, left(c2,1) , length(c1), length(c2) from tc order by c1 limit 10;
+c1	left(c2,1)	length(c1)	length(c2)
+1	b	1	255
+2	c	1	255
+3	d	1	255
+4	e	1	255
+5	f	1	255
+6	g	1	255
+7	h	1	255
+8	i	1	255
+9	j	1	255
+10	b	2	255
+select count(*) from tc where c1=1;
+count(*)
+1
+select count(*) from tc where c2=repeat('a',255);
+count(*)
+0
+select c2=repeat('a',255) from tc where c1=1;
+c2=repeat('a',255)
+0
+set global cdb_column_encryption_whitelist = 'invalid';
+select * from t1 where c1='数' or c2 ='据' or c3='库' or c4='系' or c5='统';
+c1	c2	c3	c4	c5
+Warning	4148	illegal user or without master key can only read encrypted data of the encrypted column 'c1'
+Warning	4148	illegal user or without master key can only read encrypted data of the encrypted column 'c2'
+Warning	4148	illegal user or without master key can only read encrypted data of the encrypted column 'c3'
+Warning	4148	illegal user or without master key can only read encrypted data of the encrypted column 'c4'
+Warning	4148	illegal user or without master key can only read encrypted data of the encrypted column 'c5'
+Warnings:
+select '数'=c1, '据'=c2, '库'=c3, '系'=c4, '统'=c5 from t1 where length(c1)=3;
+'数'=c1	'据'=c2	'库'=c3	'系'=c4	'统'=c5
+0	0	0	0	0
+Warning	4148	illegal user or without master key can only read encrypted data of the encrypted column 'c1'
+Warning	4148	illegal user or without master key can only read encrypted data of the encrypted column 'c2'
+Warning	4148	illegal user or without master key can only read encrypted data of the encrypted column 'c3'
+Warning	4148	illegal user or without master key can only read encrypted data of the encrypted column 'c4'
+Warning	4148	illegal user or without master key can only read encrypted data of the encrypted column 'c5'
+Warnings:
+select length(c1), length(c2), length(c3), length(c4), length(c5) from t1;
+length(c1)	length(c2)	length(c3)	length(c4)	length(c5)
+1	1	1	1	1
+3	3	3	3	3
+Warning	4148	illegal user or without master key can only read encrypted data of the encrypted column 'c1'
+Warning	4148	illegal user or without master key can only read encrypted data of the encrypted column 'c2'
+Warning	4148	illegal user or without master key can only read encrypted data of the encrypted column 'c3'
+Warning	4148	illegal user or without master key can only read encrypted data of the encrypted column 'c4'
+Warning	4148	illegal user or without master key can only read encrypted data of the encrypted column 'c5'
+Warnings:
+select c1, length(c1), length(c2) from tc order by c1 limit 10;
+c1	length(c1)	length(c2)
+1	1	255
+2	1	255
+3	1	255
+4	1	255
+5	1	255
+6	1	255
+7	1	255
+8	1	255
+9	1	255
+10	2	255
+Warnings:
+Warning	4148	illegal user or without master key can only read encrypted data of the encrypted column 'c2'
+select count(*) from tc where c1=1;
+count(*)
+1
+select count(*) from tc where c2=repeat('a',255);
+count(*)
+0
+Warning	4148	illegal user or without master key can only read encrypted data of the encrypted column 'c2'
+Warnings:
+select c2=repeat('a',255) from tc where c1=1;
+c2=repeat('a',255)
+0
+Warning	4148	illegal user or without master key can only read encrypted data of the encrypted column 'c2'
+Warnings:
+set global cdb_column_encryption_whitelist = 'tencentroot';
+select * from t1 where c1='数' or c2 ='据' or c3='库' or c4='系' or c5='统';
+c1	c2	c3	c4	c5
+数	据	库	系	统
+select '数'=c1, '据'=c2, '库'=c3, '系'=c4, '统'=c5 from t1 where length(c1)=3;
+'数'=c1	'据'=c2	'库'=c3	'系'=c4	'统'=c5
+1	1	1	1	1
+select length(c1), length(c2), length(c3), length(c4), length(c5) from t1;
+length(c1)	length(c2)	length(c3)	length(c4)	length(c5)
+1	1	1	1	1
+3	3	3	3	3
+select c1, left(c2,1) , length(c1), length(c2) from tc order by c1 limit 10;
+c1	left(c2,1)	length(c1)	length(c2)
+1	b	1	255
+2	c	1	255
+3	d	1	255
+4	e	1	255
+5	f	1	255
+6	g	1	255
+7	h	1	255
+8	i	1	255
+9	j	1	255
+10	b	2	255
+select count(*) from tc where c1=1;
+count(*)
+1
+select count(*) from tc where c2=repeat('a',255);
+count(*)
+0
+select c2=repeat('a',255) from tc where c1=1;
+c2=repeat('a',255)
+0
+set global cdb_column_encryption_whitelist = 'tencentroot,invalid';
+select * from t1 where c1='数' or c2 ='据' or c3='库' or c4='系' or c5='统';
+c1	c2	c3	c4	c5
+数	据	库	系	统
+select '数'=c1, '据'=c2, '库'=c3, '系'=c4, '统'=c5 from t1 where length(c1)=3;
+'数'=c1	'据'=c2	'库'=c3	'系'=c4	'统'=c5
+1	1	1	1	1
+select length(c1), length(c2), length(c3), length(c4), length(c5) from t1;
+length(c1)	length(c2)	length(c3)	length(c4)	length(c5)
+1	1	1	1	1
+3	3	3	3	3
+select c1, left(c2,1) , length(c1), length(c2) from tc order by c1 limit 10;
+c1	left(c2,1)	length(c1)	length(c2)
+1	b	1	255
+2	c	1	255
+3	d	1	255
+4	e	1	255
+5	f	1	255
+6	g	1	255
+7	h	1	255
+8	i	1	255
+9	j	1	255
+10	b	2	255
+select count(*) from tc where c1=1;
+count(*)
+1
+select count(*) from tc where c2=repeat('a',255);
+count(*)
+0
+select c2=repeat('a',255) from tc where c1=1;
+c2=repeat('a',255)
+0
+uninstall plugin keyring_file;
+select * from t1 where c1='数' or c2 ='据' or c3='库' or c4='系' or c5='统';
+c1	c2	c3	c4	c5
+select '数'=c1, '据'=c2, '库'=c3, '系'=c4, '统'=c5 from t1 where length(c1)=3;
+'数'=c1	'据'=c2	'库'=c3	'系'=c4	'统'=c5
+0	0	0	0	0
+select length(c1), length(c2), length(c3), length(c4), length(c5) from t1;
+length(c1)	length(c2)	length(c3)	length(c4)	length(c5)
+1	1	1	1	1
+3	3	3	3	3
+select c1, length(c1), length(c2) from tc order by c1 limit 10;
+c1	length(c1)	length(c2)
+1	1	255
+2	1	255
+3	1	255
+4	1	255
+5	1	255
+6	1	255
+7	1	255
+8	1	255
+9	1	255
+10	2	255
+select count(*) from tc where c1=1;
+count(*)
+1
+select count(*) from tc where c2=repeat('a',255);
+count(*)
+0
+select c2=repeat('a',255) from tc where c1=1;
+c2=repeat('a',255)
+0
+drop table t1,t2,t3,t4,t5,t6,t7;
+drop table tc,te;
+drop table vc_t1,vc_t2,vc_t3,vc_t4,vc_t5,vc_t6;
+set global cdb_column_encryption_whitelist = '';

@@ -158,6 +158,7 @@ stage/innodb/clone (page copy)	YES
 stage/innodb/clone (redo copy)	YES
 statement/com/Binlog Dump	YES
 statement/com/Binlog Dump GTID	YES
+statement/com/Bufferpool Transmit	YES
 statement/com/Change user	YES
 statement/com/Close stmt	YES
 statement/com/Connect	YES
@@ -217,6 +218,7 @@ thread_instrumentation
 enabled_threads	thread_type
 innodb/buf_dump_thread	BACKGROUND
 innodb/buf_resize_thread	BACKGROUND
+innodb/buf_synchronize_thread	BACKGROUND
 innodb/clone_gtid_thread	BACKGROUND
 innodb/dict_stats_thread	BACKGROUND
 innodb/fts_optimize_thread	BACKGROUND
@@ -241,6 +243,8 @@ root@localhost	FOREGROUND
 sql/compress_gtid_table	FOREGROUND
 sql/event_scheduler	FOREGROUND
 sql/main	BACKGROUND
+sql/sql_statistics	BACKGROUND
+sql/working_mode	BACKGROUND
 threadpool/timer_thread	BACKGROUND
 CALL sys.ps_setup_show_enabled(TRUE, TRUE);
 performance_schema_enabled
@@ -270,6 +274,7 @@ thread_instrumentation
 enabled_threads	thread_type
 innodb/buf_dump_thread	BACKGROUND
 innodb/buf_resize_thread	BACKGROUND
+innodb/buf_synchronize_thread	BACKGROUND
 innodb/clone_gtid_thread	BACKGROUND
 innodb/dict_stats_thread	BACKGROUND
 innodb/fts_optimize_thread	BACKGROUND
@@ -294,6 +299,8 @@ root@localhost	FOREGROUND
 sql/compress_gtid_table	FOREGROUND
 sql/event_scheduler	FOREGROUND
 sql/main	BACKGROUND
+sql/sql_statistics	BACKGROUND
+sql/working_mode	BACKGROUND
 threadpool/timer_thread	BACKGROUND
 enabled_instruments	timed
 idle	YES
@@ -386,6 +393,7 @@ stage/innodb/clone (page copy)	YES
 stage/innodb/clone (redo copy)	YES
 statement/com/Binlog Dump	YES
 statement/com/Binlog Dump GTID	YES
+statement/com/Bufferpool Transmit	YES
 statement/com/Change user	YES
 statement/com/Close stmt	YES
 statement/com/Connect	YES

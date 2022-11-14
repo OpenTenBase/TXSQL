@@ -13,8 +13,6 @@ INSERT INTO t1 VALUES(0xF043616161),(0xBEF361616197C22061616161);
 SELECT CONVERT(a USING utf8) FROM t1;
 CONVERT(a USING utf8)
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
-Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
-Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 Warnings:
 倔aaa椔 aaaa
 餋aaa

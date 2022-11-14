@@ -276,18 +276,21 @@ ALTER TABLE t1 IMPORT TABLESPACE;
 SELECT * FROM t1;
 a	b
 1	1
+2	2
 SELECT * FROM t1 order by a;
 a	b
 1	1
 2	2
 SELECT * FROM t1 order by b;
 a	b
+2	2
 1	1
 INSERT INTO t1 VALUES (3, 3);
 INSERT INTO t1 VALUES (4, 4);
 SELECT * FROM t1;
 a	b
 1	1
+2	2
 3	3
 4	4
 SELECT * FROM t1 order by a;
@@ -298,6 +301,7 @@ a	b
 4	4
 SELECT * FROM t1 order by b;
 a	b
+2	2
 1	1
 3	3
 4	4

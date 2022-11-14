@@ -9,8 +9,8 @@ INSERT INTO t1 VALUES ('a',1),('A',1),('aa',1),('AA',1),('a',1),('aaa',0),('BBB'
 select if(1,st,st) s from t1 order by s;
 s
 a
-a
 A
+a
 aa
 AA
 aaa
@@ -18,10 +18,10 @@ BBB
 select if(u=1,st,st) s from t1 order by s;
 s
 a
-a
 A
-AA
+a
 aa
+AA
 aaa
 BBB
 select if(u=1,binary st,st) s from t1 order by s;
@@ -35,10 +35,6 @@ aa
 aaa
 Warnings:
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 select if(u=1,st,binary st) s from t1 where st like "%a%" order by s;
 s
 A
@@ -48,10 +44,6 @@ a
 aa
 aaa
 Warnings:
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 analyze table t1;
 Table	Op	Msg_type	Msg_text

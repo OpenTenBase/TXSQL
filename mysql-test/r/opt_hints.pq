@@ -42,9 +42,9 @@ f1
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
-Handler_read_key	2
+Handler_read_key	1
 Handler_read_last	0
-Handler_read_next	0
+Handler_read_next	2
 Handler_read_prev	0
 Handler_read_rnd	0
 Handler_read_rnd_next	0
@@ -59,7 +59,7 @@ Variable_name	Value
 Handler_read_first	1
 Handler_read_key	1
 Handler_read_last	0
-Handler_read_next	0
+Handler_read_next	56
 Handler_read_prev	0
 Handler_read_rnd	0
 Handler_read_rnd_next	0
@@ -168,12 +168,12 @@ f1	f2	f3
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
-Handler_read_key	1
+Handler_read_key	4
 Handler_read_last	0
-Handler_read_next	0
+Handler_read_next	4
 Handler_read_prev	0
 Handler_read_rnd	0
-Handler_read_rnd_next	0
+Handler_read_rnd_next	4
 # Check statistics with hint
 FLUSH STATUS;
 SELECT /*+ BKA() */ t2.f1, t2.f2, t2.f3 FROM t1,t2
@@ -657,7 +657,7 @@ Handler_read_last	0
 Handler_read_next	0
 Handler_read_prev	0
 Handler_read_rnd	0
-Handler_read_rnd_next	6
+Handler_read_rnd_next	9
 # Check statistics with hint
 FLUSH STATUS;
 SELECT /*+ NO_BNL() */t1.* FROM t1,t2,t3;
@@ -672,13 +672,13 @@ a	b
 2	2
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
-Handler_read_first	1
-Handler_read_key	1
+Handler_read_first	7
+Handler_read_key	7
 Handler_read_last	0
 Handler_read_next	0
 Handler_read_prev	0
 Handler_read_rnd	0
-Handler_read_rnd_next	0
+Handler_read_rnd_next	21
 EXPLAIN SELECT t1.* FROM t1,t2,t3;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Parallel scan (2 workers)
@@ -898,11 +898,11 @@ f1	f2	f3
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
-Handler_read_key	2
-Handler_read_last	1
-Handler_read_next	0
+Handler_read_key	3
+Handler_read_last	0
+Handler_read_next	2
 Handler_read_prev	0
-Handler_read_rnd	0
+Handler_read_rnd	2
 Handler_read_rnd_next	0
 # Check statistics with hint
 FLUSH STATUS;
@@ -913,9 +913,9 @@ f1	f2	f3
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
-Handler_read_key	2
-Handler_read_last	1
-Handler_read_next	0
+Handler_read_key	1
+Handler_read_last	0
+Handler_read_next	2
 Handler_read_prev	0
 Handler_read_rnd	0
 Handler_read_rnd_next	0
@@ -1492,16 +1492,13 @@ Warnings:
 SELECT /*+ BKA(t1) BKA(t1) */ * FROM t1;
 i
 Warning	3126	Hint BKA(`t1` ) is ignored as conflicting/duplicated
-Warning	3126	Hint BKA(`t1` ) is ignored as conflicting/duplicated
 Warnings:
 SELECT /*+ QB_NAME(q1) BKA(t1@q1) BKA(t1@q1) */ * FROM t1;
 i
 Warning	3126	Hint BKA(`t1`@`q1` ) is ignored as conflicting/duplicated
-Warning	3126	Hint BKA(`t1`@`q1` ) is ignored as conflicting/duplicated
 Warnings:
 SELECT /*+ QB_NAME(q1) NO_ICP(@q1 t1 PRIMARY) NO_ICP(@q1 t1 PRIMARY) */ * FROM t1;
 i
-Warning	3126	Hint NO_ICP(`t1`@`q1` `PRIMARY` ) is ignored as conflicting/duplicated
 Warning	3126	Hint NO_ICP(`t1`@`q1` `PRIMARY` ) is ignored as conflicting/duplicated
 Warnings:
 DROP TABLE t1;
@@ -1660,21 +1657,17 @@ SELECT /*+ BKA(t1) */    1 FROM t1;
 SELECT /*+ BKA(a b) */   1 FROM t1 a, t1 b;
 1
 Warning	1064	Optimizer hint syntax error near 'b) */   1 FROM t1 a, t1 b' at line 1
-Warning	1064	Optimizer hint syntax error near 'b) */   1 FROM t1 a, t1 b' at line 1
 Warnings:
 SELECT /*+ NO_ICP(i1) */ 1 FROM t1;
 1
-Warning	3128	Unresolved name `i1`@`select#1` for NO_ICP hint
 Warning	3128	Unresolved name `i1`@`select#1` for NO_ICP hint
 Warnings:
 SELECT /*+ NO_ICP(i1 i2) */ 1 FROM t1;
 1
 Warning	3128	Unresolved name `i1`@`select#1` `i2` for NO_ICP hint
-Warning	3128	Unresolved name `i1`@`select#1` `i2` for NO_ICP hint
 Warnings:
 SELECT /*+ NO_ICP(@qb ident) */ 1 FROM t1;
 1
-Warning	3127	Query block name `qb` is not found for NO_ICP hint
 Warning	3127	Query block name `qb` is not found for NO_ICP hint
 Warnings:
 #
@@ -1718,23 +1711,19 @@ CREATE INDEX 3rd_index ON t1(i, j);
 SELECT /*+ NO_ICP(3rd_index) */ 1 FROM t1;
 1
 Warning	3128	Unresolved name `3rd_index`@`select#1` for NO_ICP hint
-Warning	3128	Unresolved name `3rd_index`@`select#1` for NO_ICP hint
 Warnings:
 CREATE INDEX $index ON t1(j, i);
 SELECT /*+ NO_ICP($index) */ 1 FROM t1;
 1
-Warning	3128	Unresolved name `$index`@`select#1` for NO_ICP hint
 Warning	3128	Unresolved name `$index`@`select#1` for NO_ICP hint
 Warnings:
 CREATE TABLE ` quoted name тест` (i INT);
 SELECT /*+ BKA(` quoted name тест`) */ 1 FROM t1;
 1
 Warning	3128	Unresolved name ` quoted name тест`@`select#1` for BKA hint
-Warning	3128	Unresolved name ` quoted name тест`@`select#1` for BKA hint
 Warnings:
 SELECT /*+ BKA(` quoted name тест`@`select#1`) */ 1 FROM t1;
 1
-Warning	3128	Unresolved name ` quoted name тест`@`select#1` for BKA hint
 Warning	3128	Unresolved name ` quoted name тест`@`select#1` for BKA hint
 Warnings:
 DROP TABLE ` quoted name тест`;
@@ -1743,11 +1732,9 @@ CREATE TABLE " quoted name тест" (i INT);
 SELECT /*+ BKA(" quoted name тест") */ 1 FROM t1;
 1
 Warning	3128	Unresolved name " quoted name тест"@"select#1" for BKA hint
-Warning	3128	Unresolved name " quoted name тест"@"select#1" for BKA hint
 Warnings:
 SELECT /*+ BKA(" quoted name тест"@"select#1") */ 1 FROM t1;
 1
-Warning	3128	Unresolved name " quoted name тест"@"select#1" for BKA hint
 Warning	3128	Unresolved name " quoted name тест"@"select#1" for BKA hint
 Warnings:
 CREATE TABLE `test1``test2``` (i INT);
@@ -1765,7 +1752,6 @@ SET SQL_MODE = '';
 # should warn:
 SELECT /*+ BKA(" quoted name тест") */ 1 FROM t1;
 1
-Warning	1064	Optimizer hint syntax error near '" quoted name тест") */ 1 FROM t1' at line 1
 Warning	1064	Optimizer hint syntax error near '" quoted name тест") */ 1 FROM t1' at line 1
 Warnings:
 DROP TABLE ` quoted name тест`;
@@ -1811,11 +1797,9 @@ CREATE TABLE tableТ (i INT);
 SELECT /*+ BKA(tableТ) */ 1 FROM t1;
 1
 Warning	3128	Unresolved name `tableТ`@`select#1` for BKA hint
-Warning	3128	Unresolved name `tableТ`@`select#1` for BKA hint
 Warnings:
 SELECT /*+ BKA(test@tableТ) */ 1 FROM t1;
 1
-Warning	3127	Query block name `tableТ` is not found for BKA hint
 Warning	3127	Query block name `tableТ` is not found for BKA hint
 Warnings:
 DROP TABLE tableТ;
@@ -1823,22 +1807,18 @@ CREATE TABLE таблица (i INT);
 SELECT /*+ BKA(`таблица`) */ 1 FROM t1;
 1
 Warning	3128	Unresolved name `таблица`@`select#1` for BKA hint
-Warning	3128	Unresolved name `таблица`@`select#1` for BKA hint
 Warnings:
 SELECT /*+ BKA(таблица) */ 1 FROM t1;
 1
-Warning	3128	Unresolved name `таблица`@`select#1` for BKA hint
 Warning	3128	Unresolved name `таблица`@`select#1` for BKA hint
 Warnings:
 SELECT /*+ BKA(test@таблица) */ 1 FROM t1;
 1
 Warning	3127	Query block name `таблица` is not found for BKA hint
-Warning	3127	Query block name `таблица` is not found for BKA hint
 Warnings:
 # broken multibyte char, should warn:
 SELECT /*+ NO_ICP(`�`) */ 1 FROM t1;
 1
-Warning	1064	Optimizer hint syntax error near '`?`) */ 1 FROM t1' at line 1
 Warning	1064	Optimizer hint syntax error near '`?`) */ 1 FROM t1' at line 1
 Warnings:
 DROP TABLE таблица;
@@ -1922,18 +1902,12 @@ FROM /*+ regular commentary, not a hint! */ t1;
 1
 1
 FROM /*+ regular commentary, not a hint! */ t1' at line 1
-FROM /*+ regular commentary, not a hint! */ t1' at line 1
-FROM /*+ regular commentary, not a hint! */ t1' at line 1
-Warning	1064	Optimizer hint syntax error near ') */ 1
-Warning	1064	Optimizer hint syntax error near ') */ 1
 Warning	1064	Optimizer hint syntax error near ') */ 1
 Warnings:
 SELECT /*+ NO_ICP(t1) bad_hint */ 1 FROM t1;
 1
 1
 1
-Warning	1064	Optimizer hint syntax error near 'bad_hint */ 1 FROM t1' at line 1
-Warning	1064	Optimizer hint syntax error near 'bad_hint */ 1 FROM t1' at line 1
 Warning	1064	Optimizer hint syntax error near 'bad_hint */ 1 FROM t1' at line 1
 Warnings:
 SELECT /*+
@@ -1942,8 +1916,6 @@ NO_ICP(@qb ident)
 1
 1
 1
-Warning	3127	Query block name `qb` is not found for NO_ICP hint
-Warning	3127	Query block name `qb` is not found for NO_ICP hint
 Warning	3127	Query block name `qb` is not found for NO_ICP hint
 Warnings:
 SELECT /*+
@@ -2274,7 +2246,6 @@ Warning	3128	Unresolved name `dt`@`select#1` `idx1` for NO_MRR hint
 Warnings:
 select /*+ no_mrr(dt idx1) */ * from (select 1 from t1) dt;
 1
-Warning	3128	Unresolved name `dt`@`select#1` `idx1` for NO_MRR hint
 Warning	3128	Unresolved name `dt`@`select#1` `idx1` for NO_MRR hint
 Warnings:
 # Hint for UPDATE

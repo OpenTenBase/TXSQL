@@ -218,3 +218,101 @@ POS	MTYPE	PRTYPE	LEN
 6	6	1027	4
 drop procedure populate_t1;
 drop table t1;
+create table t2 (id int not null AUTO_INCREMENT,c1_char char(10) CHARACTER SET latin1 default 'abc', c2_varchar varchar(10) CHARACTER SET utf8 not null, c3_binary binary(10),      c4_varbinary varbinary(10) not null default b'111',c5_tint tinyint default 0, c6_sint smallint,c7_mint mediumint signed not null,c8_int int unsigned unique,c9_bint bigint,PRIMARY KEY (id),KEY t1_key (c9_bint));
+Warnings:
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+alter table t2 modify c8_int bigint unsigned unique, algorithm=instant;
+ERROR 0A000: ALGORITHM=INSTANT is not supported. Reason: Need to rebuild the table to change column type. Try ALGORITHM=COPY/INPLACE.
+alter table t2 modify c8_int bigint unsigned, algorithm=instant;
+drop table t2;
+create table t1(id int,c1 int not null unique);
+insert into t1 values(1,1),(2,2);
+alter table t1 modify column c1 bigint not null unique, algorithm=instant;
+ERROR 0A000: ALGORITHM=INSTANT is not supported. Reason: Need to rebuild the table to change column type. Try ALGORITHM=COPY/INPLACE.
+alter table t1 modify column c1 bigint not null, algorithm=instant;
+insert into t1 values(1,1);
+ERROR 23000: Duplicate entry '1' for key 't1.c1'
+select * from t1;
+id	c1
+1	1
+2	2
+drop table t1;
+create table t1 (id int not null AUTO_INCREMENT, c1_char char(10) CHARACTER SET latin1 default 'abc', c2_varchar varchar(10) CHARACTER SET utf8 not null, c3_binary binary(10), c4_varbinary varbinary(10) not null default b'111', c5_tint tinyint default 0, c6_sint smallint, c7_mint mediumint signed not null, c8_int int unsigned, c9_bint bigint, PRIMARY KEY (id)) partition by range(id) (partition p0 values less than (100),partition p1 values less than (200));
+Warnings:
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+alter table t1 add partition (partition p2 values less than (1500));
+replace into t1 set id=952,c1_char='dddddd',c2_varchar='ggg',c7_mint=9;
+alter table t1 modify c7_mint bigint signed not null,modify c4_varbinary binary(20) not null default b'111', modify id bigint not null AUTO_INCREMENT, algorithm=instant;
+alter table t1 add partition (partition p3 values less than Maxvalue);
+checksum table t1;
+Table	Checksum
+test.t1	2469892167
+drop table t1;
+alter table t1 modify id bigint not null AUTO_INCREMENT, algorithm=instant;
+replace into t1 set id=2147483597,c1_char='dddddd',c2_varchar='ggg',c7_mint=9;
+replace into t1 set id=2147483646,c1_char='dddddd',c2_varchar='ggg',c7_mint=9;
+insert into t1 value (2147483648, 'ff', '11', '22', '33', '48', -26263, 2685513, 994392385, -5203789411292461781);
+insert into t1 value (2147483697, '++', '..', '--', 'AA', '97', -26214, 2685562, 994392434, -5203789411292461732);
+update t1 set c1_char='fgfgffgggg', c3_binary='c3', c5_tint=10 where id>=1 and id<=51;
+update t1 set c1_char='fgfgffgggg', c3_binary='c3', c5_tint=10 where id>=2147483699 and id<=2147483749;
+replace into t1 set id=2147483606,c1_char='dddddd',c2_varchar='ggg',c7_mint=9;
+insert into t1 set c2_varchar='ffff',c7_mint=-8,c9_bint=-320.68e+10,c5_tint=NULL;
+insert into t1 set id=2147483647,c2_varchar='j',c7_mint=16;
+alter table t1 modify c8_int bigint unsigned, algorithm=instant;
+replace into t1 set id=2147483651,c1_char='dddddd',c2_varchar='ggg',c7_mint=9;
+replace into t1 set id=2147483700,c1_char='dddddd',c2_varchar='ggg',c7_mint=9;
+alter table t1 modify c1_char varchar(20) CHARACTER SET latin1 default 'fgte', algorithm=instant;
+drop table t1;
+create table t5 (c1 varchar(5), c2 varchar(5), c3 varchar(5), c4 varchar(5), c5 varchar(5),primary key(c1),unique key(c2), key(c3), key(c4));
+alter table t5 modify c1 char(7),modify c2 char(7), algorithm=instant;
+drop table t5;
+create table t5 (c1 varchar(5), c2 varchar(5), c3 varchar(5), c4 varchar(5), c5 varchar(5),primary key(c1),unique key(c2), key(c3), key(c4));
+alter table t5 modify c2 char(7),modify c3 char(7), algorithm=instant;
+drop table t5;
+create table t5 (c1 varchar(5), c2 varchar(5), c3 varchar(5), c4 varchar(5), c5 varchar(5),primary key(c1),unique key(c2), key(c3), key(c4));
+alter table t5 modify c1 char(7),modify c3 char(7), algorithm=instant;
+drop table t5;
+create table t1(id int not null primary key,c1 varchar(10),c2 varchar(10) default 'abc')default character set='latin1';
+insert into t1(id,c1) values(1,'ddd');
+alter table t1 modify column id bigint,algorithm=instant;
+select * from t1;
+id	c1	c2
+1	ddd	abc
+checksum table t1;
+Table	Checksum
+test.t1	3322152231
+begin;
+update t1 set c2='eee';
+rollback;
+select * from t1;
+id	c1	c2
+1	ddd	abc
+checksum table t1;
+Table	Checksum
+test.t1	3322152231
+drop table t1;
+CREATE TABLE sbtest1 (id int(11) NOT NULL AUTO_INCREMENT, k int(11) NOT NULL DEFAULT '0', c char(120) NOT NULL DEFAULT '', pad char(60) NOT NULL DEFAULT '', PRIMARY KEY (id), KEY k_1 (k),key index_2(k, c)) DEFAULT CHARSET=latin1;
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+insert into sbtest1 values(1,34,'ffdfff-jjjjjj-kdksjsjd','ggggggggggggg');
+alter table sbtest1 add column i int,algorithm=instant;
+alter table sbtest1 add column j char(30) default 'abc',algorithm=instant;
+alter table sbtest1 modify column c varchar(240) not null default '',algorithm=instant;
+alter table sbtest1 modify column id bigint NOT NULL AUTO_INCREMENT,algorithm=instant;
+select * from sbtest1;
+id	k	c	pad	i	j
+1	34	ffdfff-jjjjjj-kdksjsjd	ggggggggggggg	NULL	abc
+checksum table sbtest1;
+Table	Checksum
+test.sbtest1	1100557903
+begin;
+update sbtest1 set j='aaaaaaaaaaa' where id=1;
+rollback;
+select * from sbtest1;
+id	k	c	pad	i	j
+1	34	ffdfff-jjjjjj-kdksjsjd	ggggggggggggg	NULL	abc
+checksum table sbtest1;
+Table	Checksum
+test.sbtest1	1100557903
+drop table sbtest1;

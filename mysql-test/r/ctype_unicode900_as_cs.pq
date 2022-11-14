@@ -263,14 +263,6 @@ HEX(cx)	cy
 Warnings:
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 drop table t1;
 SET NAMES utf8mb4 COLLATE utf8mb4_0900_as_cs;
 SELECT HEX(CONVERT(_utf8mb4 0xF091AB9B41 USING ucs2));
@@ -847,10 +839,6 @@ F09FB081	F09FB081	F09FB081	FBC3FC010000002000000002	🰁
 F09FB481	F09FB481	F09FB481	FBC3FD010000002000000002	🴁
 Warnings:
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 INSERT INTO t1 VALUES ('a');
 INSERT INTO t1 VALUES (concat(_utf32 0x61, _utf32 0xFFFF));
 INSERT INTO t1 VALUES (concat(_utf32 0x61, _utf32 0x10FFFF));
@@ -866,18 +854,10 @@ hex(c)	hex(weight_string(c))	c
 F0909080	44520000002000000008	𐐀
 Warnings:
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 SELECT hex(c), hex(weight_string(c)), c FROM t1 WHERE c LIKE _utf32 0x10428 ORDER BY c, BINARY c;
 hex(c)	hex(weight_string(c))	c
 F09090A8	44520000002000000002	𐐨
 Warnings:
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 ALTER TABLE t1 ADD KEY(c);
 EXPLAIN SELECT hex(c) FROM t1 WHERE c LIKE 'a%' ORDER BY c;
@@ -898,14 +878,10 @@ hex(c)	hex(weight_string(c))	c
 F0909080	44520000002000000008	𐐀
 Warnings:
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 SELECT hex(c), hex(weight_string(c)), c FROM t1 WHERE c LIKE _utf32 0x10428 ORDER BY c, BINARY c;
 hex(c)	hex(weight_string(c))	c
 F09090A8	44520000002000000002	𐐨
 Warnings:
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 DROP TABLE t1;
 SELECT 'a' = 'a ';
@@ -2309,10 +2285,6 @@ HEX(CONVERT(a USING utf16))	HEX(WEIGHT_STRING(a))
 006100610053	1F9854A71E710000002000200000030203220108
 006100610073	1F9854A71E710000002000200000030203220302
 Warnings:
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 DROP TABLE t1;
 CREATE TABLE t1 (a VARCHAR(10), b VARCHAR(10)) COLLATE utf8mb4_da_0900_as_cs;

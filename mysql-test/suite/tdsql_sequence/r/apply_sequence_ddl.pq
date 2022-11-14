@@ -1,0 +1,37 @@
+DROP DATABASE IF EXISTS dbtest_seq_ddl;
+DROP DATABASE IF EXISTS dbtest_seq_ddl_other;
+DROP TDSQL_SEQUENCE IF EXISTS dbtest_seq_ddl.sequence_000;
+DROP TDSQL_SEQUENCE IF EXISTS dbtest_seq_ddl.sequence_001;
+CREATE DATABASE dbtest_seq_ddl;
+CREATE DATABASE dbtest_seq_ddl_other;
+CREATE TABLE dbtest_seq_ddl.t0(a int(64) PRIMARY KEY, b int(64) ,c char(64));
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+CREATE TABLE dbtest_seq_ddl_other.t0_other(a int(64) PRIMARY KEY, b int(64) ,c char(64));
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+CREATE TDSQL_SEQUENCE dbtest_seq_ddl.sequence_000 TDSQL_minvalue 1 TDSQL_nocache;
+use dbtest_seq_ddl;
+CREATE TDSQL_SEQUENCE IF NOT EXISTS sequence_001 TDSQL_minvalue 1 TDSQL_nocache;
+SELECT * FROM mysql.tdsql_sequences WHERE db='dbtest_seq_ddl';
+db	name	curval	start	step	max_value	min_value	do_cycle	n_cache
+dbtest_seq_ddl	sequence_000	-9223372036854775808	1	1	9223372036854775807	1	0	1
+dbtest_seq_ddl	sequence_001	-9223372036854775808	1	1	9223372036854775807	1	0	1
+INSERT INTO dbtest_seq_ddl.t0(a, b, c) values(sequence_000.nextval, 10000, '57babb2c175128a0683b902b1364e7cb');
+INSERT INTO dbtest_seq_ddl_other.t0_other(a, b, c) values(dbtest_seq_ddl_other.sequence_000.nextval, 10000, '57babb2c175128a0683b902b1364e7cb');
+ERROR HY000: Sequence sequence_000 in database dbtest_seq_ddl_other not found.
+use dbtest_seq_ddl_other;
+INSERT INTO t0_other(a, b, c) values(sequence_000.nextval, 10000, '57babb2c175128a0683b902b1364e7cb');
+ERROR HY000: Sequence sequence_000 in database dbtest_seq_ddl_other not found.
+SELECT * FROM dbtest_seq_ddl.t0 ORDER BY a;
+a	b	c
+1	10000	57babb2c175128a0683b902b1364e7cb
+commit;
+DROP TDSQL_SEQUENCE IF EXISTS sequence_000;
+Warnings:
+Note	4181	Sequence sequence_000 in database dbtest_seq_ddl_other not found.
+DROP TDSQL_SEQUENCE dbtest_seq_ddl.sequence_001;
+DROP DATABASE dbtest_seq_ddl ;
+DROP DATABASE dbtest_seq_ddl_other ;

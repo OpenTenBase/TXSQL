@@ -2837,8 +2837,11 @@ class thread_info {
         cpu_time(0),
         server_memory_used(0),
         innodb_memory_used(0),
-        pfs_memory_used(0),
-        coord_thread_id(0) {}
+        pfs_memory_used(0)
+#if defined(HAVE_PX)
+        ,coord_thread_id(0)
+#endif /* defined(HAVE_PX) */
+        {}
 
   my_thread_id thread_id;
   time_t start_time_in_secs;
@@ -2867,8 +2870,10 @@ class thread_info {
   ulonglong innodb_memory_used;
   ulonglong pfs_memory_used;
   std::string lock_status;
+#if defined(HAVE_PX)
   // used for parallel processlist.
   my_thread_id coord_thread_id;
+#endif /* defined(HAVE_PX) */
 };
 
 // For sorting by thread_id.
@@ -2955,16 +2960,24 @@ class List_process_list : public Do_THD_Impl {
 
       {
         MUTEX_LOCK(grd, &inspect_thd->LOCK_thd_protocol);
-
+#if defined(HAVE_PX)
         if (m_user && (inspect_thd->system_thread || !inspect_sctx_user.str
-                 || strcmp(inspect_sctx_user.str, m_user))) {
+                     || strcmp(inspect_sctx_user.str, m_user))) {
           return; // user1 can not see user2.
         } else if (!(inspect_thd->get_protocol() &&
-                   inspect_thd->get_protocol()->connection_alive()) &&
-                   !inspect_thd->system_thread && !inspect_thd->m_is_worker) {
-          mysql_mutex_unlock(&inspect_thd->LOCK_thd_protocol);
-          return; // a worker could not be system thread & not be connection alive.
+                inspect_thd->get_protocol()->connection_alive()) &&
+              !inspect_thd->system_thread && !inspect_thd->m_is_worker) {
+          return; // a worker count not be system thread & not be connection alive.
         } // m_is_worker true is parallel execution.
+#else
+        if ((!(inspect_thd->get_protocol() &&
+               inspect_thd->get_protocol()->connection_alive()) &&
+             !inspect_thd->system_thread) ||
+            (m_user && (inspect_thd->system_thread || !inspect_sctx_user.str ||
+                        strcmp(inspect_sctx_user.str, m_user)))) {
+          return;
+        }
+#endif /* defined(HAVE_PX) */
       }
 
       thd_info = new (m_client_thd->mem_root) thread_info;

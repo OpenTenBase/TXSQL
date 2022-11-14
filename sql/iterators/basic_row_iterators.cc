@@ -117,6 +117,7 @@ bool IndexScanIterator<Reverse>::Init() {
 template <>
 int IndexScanIterator<false>::Read() {  // Forward read.
   int error;
+#if defined(HAVE_PX)
   if (m_parallel_scan) {
     error = table()->file->ha_px_scan_next(m_record, thd()->px_scan_ctx);
     if (error) return HandleError(error);
@@ -125,6 +126,7 @@ int IndexScanIterator<false>::Read() {  // Forward read.
     }
     return 0;
   }
+#endif /* defined(HAVE_PX) */
 
   if (m_first) {
     error = table()->file->ha_index_first(m_record);
@@ -142,6 +144,7 @@ int IndexScanIterator<false>::Read() {  // Forward read.
 template <>
 int IndexScanIterator<true>::Read() {  // Backward read.
   int error;
+#if defined(HAVE_PX)
   if (m_parallel_scan) {
     error = table()->file->ha_px_scan_next(m_record, thd()->px_scan_ctx);
     if (error) return HandleError(error);
@@ -150,6 +153,7 @@ int IndexScanIterator<true>::Read() {  // Backward read.
     }
     return 0;
   }
+#endif /* defined(HAVE_PX) */
 
   if (m_first) {
     error = table()->file->ha_index_last(m_record);
@@ -167,13 +171,6 @@ int IndexScanIterator<true>::Read() {  // Backward read.
 
 template class IndexScanIterator<true>;
 template class IndexScanIterator<false>;
-
-void TableRowIterator::set_parallel_workers(uint dop) {
-  if (table()) {
-    table()->set_parallel_scan(true);
-    table()->set_parallel_workers(dop);
-  }
-}
 
 /**
   The default implementation of unlock-row method of RowIterator,
@@ -216,12 +213,6 @@ void TableRowIterator::EndPSIBatchModeIfStarted() {
   m_table->file->end_psi_batch_mode_if_started();
 }
 
-int TableRowIterator::px_scan_init() {
-  int err = m_table->file->ha_px_scan_init();
-  if (err) return HandleError(err);
-  return 0;
-}
-
 TableScanIterator::TableScanIterator(THD *thd, TABLE *table,
                                      double expected_rows,
                                      ha_rows *examined_rows)
@@ -237,6 +228,19 @@ TableScanIterator::~TableScanIterator() {
 }
 
 #if defined(HAVE_PX)
+void TableRowIterator::set_parallel_workers(uint dop) {
+  if (table()) {
+    table()->set_parallel_scan(true);
+    table()->set_parallel_workers(dop);
+  }
+}
+
+int TableRowIterator::px_scan_init() {
+  int err = m_table->file->ha_px_scan_init();
+  if (err) return HandleError(err);
+  return 0;
+}
+
 std::shared_ptr<PX_table_descriptor> TableScanIterator::get_table_descriptor() const {
   auto descriptor = std::shared_ptr<PX_table_descriptor>(
       new (thd()->mem_root) PX_table_descriptor(table(), PX_TABLE_SCAN,
@@ -275,6 +279,7 @@ bool TableScanIterator::Init() {
 
 int TableScanIterator::Read() {
   int tmp;
+#if defined(HAVE_PX)
   if (m_parallel_scan) {
     while ((tmp = table()->file->ha_px_scan_next(m_record, thd()->px_scan_ctx))) {
       if (tmp == HA_ERR_RECORD_DELETED && !thd()->killed) continue;
@@ -286,6 +291,7 @@ int TableScanIterator::Read() {
     }
     return 0;
   }
+#endif /* defined(HAVE_PX) */
 
   while ((tmp = table()->file->ha_rnd_next(m_record))) {
     /*

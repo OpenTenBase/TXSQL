@@ -38,15 +38,20 @@ CREATE TABLE `mysql`.`password_history` (
 CREATE TABLE `mysql`.`plugin` (
 CREATE TABLE `mysql`.`recycle_bin_info` (
 CREATE TABLE `mysql`.`replication_asynchronous_connection_failover` (
+CREATE TABLE `mysql`.`replication_asynchronous_connection_failover_managed` (
+CREATE TABLE `mysql`.`replication_group_configuration_version` (
+CREATE TABLE `mysql`.`replication_group_member_actions` (
+CREATE TABLE `mysql`.`resource_groups_extra` (
 CREATE TABLE `mysql`.`server_cost` (
 CREATE TABLE `mysql`.`servers` (
 CREATE TABLE `mysql`.`slave_worker_info` (
+CREATE TABLE `mysql`.`tdsql_sequences` (
 CREATE TABLE `mysql`.`time_zone` (
 CREATE TABLE `mysql`.`time_zone_leap_second` (
 CREATE TABLE `mysql`.`time_zone_name` (
 CREATE TABLE `mysql`.`time_zone_transition` (
 CREATE TABLE `mysql`.`time_zone_transition_type` (
-Occurrences of 'CREATE TABLE' in the input file: 21
+Occurrences of 'CREATE TABLE' in the input file: 26
 #
 # Bug #83144: mysqlpump reads mysql_dump group, not mysqlpump in config-group
 #
@@ -83,7 +88,15 @@ CREATE TABLE B32340208.test (
 PRIMARY KEY (`pk`),
 KEY `functional_index` ((radians(`c1`))) USING BTREE COMMENT 'you''re'
 ) ENGINE=InnoDB DEFAULT CHARSET=euckr;
+Warnings:
+Warning	4095	Delimiter '\n' in position 10 in datetime value '0000-00-00
+00:00:00' at row 1 is deprecated. Prefer the standard ' '.
 # Success criteria: should not crash
 DROP DATABASE B32340208;
 SET sql_mode = DEFAULT;
+#
+# Bug #33688141 mysqlpump exits in regards to 'std::logic_error'
+#
+# Expect log that proves the client clean exit
+Pattern "Dump process encountered error and will not continue." found
 # End of 8.0 tests

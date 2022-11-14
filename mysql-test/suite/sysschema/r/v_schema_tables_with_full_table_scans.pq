@@ -26,22 +26,26 @@ CALL sys.ps_truncate_all_tables(false);
 summary
 Truncated 49 tables
 SELECT i, j, RAND() FROM test.t WHERE j = 12;
-Timeout in wait_condition.inc for SELECT COUNT_STAR = 768 FROM performance_schema.table_io_waits_summary_by_index_usage WHERE object_schema = 'test' AND object_name = 't' AND index_name IS NULL
 SELECT object_schema, object_name, rows_full_scanned FROM sys.schema_tables_with_full_table_scans;
 object_schema	object_name	rows_full_scanned
+test	t	768
 SELECT object_schema, object_name, rows_full_scanned FROM sys.x$schema_tables_with_full_table_scans;
 object_schema	object_name	rows_full_scanned
+test	t	768
 SELECT i, j, RAND() FROM test.t WHERE j = 12;
-Timeout in wait_condition.inc for SELECT COUNT_STAR = 1536 FROM performance_schema.table_io_waits_summary_by_index_usage WHERE object_schema = 'test' AND object_name = 't' AND index_name IS NULL
 SELECT object_schema, object_name, rows_full_scanned FROM sys.schema_tables_with_full_table_scans;
 object_schema	object_name	rows_full_scanned
+test	t	1536
 SELECT object_schema, object_name, rows_full_scanned FROM sys.x$schema_tables_with_full_table_scans;
 object_schema	object_name	rows_full_scanned
+test	t	1536
 SELECT * FROM test.t WHERE i = 10;
 i	j
 10	4
 SELECT object_schema, object_name, rows_full_scanned FROM sys.schema_tables_with_full_table_scans;
 object_schema	object_name	rows_full_scanned
+test	t	1536
 SELECT object_schema, object_name, rows_full_scanned FROM sys.x$schema_tables_with_full_table_scans;
 object_schema	object_name	rows_full_scanned
+test	t	1536
 DROP TABLE test.t;

@@ -109,6 +109,9 @@
 #if defined(HAVE_PX)
 #include "sql/parallel_execution/px_interface.h" // txsql_max_parallel_worker_threads
 #endif /* defined(HAVE_PX) */
+#if defined(HAVE_OPT_CTX)
+#include "sql/parallel_execution/opt_interface.h"  // OPT_CTX
+#endif
 #include "sql/protocol_classic.h"
 #include "sql/psi_memory_key.h"
 #include "sql/query_options.h"

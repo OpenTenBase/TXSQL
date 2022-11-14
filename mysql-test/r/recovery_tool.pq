@@ -50,7 +50,7 @@ KEY `status_3` (`status`),
 KEY `gameclassid` (`gameclassid`,`gameid`) USING BTREE,
 KEY `baidu` (`baidu`,`status`,`username`) USING BTREE,
 KEY `status_4` (`status`,`catid`) USING BTREE
-) ENGINE=InnoDB AUTO_INCREMENT=29209518 DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 Warnings:
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
@@ -174,7 +174,7 @@ news	CREATE TABLE `news` (
   KEY `gameclassid` (`gameclassid`,`gameid`) USING BTREE,
   KEY `baidu` (`baidu`,`status`,`username`) USING BTREE,
   KEY `status_4` (`status`,`catid`) USING BTREE
-) ENGINE=InnoDB AUTO_INCREMENT=29209518 DEFAULT CHARSET=utf8
+) ENGINE=InnoDB AUTO_INCREMENT=20676117 DEFAULT CHARSET=utf8mb3
 SHOW CREATE TABLE types;
 Table	Create Table
 types	CREATE TABLE `types` (
@@ -260,7 +260,7 @@ news	CREATE TABLE `news` (
   KEY `gameclassid` (`gameclassid`,`gameid`) USING BTREE,
   KEY `baidu` (`baidu`,`status`,`username`) USING BTREE,
   KEY `status_4` (`status`,`catid`) USING BTREE
-) ENGINE=InnoDB AUTO_INCREMENT=29209518 DEFAULT CHARSET=utf8 ROW_FORMAT=DYNAMIC
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 ROW_FORMAT=DYNAMIC
 SHOW CREATE TABLE types;
 Table	Create Table
 types	CREATE TABLE `types` (
@@ -424,7 +424,7 @@ partition_t	CREATE TABLE `partition_t` (
   KEY `uid_idx` (`uid`(191)),
   KEY `avatar_name_idx` (`avatar_name`(191)),
   KEY `pt_idx` (`pt`)
-) ENGINE=InnoDB AUTO_INCREMENT=2941818062 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=DYNAMIC
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=DYNAMIC
 /*!50500 PARTITION BY LIST  COLUMNS(pt)
 (PARTITION `preserve` VALUES IN ('preserve') ENGINE = InnoDB,
  PARTITION p20181109 VALUES IN ('2018-11-09') ENGINE = InnoDB,
@@ -480,7 +480,7 @@ t	CREATE TABLE `t` (
   `a` int NOT NULL AUTO_INCREMENT,
   `b` varchar(7000) DEFAULT NULL,
   PRIMARY KEY (`a`)
-) ENGINE=InnoDB AUTO_INCREMENT=10000 DEFAULT CHARSET=latin1 ROW_FORMAT=COMPACT
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPACT
 # Checksum table and compare two checksums
 # Remove all test.t.normal.sql to avoid its impact on following tests
 # restart

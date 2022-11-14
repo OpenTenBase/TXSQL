@@ -884,12 +884,10 @@ select f1 from t1 where f1 between cast("2006-1-1" as date) and cast("2006.1.1" 
 f1
 2006-01-01
 Warning	4095	Delimiter '.' in position 4 in datetime value '2006.1.1' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '.' in position 4 in datetime value '2006.1.1' at row 1 is deprecated. Prefer the standard '-'.
 Warnings:
 select f1 from t1 where date(f1) between cast("2006-1-1" as date) and cast("2006.1.1" as date);
 f1
 2006-01-01
-Warning	4095	Delimiter '.' in position 4 in datetime value '2006.1.1' at row 1 is deprecated. Prefer the standard '-'.
 Warning	4095	Delimiter '.' in position 4 in datetime value '2006.1.1' at row 1 is deprecated. Prefer the standard '-'.
 Warnings:
 select f2 from t1 where f2 between cast("12:1:2" as time) and cast("12:2:2" as time);
@@ -912,7 +910,6 @@ f1
 2006-01-01
 select f1 from t1 where cast("2006-1-1" as date) between f1 and cast('zzz' as date);
 f1
-Warning	1292	Incorrect datetime value: 'zzz'
 Warning	1292	Incorrect datetime value: 'zzz'
 Warnings:
 select f1 from t1 where makedate(2006,1) between date(f1) and date(f3);
@@ -1338,8 +1335,6 @@ SELECT 1 FROM t1 ORDER BY @x:=makedate(a,a);
 1
 Warnings:
 Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
-Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
-Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
 DROP TABLE t1;
 #
 # Bug #52160: crash and inconsistent results when grouping
@@ -1350,7 +1345,6 @@ INSERT INTO t1 VALUES (''),('');
 SELECT COUNT(*) FROM t1 GROUP BY TIME_TO_SEC(a);
 COUNT(*)
 2
-Warning	1292	Truncated incorrect time value: ''
 Warning	1292	Truncated incorrect time value: ''
 Warning	1292	Truncated incorrect time value: ''
 Warning	1292	Truncated incorrect time value: ''

@@ -5532,8 +5532,6 @@ SELECT * FROM t1 WHERE c LIKE CONVERT(_ucs2 0x039C0025 USING utf8)
 COLLATE utf8_general_ci;
 c
 Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 Warnings:
 Μωδαί̈
@@ -5549,10 +5547,6 @@ c
 Warnings:
 Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 DROP TABLE t1;
 CREATE TABLE t1 (c varchar(255) NOT NULL COLLATE ucs2_unicode_ci, INDEX (c));
 Warnings:
@@ -5562,7 +5556,6 @@ Warnings:
 Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 SELECT * FROM t1 WHERE c LIKE _ucs2 0x039C0025 COLLATE ucs2_unicode_ci;
 c
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 Warnings:
 Μωδαί̈
@@ -5576,8 +5569,6 @@ c
 Μωδαί̈
 Warnings:
 Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 DROP TABLE t1;
 CREATE TABLE t1 (c varchar(255) NOT NULL COLLATE utf8_unicode_ci, INDEX (c));
 Warnings:
@@ -5589,8 +5580,6 @@ Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but wil
 SELECT * FROM t1 WHERE c LIKE CONVERT(_ucs2 0x039C0025 USING utf8) COLLATE utf8_unicode_ci;
 c
 Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 Warnings:
 Μωδαί̈
@@ -5604,10 +5593,6 @@ c
 Μωδ
 Μωδαί̈
 Warnings:
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 DROP TABLE t1;
@@ -6540,10 +6525,6 @@ HEX(CONVERT(col1 USING ucs2))
 064A06A9064A
 Warnings:
 Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 DROP TABLE t1;
 CREATE TABLE t1 (
 a VARCHAR(10) CHARACTER SET utf8 COLLATE utf8_persian_ci,
@@ -6778,14 +6759,6 @@ FEFC	27	13D7	ﻼ
 Warnings:
 Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 DROP TABLE t1;
 SET @test_character_set= 'utf8';
 SET @test_collation= 'utf8_swedish_ci';
@@ -6905,10 +6878,6 @@ b	0
 c	0
 Warnings:
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 drop table t1;
 SET collation_connection='utf8_unicode_ci';
 Warnings:
@@ -6984,10 +6953,6 @@ ue	7565
 uf	7566
 Warnings:
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 select group_concat(s1 order by binary s1) from t1 group by s1;
 group_concat(s1 order by binary s1)
 a,ä
@@ -7007,10 +6972,6 @@ ud
 ue
 uf
 Warnings:
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 SELECT s1, hex(s1), hex(weight_string(s1)) FROM t1 ORDER BY s1, BINARY(s1);
 s1	hex(s1)	hex(weight_string(s1))
@@ -7039,18 +7000,10 @@ ue	7565	101F0E8B
 uf	7566	101F0EB9
 Warnings:
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 SELECT s1, hex(s1) FROM t1 WHERE s1='ae' ORDER BY s1, BINARY(s1);
 s1	hex(s1)
 ae	6165
 Warnings:
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 drop table t1;
 "END ctype_german.inc"
@@ -7081,14 +7034,6 @@ II	2	ii	2	II	2
 Warnings:
 Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
 Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
-Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
-Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
-Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
-Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
-Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
-Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
-Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
-Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
 ALTER TABLE t1 MODIFY a VARCHAR(30) character set utf8 collate utf8_turkish_ci;
 Warnings:
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
@@ -7103,14 +7048,6 @@ ii	2	ii	2	İİ	4
 İİ	4	ii	2	İİ	4
 II	2	ıı	4	II	2
 Warnings:
-Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
-Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
-Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
-Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
-Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
-Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
-Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
-Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
 Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
 Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
 DROP TABLE t1;
@@ -8070,10 +8007,6 @@ ue	7565
 uf	7566
 Warnings:
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 select group_concat(s1 order by binary s1) from t1 group by s1;
 group_concat(s1 order by binary s1)
 a
@@ -8092,10 +8025,6 @@ ud
 ue,ü
 uf
 Warnings:
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 SELECT s1, hex(s1), hex(weight_string(s1)) FROM t1 ORDER BY s1, BINARY(s1);
 s1	hex(s1)	hex(weight_string(s1))
@@ -8124,10 +8053,6 @@ ue	7565	101F0E8B
 uf	7566	101F0EB9
 Warnings:
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 SELECT s1, hex(s1) FROM t1 WHERE s1='ae' ORDER BY s1, BINARY(s1);
 s1	hex(s1)
 ae	6165
@@ -8135,10 +8060,6 @@ ae	6165
 ä	C3A4
 æ	C3A6
 Warnings:
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 drop table t1;
 "END ctype_german.inc"
@@ -8404,10 +8325,6 @@ F0909087	F09090AF	F0909087	30D9	𐐇
 F09090AF	F09090AF	F0909087	30D9	𐐯
 Warnings:
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 INSERT INTO t1 VALUES ('a');
 INSERT INTO t1 VALUES (concat(_utf32 0x61, _utf32 0xFFFF));
 INSERT INTO t1 VALUES (concat(_utf32 0x61, _utf32 0x10FFFF));
@@ -8424,19 +8341,11 @@ F0909080	30D2	𐐀
 F09090A8	30D2	𐐨
 Warnings:
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 SELECT hex(c), hex(weight_string(c)), c FROM t1 WHERE c LIKE _utf32 0x10428 ORDER BY c, BINARY c;
 hex(c)	hex(weight_string(c))	c
 F0909080	30D2	𐐀
 F09090A8	30D2	𐐨
 Warnings:
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 ALTER TABLE t1 ADD KEY(c);
 EXPLAIN SELECT hex(c) FROM t1 WHERE c LIKE 'a%' ORDER BY c;
@@ -8458,17 +8367,11 @@ F0909080	30D2	𐐀
 F09090A8	30D2	𐐨
 Warnings:
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 SELECT hex(c), hex(weight_string(c)), c FROM t1 WHERE c LIKE _utf32 0x10428 ORDER BY c, BINARY c;
 hex(c)	hex(weight_string(c))	c
 F0909080	30D2	𐐀
 F09090A8	30D2	𐐨
 Warnings:
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 DROP TABLE t1;
 #
@@ -8505,7 +8408,7 @@ f1
 é
 SELECT SQL_BIG_RESULT DISTINCT f1 FROM t1;
 f1
-é
+é
 DROP TABLE t1;
 SET NAMES DEFAULT;
 #

@@ -26,13 +26,13 @@ Table	Op	Msg_type	Msg_text
 test.tbl_int	histogram	Error	JSON format error.
 ANALYZE TABLE tbl_int UPDATE HISTOGRAM ON col1 USING DATA '1';
 Table	Op	Msg_type	Msg_text
-test.tbl_int	histogram	Error	JSON data is not an object
+test.tbl_int	histogram	Error	JSON data is not an object.
 ANALYZE TABLE tbl_int UPDATE HISTOGRAM ON col1 USING DATA 'null';
 Table	Op	Msg_type	Msg_text
-test.tbl_int	histogram	Error	JSON data is not an object
+test.tbl_int	histogram	Error	JSON data is not an object.
 ANALYZE TABLE tbl_int UPDATE HISTOGRAM ON col1 USING DATA '[]';
 Table	Op	Msg_type	Msg_text
-test.tbl_int	histogram	Error	JSON data is not an object
+test.tbl_int	histogram	Error	JSON data is not an object.
 #
 # check attribute data-type
 #

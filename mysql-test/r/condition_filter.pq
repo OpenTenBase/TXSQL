@@ -65,18 +65,18 @@ pk	i1	i2	pk	i1	i2
 600	0	600	500	0	500
 650	0	650	500	0	500
 700	0	700	500	0	500
+750	0	750	500	0	500
 800	0	800	500	0	500
 850	0	850	500	0	500
 900	0	900	500	0	500
 950	0	950	500	0	500
-750	0	750	500	0	500
 # Status from execution should show that filesort was used
 SHOW STATUS LIKE 'Sort%';
 Variable_name	Value
 Sort_merge_passes	0
 Sort_range	0
-Sort_rows	0
-Sort_scan	0
+Sort_rows	1000
+Sort_scan	1
 DROP TABLE t0, t1, t2;
 #
 # Bug#30321546: OPTIMIZER TRACE SHOWS DIFFERENT ACTIONS FOR

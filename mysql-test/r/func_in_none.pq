@@ -360,14 +360,6 @@ count(*)
 10000
 Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
 Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
-Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
-Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
-Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
-Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
-Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
-Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
-Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
-Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
 Warnings:
 set @str:=concat(@str, "10000)");
 select substr(@str, 1, 50);
@@ -530,10 +522,6 @@ HEX(a)
 7FFFFFFFFFFFFFFE
 7FFFFFFFFFFFFFFF
 Warning	1292	Truncated incorrect DOUBLE value: 'abc'
-Warning	1292	Truncated incorrect DOUBLE value: 'abc'
-Warning	1292	Truncated incorrect DOUBLE value: 'abc'
-Warning	1292	Truncated incorrect DOUBLE value: 'abc'
-Warning	1292	Truncated incorrect DOUBLE value: 'abc'
 Warnings:
 CREATE TABLE t3 (a BIGINT UNSIGNED);
 INSERT INTO t3 VALUES (9223372036854775551);
@@ -545,15 +533,12 @@ SELECT * FROM t4 WHERE a IN ('1972-02-06','19772-07-29');
 a
 1972-02-06
 Warning	1292	Incorrect date value: '19772-07-29' for column 'a' at row 1
-Warning	1292	Incorrect date value: '19772-07-29' for column 'a' at row 1
-Warning	1292	Incorrect date value: '19772-07-29' for column 'a' at row 1
 Warnings:
 DROP TABLE t1,t2,t3,t4;
 CREATE TABLE t1 (id int not null);
 INSERT INTO t1 VALUES (1),(2);
 SELECT id FROM t1 WHERE id IN(4564, (SELECT IF(1=0,1,1/0)) );
 id
-Warning	1365	Division by 0
 Warning	1365	Division by 0
 Warnings:
 DROP TABLE t1;
@@ -636,10 +621,6 @@ select f2 from t2 where f2 in ('a','b');
 f2
 0
 Warning	1292	Truncated incorrect DOUBLE value: 'a'
-Warning	1292	Truncated incorrect DOUBLE value: 'a'
-Warning	1292	Truncated incorrect DOUBLE value: 'a'
-Warning	1292	Truncated incorrect DOUBLE value: 'b'
-Warning	1292	Truncated incorrect DOUBLE value: 'b'
 Warning	1292	Truncated incorrect DOUBLE value: 'b'
 Warnings:
 explain select f2 from t2 where f2 in ('a','b');

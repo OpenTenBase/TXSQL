@@ -94,7 +94,6 @@ class RefOrNullIterator final : public TableRowIterator {
 #if defined(HAVE_PX)
   virtual std::string str() override { return "RefOrNull"; }
   virtual PhysicalRowIteratorType type() override { return PHY_REF_OR_NULL; }
-  //virtual QEP_TAB* get_qep_tab() const override { return m_qep_tab; }
 #endif /* defined(HAVE_PX) */
 
  private:

@@ -42,21 +42,21 @@ Xproto resultset conversion (sql stmt)
 ======================================
 RUN select * from xtest.city
 Name	District
-Malmö	Skåne län
-Uppsala	Uppsala län
 Košice	Východné Slovensko
+Malmö	Skåne län
+Örebro	Örebros län
+Gothenburg [Göteborg]	West Götanmaan län
 Västerås	Västmanlands län
 Helsingborg	Skåne län
-Borås	West Götanmaan län
-Gothenburg [Göteborg]	West Götanmaan län
-Norrköping	East Götanmaan län
 Lund	Skåne län
-Gävle	Gävleborgs län
+Uppsala	Uppsala län
+Norrköping	East Götanmaan län
+Borås	West Götanmaan län
+Jönköping	Jönköpings län
+Sundsvall	Västernorrlands län
 Linköping	East Götanmaan län
 Umeå	Västerbottens län
-Sundsvall	Västernorrlands län
-Örebro	Örebros län
-Jönköping	Jönköpings län
+Gävle	Gävleborgs län
 0 rows affected
 
 Xproto resultset conversion (crud/table stmt)
@@ -72,19 +72,19 @@ send Mysqlx.Crud.Find {
 Name	District
 Košice	Východné Slovensko
 Gothenburg [Göteborg]	West Götanmaan län
-Uppsala	Uppsala län
-Västerås	Västmanlands län
 Malmö	Skåne län
-Norrköping	East Götanmaan län
 Linköping	East Götanmaan län
-Helsingborg	Skåne län
+Norrköping	East Götanmaan län
+Uppsala	Uppsala län
 Jönköping	Jönköpings län
-Umeå	Västerbottens län
-Lund	Skåne län
 Borås	West Götanmaan län
-Örebro	Örebros län
-Gävle	Gävleborgs län
 Sundsvall	Västernorrlands län
+Örebro	Örebros län
+Lund	Skåne län
+Västerås	Västmanlands län
+Helsingborg	Skåne län
+Umeå	Västerbottens län
+Gävle	Gävleborgs län
 command ok
 
 Xproto resultset conversion (crud/doc stmt)
@@ -117,20 +117,20 @@ send Mysqlx.Crud.Find {
 
 doc
 {"Name": "Košice", "District": "Východné Slovensko"}
-{"Name": "Linköping", "District": "East Götanmaan län"}
+{"Name": "Uppsala", "District": "Uppsala län"}
 {"Name": "Norrköping", "District": "East Götanmaan län"}
 {"Name": "Lund", "District": "Skåne län"}
-{"Name": "Gävle", "District": "Gävleborgs län"}
-{"Name": "Malmö", "District": "Skåne län"}
-{"Name": "Örebro", "District": "Örebros län"}
+{"Name": "Linköping", "District": "East Götanmaan län"}
 {"Name": "Jönköping", "District": "Jönköpings län"}
+{"Name": "Borås", "District": "West Götanmaan län"}
 {"Name": "Gothenburg [Göteborg]", "District": "West Götanmaan län"}
-{"Name": "Uppsala", "District": "Uppsala län"}
-{"Name": "Helsingborg", "District": "Skåne län"}
+{"Name": "Västerås", "District": "Västmanlands län"}
 {"Name": "Umeå", "District": "Västerbottens län"}
 {"Name": "Sundsvall", "District": "Västernorrlands län"}
-{"Name": "Västerås", "District": "Västmanlands län"}
-{"Name": "Borås", "District": "West Götanmaan län"}
+{"Name": "Malmö", "District": "Skåne län"}
+{"Name": "Örebro", "District": "Örebros län"}
+{"Name": "Helsingborg", "District": "Skåne län"}
+{"Name": "Gävle", "District": "Gävleborgs län"}
 command ok
 Mysqlx.Ok {
   msg: "bye!"

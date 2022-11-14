@@ -382,10 +382,6 @@ F7
 FF
 Warnings:
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 drop table t1;
 End of 5.1 tests
 #

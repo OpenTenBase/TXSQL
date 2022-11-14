@@ -307,49 +307,49 @@ SELECT latin1_f,count(*) FROM t1 GROUP BY latin1_f ORDER BY latin1_f;
 latin1_f	count(*)
 A	2
 AD	2
-ae	2
-af	2
+AE	2
+AF	2
 B	2
 SS	2
-u	2
-ue	2
-y	4
+U	2
+UE	2
+Ü	4
 Z	2
 Å	2
 Ä	2
 ß	1
 SELECT latin1_f,count(*) FROM t1 GROUP BY latin1_f COLLATE latin1_swedish_ci ORDER BY latin1_f COLLATE latin1_swedish_ci;
 latin1_f	count(*)
-a	2
+A	2
 AD	2
-ae	2
-af	2
+AE	2
+AF	2
 B	2
 SS	2
-u	2
+U	2
 UE	2
-Y	4
+Ü	4
 Z	2
-å	2
+Å	2
 Ä	2
 ß	1
 SELECT latin1_f,count(*) FROM t1 GROUP BY latin1_f COLLATE latin1_german2_ci ORDER BY latin1_f COLLATE latin1_german2_ci;
 latin1_f	count(*)
 A	4
-ad	2
-ae	4
+AD	2
+AE	4
 AF	2
 B	2
 SS	3
 U	2
 UE	4
 Y	2
-z	2
+Z	2
 SELECT latin1_f,count(*) FROM t1 GROUP BY latin1_f COLLATE latin1_general_ci ORDER BY latin1_f COLLATE latin1_general_ci;
 latin1_f	count(*)
 A	2
 AD	2
-ae	2
+AE	2
 AF	2
 Ä	2
 Å	2
@@ -357,10 +357,10 @@ B	2
 SS	2
 ß	1
 U	2
-ue	2
+UE	2
 Ü	2
 Y	2
-z	2
+Z	2
 SELECT latin1_f,count(*) FROM t1 GROUP BY latin1_f COLLATE latin1_bin ORDER BY latin1_f COLLATE latin1_bin;
 latin1_f	count(*)
 A	1
@@ -394,34 +394,34 @@ SELECT latin1_f,count(*) FROM t1 GROUP BY latin1_f COLLATE koi8r_general_ci;
 ERROR 42000: COLLATION 'koi8r_general_ci' is not valid for CHARACTER SET 'latin1'
 SELECT DISTINCT latin1_f                           FROM t1;
 latin1_f
+A
 AD
 AE
 AF
 B
+SS
 U
 UE
 Z
-a
-ss
 Ä
+Å
 Ü
 ß
-å
 SELECT DISTINCT latin1_f COLLATE latin1_swedish_ci FROM t1;
 latin1_f COLLATE latin1_swedish_ci
 A
 AD
+AE
+AF
 B
 SS
 U
 UE
-ae
-af
-z
+Z
 Ä
+Å
 Ü
 ß
-å
 SELECT DISTINCT latin1_f COLLATE latin1_german2_ci FROM t1;
 latin1_f COLLATE latin1_german2_ci
 A
@@ -433,19 +433,19 @@ SS
 U
 UE
 Y
-z
+Z
 SELECT DISTINCT latin1_f COLLATE latin1_general_ci FROM t1;
 latin1_f COLLATE latin1_general_ci
 A
+AD
+AE
 AF
 B
 SS
 U
 UE
+Y
 Z
-ad
-ae
-y
 Ä
 Å
 Ü

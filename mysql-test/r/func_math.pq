@@ -2084,18 +2084,15 @@ SELECT 27 DIV (c2/c1) / 17 AS c1 FROM t1 GROUP BY c1;
 c1
 154.0588
 Warning	1052	Column 'c1' in group statement is ambiguous
-Warning	1052	Column 'c1' in group statement is ambiguous
 Warnings:
 SELECT 27 DIV CAST(c2/c1 AS CHAR) / 17 AS c1 FROM t1 GROUP BY c1;
 c1
 154.1765
 Warning	1052	Column 'c1' in group statement is ambiguous
-Warning	1052	Column 'c1' in group statement is ambiguous
 Warnings:
 SELECT 27 DIV CAST(c2/c1 AS DOUBLE) / 17 AS c1 FROM t1 GROUP BY c1;
 c1
 154.0588
-Warning	1052	Column 'c1' in group statement is ambiguous
 Warning	1052	Column 'c1' in group statement is ambiguous
 Warnings:
 SET SQL_MODE=DEFAULT;

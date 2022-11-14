@@ -17521,12 +17521,6 @@ a	b
 0	0
 0	1
 Warning	1292	Incorrect datetime value: '99991231235959.999999' for column 'dt1' at row 1
-Warning	1292	Incorrect datetime value: '99991231235959.999999' for column 'dt1' at row 1
-Warning	1292	Incorrect datetime value: '99991231235959.999999' for column 'dt1' at row 1
-Warning	1292	Incorrect datetime value: '99991231235959.999999' for column 'dt1' at row 1
-Warning	1441	Datetime function: datetime field overflow
-Warning	1441	Datetime function: datetime field overflow
-Warning	1441	Datetime function: datetime field overflow
 Warning	1441	Datetime function: datetime field overflow
 Warnings:
 execute s1 using @dcv, @dcv;
@@ -17578,12 +17572,6 @@ a	b
 1	1
 1	1
 Warning	1292	Incorrect datetime value: '99991231235959.999999' for column 'dt1' at row 1
-Warning	1292	Incorrect datetime value: '99991231235959.999999' for column 'dt1' at row 1
-Warning	1292	Incorrect datetime value: '99991231235959.999999' for column 'dt1' at row 1
-Warning	1292	Incorrect datetime value: '99991231235959.999999' for column 'dt1' at row 1
-Warning	1441	Datetime function: datetime field overflow
-Warning	1441	Datetime function: datetime field overflow
-Warning	1441	Datetime function: datetime field overflow
 Warning	1441	Datetime function: datetime field overflow
 Warnings:
 execute s2 using @dcv, @dcv;
@@ -17635,12 +17623,6 @@ a	b
 1	1
 1	1
 Warning	1292	Incorrect datetime value: '99991231235959.999999' for column 'dt1' at row 1
-Warning	1292	Incorrect datetime value: '99991231235959.999999' for column 'dt1' at row 1
-Warning	1292	Incorrect datetime value: '99991231235959.999999' for column 'dt1' at row 1
-Warning	1292	Incorrect datetime value: '99991231235959.999999' for column 'dt1' at row 1
-Warning	1441	Datetime function: datetime field overflow
-Warning	1441	Datetime function: datetime field overflow
-Warning	1441	Datetime function: datetime field overflow
 Warning	1441	Datetime function: datetime field overflow
 Warnings:
 execute s3 using @dcv, @dcv;
@@ -17692,12 +17674,6 @@ a	b
 0	0
 0	1
 Warning	1292	Incorrect datetime value: '99991231235959.999999' for column 'dt1' at row 1
-Warning	1292	Incorrect datetime value: '99991231235959.999999' for column 'dt1' at row 1
-Warning	1292	Incorrect datetime value: '99991231235959.999999' for column 'dt1' at row 1
-Warning	1292	Incorrect datetime value: '99991231235959.999999' for column 'dt1' at row 1
-Warning	1441	Datetime function: datetime field overflow
-Warning	1441	Datetime function: datetime field overflow
-Warning	1441	Datetime function: datetime field overflow
 Warning	1441	Datetime function: datetime field overflow
 Warnings:
 execute s4 using @dcv, @dcv;
@@ -17749,12 +17725,6 @@ a	b
 1	1
 1	1
 Warning	1292	Incorrect datetime value: '99991231235959.999999' for column 'dt1' at row 1
-Warning	1292	Incorrect datetime value: '99991231235959.999999' for column 'dt1' at row 1
-Warning	1292	Incorrect datetime value: '99991231235959.999999' for column 'dt1' at row 1
-Warning	1292	Incorrect datetime value: '99991231235959.999999' for column 'dt1' at row 1
-Warning	1441	Datetime function: datetime field overflow
-Warning	1441	Datetime function: datetime field overflow
-Warning	1441	Datetime function: datetime field overflow
 Warning	1441	Datetime function: datetime field overflow
 Warnings:
 execute s5 using @dcv, @dcv;
@@ -17806,12 +17776,6 @@ a	b
 0	0
 0	0
 Warning	1292	Incorrect datetime value: '99991231235959.999999' for column 'dt1' at row 1
-Warning	1292	Incorrect datetime value: '99991231235959.999999' for column 'dt1' at row 1
-Warning	1292	Incorrect datetime value: '99991231235959.999999' for column 'dt1' at row 1
-Warning	1292	Incorrect datetime value: '99991231235959.999999' for column 'dt1' at row 1
-Warning	1441	Datetime function: datetime field overflow
-Warning	1441	Datetime function: datetime field overflow
-Warning	1441	Datetime function: datetime field overflow
 Warning	1441	Datetime function: datetime field overflow
 Warnings:
 execute s6 using @dcv, @dcv;
@@ -17867,12 +17831,6 @@ a	b
 0	0
 0	1
 Warning	1292	Incorrect datetime value: '99991231235959.999999' for column 'dt1' at row 1
-Warning	1292	Incorrect datetime value: '99991231235959.999999' for column 'dt1' at row 1
-Warning	1292	Incorrect datetime value: '99991231235959.999999' for column 'dt1' at row 1
-Warning	1292	Incorrect datetime value: '99991231235959.999999' for column 'dt1' at row 1
-Warning	1441	Datetime function: datetime field overflow
-Warning	1441	Datetime function: datetime field overflow
-Warning	1441	Datetime function: datetime field overflow
 Warning	1441	Datetime function: datetime field overflow
 Warnings:
 execute s1 using @dcv, @dcv;
@@ -17924,12 +17882,6 @@ a	b
 1	1
 1	1
 Warning	1292	Incorrect datetime value: '99991231235959.999999' for column 'dt1' at row 1
-Warning	1292	Incorrect datetime value: '99991231235959.999999' for column 'dt1' at row 1
-Warning	1292	Incorrect datetime value: '99991231235959.999999' for column 'dt1' at row 1
-Warning	1292	Incorrect datetime value: '99991231235959.999999' for column 'dt1' at row 1
-Warning	1441	Datetime function: datetime field overflow
-Warning	1441	Datetime function: datetime field overflow
-Warning	1441	Datetime function: datetime field overflow
 Warning	1441	Datetime function: datetime field overflow
 Warnings:
 execute s2 using @dcv, @dcv;
@@ -17981,12 +17933,6 @@ a	b
 1	1
 1	1
 Warning	1292	Incorrect datetime value: '99991231235959.999999' for column 'dt1' at row 1
-Warning	1292	Incorrect datetime value: '99991231235959.999999' for column 'dt1' at row 1
-Warning	1292	Incorrect datetime value: '99991231235959.999999' for column 'dt1' at row 1
-Warning	1292	Incorrect datetime value: '99991231235959.999999' for column 'dt1' at row 1
-Warning	1441	Datetime function: datetime field overflow
-Warning	1441	Datetime function: datetime field overflow
-Warning	1441	Datetime function: datetime field overflow
 Warning	1441	Datetime function: datetime field overflow
 Warnings:
 execute s3 using @dcv, @dcv;
@@ -18038,12 +17984,6 @@ a	b
 0	0
 0	1
 Warning	1292	Incorrect datetime value: '99991231235959.999999' for column 'dt1' at row 1
-Warning	1292	Incorrect datetime value: '99991231235959.999999' for column 'dt1' at row 1
-Warning	1292	Incorrect datetime value: '99991231235959.999999' for column 'dt1' at row 1
-Warning	1292	Incorrect datetime value: '99991231235959.999999' for column 'dt1' at row 1
-Warning	1441	Datetime function: datetime field overflow
-Warning	1441	Datetime function: datetime field overflow
-Warning	1441	Datetime function: datetime field overflow
 Warning	1441	Datetime function: datetime field overflow
 Warnings:
 execute s4 using @dcv, @dcv;
@@ -18095,12 +18035,6 @@ a	b
 1	1
 1	1
 Warning	1292	Incorrect datetime value: '99991231235959.999999' for column 'dt1' at row 1
-Warning	1292	Incorrect datetime value: '99991231235959.999999' for column 'dt1' at row 1
-Warning	1292	Incorrect datetime value: '99991231235959.999999' for column 'dt1' at row 1
-Warning	1292	Incorrect datetime value: '99991231235959.999999' for column 'dt1' at row 1
-Warning	1441	Datetime function: datetime field overflow
-Warning	1441	Datetime function: datetime field overflow
-Warning	1441	Datetime function: datetime field overflow
 Warning	1441	Datetime function: datetime field overflow
 Warnings:
 execute s5 using @dcv, @dcv;
@@ -18152,12 +18086,6 @@ a	b
 0	0
 0	0
 Warning	1292	Incorrect datetime value: '99991231235959.999999' for column 'dt1' at row 1
-Warning	1292	Incorrect datetime value: '99991231235959.999999' for column 'dt1' at row 1
-Warning	1292	Incorrect datetime value: '99991231235959.999999' for column 'dt1' at row 1
-Warning	1292	Incorrect datetime value: '99991231235959.999999' for column 'dt1' at row 1
-Warning	1441	Datetime function: datetime field overflow
-Warning	1441	Datetime function: datetime field overflow
-Warning	1441	Datetime function: datetime field overflow
 Warning	1441	Datetime function: datetime field overflow
 Warnings:
 execute s6 using @dcv, @dcv;

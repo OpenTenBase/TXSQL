@@ -6,11 +6,15 @@ Note	####	Storing MySQL user name or password information in the master info rep
 #
 # recycle bin test
 #
-call mtr.add_suppression("access __cdb_recycle_bin__ fail, the query string is");
+call mtr.add_suppression("access __txsql_recycle_bin__ fail, the query string is");
 #
 # drop temporary table with "drop table" will occur ER_NO_SUCH_TABLE error
 set global cdb_recycle_bin_enabled=on;
+Warnings:
+Warning	1287	'@@cdb_recycle_bin_enabled' is deprecated and will be removed in a future release. Please use txsql_recycle_bin_enabled instead.
 set global cdb_recycle_bin_enabled= off;
+Warnings:
+Warning	1287	'@@cdb_recycle_bin_enabled' is deprecated and will be removed in a future release. Please use txsql_recycle_bin_enabled instead.
 
 #
 # drop table with binlog synchronization
@@ -42,8 +46,8 @@ select * from mysql.recycle_bin_info;
 table_name	origin_schema	origin_table	drop_time	purge_time
 <RECYCLED_TABLE>	test	t1	<DROP_TIME>	<PURGE_TIME>
 <RECYCLED_TABLE>	test	t2	<DROP_TIME>	<PURGE_TIME>
-show tables from __cdb_recycle_bin__;
-Tables_in___cdb_recycle_bin__
+show tables from __txsql_recycle_bin__;
+Tables_in___txsql_recycle_bin__
 <RECYCLED_TABLE>
 <RECYCLED_TABLE>
 include/sync_slave_sql_with_master.inc
@@ -52,8 +56,8 @@ select * from mysql.recycle_bin_info;
 table_name	origin_schema	origin_table	drop_time	purge_time
 <RECYCLED_TABLE>	test	t1	<DROP_TIME>	<PURGE_TIME>
 <RECYCLED_TABLE>	test	t2	<DROP_TIME>	<PURGE_TIME>
-show tables from __cdb_recycle_bin__;
-Tables_in___cdb_recycle_bin__
+show tables from __txsql_recycle_bin__;
+Tables_in___txsql_recycle_bin__
 <RECYCLED_TABLE>
 <RECYCLED_TABLE>
 
@@ -63,16 +67,16 @@ call sys.recycle_bin_recycle_table("<t1_RECYCLED_TABLE>");
 select * from mysql.recycle_bin_info;
 table_name	origin_schema	origin_table	drop_time	purge_time
 <RECYCLED_TABLE>	test	t2	<DROP_TIME>	<PURGE_TIME>
-show tables from __cdb_recycle_bin__;
-Tables_in___cdb_recycle_bin__
+show tables from __txsql_recycle_bin__;
+Tables_in___txsql_recycle_bin__
 <RECYCLED_TABLE>
 include/sync_slave_sql_with_master.inc
 # on slave
 select * from mysql.recycle_bin_info;
 table_name	origin_schema	origin_table	drop_time	purge_time
 <RECYCLED_TABLE>	test	t2	<DROP_TIME>	<PURGE_TIME>
-show tables from  __cdb_recycle_bin__;
-Tables_in___cdb_recycle_bin__
+show tables from  __txsql_recycle_bin__;
+Tables_in___txsql_recycle_bin__
 <RECYCLED_TABLE>
 
 # phase4. recovery table t1 from recycle_bin
@@ -80,11 +84,19 @@ Tables_in___cdb_recycle_bin__
 # clear environment
 #
 set global cdb_recycle_bin_enabled=0;
+Warnings:
+Warning	1287	'@@cdb_recycle_bin_enabled' is deprecated and will be removed in a future release. Please use txsql_recycle_bin_enabled instead.
 use test;
 set global cdb_recycle_bin_enabled=off;
+Warnings:
+Warning	1287	'@@cdb_recycle_bin_enabled' is deprecated and will be removed in a future release. Please use txsql_recycle_bin_enabled instead.
 drop table t1;
 set global cdb_recycle_bin_enabled=on;
+Warnings:
+Warning	1287	'@@cdb_recycle_bin_enabled' is deprecated and will be removed in a future release. Please use txsql_recycle_bin_enabled instead.
 call sys.recycle_bin_purge_table("<RECYCLED_TABLE>");
 set global cdb_recycle_bin_enabled=0;
+Warnings:
+Warning	1287	'@@cdb_recycle_bin_enabled' is deprecated and will be removed in a future release. Please use txsql_recycle_bin_enabled instead.
 include/sync_slave_sql_with_master.inc
 include/rpl_end.inc

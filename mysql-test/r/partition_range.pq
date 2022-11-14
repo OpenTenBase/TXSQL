@@ -1126,5 +1126,5 @@ a	MAX(b)
 # Should be no more than 2 reads.
 SHOW status LIKE 'handler_read_key';
 Variable_name	Value
-Handler_read_key	3
+Handler_read_key	2
 DROP TABLE t1, t2;

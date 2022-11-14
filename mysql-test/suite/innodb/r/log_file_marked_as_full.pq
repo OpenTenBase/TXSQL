@@ -1,2 +1,2 @@
 # Initialize new data directory...
-Pattern "Found existing redo log files, but at least one is missing" not found
+Pattern "Found existing redo log files, but at least one is missing" found

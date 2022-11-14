@@ -122,10 +122,10 @@ INSERT INTO t1 VALUES ("1\""), ("\"2");
 	</table_structure>
 	<table_data name="t1">
 	<row>
-		<field name="a&quot;b&quot;">1&quot;</field>
+		<field name="a&quot;b&quot;">&quot;2</field>
 	</row>
 	<row>
-		<field name="a&quot;b&quot;">&quot;2</field>
+		<field name="a&quot;b&quot;">1&quot;</field>
 	</row>
 	</table_data>
 </database>
@@ -467,7 +467,7 @@ CREATE TABLE `t2` (
 
 LOCK TABLES `t2` WRITE;
 /*!40000 ALTER TABLE `t2` DISABLE KEYS */;
-INSERT INTO `t2` VALUES (4),(6),(5);
+INSERT INTO `t2` VALUES (4),(5),(6);
 /*!40000 ALTER TABLE `t2` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -549,7 +549,7 @@ CREATE TABLE `t1` (
 
 LOCK TABLES `t1` WRITE;
 /*!40000 ALTER TABLE `t1` DISABLE KEYS */;
-INSERT  IGNORE INTO `t1` VALUES (1),(2),(4),(5),(3),(6);
+INSERT  IGNORE INTO `t1` VALUES (1),(2),(3),(4),(6),(5);
 /*!40000 ALTER TABLE `t1` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -1295,7 +1295,7 @@ CREATE TABLE `t1` (
 
 LOCK TABLES `t1` WRITE;
 /*!40000 ALTER TABLE `t1` DISABLE KEYS */;
-INSERT INTO `t1` VALUES (1),(2),(3);
+INSERT INTO `t1` VALUES (3),(1),(2);
 /*!40000 ALTER TABLE `t1` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -1464,10 +1464,10 @@ insert into t2 (a, b) values (NULL, NULL),(10, NULL),(NULL, "twenty"),(30, "thir
 <database name="test">
 	<table_data name="t1">
 	<row>
-		<field name="a" xsi:nil="true" />
+		<field name="a">10</field>
 	</row>
 	<row>
-		<field name="a">10</field>
+		<field name="a" xsi:nil="true" />
 	</row>
 	<row>
 		<field name="a">20</field>
@@ -1772,7 +1772,7 @@ CREATE TABLE `t2` (
 
 LOCK TABLES `t2` WRITE;
 /*!40000 ALTER TABLE `t2` DISABLE KEYS */;
-INSERT INTO `t2` VALUES ('alfred'),('angie'),('bingo'),('waffle'),('lemon');
+INSERT INTO `t2` VALUES ('bingo'),('waffle'),('alfred'),('angie'),('lemon');
 /*!40000 ALTER TABLE `t2` ENABLE KEYS */;
 UNLOCK TABLES;
 DROP TABLE IF EXISTS `v2`;
@@ -2072,7 +2072,7 @@ CREATE TABLE `t1` (
 
 LOCK TABLES `t1` WRITE;
 /*!40000 ALTER TABLE `t1` DISABLE KEYS */;
-INSERT INTO `t1` VALUES (1,2,'one'),(3,6,'three'),(2,4,'two');
+INSERT INTO `t1` VALUES (1,2,'one'),(2,4,'two'),(3,6,'three');
 /*!40000 ALTER TABLE `t1` ENABLE KEYS */;
 UNLOCK TABLES;
 DROP TABLE IF EXISTS `v1`;
@@ -2224,7 +2224,7 @@ CREATE TABLE `t1` (
 
 LOCK TABLES `t1` WRITE;
 /*!40000 ALTER TABLE `t1` DISABLE KEYS */;
-INSERT INTO `t1` VALUES (1,NULL),(11,NULL),(4,NULL),(2,NULL);
+INSERT INTO `t1` VALUES (1,NULL),(11,NULL),(2,NULL),(4,NULL);
 /*!40000 ALTER TABLE `t1` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!50003 SET @saved_cs_client      = @@character_set_client */ ;
@@ -2350,7 +2350,7 @@ CREATE TABLE `t1` (
 
 LOCK TABLES `t1` WRITE;
 /*!40000 ALTER TABLE `t1` DISABLE KEYS */;
-INSERT INTO `t1` VALUES (2,NULL),(4,NULL),(1,NULL),(11,NULL);
+INSERT INTO `t1` VALUES (2,NULL),(4,NULL),(11,NULL),(1,NULL);
 /*!40000 ALTER TABLE `t1` ENABLE KEYS */;
 UNLOCK TABLES;
 DROP TABLE IF EXISTS `t2`;
@@ -2502,7 +2502,7 @@ CREATE TABLE `t1` (
 
 LOCK TABLES `t1` WRITE;
 /*!40000 ALTER TABLE `t1` DISABLE KEYS */;
-INSERT INTO `t1` VALUES (2),(3),(4),(5),(1);
+INSERT INTO `t1` VALUES (4),(1),(2),(3),(5);
 /*!40000 ALTER TABLE `t1` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!50003 DROP FUNCTION IF EXISTS `bug9056_func1` */;
@@ -2654,7 +2654,7 @@ CREATE TABLE `t1` (
 
 LOCK TABLES `t1` WRITE;
 /*!40000 ALTER TABLE `t1` DISABLE KEYS */;
-INSERT INTO `t1` VALUES ('2003-10-25 22:00:00'),('2003-10-25 23:00:00');
+INSERT INTO `t1` VALUES ('2003-10-25 23:00:00'),('2003-10-25 22:00:00');
 /*!40000 ALTER TABLE `t1` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -2832,7 +2832,7 @@ CREATE TABLE `t1` (
 
 LOCK TABLES `t1` WRITE;
 /*!40000 ALTER TABLE `t1` DISABLE KEYS */;
-INSERT INTO `t1` VALUES (1,'first value','xxxx'),(3,'third value','vvv vvv'),(2,'second value','tttt');
+INSERT INTO `t1` VALUES (2,'second value','tttt'),(3,'third value','vvv vvv'),(1,'first value','xxxx');
 /*!40000 ALTER TABLE `t1` ENABLE KEYS */;
 UNLOCK TABLES;
 DROP TABLE IF EXISTS `v0`;
@@ -3228,7 +3228,7 @@ CREATE TABLE `t1` (
 
 LOCK TABLES `t1` WRITE;
 /*!40000 ALTER TABLE `t1` DISABLE KEYS */;
-INSERT INTO `t1` VALUES (1232131),(4711),(3231),(815);
+INSERT INTO `t1` VALUES (4711),(1232131),(815),(3231);
 /*!40000 ALTER TABLE `t1` ENABLE KEYS */;
 UNLOCK TABLES;
 DROP TABLE IF EXISTS `v1`;
@@ -3714,7 +3714,7 @@ CREATE TABLE `t1` (
 
 LOCK TABLES `t1` WRITE;
 /*!40000 ALTER TABLE `t1` DISABLE KEYS */;
-REPLACE INTO `t1` VALUES (2,3),(3,4),(1,1),(4,5);
+REPLACE INTO `t1` VALUES (1,1),(2,3),(3,4),(4,5);
 /*!40000 ALTER TABLE `t1` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -3983,7 +3983,7 @@ CREATE TABLE `t1` (
 
 LOCK TABLES `t1` WRITE;
 /*!40000 ALTER TABLE `t1` DISABLE KEYS */;
-INSERT INTO `t1` VALUES (1232131),(4711),(3231),(815);
+INSERT INTO `t1` VALUES (1232131),(3231),(815),(4711);
 /*!40000 ALTER TABLE `t1` ENABLE KEYS */;
 UNLOCK TABLES;
 DROP TABLE IF EXISTS `v1`;
@@ -4211,8 +4211,8 @@ INSERT INTO t1 VALUES (1, 'ABC-–ê–ë–í', 'DEF-√Ç√É√Ñ'), (2, NULL, NULL);
 # error on multi-character ENCLOSED/ESCAPED BY
 # default '--default-charset' (binary):
 ##################################################
-2	\N	\N
 1	ABC-·‚˜	DEF-¬√ƒ
+2	\N	\N
 ##################################################
 TRUNCATE t2;
 LOAD DATA INFILE 'MYSQLTEST_VARDIR/tmp/t1.txt' INTO TABLE t2 CHARACTER SET binary;
@@ -4222,8 +4222,8 @@ a	b	c
 2	NULL	NULL
 # utf8:
 ##################################################
-1	ABC-–ê–ë–í	DEF-√Ç√É√Ñ
 2	\N	\N
+1	ABC-–ê–ë–í	DEF-√Ç√É√Ñ
 ##################################################
 TRUNCATE t2;
 LOAD DATA INFILE 'MYSQLTEST_VARDIR/tmp/t1.txt' INTO TABLE t2 CHARACTER SET utf8;
@@ -4235,8 +4235,8 @@ a	b	c
 2	NULL	NULL
 # latin1 (data corruption is expected):
 ##################################################
-1	ABC-???	DEF-¬√ƒ
 2	\N	\N
+1	ABC-???	DEF-¬√ƒ
 ##################################################
 TRUNCATE t2;
 LOAD DATA INFILE 'MYSQLTEST_VARDIR/tmp/t1.txt' INTO TABLE t2 CHARACTER SET latin1 ;
@@ -4247,8 +4247,8 @@ a	b	c
 2	NULL	NULL
 # koi8r (data corruption is expected):
 ##################################################
-1	ABC-·‚˜	DEF-???
 2	\N	\N
+1	ABC-·‚˜	DEF-???
 ##################################################
 TRUNCATE t2;
 LOAD DATA INFILE 'MYSQLTEST_VARDIR/tmp/t1.txt' INTO TABLE t2 CHARACTER SET koi8r;
@@ -4921,7 +4921,7 @@ CREATE TABLE `t1` (
 
 LOCK TABLES `t1` WRITE;
 /*!40000 ALTER TABLE `t1` DISABLE KEYS */;
-INSERT INTO `t1` VALUES (1),(2),(3);
+INSERT INTO `t1` VALUES (3),(2),(1);
 /*!40000 ALTER TABLE `t1` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -4943,7 +4943,7 @@ CREATE TABLE `t2` (
 
 LOCK TABLES `t2` WRITE;
 /*!40000 ALTER TABLE `t2` DISABLE KEYS */;
-INSERT INTO `t2` VALUES (1),(2),(3);
+INSERT INTO `t2` VALUES (1),(3),(2);
 /*!40000 ALTER TABLE `t2` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -5162,7 +5162,7 @@ DROP DATABASE dump_generated;
 #
 SELECT COUNT(*) FROM INFORMATION_SCHEMA.routines WHERE routine_schema = 'sys';
 COUNT(*)
-48
+50
 DROP DATABASE sys;
 SELECT COUNT(*) FROM INFORMATION_SCHEMA.routines WHERE routine_schema = 'sys';
 COUNT(*)
@@ -5172,7 +5172,7 @@ COUNT(*)
 0
 SELECT COUNT(*) FROM INFORMATION_SCHEMA.routines WHERE routine_schema = 'sys';
 COUNT(*)
-48
+50
 #
 # WL#8697: Invisible Indexes
 # Test of mysqldump.
@@ -5852,8 +5852,8 @@ my_row_id	f
 1	1
 2	7
 3	8
-4	4
-5	3
+4	3
+5	4
 # Primary key is generated for table t2 while loading.
 # Table t2 should list generated primary key information.
 SHOW CREATE TABLE t2;
@@ -5867,10 +5867,10 @@ t2	CREATE TABLE `t2` (
 SELECT my_row_id, f1, f2 FROM t2;
 my_row_id	f1	f2
 1	1	10
-2	3	10
-3	4	10
-4	7	10
-5	8	10
+2	7	10
+3	3	10
+4	8	10
+5	4	10
 # Primary key is generated for table t3 while loading.
 # Table t3 should list generated primary key information.
 SHOW CREATE TABLE t3;
@@ -5882,11 +5882,11 @@ t3	CREATE TABLE `t3` (
 ) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 SELECT my_row_id, f1 FROM t3;
 my_row_id	f1
-1	1
-2	7
-3	8
-4	3
-5	4
+1	3
+2	1
+3	7
+4	4
+5	8
 # cleanup
 DROP TABLE t1, t2, t3;
 SET GLOBAL sql_generate_invisible_primary_key =

@@ -132,13 +132,13 @@ INSERT INTO t1 (a) VALUES ('10:10:10.949999');
 INSERT INTO t1 (a) VALUES ('10:10:10.499999');
 UPDATE t1 SET t0=a, t1=a, t2=a, t3=a, t4=a, t5=a, t6=a;
 SELECT * FROM t1;;
-a	10:10:10.999994
+a	10:10:10.999999
 a	10:10:10.499999
 a	10:10:10.949999
 a	10:10:10.994999
 a	10:10:10.999499
 a	10:10:10.999949
-a	10:10:10.999999
+a	10:10:10.999994
 t0	10:10:10
 t0	10:10:11
 t0	10:10:11
@@ -191,13 +191,13 @@ t6	10:10:10.999999
 ALTER TABLE t1 MODIFY a TIME(6);
 UPDATE t1 SET t0=a, t1=a, t2=a, t3=a, t4=a, t5=a, t6=a;
 SELECT * FROM t1;;
-a	10:10:10.999999
+a	10:10:10.999949
 a	10:10:10.499999
 a	10:10:10.949999
 a	10:10:10.994999
 a	10:10:10.999499
-a	10:10:10.999949
 a	10:10:10.999994
+a	10:10:10.999999
 t0	10:10:10
 t0	10:10:11
 t0	10:10:11
@@ -318,12 +318,12 @@ INSERT INTO t1 (a) VALUES ('2001-01-01 10:10:10.949999');
 INSERT INTO t1 (a) VALUES ('2001-01-01 10:10:10.499999');
 UPDATE t1 SET t0=a, t1=a, t2=a, t3=a, t4=a, t5=a, t6=a;
 SELECT * FROM t1;;
-a	2001-01-01 10:10:10.999949
+a	2001-01-01 10:10:10.999994
 a	2001-01-01 10:10:10.499999
 a	2001-01-01 10:10:10.949999
 a	2001-01-01 10:10:10.994999
 a	2001-01-01 10:10:10.999499
-a	2001-01-01 10:10:10.999994
+a	2001-01-01 10:10:10.999949
 a	2001-01-01 10:10:10.999999
 t0	10:10:10
 t0	10:10:11
@@ -450,13 +450,13 @@ t6	10:10:10.999999
 ALTER TABLE t1 MODIFY a DOUBLE;
 UPDATE t1 SET t0=a, t1=a, t2=a, t3=a, t4=a, t5=a, t6=a;
 SELECT * FROM t1;;
-a	101010.999999
+a	101010.999994
 a	101010.499999
 a	101010.949999
 a	101010.994999
 a	101010.999499
 a	101010.999949
-a	101010.999994
+a	101010.999999
 t0	10:10:10
 t0	10:10:11
 t0	10:10:11
@@ -982,8 +982,8 @@ a6	t6	HEX(WEIGHT_STRING(t6))
 -00:00:00.000003	-00:00:00.000003	7FFFFFFFFFFFFFFD
 -00:00:00.000002	-00:00:00.000002	7FFFFFFFFFFFFFFE
 -00:00:00.000001	-00:00:00.000001	7FFFFFFFFFFFFFFF
--00:00:00.000000	00:00:00.000000	8000000000000000
 00:00:00.000000	00:00:00.000000	8000000000000000
+-00:00:00.000000	00:00:00.000000	8000000000000000
 00:00:00.000001	00:00:00.000001	8000000000000001
 00:00:00.000002	00:00:00.000002	8000000000000002
 00:00:00.000003	00:00:00.000003	8000000000000003
@@ -7604,13 +7604,13 @@ INSERT INTO t1 (a) VALUES ('10:10:10.949999');
 INSERT INTO t1 (a) VALUES ('10:10:10.499999');
 UPDATE t1 SET t0=a, t1=a, t2=a, t3=a, t4=a, t5=a, t6=a;
 SELECT * FROM t1;;
-a	10:10:10.999499
+a	10:10:10.999999
 a	10:10:10.499999
 a	10:10:10.949999
 a	10:10:10.994999
+a	10:10:10.999499
 a	10:10:10.999949
 a	10:10:10.999994
-a	10:10:10.999999
 t0	2001-01-01 10:10:10
 t0	2001-01-01 10:10:11
 t0	2001-01-01 10:10:11
@@ -7678,13 +7678,13 @@ INSERT INTO t1 (a) VALUES (20010101101010.949999);
 INSERT INTO t1 (a) VALUES (20010101101010.499999);
 UPDATE t1 SET t0=a, t1=a, t2=a, t3=a, t4=a, t5=a, t6=a;
 SELECT * FROM t1;;
-a	20010101101010.999999
+a	20010101101010.999994
 a	20010101101010.499999
 a	20010101101010.949999
 a	20010101101010.994999
 a	20010101101010.999499
 a	20010101101010.999949
-a	20010101101010.999994
+a	20010101101010.999999
 t0	2001-01-01 10:10:10
 t0	2001-01-01 10:10:11
 t0	2001-01-01 10:10:11
@@ -8420,10 +8420,6 @@ a	b
 Warnings:
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 ALTER TABLE t1 ADD KEY (a);
 SELECT * FROM t1, t2 WHERE a=b ORDER BY BINARY a, BINARY b;
 a	b
@@ -8440,10 +8436,6 @@ a	b
 2001-01-01 11:22:33.123000	2001-01-01 11:22:33.12300
 2001-01-01 11:22:33.123000	2001-01-01 11:22:33.123000
 Warnings:
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 ALTER TABLE t2 ADD KEY(b);
@@ -8464,10 +8456,6 @@ a	b
 Warnings:
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 ALTER TABLE t1 DROP KEY a;
 SELECT * FROM t1, t2 WHERE a=b ORDER BY BINARY a, BINARY b;
 a	b
@@ -8484,10 +8472,6 @@ a	b
 2001-01-01 11:22:33.123000	2001-01-01 11:22:33.12300
 2001-01-01 11:22:33.123000	2001-01-01 11:22:33.123000
 Warnings:
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 DROP TABLE t1, t2;
@@ -9239,7 +9223,7 @@ INSERT INTO t1 VALUES ('45:00:00', '45:00:00.123456', 450000, '45:00:00', 45*360
 INSERT INTO t1 VALUES ('-15:00:00', '-15:00:00.123456', -150000, '-15:00:00', -15*3600);
 INSERT INTO t1 VALUES ('-45:00:00', '-45:00:00.123456', -450000, '-45:00:00', -45*3600);
 SELECT a, CAST(a AS DATETIME), CAST(b AS DATETIME), CAST(c AS DATETIME), CAST(d AS DATETIME), CAST(SEC_TO_TIME(e) AS DATETIME), CAST(CAST(a AS TIME) AS DATETIME) FROM t1;;
-a	45:00:00
+a	15:00:00
 CAST(CAST(a AS TIME) AS DATETIME)	2000-12-30 03:00:00
 CAST(CAST(a AS TIME) AS DATETIME)	2000-12-31 09:00:00
 CAST(CAST(a AS TIME) AS DATETIME)	2001-01-01 15:00:00
@@ -9285,9 +9269,9 @@ Message	Incorrect datetime value: '-45:00:00'
 Warnings:
 a	-15:00:00
 a	-45:00:00
-a	15:00:00
-SELECT a, CAST(a AS DATETIME(6)), CAST(b AS DATETIME(6)), CAST(c AS DATETIME(6)), CAST(d AS DATETIME(6)), CAST(SEC_TO_TIME(e) AS DATETIME(6)), CAST(CAST(a AS TIME) AS DATETIME(6)) FROM t1;;
 a	45:00:00
+SELECT a, CAST(a AS DATETIME(6)), CAST(b AS DATETIME(6)), CAST(c AS DATETIME(6)), CAST(d AS DATETIME(6)), CAST(SEC_TO_TIME(e) AS DATETIME(6)), CAST(CAST(a AS TIME) AS DATETIME(6)) FROM t1;;
+a	15:00:00
 CAST(CAST(a AS TIME) AS DATETIME(6))	2000-12-30 03:00:00.000000
 CAST(CAST(a AS TIME) AS DATETIME(6))	2000-12-31 09:00:00.000000
 CAST(CAST(a AS TIME) AS DATETIME(6))	2001-01-01 15:00:00.000000
@@ -9333,7 +9317,7 @@ Message	Incorrect datetime value: '-45:00:00'
 Warnings:
 a	-15:00:00
 a	-45:00:00
-a	15:00:00
+a	45:00:00
 DROP TABLE t1;
 SET @@timestamp=default;
 #
@@ -11967,13 +11951,13 @@ INSERT INTO t1 (a) VALUES ('2001-01-01 10:10:10.949999');
 INSERT INTO t1 (a) VALUES ('2001-01-01 10:10:10.499999');
 UPDATE t1 SET t0=a, t1=a, t2=a, t3=a, t4=a, t5=a, t6=a;
 SELECT * FROM t1;;
-a	2001-01-01 10:10:10.999994
+a	2001-01-01 10:10:10.999999
 a	2001-01-01 10:10:10.499999
 a	2001-01-01 10:10:10.949999
 a	2001-01-01 10:10:10.994999
 a	2001-01-01 10:10:10.999499
 a	2001-01-01 10:10:10.999949
-a	2001-01-01 10:10:10.999999
+a	2001-01-01 10:10:10.999994
 t0	2001-01-01 10:10:10
 t0	2001-01-01 10:10:11
 t0	2001-01-01 10:10:11
@@ -12026,13 +12010,13 @@ t6	2001-01-01 10:10:10.999999
 ALTER TABLE t1 MODIFY a TIMESTAMP(6);
 UPDATE t1 SET t0=a, t1=a, t2=a, t3=a, t4=a, t5=a, t6=a;
 SELECT * FROM t1;;
-a	2001-01-01 10:10:10.999999
+a	2001-01-01 10:10:10.999994
 a	2001-01-01 10:10:10.499999
 a	2001-01-01 10:10:10.949999
 a	2001-01-01 10:10:10.994999
 a	2001-01-01 10:10:10.999499
 a	2001-01-01 10:10:10.999949
-a	2001-01-01 10:10:10.999994
+a	2001-01-01 10:10:10.999999
 t0	2001-01-01 10:10:10
 t0	2001-01-01 10:10:11
 t0	2001-01-01 10:10:11
@@ -12188,13 +12172,13 @@ INSERT INTO t1 (a) VALUES (20010101101010.949999);
 INSERT INTO t1 (a) VALUES (20010101101010.499999);
 UPDATE t1 SET t0=a, t1=a, t2=a, t3=a, t4=a, t5=a, t6=a;
 SELECT * FROM t1;;
-a	20010101101010.999999
+a	20010101101010.999994
 a	20010101101010.499999
 a	20010101101010.949999
 a	20010101101010.994999
 a	20010101101010.999499
 a	20010101101010.999949
-a	20010101101010.999994
+a	20010101101010.999999
 t0	2001-01-01 10:10:10
 t0	2001-01-01 10:10:11
 t0	2001-01-01 10:10:11
@@ -12583,17 +12567,9 @@ a
 SELECT * FROM t1 WHERE a=0.1;
 a
 Warning	1292	Incorrect datetime value: '0.1' for column 'a' at row 1
-Warning	1292	Incorrect datetime value: '0.1' for column 'a' at row 1
-Warning	1292	Incorrect datetime value: '0.1' for column 'a' at row 1
-Warning	1292	Incorrect datetime value: '0.1' for column 'a' at row 1
-Warning	1292	Incorrect datetime value: '0.1' for column 'a' at row 1
 Warnings:
 SELECT * FROM t1 WHERE a IN (0.1);
 a
-Warning	1292	Incorrect datetime value: '0.1' for column 'a' at row 1
-Warning	1292	Incorrect datetime value: '0.1' for column 'a' at row 1
-Warning	1292	Incorrect datetime value: '0.1' for column 'a' at row 1
-Warning	1292	Incorrect datetime value: '0.1' for column 'a' at row 1
 Warning	1292	Incorrect datetime value: '0.1' for column 'a' at row 1
 Warnings:
 SELECT * FROM t1 WHERE a IN (20000101000000.000001, 20000101230000.000001);
@@ -12604,19 +12580,11 @@ SELECT * FROM t1 WHERE
 a IN (0.000001, 20000101000000.000001, 20000101230000.000001);
 a
 Warning	1292	Incorrect datetime value: '0.000001' for column 'a' at row 1
-Warning	1292	Incorrect datetime value: '0.000001' for column 'a' at row 1
-Warning	1292	Incorrect datetime value: '0.000001' for column 'a' at row 1
-Warning	1292	Incorrect datetime value: '0.000001' for column 'a' at row 1
-Warning	1292	Incorrect datetime value: '0.000001' for column 'a' at row 1
 Warnings:
 SELECT * FROM t1 WHERE a IN (0e0, 0.000001e0);
 a
 0000-00-00 00:00:00.000000
 0000-00-00 00:00:00.000000
-Warning	1292	Incorrect datetime value: '0.000001' for column 'a' at row 1
-Warning	1292	Incorrect datetime value: '0.000001' for column 'a' at row 1
-Warning	1292	Incorrect datetime value: '0.000001' for column 'a' at row 1
-Warning	1292	Incorrect datetime value: '0.000001' for column 'a' at row 1
 Warning	1292	Incorrect datetime value: '0.000001' for column 'a' at row 1
 Warnings:
 #
@@ -12628,9 +12596,6 @@ a
 2000-01-01 00:00:00.000000
 2000-01-01 23:00:00.000002
 Warning	1292	Incorrect datetime value: '0000-00-00 00:00:00.000001' for column 'a' at row 1
-Warning	1292	Incorrect datetime value: '0000-00-00 00:00:00.000001' for column 'a' at row 1
-Warning	1292	Incorrect datetime value: '0000-00-00 00:00:00.000001' for column 'a' at row 1
-Warning	1292	Incorrect datetime value: '0000-00-00 00:00:00.000001' for column 'a' at row 1
 Warnings:
 SELECT * FROM t1 WHERE a IN (0, 20000101000000, 20000101230000);
 a
@@ -12641,10 +12606,6 @@ a
 SELECT * FROM t1 WHERE a IN (0.000001, 20000101000000.000001, 20000101230000.000001);
 a
 Warning	1292	Incorrect datetime value: '0.000001' for column 'a' at row 1
-Warning	1292	Incorrect datetime value: '0.000001' for column 'a' at row 1
-Warning	1292	Incorrect datetime value: '0.000001' for column 'a' at row 1
-Warning	1292	Incorrect datetime value: '0.000001' for column 'a' at row 1
-Warning	1292	Incorrect datetime value: '0.000001' for column 'a' at row 1
 Warnings:
 SELECT * FROM t1 WHERE a IN (20000101000000.000001, 20000101230000.000001);
 a
@@ -12654,10 +12615,6 @@ SELECT * FROM t1 WHERE a IN (0e0, 0.000001e0);
 a
 0000-00-00 00:00:00.000000
 0000-00-00 00:00:00.000000
-Warning	1292	Incorrect datetime value: '0.000001' for column 'a' at row 1
-Warning	1292	Incorrect datetime value: '0.000001' for column 'a' at row 1
-Warning	1292	Incorrect datetime value: '0.000001' for column 'a' at row 1
-Warning	1292	Incorrect datetime value: '0.000001' for column 'a' at row 1
 Warning	1292	Incorrect datetime value: '0.000001' for column 'a' at row 1
 Warnings:
 DROP TABLE t1;
@@ -13191,10 +13148,6 @@ a	b
 Warnings:
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 ALTER TABLE t1 ADD KEY (a);
 SELECT * FROM t1, t2 WHERE a=b ORDER BY BINARY a, BINARY b;
 a	b
@@ -13211,10 +13164,6 @@ a	b
 2001-01-01 11:22:33.123000	2001-01-01 11:22:33.12300
 2001-01-01 11:22:33.123000	2001-01-01 11:22:33.123000
 Warnings:
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 ALTER TABLE t2 ADD KEY (b);
@@ -13235,10 +13184,6 @@ a	b
 Warnings:
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 ALTER TABLE t1 DROP KEY a;
 SELECT * FROM t1, t2 WHERE a=b ORDER BY BINARY a, BINARY b;
 a	b
@@ -13255,10 +13200,6 @@ a	b
 2001-01-01 11:22:33.123000	2001-01-01 11:22:33.12300
 2001-01-01 11:22:33.123000	2001-01-01 11:22:33.123000
 Warnings:
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 DROP TABLE t1, t2;
@@ -15848,8 +15789,6 @@ WHERE col_datetime_4_not_null_key > 7;
 col_time_3_not_null_key
 Warning	1292	Incorrect datetime value: '7' for column 'col_datetime_4_not_null_key' at row 1
 Warning	1292	Incorrect datetime value: '7' for column 'col_datetime_4_not_null_key' at row 1
-Warning	1292	Incorrect datetime value: '7' for column 'col_datetime_4_not_null_key' at row 1
-Warning	1292	Incorrect datetime value: '7' for column 'col_datetime_4_not_null_key' at row 1
 Warnings:
 DROP TABLE t1;
 #
@@ -16970,12 +16909,6 @@ c1
 Warning	1292	Truncated incorrect time value: '0000-00-00'
 Warning	1292	Truncated incorrect time value: '0000-00-00'
 Warning	1292	Truncated incorrect time value: '0000-00-00'
-Warning	1292	Truncated incorrect time value: '0000-00-00'
-Warning	1292	Truncated incorrect time value: '0000-00-00'
-Warning	1292	Truncated incorrect time value: '0000-00-00'
-Warning	1292	Truncated incorrect time value: '2002-11-24'
-Warning	1292	Truncated incorrect time value: '2002-11-24'
-Warning	1292	Truncated incorrect time value: '2002-11-24'
 Warning	1292	Truncated incorrect time value: '2002-11-24'
 Warning	1292	Truncated incorrect time value: '2002-11-24'
 Warning	1292	Truncated incorrect time value: '2002-11-24'
@@ -17322,9 +17255,9 @@ GREATEST(a, 20010101120000)
 2008-08-21 00:00:00.000
 (SELECT GREATEST(a, 20010101120000) FROM t1) UNION ALL (SELECT GREATEST(a, 20010101120000) FROM t1 LIMIT 0);
 GREATEST(a, 20010101120000)
-2001-01-01 12:00:00.000
-2001-01-01 12:00:00.000
 2008-08-21 00:00:00.000
+2001-01-01 12:00:00.000
+2001-01-01 12:00:00.000
 SELECT LEAST(a, 20010101120000) FROM t1;
 LEAST(a, 20010101120000)
 0000-00-00 00:00:00.000
@@ -17332,8 +17265,8 @@ LEAST(a, 20010101120000)
 2001-01-01 12:00:00.000
 (SELECT LEAST(a, 20010101120000) FROM t1) UNION ALL (SELECT LEAST(a, 20010101120000) FROM t1 LIMIT 0);
 LEAST(a, 20010101120000)
-2000-07-16 05:58:04.035
 2001-01-01 12:00:00.000
+2000-07-16 05:58:04.035
 0000-00-00 00:00:00.000
 # Testing DECIMAL number 
 SELECT GREATEST(a, 20010101120000.123456) FROM t1;
@@ -17343,9 +17276,9 @@ GREATEST(a, 20010101120000.123456)
 2008-08-21 00:00:00.000000
 (SELECT GREATEST(a, 20010101120000.123456) FROM t1) UNION ALL (SELECT GREATEST(a, 20010101120000.123456) FROM t1 LIMIT 0);
 GREATEST(a, 20010101120000.123456)
+2001-01-01 12:00:00.123456
+2001-01-01 12:00:00.123456
 2008-08-21 00:00:00.000000
-2001-01-01 12:00:00.123456
-2001-01-01 12:00:00.123456
 SELECT LEAST(a, 20010101120000.123456) FROM t1;
 LEAST(a, 20010101120000.123456)
 0000-00-00 00:00:00.000
@@ -17354,8 +17287,8 @@ LEAST(a, 20010101120000.123456)
 (SELECT LEAST(a, 20010101120000.123456) FROM t1) UNION ALL (SELECT LEAST(a, 20010101120000.123456) FROM t1 LIMIT 0);
 LEAST(a, 20010101120000.123456)
 2000-07-16 05:58:04.035000
-0000-00-00 00:00:00.000
 2001-01-01 12:00:00.123456
+0000-00-00 00:00:00.000
 # Testing REAL number
 SELECT GREATEST(a, 20010101120000e0) FROM t1;
 GREATEST(a, 20010101120000e0)
@@ -17364,8 +17297,8 @@ GREATEST(a, 20010101120000e0)
 2008-08-21 00:00:00.000000
 (SELECT GREATEST(a, 20010101120000e0) FROM t1) UNION ALL (SELECT GREATEST(a, 20010101120000e0) FROM t1 LIMIT 0);
 GREATEST(a, 20010101120000e0)
-2008-08-21 00:00:00.000000
 2001-01-01 12:00:00.000000
+2008-08-21 00:00:00.000000
 2001-01-01 12:00:00.000000
 SELECT LEAST(a, 20010101120000e0) FROM t1;
 LEAST(a, 20010101120000e0)

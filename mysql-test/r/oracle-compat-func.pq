@@ -1,0 +1,487 @@
+create table t(id int primary key, c1 varchar(128), c2 varchar(64));
+insert into t values(1,'kz','kz'),(2,null,'kz');
+select nvl(c1,'test') from t;
+nvl(c1,'test')
+kz
+test
+select nvl(c1,0) from t;
+nvl(c1,0)
+0
+kz
+select nvl(c1,c2) from t;
+nvl(c1,c2)
+kz
+kz
+drop table t;
+create table t(id int primary key, c1 varchar(20));
+insert into t values(1,'123'),(2, null),(3,'1234567.1');
+select to_number(c1) from t;
+to_number(c1)
+123
+1234567
+NULL
+Warning	1292	Truncated incorrect INTEGER value: '1234567.1'
+Warnings:
+select to_number(c1, '999999') from t;
+to_number(c1, '999999')
+123
+999999
+NULL
+Warning	1264	Out of range value for column 'to_number(c1, '999999')' at row 1
+Warnings:
+select to_number(c1, '999999999.9') from t;
+to_number(c1, '999999999.9')
+123.0
+1234567.1
+NULL
+select to_number(c1, 'test') from t;
+ERROR HY000: Failed to resolve the format string test
+drop table t;
+create table t(id int primary key, c1 double);
+insert into t values(1,123),(2,null),(3,12345678.1);
+select to_char(c1) from t;
+to_char(c1)
+123
+12345678.1
+NULL
+drop table t;
+create table t(id int primary key, name varchar(20), amount int);
+insert into t values(1, 'kz', 200),(2,'wj',100),(3,'kz',400),(4,'wj',300);
+select to_char(row_number() over (order by id)) as rownum, name, amount from t where name='wj';
+rownum	name	amount
+1	wj	100
+2	wj	300
+drop table t;
+create table t(id int primary key, c1 timestamp);
+insert into t values(1, '2021-09-20 15:28:45.800883'),(2, null);
+select to_char('2021-09-20 15:28:45.800883', 'YYYYMMDDHH24miss');
+to_char('2021-09-20 15:28:45.800883', 'YYYYMMDDHH24miss')
+20210920152845
+select to_char(c1, 'YYYYMM') from t;
+to_char(c1, 'YYYYMM')
+202109
+NULL
+select to_char(c1, 'YYYYMMDD') from t;
+to_char(c1, 'YYYYMMDD')
+20210920
+NULL
+select to_char(c1, 'YYYYMMDD HH24:MI:SS') from t;
+to_char(c1, 'YYYYMMDD HH24:MI:SS')
+20210920 15:28:46
+NULL
+select to_char(sysdate(), 'YYYYMM');
+select to_char(sysdate(), 'YYYYMMDD');
+select to_char(sysdate(), 'YYYYMMDD HH24:MI:SS');
+select to_char(sysdate(), 'YYYYMMDDHH24miss');
+select to_char(sysdate(3),'YYYYMMDDHH24MISSFF');
+select to_char(sysdate(3),'YYYYMMDDHH24MISSFF3');
+delete from t where id=2;
+select TO_CHAR('2021-09-20 15:28:45.800883', 'YYYY"abc"MM"xyzDD"');
+TO_CHAR('2021-09-20 15:28:45.800883', 'YYYY"abc"MM"xyzDD"')
+2021abc09xyzDD
+select to_char(c1, 'YYYYMMDD HH24:MI:SS AM') from t;
+to_char(c1, 'YYYYMMDD HH24:MI:SS AM')
+20210920 15:28:46 
+select to_char(c1, 'YYYYMMDD HH24:MI:SS A.M.') from t;
+to_char(c1, 'YYYYMMDD HH24:MI:SS A.M.')
+20210920 15:28:46 
+select to_char(c1, 'YYYY/MM/DD AD') from t;
+to_char(c1, 'YYYY/MM/DD AD')
+2021/09/20 AD
+select to_char(c1, 'YYYY/MM/DD A.D.') from t;
+to_char(c1, 'YYYY/MM/DD A.D.')
+2021/09/20 A.D.
+select to_char(c1, 'YYYY/MM/DD BC') from t;
+to_char(c1, 'YYYY/MM/DD BC')
+2021/09/20 
+select to_char(c1, 'YYYY/MM/DD B.C.') from t;
+to_char(c1, 'YYYY/MM/DD B.C.')
+2021/09/20 
+select to_char(c1, 'YYYYMMDD HH24:MI:SS PM') from t;
+to_char(c1, 'YYYYMMDD HH24:MI:SS PM')
+20210920 15:28:46 PM
+select to_char(c1, 'YYYYMMDD HH24:MI:SS P.M.') from t;
+to_char(c1, 'YYYYMMDD HH24:MI:SS P.M.')
+20210920 15:28:46 P.M.
+select to_char(c1, 'Y') from t;
+to_char(c1, 'Y')
+1
+select to_char(c1, 'YY') from t;
+to_char(c1, 'YY')
+21
+select to_char(c1, 'YYY') from t;
+to_char(c1, 'YYY')
+021
+select to_char(c1, 'YYYY') from t;
+to_char(c1, 'YYYY')
+2021
+select to_char(c1, 'RR') from t;
+to_char(c1, 'RR')
+21
+select to_char(c1, 'RRRR') from t;
+to_char(c1, 'RRRR')
+2021
+select to_char(c1, 'YYYYMON') from t;
+to_char(c1, 'YYYYMON')
+2021Sep
+select to_char(c1, 'YYYYMONTH') from t;
+to_char(c1, 'YYYYMONTH')
+2021September
+select to_char(c1, 'YYYYMMDY') from t;
+to_char(c1, 'YYYYMMDY')
+202109Mon
+select to_char(c1, 'YYYYMMDAY') from t;
+to_char(c1, 'YYYYMMDAY')
+202109Monday   
+select to_char(c1, 'YYYYMMDDHH24MISSFF3') from t;
+to_char(c1, 'YYYYMMDDHH24MISSFF3')
+20210920152846000
+select to_char(c1, 'YYYYMMDDHHMISS') from t;
+to_char(c1, 'YYYYMMDDHHMISS')
+20210920032846
+select to_char(c1, 'YYYYMMDDHH12MISS') from t;
+to_char(c1, 'YYYYMMDDHH12MISS')
+20210920032846
+select to_char(c1, 'YYYYMMDDHH24MISS') from t;
+to_char(c1, 'YYYYMMDDHH24MISS')
+20210920152846
+select TO_CHAR('2000-11-05', 'YYYY|MM||||DD');
+TO_CHAR('2000-11-05', 'YYYY|MM||||DD')
+200011|||05
+select TO_CHAR('2000-11-05', 'YYYY&|MM&||||DD');
+TO_CHAR('2000-11-05', 'YYYY&|MM&||||DD')
+2000&|11&||||05
+select TO_CHAR('2000-11-05', 'YYYY....MM.....DD');
+TO_CHAR('2000-11-05', 'YYYY....MM.....DD')
+2000....11.....05
+WRONG FORMAT CASES
+select to_char(c1, 'YYYYMMDDHH24MISSFF3xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx') from t;
+to_char(c1, 'YYYYMMDDHH24MISSFF3xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx')
+NULL
+Warning	4160	Failed to resolve the format string YYYYMMDDHH24MISSFF3xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+Warnings:
+select to_char(c1, 'YYYYMMDD HH24:MI:SS A') from t;
+to_char(c1, 'YYYYMMDD HH24:MI:SS A')
+NULL
+Warning	4160	Failed to resolve the format string YYYYMMDD HH24:MI:SS A
+Warnings:
+select to_char(c1, 'YYYYMMDD HH24:MI:SS A.X.') from t;
+to_char(c1, 'YYYYMMDD HH24:MI:SS A.X.')
+NULL
+Warning	4160	Failed to resolve the format string YYYYMMDD HH24:MI:SS A.X.
+Warnings:
+select to_char(c1, 'YYYYMMDD HH24:MI:SS A.X.') from t;
+to_char(c1, 'YYYYMMDD HH24:MI:SS A.X.')
+NULL
+Warning	4160	Failed to resolve the format string YYYYMMDD HH24:MI:SS A.X.
+Warnings:
+select to_char(c1, 'YYYYMMDD HH24:MI:SS A.XX') from t;
+to_char(c1, 'YYYYMMDD HH24:MI:SS A.XX')
+NULL
+Warning	4160	Failed to resolve the format string YYYYMMDD HH24:MI:SS A.XX
+Warnings:
+select to_char(c1, 'YYYY/MM/DD B') from t;
+to_char(c1, 'YYYY/MM/DD B')
+NULL
+Warning	4160	Failed to resolve the format string YYYY/MM/DD B
+Warnings:
+select to_char(c1, 'YYYY/MM/DD B.M.') from t;
+to_char(c1, 'YYYY/MM/DD B.M.')
+NULL
+Warning	4160	Failed to resolve the format string YYYY/MM/DD B.M.
+Warnings:
+select to_char(c1, 'YYYY/MM/DD B.CM') from t;
+to_char(c1, 'YYYY/MM/DD B.CM')
+NULL
+Warning	4160	Failed to resolve the format string YYYY/MM/DD B.CM
+Warnings:
+select to_char(c1, 'YYYYMMDD HH24:MI:SS P.X.') from t;
+to_char(c1, 'YYYYMMDD HH24:MI:SS P.X.')
+NULL
+Warning	4160	Failed to resolve the format string YYYYMMDD HH24:MI:SS P.X.
+Warnings:
+select to_char(c1, 'YYYYY') from t;
+to_char(c1, 'YYYYY')
+20211
+select to_char(c1, 'R') from t;
+to_char(c1, 'R')
+NULL
+Warning	4160	Failed to resolve the format string R
+Warnings:
+select to_char(c1, 'RRR') from t;
+to_char(c1, 'RRR')
+NULL
+Warning	4160	Failed to resolve the format string RRR
+Warnings:
+select to_char(c1, 'YYYYMO') from t;
+to_char(c1, 'YYYYMO')
+NULL
+Warning	4160	Failed to resolve the format string YYYYMO
+Warnings:
+select to_char(c1, 'YYYYMONT') from t;
+to_char(c1, 'YYYYMONT')
+NULL
+Warning	4160	Failed to resolve the format string YYYYMONT
+Warnings:
+select to_char(c1, 'YYYYMONHH') from t;
+to_char(c1, 'YYYYMONHH')
+2021Sep03
+select to_char(c1, 'YYYYMONTT') from t;
+to_char(c1, 'YYYYMONTT')
+NULL
+Warning	4160	Failed to resolve the format string YYYYMONTT
+Warnings:
+select to_char(c1, 'YYYYMMDX') from t;
+to_char(c1, 'YYYYMMDX')
+NULL
+Warning	4160	Failed to resolve the format string YYYYMMDX
+Warnings:
+select to_char(c1, 'YYYYMMDA') from t;
+to_char(c1, 'YYYYMMDA')
+NULL
+Warning	4160	Failed to resolve the format string YYYYMMDA
+Warnings:
+select to_char(c1, 'YYYYMMDAX') from t;
+to_char(c1, 'YYYYMMDAX')
+NULL
+Warning	4160	Failed to resolve the format string YYYYMMDAX
+Warnings:
+select to_char(c1, 'YYYYMMDDHH24MISSFF0') from t;
+to_char(c1, 'YYYYMMDDHH24MISSFF0')
+NULL
+Warning	4160	Failed to resolve the format string YYYYMMDDHH24MISSFF0
+Warnings:
+select to_char(c1, 'YYYYMMDDHH24MISSFF7') from t;
+to_char(c1, 'YYYYMMDDHH24MISSFF7')
+NULL
+Warning	4160	Failed to resolve the format string YYYYMMDDHH24MISSFF7
+Warnings:
+select to_char(c1, 'YYYYMMDDH') from t;
+to_char(c1, 'YYYYMMDDH')
+NULL
+Warning	4160	Failed to resolve the format string YYYYMMDDH
+Warnings:
+select to_char(c1, 'YYYYMMDDHHXX') from t;
+to_char(c1, 'YYYYMMDDHHXX')
+NULL
+Warning	4160	Failed to resolve the format string YYYYMMDDHHXX
+Warnings:
+select to_char(c1, 'YYYYMMDDHHX') from t;
+to_char(c1, 'YYYYMMDDHHX')
+NULL
+Warning	4160	Failed to resolve the format string YYYYMMDDHHX
+Warnings:
+select to_char(c1, 'YYYYMMDDHH12MIS') from t;
+to_char(c1, 'YYYYMMDDHH12MIS')
+NULL
+Warning	4160	Failed to resolve the format string YYYYMMDDHH12MIS
+Warnings:
+select to_char(c1, 'YYYYMMDDHH12MISX') from t;
+to_char(c1, 'YYYYMMDDHH12MISX')
+NULL
+Warning	4160	Failed to resolve the format string YYYYMMDDHH12MISX
+Warnings:
+select TO_CHAR('2000-11-05', 'YYYY&AMM&||||DD');
+TO_CHAR('2000-11-05', 'YYYY&AMM&||||DD')
+NULL
+Warning	4160	Failed to resolve the format string YYYY&AMM&||||DD
+Warnings:
+select TO_CHAR('2000-11-05', 'YYYY&"MM"|DD');
+TO_CHAR('2000-11-05', 'YYYY&"MM"|DD')
+2000&MM05
+drop table t;
+create table t(id int primary key, c1 varchar(64));
+insert into t values(1, '2021-09-20'),(2, null);
+select to_date(c1, 'yyyy-MM-dd') from t;
+to_date(c1, 'yyyy-MM-dd')
+2021-09-20
+NULL
+select to_date(c1, 'yyyymmdd') from t;
+to_date(c1, 'yyyymmdd')
+2021-09-20
+NULL
+delete from t where id=1;
+insert into t values(1, '20210920');
+select to_date(c1, 'yyyymmdd') from t;
+to_date(c1, 'yyyymmdd')
+2021-09-20
+NULL
+select to_date(c1, 'yyyy-mm-dd') from t;
+to_date(c1, 'yyyy-mm-dd')
+2021-09-20
+NULL
+select to_date(c1, '%Y%m%d') from t;
+to_date(c1, '%Y%m%d')
+2021-09-20
+NULL
+select to_date(c1, '%Y%c%d') from t;
+to_date(c1, '%Y%c%d')
+2021-09-20
+NULL
+set sql_mode='PIPES_AS_CONCAT';
+select to_date(c1 || ' 00:00:01','YYYYMMDD HH24:MI:SS') from t;
+to_date(c1 || ' 00:00:01','YYYYMMDD HH24:MI:SS')
+2021-09-20
+NULL
+select to_char(to_date('2021-10-21 5:37:01 AM', 'YYYYMMDD HH:MI:SS AM'), 'YYYYMMDD HH24:MI:SS');
+to_char(to_date('2021-10-21 5:37:01 AM', 'YYYYMMDD HH:MI:SS AM'), 'YYYYMMDD HH24:MI:SS')
+20211021 05:37:01
+select to_char(to_date('2021-10-21 5:37:01 A.M.', 'YYYYMMDD HH:MI:SS AM'), 'YYYYMMDD HH24:MI:SS');
+to_char(to_date('2021-10-21 5:37:01 A.M.', 'YYYYMMDD HH:MI:SS AM'), 'YYYYMMDD HH24:MI:SS')
+20211021 05:37:01
+select to_char(to_date('2021-10-21 5:37:01 AM', 'YYYYMMDD HH:MI:SS A.M.'), 'YYYYMMDD HH24:MI:SS');
+to_char(to_date('2021-10-21 5:37:01 AM', 'YYYYMMDD HH:MI:SS A.M.'), 'YYYYMMDD HH24:MI:SS')
+20211021 05:37:01
+select to_char(to_date('2021-10-21 5:37:01 A.M.', 'YYYYMMDD HH:MI:SS A.M.'), 'YYYYMMDD HH24:MI:SS');
+to_char(to_date('2021-10-21 5:37:01 A.M.', 'YYYYMMDD HH:MI:SS A.M.'), 'YYYYMMDD HH24:MI:SS')
+20211021 05:37:01
+select to_char(to_date('2021-10-21 5:37:01 PM', 'YYYYMMDD HH:MI:SS PM'), 'YYYYMMDD HH24:MI:SS');
+to_char(to_date('2021-10-21 5:37:01 PM', 'YYYYMMDD HH:MI:SS PM'), 'YYYYMMDD HH24:MI:SS')
+20211021 17:37:01
+select to_char(to_date('2021-10-21 5:37:01 P.M.', 'YYYYMMDD HH:MI:SS PM'), 'YYYYMMDD HH24:MI:SS');
+to_char(to_date('2021-10-21 5:37:01 P.M.', 'YYYYMMDD HH:MI:SS PM'), 'YYYYMMDD HH24:MI:SS')
+20211021 17:37:01
+select to_char(to_date('2021-10-21 5:37:01 PM', 'YYYYMMDD HH:MI:SS P.M.'), 'YYYYMMDD HH24:MI:SS');
+to_char(to_date('2021-10-21 5:37:01 PM', 'YYYYMMDD HH:MI:SS P.M.'), 'YYYYMMDD HH24:MI:SS')
+20211021 17:37:01
+select to_char(to_date('2021-10-21 5:37:01 P.M.', 'YYYYMMDD HH:MI:SS P.M.'), 'YYYYMMDD HH24:MI:SS');
+to_char(to_date('2021-10-21 5:37:01 P.M.', 'YYYYMMDD HH:MI:SS P.M.'), 'YYYYMMDD HH24:MI:SS')
+20211021 17:37:01
+select to_char(to_date('0211021 5:37:01', 'YYYMMDD HH:MI:SS'), 'YYYYMMDD HH24:MI:SS');
+to_char(to_date('0211021 5:37:01', 'YYYMMDD HH:MI:SS'), 'YYYYMMDD HH24:MI:SS')
+00211021 05:37:01
+select to_char(to_date('211021 5:37:01', 'YYMMDD HH:MI:SS'), 'YYYYMMDD HH24:MI:SS');
+to_char(to_date('211021 5:37:01', 'YYMMDD HH:MI:SS'), 'YYYYMMDD HH24:MI:SS')
+00211021 05:37:01
+select to_char(to_date('11021 5:37:01', 'YMMDD HH:MI:SS'), 'YYYYMMDD HH24:MI:SS');
+to_char(to_date('11021 5:37:01', 'YMMDD HH:MI:SS'), 'YYYYMMDD HH24:MI:SS')
+00011021 05:37:01
+select to_char(to_date('20211021 5:37:01', 'RRRRMMDD HH:MI:SS'), 'YYYYMMDD HH24:MI:SS');
+to_char(to_date('20211021 5:37:01', 'RRRRMMDD HH:MI:SS'), 'YYYYMMDD HH24:MI:SS')
+20211021 05:37:01
+select to_char(to_date('21-1021 5:37:01', 'RRRR-MMDD HH:MI:SS'), 'YYYYMMDD HH24:MI:SS');
+to_char(to_date('21-1021 5:37:01', 'RRRR-MMDD HH:MI:SS'), 'YYYYMMDD HH24:MI:SS')
+20211021 05:37:01
+select to_char(to_date('211021 5:37:01', 'RRMMDD HH:MI:SS'), 'YYYYMMDD HH24:MI:SS');
+to_char(to_date('211021 5:37:01', 'RRMMDD HH:MI:SS'), 'YYYYMMDD HH24:MI:SS')
+20211021 05:37:01
+select to_char(to_date('501021 5:37:01', 'RRMMDD HH:MI:SS'), 'YYYYMMDD HH24:MI:SS');
+to_char(to_date('501021 5:37:01', 'RRMMDD HH:MI:SS'), 'YYYYMMDD HH24:MI:SS')
+19501021 05:37:01
+select to_char(to_date('491021 5:37:01', 'RRMMDD HH:MI:SS'), 'YYYYMMDD HH24:MI:SS');
+to_char(to_date('491021 5:37:01', 'RRMMDD HH:MI:SS'), 'YYYYMMDD HH24:MI:SS')
+20491021 05:37:01
+select to_char(to_date('49OCT21 5:37:01', 'RRMONDD HH:MI:SS'), 'YYYYMMDD HH24:MI:SS');
+to_char(to_date('49OCT21 5:37:01', 'RRMONDD HH:MI:SS'), 'YYYYMMDD HH24:MI:SS')
+20491021 05:37:01
+select to_char(to_date('49OCTOBER21 5:37:01', 'RRMONTHDD HH:MI:SS'), 'YYYYMMDD HH24:MI:SS');
+to_char(to_date('49OCTOBER21 5:37:01', 'RRMONTHDD HH:MI:SS'), 'YYYYMMDD HH24:MI:SS')
+20491021 05:37:01
+select to_char(to_date('4910THU 5:37:01', 'RRMMDY HH:MI:SS'), 'YYYYMMDAY HH24:MI:SS');
+to_char(to_date('4910THU 5:37:01', 'RRMMDY HH:MI:SS'), 'YYYYMMDAY HH24:MI:SS')
+20491000 05:37:01
+select to_char(to_date('4910THURSDAY 5:37:01', 'RRMMDAY HH:MI:SS'), 'YYYYMMDY HH24:MI:SS');
+to_char(to_date('4910THURSDAY 5:37:01', 'RRMMDAY HH:MI:SS'), 'YYYYMMDY HH24:MI:SS')
+20491000 05:37:01
+select to_char(to_date('49364 5:37:01', 'RRDDD HH:MI:SS'), 'YYYYMMDY HH24:MI:SS');
+to_char(to_date('49364 5:37:01', 'RRDDD HH:MI:SS'), 'YYYYMMDY HH24:MI:SS')
+204912Thu 05:37:01
+select to_char(to_date('49401 5:37:01', 'RRWWD HH:MI:SS'), 'YYYYMMDD HH24:MI:SS');
+to_char(to_date('49401 5:37:01', 'RRWWD HH:MI:SS'), 'YYYYMMDD HH24:MI:SS')
+20491001 05:37:01
+select to_char(to_date('4940MON 5:37:01', 'RRWWDY HH:MI:SS'), 'YYYYMMDD HH24:MI:SS');
+to_char(to_date('4940MON 5:37:01', 'RRWWDY HH:MI:SS'), 'YYYYMMDD HH24:MI:SS')
+20491001 05:37:01
+select to_char(to_date('4940MONDAY 5:37:01', 'RRWWDAY HH:MI:SS'), 'YYYYMMDD HH24:MI:SS');
+to_char(to_date('4940MONDAY 5:37:01', 'RRWWDAY HH:MI:SS'), 'YYYYMMDD HH24:MI:SS')
+20491001 05:37:01
+select to_char(to_date('49102MONDAY 5:37:01', 'RRMMWDAY HH:MI:SS'), 'YYYYMMDD HH24:MI:SS');
+to_char(to_date('49102MONDAY 5:37:01', 'RRMMWDAY HH:MI:SS'), 'YYYYMMDD HH24:MI:SS')
+20491008 05:37:01
+select to_char(to_date('2021-10-21 5:37:01 P.M.', 'yyyymmdd hh:mi:ss p.m.'), 'yyyymmdd hh24:mi:ss');
+to_char(to_date('2021-10-21 5:37:01 P.M.', 'yyyymmdd hh:mi:ss p.m.'), 'yyyymmdd hh24:mi:ss')
+20211021 17:37:01
+select to_date(c1, 'YYYY%m%d') from t;
+to_date(c1, 'YYYY%m%d')
+2021-09-20
+NULL
+select to_date(c1, 'YYYYMM%d') from t;
+to_date(c1, 'YYYYMM%d')
+2021-09-20
+NULL
+select to_date('2021-10-21 5:37:01 AM', 'YYYYMMDD HH:MI:SS A');
+to_date('2021-10-21 5:37:01 AM', 'YYYYMMDD HH:MI:SS A')
+NULL
+Warning	1411	Incorrect datetime value: '2021-10-21 5:37:01 AM' for function to_date
+Warnings:
+select to_date('2021-10-21 5:37:01 A', 'YYYYMMDD HH:MI:SS AM');
+to_date('2021-10-21 5:37:01 A', 'YYYYMMDD HH:MI:SS AM')
+NULL
+Warning	1411	Incorrect datetime value: '2021-10-21 5:37:01 A' for function to_date
+Warnings:
+select to_date('2021-10-21 5:37:01 A', 'XMMDD HH:MI:SS AM');
+to_date('2021-10-21 5:37:01 A', 'XMMDD HH:MI:SS AM')
+NULL
+Warning	1411	Incorrect datetime value: '2021-10-21 5:37:01 A' for function to_date
+Warnings:
+select to_date('20211021 5:37:01', 'RRRXMMDD HH:MI:SS');
+to_date('20211021 5:37:01', 'RRRXMMDD HH:MI:SS')
+NULL
+Warning	1411	Incorrect datetime value: '20211021 5:37:01' for function to_date
+Warnings:
+select to_date('211021 5:37:01', 'RXMMDD HH:MI:SS');
+to_date('211021 5:37:01', 'RXMMDD HH:MI:SS')
+NULL
+Warning	1411	Incorrect datetime value: '211021 5:37:01' for function to_date
+Warnings:
+select to_date('211021 5:37:01', 'RRMXDD HH:MI:SS');
+to_date('211021 5:37:01', 'RRMXDD HH:MI:SS')
+NULL
+Warning	1411	Incorrect datetime value: '211021 5:37:01' for function to_date
+Warnings:
+select to_date('211021 5:37:01', 'RRMMDX HH:MI:SS');
+to_date('211021 5:37:01', 'RRMMDX HH:MI:SS')
+NULL
+Warning	1411	Incorrect datetime value: '211021 5:37:01' for function to_date
+Warnings:
+select to_date('211021 5:37:01', 'RRMMDD HX:MI:SS');
+to_date('211021 5:37:01', 'RRMMDD HX:MI:SS')
+NULL
+Warning	1411	Incorrect datetime value: '211021 5:37:01' for function to_date
+Warnings:
+select to_date('211021 5:37:01', 'RRMMDD HH:MI:SX');
+to_date('211021 5:37:01', 'RRMMDD HH:MI:SX')
+NULL
+Warning	1411	Incorrect datetime value: '211021 5:37:01' for function to_date
+Warnings:
+select to_date('4940MONDAY 5:37:01', 'RRWXDAY HH:MI:SS');
+to_date('4940MONDAY 5:37:01', 'RRWXDAY HH:MI:SS')
+NULL
+Warning	1411	Incorrect datetime value: '4940MONDAY 5:37:01' for function to_date
+Warnings:
+select to_date('490MONDAY 5:37:01', 'RRWXDAY HH:MI:SS');
+to_date('490MONDAY 5:37:01', 'RRWXDAY HH:MI:SS')
+NULL
+Warning	1411	Incorrect datetime value: '490MONDAY 5:37:01' for function to_date
+Warnings:
+select to_date('4954MONDAY 5:37:01', 'RRWXDAY HH:MI:SS');
+to_date('4954MONDAY 5:37:01', 'RRWXDAY HH:MI:SS')
+NULL
+Warning	1411	Incorrect datetime value: '4954MONDAY 5:37:01' for function to_date
+Warnings:
+select to_date('49400 5:37:01', 'RRWWD HH:MI:SS');
+to_date('49400 5:37:01', 'RRWWD HH:MI:SS')
+NULL
+Warning	1411	Incorrect datetime value: '49400 5:37:01' for function to_date
+Warnings:
+select to_date('49408 5:37:01', 'RRWWD HH:MI:SS');
+to_date('49408 5:37:01', 'RRWWD HH:MI:SS')
+NULL
+Warning	1411	Incorrect datetime value: '49408 5:37:01' for function to_date
+Warnings:
+select to_date('49401 5:37:01', 'RRWWx HH:MI:SS');
+to_date('49401 5:37:01', 'RRWWx HH:MI:SS')
+NULL
+Warning	1411	Incorrect datetime value: '49401 5:37:01' for function to_date
+Warnings:
+drop table t;

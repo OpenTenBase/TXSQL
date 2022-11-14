@@ -512,7 +512,6 @@ SELECT f1 FROM t1 WHERE f1 < "01-4:15";
 f1
 2001-01-01
 Warning	4095	Delimiter ':' in position 4 in datetime value '01-4:15' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter ':' in position 4 in datetime value '01-4:15' at row 1 is deprecated. Prefer the standard '-'.
 Warnings:
 DROP TABLE t1;
 CREATE TABLE t1(f1 DATETIME, c VARCHAR(20));
@@ -559,7 +558,6 @@ CREATE TABLE t1(f1 DATE);
 INSERT INTO t1 VALUES ('2001-01-01');
 SELECT f1 FROM t1 WHERE f1 < "2001-01/01";
 f1
-Warning	4095	Delimiter '/' in position 7 in datetime value '2001-01/01' at row 1 is deprecated. Prefer the standard '-'.
 Warning	4095	Delimiter '/' in position 7 in datetime value '2001-01/01' at row 1 is deprecated. Prefer the standard '-'.
 Warnings:
 DROP TABLE t1;

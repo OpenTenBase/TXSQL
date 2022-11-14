@@ -999,10 +999,6 @@ and c10 in ("abcdefgh", "123456789", "qwertyuio", "asddfgh",
 "abcdefgC", "12345678C", "qwertyuiC", "asddfgC");
 c1	c2	c3	c4	c5	c6	c7	c8	c9	c10	c11	c12	c13	c14	c15	c16
 Warning	3170	Memory capacity of 8388608 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
-Warning	3170	Memory capacity of 8388608 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
-Warning	3170	Memory capacity of 8388608 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
-Warning	3170	Memory capacity of 8388608 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
-Warning	3170	Memory capacity of 8388608 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 Warnings:
 drop table t1;
 End of 4.1 tests
@@ -1266,8 +1262,6 @@ select count(*) from (select @a:=concat(@a, ',', a) from t2 ) Z;
 count(*)
 1000
 Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
-Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
-Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
 Warnings:
 set @a=concat(@a, ')');
 insert into t2 values (11),(13),(15);
@@ -1277,7 +1271,7 @@ execute stmt1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t2	NULL	index	a	a	5	NULL	1003	50.00	Using where; Using index
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t2`.`a` AS `a` from `test`.`t2` FORCE INDEX (`a`) where (`test`.`t2`.`a` not in (0,0,2,4,984,6,986,8,10,12,988,990,14,16,992,994,18,20,996,22,998,24,1000,26,1002,28,1004,30,1006,1008,1010,32,34,36,38,40,42,1012,1014,1016,1018,1020,1022,1024,1026,44,46,48,50,52,1028,54,1030,56,58,1032,60,1034,62,1036,64,66,1038,68,70,1040,72,1042,74,1044,76,1046,78,80,1048,82,1050,84,1052,86,88,90,92,94,96,98,100,102,104,106,108,1054,1056,1058,1060,1062,1064,1066,1068,1070,1072,1074,1076,110,112,114,116,118,120,122,124,126,1078,1080,1082,1084,1086,128,130,132,1088,1090,134,136,1092,138,1094,140,1096,1098,142,1100,144,1102,1104,1106,1108,1110,1112,1114,1116,1118,1120,1122,1124,1126,1128,1130,146,1132,148,1134,150,1136,152,1138,1140,1142,1144,1146,1148,154,156,158,160,1150,1152,162,1154,164,166,168,1156,1158,1160,1162,1164,1166,1168,1170,1172,1174,170,172,174,176,178,180,1176,1178,1180,1182,182,184,1184,186,1186,1188,188,190,1190,1192,1194,1196,1198,192,194,196,198,200,1200,1202,1204,1206,202,204,206,1208,1210,208,210,1212,1214,1216,212,214,216,1218,1220,1222,218,220,222,1224,1226,224,226,1228,1230,228,230,1232,1234,1236,232,234,1238,236,1240,238,1242,1244,240,242,1246,244,246,1248,1250,248,250,1252,252,254,1254,256,258,1256,260,1258,262,1260,264,1262,266,1264,268,270,1266,272,1268,274,276,1270,278,1272,280,1274,1276,282,284,286,288,1278,1280,290,1282,292,1284,294,296,1286,1288,298,1290,300,1292,302,1294,304,306,1296,1298,308,310,1300,312,1302,314,1304,316,1306,1308,318,320,1310,322,324,1312,1314,326,328,1316,1318,330,1320,332,1322,1324,1326,1328,334,336,1330,1332,338,1334,340,1336,342,1338,344,1340,346,1342,348,1344,350,1346,352,1348,354,1350,356,1352,358,1354,360,1356,1358,362,1360,364,1362,366,1364,368,1366,370,1368,372,1370,374,1372,376,1374,378,380,1376,382,1378,384,1380,1382,386,1384,388,1386,390,1388,392,1390,394,1392,396,1394,398,1396,400,1398,402,1400,404,1402,406,1404,408,1406,410,1408,412,1410,414,1412,416,418,1414,420,1416,422,1418,424,426,1420,1422,1424,428,430,1426,432,1428,434,1430,436,1432,438,1434,440,1436,1438,442,1440,444,1442,446,1444,448,1446,450,1448,452,1450,1452,454,456,1454,1456,458,460,1458,462,1460,1462,1464,464,466,1466,468,1468,470,1470,472,474,1472,476,478,480,1474,1476,1478,1480,482,484,486,1482,488,1484,490,1486,492,1488,1490,494,496,1492,498,1494,500,1496,1498,1500,502,1502,504,506,1504,1506,1508,1510,508,510,512,1512,1514,514,1516,1518,516,518,1520,1522,1524,520,1526,522,1528,1530,524,526,1532,1534,1536,528,530,532,1538,1540,534,1542,536,1544,538,1546,540,1548,542,1550,544,1552,546,1554,1556,548,550,1558,1560,1562,552,554,1564,556,1566,558,1568,560,1570,562,1572,564,1574,1576,566,568,570,1578,572,1580,574,576,1582,578,1584,580,582,1586,584,1588,586,588,1590,1592,590,592,1594,1596,1598,594,596,598,1600,600,1602,602,604,1604,1606,606,608,1608,610,1610,612,1612,614,1614,616,618,1616,620,1618,622,1620,624,1622,626,1624,628,630,1626,632,634,1628,1630,636,638,1632,640,1634,642,644,1636,1638,646,648,1640,1642,1644,1646,1648,650,652,654,656,658,660,1650,1652,1654,662,664,666,1656,1658,668,1660,670,672,1662,1664,674,676,1666,1668,678,680,1670,682,684,1672,686,1674,688,690,1676,692,694,1678,1680,696,1682,698,1684,700,702,1686,1688,704,1690,706,708,710,712,1692,1694,714,1696,716,1698,718,1700,720,1702,722,1704,724,1706,1708,726,1710,728,1712,730,1714,732,734,1716,736,1718,738,1720,740,742,1722,744,1724,746,1726,748,750,1728,752,1730,754,1732,1734,756,1736,758,1738,760,1740,762,764,1742,766,1744,768,1746,770,1748,772,774,776,1750,1752,1754,1756,778,780,782,1758,1760,784,786,1762,1764,788,790,1766,1768,792,794,796,1770,1772,1774,1776,1778,798,800,802,804,806,1780,1782,1784,808,1786,810,1788,812,1790,814,1792,816,1794,818,1796,820,1798,822,1800,824,1802,826,1804,828,1806,1808,830,1810,1812,832,834,1814,1816,836,1818,838,1820,1822,840,1824,842,1826,1828,1830,1832,844,846,1834,848,1836,850,1838,852,1840,854,1842,856,1844,858,1846,860,1848,1850,862,1852,1854,864,1856,866,1858,868,1860,870,1862,872,1864,874,1866,876,878,880,1868,1870,882,1872,884,1874,886,888,890,1876,892,1878,894,1880,1882,896,1884,1886,898,1888,900,1890,902,1892,904,1894,906,1896,908,1898,910,1900,912,1902,914,916,918,920,1904,922,924,1906,1908,1910,1912,1914,1916,1918,1920,1922,1924,1926,1928,1930,1932,1934,1936,1938,1940,1942,1944,1946,1948,1950,1952,1954,1956,1958,1960,1962,1964,1966,1968,1970,1972,1974,1976,1978,1980,1982,1984,1986,1988,1990,1992,1994,1996,1998,926,928,930,932,934,936,938,940,942,944,946,948,950,952,954,956,958,960,962,964,966,968,970,972,974,976,978,980,982))
+Note	1003	/* select#1 */ select `test`.`t2`.`a` AS `a` from `test`.`t2` FORCE INDEX (`a`) where (`test`.`t2`.`a` not in (0,0,2,4,6,8,10,12,14,16,18,20,22,24,26,28,30,32,34,36,38,40,42,44,46,48,50,52,54,56,58,60,62,64,66,68,70,72,74,76,78,80,82,84,86,88,90,92,94,96,98,100,102,104,106,108,110,112,114,116,118,120,122,124,126,128,130,132,134,136,138,140,142,144,146,148,150,152,154,156,158,160,162,164,166,168,170,172,174,176,178,180,182,184,186,188,190,192,194,196,198,200,202,204,206,208,210,212,214,216,218,220,222,224,226,228,230,232,234,236,238,240,242,244,246,248,250,252,254,256,258,260,262,264,266,268,270,272,274,276,278,280,282,284,286,288,290,292,294,296,298,300,302,304,306,308,310,312,314,316,318,320,322,324,326,328,330,332,334,336,338,340,342,344,346,348,350,352,354,356,358,360,362,364,366,368,370,372,374,376,378,380,382,384,386,388,390,392,394,396,398,400,402,404,406,408,410,412,414,416,418,420,422,424,426,428,430,432,434,436,438,440,442,444,446,448,450,452,454,456,458,460,462,464,466,468,470,472,474,476,478,480,482,484,486,488,490,492,494,496,498,500,502,504,506,508,510,512,514,516,518,520,522,524,526,528,530,532,534,536,538,540,542,544,546,548,550,552,554,556,558,560,562,564,566,568,570,572,574,576,578,580,582,584,586,588,590,592,594,596,598,600,602,604,606,608,610,612,614,616,618,620,622,624,626,628,630,632,634,636,638,640,642,644,646,648,650,652,654,656,658,660,662,664,666,668,670,672,674,676,678,680,682,684,686,688,690,692,694,696,698,700,702,704,706,708,710,712,714,716,718,720,722,724,726,728,730,732,734,736,738,740,742,744,746,748,750,752,754,756,758,760,762,764,766,768,770,772,774,776,778,780,782,784,786,788,790,792,794,796,798,800,802,804,806,808,810,812,814,816,818,820,822,824,826,828,830,832,834,836,838,840,842,844,846,848,850,852,854,856,858,860,862,864,866,868,870,872,874,876,878,880,882,884,886,888,890,892,894,896,898,900,902,904,906,908,910,912,914,916,918,920,922,924,926,928,930,932,934,936,938,940,942,944,946,948,950,952,954,956,958,960,962,964,966,968,970,972,974,976,978,980,982,984,986,988,990,992,994,996,998,1000,1002,1004,1006,1008,1010,1012,1014,1016,1018,1020,1022,1024,1026,1028,1030,1032,1034,1036,1038,1040,1042,1044,1046,1048,1050,1052,1054,1056,1058,1060,1062,1064,1066,1068,1070,1072,1074,1076,1078,1080,1082,1084,1086,1088,1090,1092,1094,1096,1098,1100,1102,1104,1106,1108,1110,1112,1114,1116,1118,1120,1122,1124,1126,1128,1130,1132,1134,1136,1138,1140,1142,1144,1146,1148,1150,1152,1154,1156,1158,1160,1162,1164,1166,1168,1170,1172,1174,1176,1178,1180,1182,1184,1186,1188,1190,1192,1194,1196,1198,1200,1202,1204,1206,1208,1210,1212,1214,1216,1218,1220,1222,1224,1226,1228,1230,1232,1234,1236,1238,1240,1242,1244,1246,1248,1250,1252,1254,1256,1258,1260,1262,1264,1266,1268,1270,1272,1274,1276,1278,1280,1282,1284,1286,1288,1290,1292,1294,1296,1298,1300,1302,1304,1306,1308,1310,1312,1314,1316,1318,1320,1322,1324,1326,1328,1330,1332,1334,1336,1338,1340,1342,1344,1346,1348,1350,1352,1354,1356,1358,1360,1362,1364,1366,1368,1370,1372,1374,1376,1378,1380,1382,1384,1386,1388,1390,1392,1394,1396,1398,1400,1402,1404,1406,1408,1410,1412,1414,1416,1418,1420,1422,1424,1426,1428,1430,1432,1434,1436,1438,1440,1442,1444,1446,1448,1450,1452,1454,1456,1458,1460,1462,1464,1466,1468,1470,1472,1474,1476,1478,1480,1482,1484,1486,1488,1490,1492,1494,1496,1498,1500,1502,1504,1506,1508,1510,1512,1514,1516,1518,1520,1522,1524,1526,1528,1530,1532,1534,1536,1538,1540,1542,1544,1546,1548,1550,1552,1554,1556,1558,1560,1562,1564,1566,1568,1570,1572,1574,1576,1578,1580,1582,1584,1586,1588,1590,1592,1594,1596,1598,1600,1602,1604,1606,1608,1610,1612,1614,1616,1618,1620,1622,1624,1626,1628,1630,1632,1634,1636,1638,1640,1642,1644,1646,1648,1650,1652,1654,1656,1658,1660,1662,1664,1666,1668,1670,1672,1674,1676,1678,1680,1682,1684,1686,1688,1690,1692,1694,1696,1698,1700,1702,1704,1706,1708,1710,1712,1714,1716,1718,1720,1722,1724,1726,1728,1730,1732,1734,1736,1738,1740,1742,1744,1746,1748,1750,1752,1754,1756,1758,1760,1762,1764,1766,1768,1770,1772,1774,1776,1778,1780,1782,1784,1786,1788,1790,1792,1794,1796,1798,1800,1802,1804,1806,1808,1810,1812,1814,1816,1818,1820,1822,1824,1826,1828,1830,1832,1834,1836,1838,1840,1842,1844,1846,1848,1850,1852,1854,1856,1858,1860,1862,1864,1866,1868,1870,1872,1874,1876,1878,1880,1882,1884,1886,1888,1890,1892,1894,1896,1898,1900,1902,1904,1906,1908,1910,1912,1914,1916,1918,1920,1922,1924,1926,1928,1930,1932,1934,1936,1938,1940,1942,1944,1946,1948,1950,1952,1954,1956,1958,1960,1962,1964,1966,1968,1970,1972,1974,1976,1978,1980,1982,1984,1986,1988,1990,1992,1994,1996,1998))
 prepare stmt1 from @a;
 execute stmt1;
 a
@@ -1716,9 +1710,6 @@ a
 2009-09-23
 2009-09-23
 Warning	4095	Delimiter '/' in position 4 in datetime value '2009/09/23' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '/' in position 4 in datetime value '2009/09/23' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '/' in position 4 in datetime value '2009/09/23' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '/' in position 4 in datetime value '2009/09/23' at row 1 is deprecated. Prefer the standard '-'.
 Warnings:
 SELECT * FROM t1 WHERE a >= '20090923';
 a
@@ -1741,18 +1732,12 @@ a
 2009-09-23
 2009-09-23
 Warning	4095	Delimiter '.' in position 4 in datetime value '2009.09.23' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '.' in position 4 in datetime value '2009.09.23' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '.' in position 4 in datetime value '2009.09.23' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '.' in position 4 in datetime value '2009.09.23' at row 1 is deprecated. Prefer the standard '-'.
 Warnings:
 SELECT * FROM t1 WHERE a >= '2009:09:23';
 a
 2009-09-23
 2009-09-23
 2009-09-23
-Warning	4095	Delimiter ':' in position 4 in datetime value '2009:09:23' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter ':' in position 4 in datetime value '2009:09:23' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter ':' in position 4 in datetime value '2009:09:23' at row 1 is deprecated. Prefer the standard '-'.
 Warning	4095	Delimiter ':' in position 4 in datetime value '2009:09:23' at row 1 is deprecated. Prefer the standard '-'.
 Warnings:
 # DATE vs DATETIME
@@ -1771,18 +1756,12 @@ a
 2009-09-23 12:00:00
 2009-09-23 12:00:00
 Warning	4095	Delimiter '/' in position 4 in datetime value '2009/09/23' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '/' in position 4 in datetime value '2009/09/23' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '/' in position 4 in datetime value '2009/09/23' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '/' in position 4 in datetime value '2009/09/23' at row 1 is deprecated. Prefer the standard '-'.
 Warnings:
 SELECT * FROM t2 WHERE a >= '2009/09/23';
 a
 2009-09-23 12:00:00
 2009-09-23 12:00:00
 2009-09-23 12:00:00
-Warning	4095	Delimiter '/' in position 4 in datetime value '2009/09/23' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '/' in position 4 in datetime value '2009/09/23' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '/' in position 4 in datetime value '2009/09/23' at row 1 is deprecated. Prefer the standard '-'.
 Warning	4095	Delimiter '/' in position 4 in datetime value '2009/09/23' at row 1 is deprecated. Prefer the standard '-'.
 Warnings:
 SELECT * FROM t2 WHERE a >= '20090923';
@@ -1806,18 +1785,12 @@ a
 2009-09-23 12:00:00
 2009-09-23 12:00:00
 Warning	4095	Delimiter '.' in position 4 in datetime value '2009.09.23' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '.' in position 4 in datetime value '2009.09.23' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '.' in position 4 in datetime value '2009.09.23' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '.' in position 4 in datetime value '2009.09.23' at row 1 is deprecated. Prefer the standard '-'.
 Warnings:
 SELECT * FROM t2 WHERE a >= '2009:09:23';
 a
 2009-09-23 12:00:00
 2009-09-23 12:00:00
 2009-09-23 12:00:00
-Warning	4095	Delimiter ':' in position 4 in datetime value '2009:09:23' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter ':' in position 4 in datetime value '2009:09:23' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter ':' in position 4 in datetime value '2009:09:23' at row 1 is deprecated. Prefer the standard '-'.
 Warning	4095	Delimiter ':' in position 4 in datetime value '2009:09:23' at row 1 is deprecated. Prefer the standard '-'.
 Warnings:
 # DATETIME vs DATETIME
@@ -1835,9 +1808,6 @@ a
 2009-09-23 12:00:00
 2009-09-23 12:00:00
 2009-09-23 12:00:00
-Warning	4095	Delimiter '/' in position 4 in datetime value '2009/09/23 12:00:00' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '/' in position 4 in datetime value '2009/09/23 12:00:00' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '/' in position 4 in datetime value '2009/09/23 12:00:00' at row 1 is deprecated. Prefer the standard '-'.
 Warning	4095	Delimiter '/' in position 4 in datetime value '2009/09/23 12:00:00' at row 1 is deprecated. Prefer the standard '-'.
 Warnings:
 SELECT * FROM t2 WHERE a >= '20090923120000';
@@ -1861,18 +1831,12 @@ a
 2009-09-23 12:00:00
 2009-09-23 12:00:00
 Warning	4095	Delimiter '.' in position 4 in datetime value '2009.09.23 12:00:00' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '.' in position 4 in datetime value '2009.09.23 12:00:00' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '.' in position 4 in datetime value '2009.09.23 12:00:00' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '.' in position 4 in datetime value '2009.09.23 12:00:00' at row 1 is deprecated. Prefer the standard '-'.
 Warnings:
 SELECT * FROM t2 WHERE a >= '2009:09:23 12:00:00';
 a
 2009-09-23 12:00:00
 2009-09-23 12:00:00
 2009-09-23 12:00:00
-Warning	4095	Delimiter ':' in position 4 in datetime value '2009:09:23 12:00:00' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter ':' in position 4 in datetime value '2009:09:23 12:00:00' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter ':' in position 4 in datetime value '2009:09:23 12:00:00' at row 1 is deprecated. Prefer the standard '-'.
 Warning	4095	Delimiter ':' in position 4 in datetime value '2009:09:23 12:00:00' at row 1 is deprecated. Prefer the standard '-'.
 Warnings:
 # DATETIME vs DATE
@@ -1891,18 +1855,12 @@ a
 2009-09-23
 2009-09-23
 Warning	4095	Delimiter '/' in position 4 in datetime value '2009/09/23 00:00:00' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '/' in position 4 in datetime value '2009/09/23 00:00:00' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '/' in position 4 in datetime value '2009/09/23 00:00:00' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '/' in position 4 in datetime value '2009/09/23 00:00:00' at row 1 is deprecated. Prefer the standard '-'.
 Warnings:
 SELECT * FROM t1 WHERE a >= '2009/09/23 00:00:00';
 a
 2009-09-23
 2009-09-23
 2009-09-23
-Warning	4095	Delimiter '/' in position 4 in datetime value '2009/09/23 00:00:00' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '/' in position 4 in datetime value '2009/09/23 00:00:00' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '/' in position 4 in datetime value '2009/09/23 00:00:00' at row 1 is deprecated. Prefer the standard '-'.
 Warning	4095	Delimiter '/' in position 4 in datetime value '2009/09/23 00:00:00' at row 1 is deprecated. Prefer the standard '-'.
 Warnings:
 SELECT * FROM t1 WHERE a >= '20090923000000';
@@ -1926,18 +1884,12 @@ a
 2009-09-23
 2009-09-23
 Warning	4095	Delimiter '.' in position 4 in datetime value '2009.09.23 00:00:00' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '.' in position 4 in datetime value '2009.09.23 00:00:00' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '.' in position 4 in datetime value '2009.09.23 00:00:00' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '.' in position 4 in datetime value '2009.09.23 00:00:00' at row 1 is deprecated. Prefer the standard '-'.
 Warnings:
 SELECT * FROM t1 WHERE a >= '2009:09:23 00:00:00';
 a
 2009-09-23
 2009-09-23
 2009-09-23
-Warning	4095	Delimiter ':' in position 4 in datetime value '2009:09:23 00:00:00' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter ':' in position 4 in datetime value '2009:09:23 00:00:00' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter ':' in position 4 in datetime value '2009:09:23 00:00:00' at row 1 is deprecated. Prefer the standard '-'.
 Warning	4095	Delimiter ':' in position 4 in datetime value '2009:09:23 00:00:00' at row 1 is deprecated. Prefer the standard '-'.
 Warnings:
 # Test of the new get_date_from_str implementation
@@ -2317,9 +2269,6 @@ c1
 1
 2
 3
-Warning	1292	Truncated incorrect DECIMAL value: 'A'
-Warning	1292	Truncated incorrect DECIMAL value: 'A'
-Warning	1292	Truncated incorrect DECIMAL value: 'A'
 Warning	1292	Truncated incorrect DECIMAL value: 'A'
 Warnings:
 DROP TABLE t1;
@@ -2933,10 +2882,6 @@ Warning	1287	'BINARY expr' is deprecated and will be removed in a future release
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 Warning	4095	Delimiter '.' in position 4 in datetime value '2001.01.01' at row 1 is deprecated. Prefer the standard '-'.
 Warning	4095	Delimiter '#' in position 4 in datetime value '2001#01#01' at row 1 is deprecated. Prefer the standard '-'.
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 
 EXPLAIN SELECT * FROM t1, t2 WHERE b=a ORDER BY BINARY a, BINARY b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
@@ -2962,10 +2907,6 @@ Warning	1287	'BINARY expr' is deprecated and will be removed in a future release
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 Warning	4095	Delimiter '.' in position 4 in datetime value '2001.01.01' at row 1 is deprecated. Prefer the standard '-'.
 Warning	4095	Delimiter '#' in position 4 in datetime value '2001#01#01' at row 1 is deprecated. Prefer the standard '-'.
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 
 DROP TABLE t1,t2;
 #
@@ -3040,9 +2981,9 @@ a	b
 SHOW STATUS LIKE 'Handler_read_%';
 Variable_name	Value
 Handler_read_first	0
-Handler_read_key	4
+Handler_read_key	2
 Handler_read_last	0
-Handler_read_next	0
+Handler_read_next	2
 Handler_read_prev	0
 Handler_read_rnd	0
 Handler_read_rnd_next	0
@@ -3060,9 +3001,9 @@ a	b
 SHOW STATUS LIKE 'Handler_read_%';
 Variable_name	Value
 Handler_read_first	0
-Handler_read_key	2
+Handler_read_key	1
 Handler_read_last	0
-Handler_read_next	0
+Handler_read_next	1
 Handler_read_prev	0
 Handler_read_rnd	0
 Handler_read_rnd_next	0
@@ -3081,9 +3022,9 @@ a	b
 SHOW STATUS LIKE 'Handler_read_%';
 Variable_name	Value
 Handler_read_first	0
-Handler_read_key	4
+Handler_read_key	2
 Handler_read_last	0
-Handler_read_next	0
+Handler_read_next	2
 Handler_read_prev	0
 Handler_read_rnd	0
 Handler_read_rnd_next	0
@@ -3102,9 +3043,9 @@ a	b	c
 SHOW STATUS LIKE 'Handler_read_%';
 Variable_name	Value
 Handler_read_first	0
-Handler_read_key	4
+Handler_read_key	2
 Handler_read_last	0
-Handler_read_next	0
+Handler_read_next	2
 Handler_read_prev	0
 Handler_read_rnd	0
 Handler_read_rnd_next	0
@@ -3123,9 +3064,9 @@ a	b	c
 SHOW STATUS LIKE 'Handler_read_%';
 Variable_name	Value
 Handler_read_first	0
-Handler_read_key	4
+Handler_read_key	2
 Handler_read_last	0
-Handler_read_next	0
+Handler_read_next	2
 Handler_read_prev	0
 Handler_read_rnd	0
 Handler_read_rnd_next	0
@@ -3144,9 +3085,9 @@ a	b
 SHOW STATUS LIKE 'Handler_read_%';
 Variable_name	Value
 Handler_read_first	0
-Handler_read_key	4
+Handler_read_key	2
 Handler_read_last	0
-Handler_read_next	0
+Handler_read_next	2
 Handler_read_prev	0
 Handler_read_rnd	0
 Handler_read_rnd_next	0
@@ -3165,9 +3106,9 @@ a	b
 SHOW STATUS LIKE 'Handler_read_%';
 Variable_name	Value
 Handler_read_first	0
-Handler_read_key	4
+Handler_read_key	2
 Handler_read_last	0
-Handler_read_next	0
+Handler_read_next	2
 Handler_read_prev	0
 Handler_read_rnd	0
 Handler_read_rnd_next	0
@@ -3186,9 +3127,9 @@ a	b
 SHOW STATUS LIKE 'Handler_read_%';
 Variable_name	Value
 Handler_read_first	0
-Handler_read_key	4
+Handler_read_key	2
 Handler_read_last	0
-Handler_read_next	0
+Handler_read_next	2
 Handler_read_prev	0
 Handler_read_rnd	0
 Handler_read_rnd_next	0
@@ -3207,9 +3148,9 @@ a	b
 SHOW STATUS LIKE 'Handler_read_%';
 Variable_name	Value
 Handler_read_first	0
-Handler_read_key	4
+Handler_read_key	2
 Handler_read_last	0
-Handler_read_next	0
+Handler_read_next	2
 Handler_read_prev	0
 Handler_read_rnd	0
 Handler_read_rnd_next	0
@@ -3228,9 +3169,9 @@ a	b
 SHOW STATUS LIKE 'Handler_read_%';
 Variable_name	Value
 Handler_read_first	0
-Handler_read_key	2
+Handler_read_key	1
 Handler_read_last	0
-Handler_read_next	0
+Handler_read_next	1
 Handler_read_prev	0
 Handler_read_rnd	0
 Handler_read_rnd_next	0
@@ -3249,9 +3190,9 @@ a	b
 SHOW STATUS LIKE 'Handler_read_%';
 Variable_name	Value
 Handler_read_first	0
-Handler_read_key	4
+Handler_read_key	2
 Handler_read_last	0
-Handler_read_next	0
+Handler_read_next	2
 Handler_read_prev	0
 Handler_read_rnd	0
 Handler_read_rnd_next	0
@@ -3271,9 +3212,9 @@ a	b
 SHOW STATUS LIKE 'Handler_read_%';
 Variable_name	Value
 Handler_read_first	0
-Handler_read_key	4
+Handler_read_key	2
 Handler_read_last	0
-Handler_read_next	0
+Handler_read_next	2
 Handler_read_prev	0
 Handler_read_rnd	0
 Handler_read_rnd_next	0
@@ -3397,12 +3338,12 @@ a	b	a	b	a	b
 SHOW STATUS LIKE 'Handler_read_%';
 Variable_name	Value
 Handler_read_first	1
-Handler_read_key	5
+Handler_read_key	10
 Handler_read_last	0
-Handler_read_next	4
+Handler_read_next	6
 Handler_read_prev	0
 Handler_read_rnd	0
-Handler_read_rnd_next	0
+Handler_read_rnd_next	6
 EXPLAIN SELECT *
 FROM t5 JOIN t6 ON t5.a = t6.a JOIN t7
 WHERE (t7.a, t7.b) IN ((t5.b, 1), (t6.b, 1));
@@ -3424,12 +3365,12 @@ a	b	a	b	a	b
 SHOW STATUS LIKE 'Handler_read_%';
 Variable_name	Value
 Handler_read_first	1
-Handler_read_key	5
+Handler_read_key	10
 Handler_read_last	0
-Handler_read_next	2
+Handler_read_next	4
 Handler_read_prev	0
 Handler_read_rnd	0
-Handler_read_rnd_next	0
+Handler_read_rnd_next	6
 #
 # Regression tests of the worklog below.
 #
@@ -3506,9 +3447,9 @@ a
 SHOW STATUS LIKE 'Handler_read_%';
 Variable_name	Value
 Handler_read_first	0
-Handler_read_key	4
+Handler_read_key	2
 Handler_read_last	0
-Handler_read_next	0
+Handler_read_next	2
 Handler_read_prev	0
 Handler_read_rnd	0
 Handler_read_rnd_next	0
@@ -3527,9 +3468,9 @@ a
 SHOW STATUS LIKE 'Handler_read_%';
 Variable_name	Value
 Handler_read_first	0
-Handler_read_key	4
+Handler_read_key	2
 Handler_read_last	0
-Handler_read_next	0
+Handler_read_next	2
 Handler_read_prev	0
 Handler_read_rnd	0
 Handler_read_rnd_next	0

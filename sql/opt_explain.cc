@@ -85,7 +85,6 @@
 #include "sql/range_optimizer/range_optimizer.h"
 #include "sql/range_optimizer/rowid_ordered_retrieval.h"
 #include "sql/range_optimizer/rowid_ordered_retrieval_plan.h"
-#include "sql/parallel_execution/px_plan_slice.h" // PX_plan_slice
 #include "sql/sql_bitmap.h"
 #include "sql/sql_class.h"
 #include "sql/sql_cmd.h"

@@ -1445,7 +1445,7 @@ Handler_read_last	0
 Handler_read_next	0
 Handler_read_prev	0
 Handler_read_rnd	0
-Handler_read_rnd_next	6
+Handler_read_rnd_next	16
 DROP TABLE t1,t2;
 CREATE TABLE t1 (c int  PRIMARY KEY, e int NOT NULL);
 INSERT INTO t1 VALUES (1,0), (2,1);
@@ -2365,7 +2365,7 @@ Handler_read_last	0
 Handler_read_next	0
 Handler_read_prev	0
 Handler_read_rnd	0
-Handler_read_rnd_next	3
+Handler_read_rnd_next	6
 DROP TABLE t1,t2;
 #
 # Bug#13464334 SAME QUERY PRODUCES DIFFERENT RESULTS WHEN USED WITH AND
@@ -3435,7 +3435,7 @@ Handler_read_last	0
 Handler_read_next	0
 Handler_read_prev	0
 Handler_read_rnd	0
-Handler_read_rnd_next	15
+Handler_read_rnd_next	20
 Handler_rollback	0
 Handler_savepoint	0
 Handler_savepoint_rollback	0
@@ -3467,7 +3467,7 @@ Handler_read_last	0
 Handler_read_next	0
 Handler_read_prev	0
 Handler_read_rnd	0
-Handler_read_rnd_next	15
+Handler_read_rnd_next	20
 Handler_rollback	0
 Handler_savepoint	0
 Handler_savepoint_rollback	0
@@ -3497,7 +3497,7 @@ Handler_read_last	0
 Handler_read_next	0
 Handler_read_prev	0
 Handler_read_rnd	0
-Handler_read_rnd_next	15
+Handler_read_rnd_next	20
 Handler_rollback	0
 Handler_savepoint	0
 Handler_savepoint_rollback	0

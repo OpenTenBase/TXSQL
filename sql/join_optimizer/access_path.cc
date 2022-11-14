@@ -717,7 +717,9 @@ unique_ptr_destroy_only<RowIterator> CreateIteratorFromAccessPath(
         iterator = NewIterator<NestedLoopIterator>(
             thd, mem_root, move(job.children[0]), move(job.children[1]),
             param.join_type, param.pfs_batch_mode);
+#if defined(HAVE_PX)
         iterator->adjust_children();
+#endif /* defined(HAVE_PX) */
         break;
       }
       case AccessPath::NESTED_LOOP_SEMIJOIN_WITH_DUPLICATE_REMOVAL: {
@@ -753,7 +755,9 @@ unique_ptr_destroy_only<RowIterator> CreateIteratorFromAccessPath(
             move(job.children[1]), thd->variables.join_buff_size,
             param.mrr_length_per_rec, param.rec_per_key, param.store_rowids,
             param.tables_to_get_rowid_for, mrr_iterator, param.join_type);
+  #if defined(HAVE_PX)
         iterator->adjust_children();
+#endif /* defined(HAVE_PX) */
         break;
       }
       case AccessPath::HASH_JOIN: {
@@ -835,7 +839,9 @@ unique_ptr_destroy_only<RowIterator> CreateIteratorFromAccessPath(
             param.allow_spill_to_disk, join_type,
             join_predicate->expr->join_conditions, probe_input_batch_mode,
             hash_table_generation);
+#if defined(HAVE_PX)
         iterator->adjust_children();
+#endif /* defined(HAVE_PX) */
         break;
       }
       case AccessPath::SORT_MERGE_JOIN: {
@@ -899,7 +905,9 @@ unique_ptr_destroy_only<RowIterator> CreateIteratorFromAccessPath(
         }
         iterator = NewIterator<FilterIterator>(
             thd, mem_root, move(job.children[0]), param.condition);
+#if defined(HAVE_PX)
         iterator->adjust_children();
+#endif /* defined(HAVE_PX) */
         break;
       }
       case AccessPath::SORT: {
@@ -916,7 +924,9 @@ unique_ptr_destroy_only<RowIterator> CreateIteratorFromAccessPath(
         iterator = NewIterator<SortingIterator>(
             thd, mem_root, filesort, move(job.children[0]), num_rows_estimate,
             param.tables_to_get_rowid_for, examined_rows);
+#if defined(HAVE_PX)
         iterator->adjust_children();
+#endif /* defined(HAVE_PX) */
         if (filesort->m_remove_duplicates) {
           filesort->tables[0]->duplicate_removal_iterator =
               down_cast<SortingIterator *>(iterator->real_iterator());
@@ -939,8 +949,14 @@ unique_ptr_destroy_only<RowIterator> CreateIteratorFromAccessPath(
             thd, mem_root, move(job.children[0]), join,
             TableCollection(tables, /*store_rowids=*/false,
                             /*tables_to_get_rowid_for=*/0),
-            param.rollup, param.px_agg_type);
+            param.rollup
+#if defined(HAVE_PX)
+            , param.px_agg_type
+#endif /* defined(HAVE_PX) */
+            );
+#if defined(HAVE_PX)
         iterator->adjust_children();
+#endif /* defined(HAVE_PX) */
         break;
       }
       case AccessPath::TEMPTABLE_AGGREGATE: {
@@ -964,8 +980,14 @@ unique_ptr_destroy_only<RowIterator> CreateIteratorFromAccessPath(
         iterator = unique_ptr_destroy_only<RowIterator>(
             temptable_aggregate_iterator::CreateIterator(
                 thd, move(job.children[0]), param.temp_table_param, param.table,
-                move(job.children[1]), join, param.ref_slice, param.px_agg_type));
+                move(job.children[1]), join, param.ref_slice
+#if defined(HAVE_PX)
+                , param.px_agg_type
+#endif /* defined(HAVE_PX) */
+                ));
+#if defined(HAVE_PX)
         iterator->adjust_children();
+#endif /* defined(HAVE_PX) */
         break;
       }
       case AccessPath::LIMIT_OFFSET: {
@@ -984,7 +1006,9 @@ unique_ptr_destroy_only<RowIterator> CreateIteratorFromAccessPath(
         iterator = NewIterator<LimitOffsetIterator>(
             thd, mem_root, move(job.children[0]), param.limit, param.offset,
             param.count_all_rows, param.reject_multiple_rows, send_records);
+#if defined(HAVE_PX)
         iterator->adjust_children();
+#endif /* defined(HAVE_PX) */
         break;
       }
       case AccessPath::STREAM: {
@@ -997,7 +1021,9 @@ unique_ptr_destroy_only<RowIterator> CreateIteratorFromAccessPath(
         iterator = NewIterator<StreamingIterator>(
             thd, mem_root, move(job.children[0]), param.temp_table_param,
             param.table, param.provide_rowid, param.join, param.ref_slice);
+#if defined(HAVE_PX)
         iterator->adjust_children();
+#endif /* defined(HAVE_PX) */
         break;
       }
       case AccessPath::MATERIALIZE: {
@@ -1073,7 +1099,9 @@ unique_ptr_destroy_only<RowIterator> CreateIteratorFromAccessPath(
             materialize_iterator::CreateIterator(thd, std::move(query_blocks),
                                                  param, move(table_iterator),
                                                  subjoin));
+#if defined(HAVE_PX)
         iterator->adjust_children();
+#endif /* defined(HAVE_PX) */
         break;
       }
       case AccessPath::MATERIALIZE_INFORMATION_SCHEMA_TABLE: {
@@ -1086,7 +1114,9 @@ unique_ptr_destroy_only<RowIterator> CreateIteratorFromAccessPath(
         iterator = NewIterator<MaterializeInformationSchemaTableIterator>(
             thd, mem_root, move(job.children[0]), param.table_list,
             param.condition);
+#if defined(HAVE_PX)
         iterator->adjust_children();
+#endif /* defined(HAVE_PX) */
         break;
       }
       case AccessPath::APPEND: {
@@ -1114,7 +1144,9 @@ unique_ptr_destroy_only<RowIterator> CreateIteratorFromAccessPath(
           children.push_back(move(child));
         }
         iterator = NewIterator<AppendIterator>(thd, mem_root, move(children));
+#if defined(HAVE_PX)
         iterator->adjust_children();
+#endif /* defined(HAVE_PX) */
         break;
       }
       case AccessPath::WINDOW: {
@@ -1145,7 +1177,9 @@ unique_ptr_destroy_only<RowIterator> CreateIteratorFromAccessPath(
         iterator = NewIterator<WeedoutIterator>(
             thd, mem_root, move(job.children[0]), param.weedout_table,
             param.tables_to_get_rowid_for);
+#if defined(HAVE_PX)
         iterator->adjust_children();
+#endif /* defined(HAVE_PX) */
         break;
       }
       case AccessPath::REMOVE_DUPLICATES: {
@@ -1158,7 +1192,9 @@ unique_ptr_destroy_only<RowIterator> CreateIteratorFromAccessPath(
         iterator = NewIterator<RemoveDuplicatesIterator>(
             thd, mem_root, move(job.children[0]), join, param.group_items,
             param.group_items_size);
+#if defined(HAVE_PX)
         iterator->adjust_children();
+#endif /* defined(HAVE_PX) */
         break;
       }
       case AccessPath::REMOVE_DUPLICATES_ON_INDEX: {
@@ -1239,6 +1275,7 @@ unique_ptr_destroy_only<RowIterator> CreateIteratorFromAccessPath(
                                             std::move(job.children[0]));
         break;
       }
+#if defined(HAVE_PX)
       case AccessPath::PX_RECEIVE: {
         const auto &param = path->px_receiver();
         if (job.children.is_null()) {
@@ -1304,6 +1341,7 @@ unique_ptr_destroy_only<RowIterator> CreateIteratorFromAccessPath(
         iterator->adjust_children();
         break;
       }
+#endif /* defined(HAVE_PX) */
     }
 
     if (iterator == nullptr) {

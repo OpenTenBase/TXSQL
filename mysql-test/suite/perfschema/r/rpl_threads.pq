@@ -74,12 +74,12 @@ select COMMAND, STATE
 from INFORMATION_SCHEMA.PROCESSLIST
 where ID = @slave_sql_pid;
 COMMAND	STATE
-Query	Replica has read all relay log; waiting for more updates
+Connect	Replica has read all relay log; waiting for more updates
 select NAME, TYPE, PROCESSLIST_COMMAND, PROCESSLIST_STATE
 from performance_schema.threads
 where PROCESSLIST_ID = @slave_sql_pid;
 NAME	TYPE	PROCESSLIST_COMMAND	PROCESSLIST_STATE
-thread/sql/replica_sql	FOREGROUND	Query	Replica has read all relay log; waiting for more updates
+thread/sql/replica_sql	FOREGROUND	Connect	Replica has read all relay log; waiting for more updates
 select THREAD_ID from performance_schema.threads
 where PROCESSLIST_ID = @slave_sql_pid
 into @slave_sql_tid;

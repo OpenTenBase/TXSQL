@@ -375,6 +375,7 @@ int IndexRangeScanIterator::Read() {
   MY_BITMAP *const save_write_set = table()->write_set;
   DBUG_TRACE;
 
+#if defined(HAVE_PX)
   if (m_parallel_scan) {
     int result = file->ha_px_scan_next(table()->record[0], thd()->px_scan_ctx);
     if (result == 0) {
@@ -385,6 +386,7 @@ int IndexRangeScanIterator::Read() {
     }
     return HandleError(result);
   }
+#endif /* defined(HAVE_PX) */
 
   if (in_ror_merged_scan) {
     /*

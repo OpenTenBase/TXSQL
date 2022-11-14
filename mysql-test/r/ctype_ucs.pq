@@ -825,10 +825,6 @@ uf	00750066
 œ	0153
 Warnings:
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 select group_concat(s1 order by binary s1) from t1 group by s1;
 group_concat(s1 order by binary s1)
 a,ä
@@ -849,10 +845,6 @@ uf
 Æ,æ
 Œ,œ
 Warnings:
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 SELECT s1, hex(s1), hex(weight_string(s1)) FROM t1 ORDER BY s1, BINARY(s1);
 s1	hex(s1)	hex(weight_string(s1))
@@ -881,18 +873,10 @@ uf	00750066	00550046
 œ	0153	0152
 Warnings:
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 SELECT s1, hex(s1) FROM t1 WHERE s1='ae' ORDER BY s1, BINARY(s1);
 s1	hex(s1)
 ae	00610065
 Warnings:
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 drop table t1;
 "END ctype_german.inc"
@@ -1218,7 +1202,7 @@ Warnings:
 Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 select hex(group_concat(a separator ',')) from t1;
 hex(group_concat(a separator ','))
-622C632C61
+612C622C63
 select collation(group_concat(a separator ',')) from t1;
 collation(group_concat(a separator ','))
 latin1_swedish_ci
@@ -1242,14 +1226,10 @@ select concat(a,if(b<10,_ucs2 0x0061,_ucs2 0x0062)) from t1;
 concat(a,if(b<10,_ucs2 0x0061,_ucs2 0x0062))
 Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 Warnings:
 aa
 select concat(a,if(b>10,_ucs2 0x0061,_ucs2 0x0062)) from t1;
 concat(a,if(b>10,_ucs2 0x0061,_ucs2 0x0062))
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 Warnings:
@@ -1258,14 +1238,10 @@ select * from t1 where a=if(b<10,_ucs2 0x0061,_ucs2 0x0062);
 a	b
 Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 Warnings:
 a	1
 select * from t1 where a=if(b>10,_ucs2 0x0061,_ucs2 0x0062);
 a	b
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 Warnings:
@@ -1281,8 +1257,6 @@ select * from t1 where a=if(b<10,_ucs2 0x00C0,_ucs2 0x0062);
 ERROR HY000: Cannot convert string '\x00\xC0' from ucs2 to ascii
 select * from t1 where a=if(b<10,_ucs2 0x0062,_ucs2 0x00C0);
 a	b
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 Warnings:
@@ -3603,7 +3577,6 @@ select hex(a) from v1;
 hex(a)
 0031
 Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 Warnings:
 drop table t1;
 drop view v1;
@@ -3620,9 +3593,6 @@ hex(a)
 003000300031
 003000310030
 003100300030
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 Warnings:
 drop table t1;
@@ -3642,9 +3612,6 @@ hex(a)
 003000300030003000300030003000300030003000300030003000300030003000300030003000300030003000300030003000300030003000310030
 003000300030003000300030003000300030003000300030003000300030003000300030003000300030003000300030003000300030003100300030
 Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 Warnings:
 drop table t1;
 drop view v1;
@@ -3658,7 +3625,6 @@ select hex(a) from v1;
 hex(a)
 003100320033002E00340035
 Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 Warnings:
 drop table t1;
 drop view v1;
@@ -3671,7 +3637,6 @@ a	varchar(6)	YES		NULL
 select hex(a) from v1;
 hex(a)
 0031
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 Warnings:
 drop table t1;
@@ -3692,10 +3657,6 @@ hex(a)
 00300031003000300030
 00310030003000300030
 Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 Warnings:
 drop table t1;
 drop view v1;
@@ -3708,7 +3669,6 @@ a	varchar(9)	YES		NULL
 select hex(a) from v1;
 hex(a)
 0031
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 Warnings:
 drop table t1;
@@ -3729,10 +3689,6 @@ hex(a)
 00300030003000300031003000300030
 00300030003000310030003000300030
 Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 Warnings:
 drop table t1;
 drop view v1;
@@ -3745,7 +3701,6 @@ a	varchar(11)	YES		NULL
 select hex(a) from v1;
 hex(a)
 0031
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 Warnings:
 drop table t1;
@@ -3766,10 +3721,6 @@ hex(a)
 0030003000300030003000300031003000300030
 0030003000300030003000310030003000300030
 Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 Warnings:
 drop table t1;
 drop view v1;
@@ -3782,7 +3733,6 @@ a	varchar(20)	YES		NULL
 select hex(a) from v1;
 hex(a)
 0031
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 Warnings:
 drop table t1;
@@ -3803,10 +3753,6 @@ hex(a)
 00300030003000300030003000300030003000300030003000300030003000300031003000300030
 00300030003000300030003000300030003000300030003000300030003000310030003000300030
 Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 Warnings:
 drop table t1;
 drop view v1;
@@ -3819,7 +3765,6 @@ a	varchar(12)	YES		NULL
 select hex(a) from v1;
 hex(a)
 003100320033002E003400350036
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 Warnings:
 drop table t1;
@@ -3840,10 +3785,6 @@ hex(a)
 0030003000300030003000300031003000300030002E0031
 0030003000300030003000310030003000300030002E0031
 Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 Warnings:
 drop table t1;
 drop view v1;
@@ -3859,7 +3800,6 @@ a	varchar(22)	YES		NULL
 select hex(a) from v1;
 hex(a)
 003100320033002E003400350036
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 Warnings:
 drop table t1;
@@ -3880,10 +3820,6 @@ hex(a)
 00300030003000300030003000300030003000300030003000300030003000300031003000300030002E0031
 00300030003000300030003000300030003000300030003000300030003000310030003000300030002E0031
 Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 Warnings:
 drop table t1;
 drop view v1;
@@ -3896,7 +3832,6 @@ a	varchar(4)	YES		NULL
 select hex(a) from v1;
 hex(a)
 0032003000300031
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 Warnings:
 drop table t1;
@@ -3930,10 +3865,6 @@ hex(a)
 0032003000300031002D00300032002D00300033002000300034003A00300035003A00300036
 0032003000300031002D00300032002D00300033002000300034003A00300035003A00300036
 Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 Warnings:
 drop table t1;
 drop view v1;
@@ -3948,8 +3879,6 @@ select hex(a) from v1;
 hex(a)
 0032003000300031002D00300032002D00300033
 0032003000300031002D00300032002D00300033
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 Warnings:
 drop table t1;
@@ -3966,8 +3895,6 @@ hex(a)
 00300030003A00300030003A00300031
 00300031003A00300032003A00300033
 Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 Warnings:
 drop table t1;
 drop view v1;
@@ -3982,8 +3909,6 @@ select hex(a) from v1;
 hex(a)
 0032003000300031002D00300032002D00300033002000300034003A00300035003A00300036
 0032003000300031002D00300032002D00300033002000300034003A00300035003A00300036
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 Warning	1287	'ucs2' is deprecated and will be removed in a future release. Please use utf8mb4 instead
 Warnings:
 drop table t1;
@@ -4710,10 +4635,6 @@ ue	00750065
 uf	00750066
 Warnings:
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 select group_concat(s1 order by binary s1) from t1 group by s1;
 group_concat(s1 order by binary s1)
 a
@@ -4732,10 +4653,6 @@ ud
 ue,ü
 uf
 Warnings:
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 SELECT s1, hex(s1), hex(weight_string(s1)) FROM t1 ORDER BY s1, BINARY(s1);
 s1	hex(s1)	hex(weight_string(s1))
@@ -4764,10 +4681,6 @@ ue	00750065	101F0E8B
 uf	00750066	101F0EB9
 Warnings:
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 SELECT s1, hex(s1) FROM t1 WHERE s1='ae' ORDER BY s1, BINARY(s1);
 s1	hex(s1)
 ae	00610065
@@ -4775,10 +4688,6 @@ ae	00610065
 ä	00E4
 æ	00E6
 Warnings:
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 drop table t1;
 "END ctype_german.inc"

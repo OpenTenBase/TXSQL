@@ -525,7 +525,7 @@ a
 2010-02-01 09:31:01
 SHOW STATUS LIKE 'Handler_read_next';
 Variable_name	Value
-Handler_read_next	0
+Handler_read_next	1
 DROP TABLE t1, t2;
 End of 5.1 tests
 

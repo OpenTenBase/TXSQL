@@ -123,9 +123,9 @@ send Mysqlx.Crud.Find {
 }
 
 ID	Name	CountryCode	District	Population
+2	Qandahar	AFG	Qandahar	237
 3	Herat	AFG	Herat	186
 4	Mazar-e-Sharif	AFG	Balkh	127
-2	Qandahar	AFG	Qandahar	237
 command ok
 Mysqlx.Ok {
   msg: "bye!"
@@ -171,8 +171,8 @@ send Mysqlx.Crud.Find {
 
 ID	Name	CountryCode	District	Population
 2	Qandahar	AFG	Qandahar	237
-3	Herat	AFG	Herat	186
 4	Mazar-e-Sharif	AFG	Balkh	127
+3	Herat	AFG	Herat	186
 command ok
 Mysqlx.Ok {
   msg: "bye!"
@@ -219,9 +219,9 @@ send Mysqlx.Crud.Find {
 }
 
 ID	Name	CountryCode	District	Population
-4	Mazar-e-Sharif	AFG	Balkh	127
 2	Qandahar	AFG	Qandahar	237
 3	Herat	AFG	Herat	186
+4	Mazar-e-Sharif	AFG	Balkh	127
 command ok
 Mysqlx.Ok {
   msg: "bye!"
@@ -354,8 +354,8 @@ send Mysqlx.Crud.Find {
 
 ID	Name	CountryCode	District	Population
 2	Qandahar	AFG	Qandahar	237
-3	Herat	AFG	Herat	186
 4	Mazar-e-Sharif	AFG	Balkh	127
+3	Herat	AFG	Herat	186
 command ok
 Mysqlx.Ok {
   msg: "bye!"

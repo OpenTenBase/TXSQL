@@ -81,6 +81,7 @@ class IteratorProfiler {
 @endcode
  */
 class RowIterator {
+#if defined(HAVE_PX)
  public:
   enum PhysicalRowIteratorType {
     PHY_NO_TYPE = 1000,
@@ -142,16 +143,16 @@ class RowIterator {
     PHY_PX_RECEIVE,
     PHY_PX_SEND
   }physical_row_iterator_type;
-
-  enum SynchronizeRoleType {
-    SYN_LOCK = 0,
-    SYN_KEY
-  }synchronize_role_type;
+#endif /* defined(HAVE_PX) */
 
  public:
   // NOTE: Iterators should typically be instantiated using NewIterator,
   // in sql/iterators/timing_iterator.h.
-  explicit RowIterator(THD *thd) : m_thd(thd), m_children(4) {}
+  explicit RowIterator(THD *thd) : m_thd(thd)
+#if defined(HAVE_PX)
+  , m_children(4)
+#endif /* defined(HAVE_PX) */
+  {}
   virtual ~RowIterator() = default;
 
   RowIterator(const RowIterator &) = delete;
@@ -295,12 +296,12 @@ class RowIterator {
 #if defined(HAVE_PX)
   // Type of the row iterator.
   virtual PhysicalRowIteratorType type() { return PHY_NO_TYPE; }
-#endif /* defined(HAVE_PX) */
   virtual RowIterator *child(size_t i) { return m_children.at(i); }
   virtual void add_child(RowIterator *itr) { m_children.push_back(itr); }
   virtual void adjust_children() {}
   virtual std::string str() { return ""; }
   virtual bool prepare_for_parallel_query() { return false; }
+#endif /* defined(HAVE_PX) */
 
  protected:
   THD *thd() const { return m_thd; }
@@ -308,8 +309,10 @@ class RowIterator {
  private:
   THD *const m_thd;
 
+#if defined(HAVE_PX)
  public:
   Prealloced_array<RowIterator*, 4> m_children;
+#endif /* defined(HAVE_PX) */
 };
 
 class TableRowIterator : public RowIterator {
@@ -325,8 +328,8 @@ class TableRowIterator : public RowIterator {
   virtual void set_parallel_scan() { m_parallel_scan = true; }
   virtual std::shared_ptr<PX_table_descriptor> get_table_descriptor() const { return nullptr; }
   virtual void set_parallel_workers(uint dop);
-#endif /* defined(HAVE_PX) */
   virtual int px_scan_init();
+#endif /* defined(HAVE_PX) */
 
  protected:
   int HandleError(int error);
@@ -334,7 +337,9 @@ class TableRowIterator : public RowIterator {
   TABLE *table() const { return m_table; }
 
  protected:
+#if defined(HAVE_PX)
   bool m_parallel_scan{false};
+#endif /* defined(HAVE_PX) */
 
  private:
   TABLE *const m_table;

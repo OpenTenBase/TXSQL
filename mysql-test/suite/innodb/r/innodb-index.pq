@@ -688,8 +688,8 @@ a	b	c	d
 select * from t1 force index(b) order by b;
 a	b	c	d
 1	1	ab	ab
-3	2	ad	ad
 2	2	ac	ac
+3	2	ad	ad
 4	4	afe	afe
 8	9	fff	fff
 10	10	kkk	iii
@@ -1255,8 +1255,8 @@ a	b
 SELECT * FROM t2i FORCE INDEX(t2a) ORDER BY a;
 a	b
 0	d
-1	e
 1	c
+1	e
 3	a
 3	b
 SELECT * FROM t2c;
@@ -1269,10 +1269,10 @@ a	b
 SELECT * FROM t2c FORCE INDEX(t2a) ORDER BY a;
 a	b
 0	d
-1	e
 1	c
-3	b
+1	e
 3	a
+3	b
 alter table t2 add index t2a(b);
 ERROR 42000: Duplicate key name 't2a'
 alter table t2 drop index t2a, add index t2a(b);

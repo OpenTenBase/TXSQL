@@ -41,7 +41,11 @@ Warnings:
 Warning	1287	'STOP SLAVE' is deprecated and will be removed in a future release. Please use STOP REPLICA instead
 include/wait_for_slave_sql_to_stop.inc
 set global slave_parallel_type=LOGICAL_CLOCK;
+Warnings:
+Warning	1287	'@@slave_parallel_type' is deprecated and will be removed in a future release. Please use replica_parallel_type instead.
 set global slave_parallel_workers=2;
+Warnings:
+Warning	1287	'@@slave_parallel_workers' is deprecated and will be removed in a future release. Please use replica_parallel_workers instead.
 start slave SQL_THREAD;
 Warnings:
 Warning	1287	'START SLAVE' is deprecated and will be removed in a future release. Please use START REPLICA instead
@@ -97,8 +101,12 @@ STOP SLAVE SQL_THREAD;
 Warnings:
 Warning	1287	'STOP SLAVE' is deprecated and will be removed in a future release. Please use STOP REPLICA instead
 include/wait_for_slave_sql_to_stop.inc
-set global slave_parallel_type='DATABASE';
-set global slave_parallel_workers=0;
+set global slave_parallel_type='LOGICAL_CLOCK';
+Warnings:
+Warning	1287	'@@slave_parallel_type' is deprecated and will be removed in a future release. Please use replica_parallel_type instead.
+set global slave_parallel_workers=4;
+Warnings:
+Warning	1287	'@@slave_parallel_workers' is deprecated and will be removed in a future release. Please use replica_parallel_workers instead.
 start slave SQL_THREAD;
 Warnings:
 Warning	1287	'START SLAVE' is deprecated and will be removed in a future release. Please use START REPLICA instead

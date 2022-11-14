@@ -175,19 +175,19 @@ Table	Op	Msg_type	Msg_text
 test.t3	analyze	status	OK
 select * from t2 where t2.b=(select a from t3 order by 1 desc limit 1);
 a	b
-2	7
 1	7
+2	7
 (select * from t2 where t2.b=(select a from t3 order by 1 desc limit 1)) union (select * from t4 order by a limit 2) limit 3;
 a	b
-1	7
 2	7
+1	7
 3	8
 (select * from t2 where t2.b=(select a from t3 order by 1 desc limit 1)) union (select * from t4 where t4.b=(select max(t2.a)*4 from t2) order by a);
 a	b
 1	7
 2	7
-3	8
 4	8
+3	8
 explain (select * from t2 where t2.b=(select a from t3 order by 1 desc limit 1)) union (select * from t4 where t4.b=(select max(t2.a)*4 from t2) order by a);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	t2	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	Parallel scan (2 workers); Using where
@@ -489,7 +489,7 @@ Warning	1681	Integer display width is deprecated and will be removed in a future
 INSERT INTO t2 (mot,topic,date,pseudo) VALUES ('joce','40143','2002-10-22','joce'), ('joce','43506','2002-10-22','joce');
 select numeropost as a FROM t1 GROUP BY (SELECT 1 FROM t1 HAVING a=1);
 a
-43506
+40143
 SELECT numeropost,maxnumrep FROM t1 WHERE exists (SELECT 1 FROM t2 WHERE (mot='joce') AND date >= '2002-10-21' AND t1.numeropost = t2.topic) ORDER BY maxnumrep DESC LIMIT 0, 20;
 numeropost	maxnumrep
 43506	2
@@ -1422,8 +1422,8 @@ insert into t3 values (3,3), (2,2), (1,1);
 select a,(select count(distinct t1.b) as sum from t1,t2 where t1.a=t2.a and t2.b > 0 and t1.a <= t3.b group by t1.a order by sum limit 1) from t3;
 a	(select count(distinct t1.b) as sum from t1,t2 where t1.a=t2.a and t2.b > 0 and t1.a <= t3.b group by t1.a order by sum limit 1)
 3	1
-1	2
 2	2
+1	2
 drop table t1,t2,t3;
 create table t1 (s1 int);
 create table t2 (s1 int);
@@ -1730,10 +1730,10 @@ CREATE TABLE t2 (code char(5) NOT NULL default '',UNIQUE KEY code (code)) ENGINE
 INSERT INTO t2 VALUES ('1'),('1226'),('1245'),('1862'),('18623'),('1874'),('1967'),('6');
 select c.number as phone,(select p.code from t2 p where c.number like concat(p.code, '%') order by length(p.code) desc limit 1) as code from t1 c;
 phone	code
-95895001874	NULL
 69294728265	6
 18621828126	1862
 89356874041	NULL
+95895001874	NULL
 drop table t1, t2;
 create table t1 (s1 int);
 create table t2 (s1 int);
@@ -2581,7 +2581,7 @@ howmanyvalues	mycount
 1	1
 2	1
 3	1
-4	3
+4	1
 drop table t1;
 create table t1 (x int);
 select  (select b.x from t1 as b where b.x=a.x) from t1 as a where a.x=2 group by a.x;
@@ -3210,8 +3210,8 @@ SELECT a FROM t1 ORDER BY (SELECT c FROM t2 WHERE b > 2 );
 a
 2
 4
-3
 1
+3
 SELECT a FROM t1 ORDER BY (SELECT c FROM t2 WHERE b > 1);
 ERROR 21000: Subquery returns more than 1 row
 SELECT a FROM t1 ORDER BY (SELECT c FROM t2 WHERE b > 2), a;
@@ -3655,8 +3655,8 @@ ORDER BY date DESC LIMIT 0, 1) AS date_last,
 ORDER BY date DESC LIMIT 1, 1) AS date_next_to_last
 FROM t1;
 id	name	date_last	date_next_to_last
-2	Joe	2006-04-20	2006-04-06
 1	Balazs	2006-05-01	2006-03-30
+2	Joe	2006-04-20	2006-04-06
 3	Frank	2006-04-13	NULL
 DROP TABLE t1,t2;
 CREATE TABLE t1 (
@@ -4719,7 +4719,7 @@ a in (select max(ie) from t1 where oref=4 group by grp)
 0
 show status like 'Handler_read_rnd_next';
 Variable_name	Value
-Handler_read_rnd_next	8
+Handler_read_rnd_next	11
 select ' ^ This must show 11' Z;
 Z
  ^ This must show 11
@@ -4767,7 +4767,7 @@ oref	a
 1	1
 show status like '%Handler_read_rnd_next';
 Variable_name	Value
-Handler_read_rnd_next	5
+Handler_read_rnd_next	11
 delete from t2;
 insert into t2 values (NULL, 0),(NULL, 0), (NULL, 0), (NULL, 0);
 flush status;
@@ -4789,7 +4789,7 @@ Handler_read_last	0
 Handler_read_next	0
 Handler_read_prev	0
 Handler_read_rnd	0
-Handler_read_rnd_next	24
+Handler_read_rnd_next	29
 select 'No key lookups, seq reads: 29= 5 reads from t2 + 4 * 6 reads from t1.' Z;
 Z
 No key lookups, seq reads: 29= 5 reads from t2 + 4 * 6 reads from t1.
@@ -5432,7 +5432,6 @@ SELECT * FROM t1 GROUP by t1.a
 HAVING (MAX(t1.b) > (SELECT MAX(t2.b) FROM t2 WHERE t2.c < t1.c
 HAVING MAX(t2.b+t1.a) < 10));
 a	b	c
-1	2	b
 SELECT a,b,c FROM t1 WHERE b in (9,3,4) ORDER BY b,c;
 a	b	c
 1	3	c
@@ -6591,7 +6590,7 @@ i1	i2
 # Baseline:
 SHOW STATUS LIKE '%Handler_read_rnd_next';
 Variable_name	Value
-Handler_read_rnd_next	11
+Handler_read_rnd_next	17
 
 INSERT INTO t1 VALUES (NULL, NULL);
 FLUSH STATUS;
@@ -6608,7 +6607,7 @@ i1	i2
 # (read record from t1, but do not read from t2)
 SHOW STATUS LIKE '%Handler_read_rnd_next';
 Variable_name	Value
-Handler_read_rnd_next	11
+Handler_read_rnd_next	18
 DROP TABLE t1,t2;
 #
 # Bug#54568: create view cause Assertion failed: 0, 
@@ -6696,9 +6695,9 @@ t1.t1_id;
 t1_id	total_amount
 1	100.00
 2	200.00
-3	100.00
-4	0.00
-5	400.00
+3	0.00
+4	400.00
+5	0.00
 SELECT * FROM (the same inner query), now with indexes on the LEFT JOIN
 SELECT * FROM (
 SELECT
@@ -6715,7 +6714,7 @@ t1_id	total_amount
 2	200.00
 3	0.00
 4	400.00
-5	200.00
+5	0.00
 DROP TABLE t3;
 DROP TABLE t2;
 DROP TABLE t1;
@@ -6805,7 +6804,7 @@ i1	i2
 # Baseline:
 SHOW STATUS LIKE '%Handler_read_rnd_next';
 Variable_name	Value
-Handler_read_rnd_next	11
+Handler_read_rnd_next	17
 
 INSERT INTO t1 VALUES (NULL, NULL);
 FLUSH STATUS;
@@ -6822,7 +6821,7 @@ i1	i2
 # (read record from t1, but do not read from t2)
 SHOW STATUS LIKE '%Handler_read_rnd_next';
 Variable_name	Value
-Handler_read_rnd_next	11
+Handler_read_rnd_next	18
 DROP TABLE t1,t2;
 #
 # Bug #52711: Segfault when doing EXPLAIN SELECT with 
@@ -7821,7 +7820,6 @@ WHERE (sq4_alias1.col_varchar_key + NULL) IS NULL OR
 sq4_alias1.col_varchar_key = @var3;
 @var3:=12	pk	col_int_nokey	col_int_key	col_time_key	col_varchar_key	col_varchar_nokey
 Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
-Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
 Warnings:
 SELECT @var3;
 @var3
@@ -7843,7 +7841,6 @@ FROM t1 AS sq4_alias1
 WHERE (sq4_alias1.col_varchar_key + NULL) IS NULL OR
 sq4_alias1.col_varchar_key = @var3 ) AS alias3;
 @var3:=12	pk	col_int_nokey	col_int_key	col_time_key	col_varchar_key	col_varchar_nokey
-Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
 Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
 Warnings:
 SELECT @var3;
@@ -7934,7 +7931,7 @@ Handler_read_last	0
 Handler_read_next	0
 Handler_read_prev	0
 Handler_read_rnd	0
-Handler_read_rnd_next	0
+Handler_read_rnd_next	3
 drop table t1,t2;
 #
 # Bug#13735980 Difference in number of rows when using subqueries

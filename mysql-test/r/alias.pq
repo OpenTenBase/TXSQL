@@ -72,10 +72,6 @@ Kundentyp	kategorie
 Privat (Private Nutzung)	Mobilfunk
 Warnings:
 Warning	1052	Column 'kundentyp' in group statement is ambiguous
-Warning	1052	Column 'kundentyp' in group statement is ambiguous
-Warning	1052	Column 'kundentyp' in group statement is ambiguous
-Warning	1052	Column 'kundentyp' in group statement is ambiguous
-Warning	1052	Column 'kundentyp' in group statement is ambiguous
 drop table t1;
 CREATE TABLE t1 (
 AUFNR varchar(12) NOT NULL default '',

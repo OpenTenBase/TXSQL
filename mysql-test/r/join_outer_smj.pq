@@ -1767,14 +1767,14 @@ WHERE   t1.col_int_key IS NULL OR t4.pk < t3.col_int;
 EXPLAIN
 -> Filter: <if>(found_match(t3..t4), (<cache>(('-448724992' is null)) or (t4.pk < t3.col_int)), true)  (cost=0.50 rows=0)
     -> Nested loop left join  (cost=0.50 rows=0)
-        -> Rows fetched before execution  (cost=0.00 rows=1)
+        -> Rows fetched before execution  (cost=0.00..0.00 rows=1)
         -> Nested loop left join  (cost=1.10 rows=0)
             -> Filter: (t2.col_int = '6')  (cost=0.60 rows=1)
                 -> Table scan on t2  (cost=0.60 rows=1)
             -> Nested loop inner join  (cost=0.25 rows=0)
                 -> Filter: (t3.col_varchar_10 = t2.col_varchar_10)  (cost=0.00 rows=0)
                     -> Table scan on t3  (cost=0.00 rows=0)
-                -> Single-row index lookup on t4 using PRIMARY (pk=t3.col_int)  (cost=0.35 rows=1)
+                -> Single-row covering index lookup on t4 using PRIMARY (pk=t3.col_int)  (cost=0.35 rows=1)
 
 DROP TABLE t1,t2,t3,t4;
 
@@ -2002,7 +2002,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	t6b	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where; Using join buffer (hash join)
 1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where; Using join buffer (Sort Merge Join)
 Warnings:
-Note	1003	/* select#1 */ select straight_join `test`.`t6a`.`pk` AS `pk`,`test`.`t2`.`pk` AS `pk` from `test`.`t6` `t6a` join `test`.`t1` left join (`test`.`t4` join `test`.`t3`) on(((`test`.`t4`.`col_int_key` = `test`.`t1`.`pk`) and (0 <> `test`.`t4`.`col_int`))) join `test`.`t5` join `test`.`t6` `t6b` left join `test`.`t2` on(((`test`.`t4`.`col_varchar_10_latin1_key` = `test`.`t1`.`col_varchar_10_latin1_key`) and (`test`.`t5`.`col_varchar_10_utf8_key` = 0))) where ((`test`.`t5`.`col_int` = `test`.`t1`.`pk`) and ((0 <> `test`.`t6b`.`col_int_key`) is true) and (`test`.`t5`.`col_varchar_10_utf8_key` = convert(`test`.`t6b`.`col_varchar_10_latin1_key` using utf8)) and ((0 <> `test`.`t6a`.`pk`) is true))
+Note	1003	/* select#1 */ select straight_join `test`.`t6a`.`pk` AS `pk`,`test`.`t2`.`pk` AS `pk` from `test`.`t6` `t6a` join `test`.`t1` left join (`test`.`t4` join `test`.`t3`) on(((`test`.`t4`.`col_int_key` = `test`.`t1`.`pk`) and (0 <> `test`.`t4`.`col_int`))) join `test`.`t5` join `test`.`t6` `t6b` left join `test`.`t2` on(((`test`.`t4`.`col_varchar_10_latin1_key` = `test`.`t1`.`col_varchar_10_latin1_key`) and (`test`.`t5`.`col_varchar_10_utf8_key` = 0))) where ((`test`.`t5`.`col_int` = `test`.`t1`.`pk`) and ((0 <> `test`.`t6b`.`col_int_key`) is true) and (`test`.`t5`.`col_varchar_10_utf8_key` = `test`.`t6b`.`col_varchar_10_latin1_key`) and ((0 <> `test`.`t6a`.`pk`) is true))
 SELECT t6a.pk, t2.pk
 FROM
 t6 AS t6a
@@ -2082,7 +2082,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	t6b	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where; Using join buffer (hash join)
 1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where; Using join buffer (Sort Merge Join)
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t6a`.`pk` AS `pk`,`test`.`t2`.`pk` AS `pk` from `test`.`t6` `t6a` join `test`.`t1` left join (`test`.`t4` join `test`.`t3`) on(((`test`.`t4`.`col_int_key` = `test`.`t1`.`pk`) and (0 <> `test`.`t4`.`col_int`))) join `test`.`t5` join `test`.`t6` `t6b` left join `test`.`t2` on(((`test`.`t4`.`col_varchar_10_latin1_key` = `test`.`t1`.`col_varchar_10_latin1_key`) and (`test`.`t5`.`col_varchar_10_utf8_key` = 0))) where ((`test`.`t5`.`col_int` = `test`.`t1`.`pk`) and ((0 <> `test`.`t6b`.`col_int_key`) is true) and (`test`.`t5`.`col_varchar_10_utf8_key` = convert(`test`.`t6b`.`col_varchar_10_latin1_key` using utf8)) and ((0 <> `test`.`t6a`.`pk`) is true))
+Note	1003	/* select#1 */ select `test`.`t6a`.`pk` AS `pk`,`test`.`t2`.`pk` AS `pk` from `test`.`t6` `t6a` join `test`.`t1` left join (`test`.`t4` join `test`.`t3`) on(((`test`.`t4`.`col_int_key` = `test`.`t1`.`pk`) and (0 <> `test`.`t4`.`col_int`))) join `test`.`t5` join `test`.`t6` `t6b` left join `test`.`t2` on(((`test`.`t4`.`col_varchar_10_latin1_key` = `test`.`t1`.`col_varchar_10_latin1_key`) and (`test`.`t5`.`col_varchar_10_utf8_key` = 0))) where ((`test`.`t5`.`col_int` = `test`.`t1`.`pk`) and ((0 <> `test`.`t6b`.`col_int_key`) is true) and (`test`.`t5`.`col_varchar_10_utf8_key` = `test`.`t6b`.`col_varchar_10_latin1_key`) and ((0 <> `test`.`t6a`.`pk`) is true))
 EXPLAIN SELECT * FROM t5 LEFT JOIN t6 ON t5.col_int=1000
 WHERE t6.col_int_key IS TRUE;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
@@ -3115,7 +3115,7 @@ EXPLAIN
     -> Nested loop inner join  (cost=1.40 rows=2)
         -> Filter: (t1.pk < 5)  (cost=0.70 rows=2)
             -> Table scan on t1  (cost=0.70 rows=2)
-        -> Single-row index lookup on t2 using PRIMARY (pk=t1.pk)  (cost=0.30 rows=1)
+        -> Single-row covering index lookup on t2 using PRIMARY (pk=t1.pk)  (cost=0.30 rows=1)
     -> Index lookup on t3 using k2 (f2=t1.pk)  (cost=0.30 rows=1)
 
 SELECT * FROM t1 LEFT JOIN t2 ON t1.pk = t2.pk LEFT JOIN t3 ON t2.pk = t3.f2 WHERE t2.pk < 5;
@@ -3193,7 +3193,7 @@ EXPLAIN FORMAT=tree SELECT * FROM t1 LEFT JOIN t2 ON 1=2;
 EXPLAIN
 -> Nested loop left join  (cost=6.01 rows=25)
     -> Table scan on t1  (cost=1.00 rows=5)
-    -> Zero rows (Impossible filter)  (cost=0.60 rows=5)
+    -> Zero rows (Impossible filter)  (cost=0.12..0.60 rows=5)
 
 DROP TABLE t1, t2;
 set optimizer_switch='block_nested_loop=on';

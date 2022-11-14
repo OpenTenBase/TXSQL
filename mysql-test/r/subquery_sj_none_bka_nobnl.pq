@@ -14205,12 +14205,12 @@ I
 SHOW STATUS LIKE '%handler_read%';
 Variable_name	Value
 Handler_read_first	1
-Handler_read_key	33
+Handler_read_key	34
 Handler_read_last	0
 Handler_read_next	10
 Handler_read_prev	0
 Handler_read_rnd	0
-Handler_read_rnd_next	0
+Handler_read_rnd_next	12
 DROP TABLE t1,t2,t3,t4;
 # End of test for Bug#18194196
 #

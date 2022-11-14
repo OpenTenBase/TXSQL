@@ -237,7 +237,6 @@ min(a)
 Warning	1411	Incorrect integer value: '`test`.`t1`.`a`' for function inet_ntoa
 Warning	1411	Incorrect integer value: '`test`.`t1`.`a`' for function inet_ntoa
 Warning	1411	Incorrect integer value: '`test`.`t1`.`a`' for function inet_ntoa
-Warning	1411	Incorrect integer value: '`test`.`t1`.`a`' for function inet_ntoa
 Warnings:
 drop table t1;
 set names latin1;

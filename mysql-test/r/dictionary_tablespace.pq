@@ -17,6 +17,7 @@ character_sets	mysql
 check_constraints	mysql
 collations	mysql
 column_statistics	mysql
+column_statistics_history	mysql
 column_type_elements	mysql
 columns	mysql
 columns_priv	mysql
@@ -44,12 +45,14 @@ innodb_ddl_log	mysql
 innodb_dynamic_metadata	mysql
 innodb_index_stats	mysql
 innodb_table_stats	mysql
+outline	mysql
 parameter_type_elements	mysql
 parameters	mysql
 password_history	mysql
 plugin	mysql
 procs_priv	mysql
 proxies_priv	mysql
+recycle_bin_info	mysql
 replication_asynchronous_connection_failover	mysql
 replication_asynchronous_connection_failover_managed	mysql
 replication_group_configuration_version	mysql
@@ -73,6 +76,7 @@ tables	mysql
 tables_priv	mysql
 tablespace_files	mysql
 tablespaces	mysql
+tdsql_sequences	mysql
 time_zone	mysql
 time_zone_leap_second	mysql
 time_zone_name	mysql
@@ -91,6 +95,7 @@ character_sets
 check_constraints
 collations
 column_statistics
+column_statistics_history
 column_type_elements
 columns
 columns_priv
@@ -117,12 +122,14 @@ innodb_ddl_log
 innodb_dynamic_metadata
 innodb_index_stats
 innodb_table_stats
+outline
 parameter_type_elements
 parameters
 password_history
 plugin
 procs_priv
 proxies_priv
+recycle_bin_info
 replication_asynchronous_connection_failover
 replication_asynchronous_connection_failover_managed
 replication_group_configuration_version
@@ -145,6 +152,7 @@ tables
 tables_priv
 tablespace_files
 tablespaces
+tdsql_sequences
 time_zone
 time_zone_leap_second
 time_zone_name

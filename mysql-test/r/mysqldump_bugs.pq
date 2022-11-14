@@ -34,10 +34,10 @@ CREATE TABLE `b28380961.p2` (
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
 # Dump the txt file
-1
-4
 2
 3
+4
+1
 # remove the sql file
 # remove the txt file
 # cleanup

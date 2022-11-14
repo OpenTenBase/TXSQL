@@ -436,10 +436,6 @@ A
 B
 NULL
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 Warnings:
 a
 b
@@ -448,10 +444,6 @@ a	count(*)
 A	4
 B	4
 NULL	3
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 Warnings:
 a	1
@@ -462,10 +454,6 @@ A
 B
 NULL
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 Warnings:
 a
 b
@@ -474,10 +462,6 @@ binary a	count(*)
 A	4
 B	4
 NULL	3
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 Warnings:
 a	1
@@ -490,22 +474,14 @@ B
 NULL
 SELECT a,count(*) FROM t1 GROUP BY a ORDER BY a;
 a	count(*)
+A	5
 B	5
 NULL	3
-a	5
 SELECT a FROM t1 GROUP BY binary a ORDER BY binary a;
 a
 A
 B
 NULL
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 Warnings:
@@ -518,14 +494,6 @@ B	4
 NULL	3
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 Warnings:
 a	1
 b	1
@@ -535,10 +503,6 @@ A
 B
 NULL
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 Warnings:
 a
 b
@@ -547,10 +511,6 @@ binary a	count(*)
 A	4
 B	4
 NULL	3
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 Warnings:
 a	1
@@ -598,12 +558,10 @@ create table t2 (user_id integer not null, date date);
 insert into t2 values (1, '2002-06-09'),(2, '2002-06-09'),(1, '2002-06-09'),(3, '2002-06-09'),(4, '2002-06-09'),(4, '2002-06-09');
 select u.gender as gender, count(distinct  u.id) as dist_count, (count(distinct u.id)/5*100) as percentage from t1 u, t2 l where l.user_id = u.id group by u.gender;
 gender	dist_count	percentage
-F	3	0.0000
-M	1	0.0000
+F	3	60.0000
+M	1	20.0000
 select u.gender as  gender, count(distinct  u.id) as dist_count, (count(distinct u.id)/5*100) as percentage from t1 u, t2 l where l.user_id = u.id group by u.gender  order by percentage;
 gender	dist_count	percentage
-M	1	20.0000
-F	1	20.0000
 M	1	20.0000
 F	3	60.0000
 drop table t1,t2;
@@ -821,7 +779,7 @@ SELECT i, COUNT(DISTINCT(i)) FROM t1 GROUP BY j ORDER BY NULL;
 i	COUNT(DISTINCT(i))
 1	1
 2	1
-3	4
+4	4
 explain SELECT i, COUNT(DISTINCT(i)) FROM t1 GROUP BY j ORDER BY NULL;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	6	100.00	Parallel scan (4 workers); Using filesort
@@ -873,9 +831,11 @@ a	r2	r1
 SELECT a, ROUND(RAND(100)*10) r2, SUM(1) r1 FROM t1 WHERE a = 1
 GROUP BY a HAVING r1>1 AND r2<=2;
 a	r2	r1
+1	7	2
 SELECT a, ROUND(RAND(100)*10) r2, SUM(1) r1 FROM t1 WHERE a = 1
 GROUP BY a HAVING r1>1 AND r2<=2 ORDER BY a+r2+r1;
 a	r2	r1
+1	7	2
 SELECT a,SUM(b) FROM t1 WHERE a=1 GROUP BY c;
 a	SUM(b)
 1	5
@@ -1012,7 +972,6 @@ SELECT n+1 AS n FROM t1 GROUP BY n;
 n
 2
 Warning	1052	Column 'n' in group statement is ambiguous
-Warning	1052	Column 'n' in group statement is ambiguous
 Warnings:
 DROP TABLE t1;
 create table t1(f1 varchar(5) key);
@@ -1031,7 +990,7 @@ a
 1
 SELECT a FROM t1 GROUP BY "a";
 a
-2
+1
 SELECT a FROM t1 GROUP BY `a`;
 a
 1
@@ -1099,8 +1058,6 @@ insert into t2 values ('aaa', 'bb1'), ('aaa', 'bb2');
 select t1.c1 as c2 from t1, t2 where t1.c2 = t2.c4
 group by c2;
 c2
-Warning	1052	Column 'c2' in group statement is ambiguous
-Warning	1052	Column 'c2' in group statement is ambiguous
 Warning	1052	Column 'c2' in group statement is ambiguous
 Warnings:
 aaa
@@ -1312,7 +1269,7 @@ SELECT (SELECT SUM(t1_outer.a+0*t1_inner.a) FROM t1 AS t1_inner LIMIT 1)
 FROM t1 AS t1_outer GROUP BY t1_outer.b;
 (SELECT SUM(t1_outer.a+0*t1_inner.a) FROM t1 AS t1_inner LIMIT 1)
 18
-36
+30
 6
 SET SQL_MODE = 'ONLY_FULL_GROUP_BY';
 SELECT 1 FROM t1 as t1_outer 
@@ -1408,19 +1365,19 @@ id	c1	c2
 2	4	1
 SELECT * FROM t1 GROUP BY c2  ORDER BY c2, c1;
 id	c1	c2
-1	5	1
-4	2	3
+2	4	1
+5	1	3
 3	3	5
 SELECT * FROM t1 GROUP BY c2  ORDER BY c2 DESC, c1;
 id	c1	c2
 3	3	5
-4	2	3
-1	5	1
+5	1	3
+2	4	1
 SELECT * FROM t1 GROUP BY c2  ORDER BY c2 DESC, c1 DESC;
 id	c1	c2
 3	3	5
 5	1	3
-1	5	1
+2	4	1
 DROP TABLE t1;
 #
 # Bug#27219: Aggregate functions in ORDER BY.  
@@ -1475,8 +1432,8 @@ a
 3
 2
 3
-3
 2
+3
 4
 SELECT t1.a FROM t1 ORDER BY (SELECT t2.a FROM t2 ORDER BY SUM(t2.b) LIMIT 1);
 ERROR HY000: Expression #1 of ORDER BY contains aggregate function and applies to the result of a non-aggregated query
@@ -1691,7 +1648,7 @@ FLUSH STATUS;
 SELECT a FROM t1 IGNORE INDEX FOR ORDER BY (PRIMARY,i2) ORDER BY a;
 SHOW SESSION STATUS LIKE 'Sort_scan%';
 Variable_name	Value
-Sort_scan	0
+Sort_scan	1
 SELECT a FROM t1 IGNORE INDEX FOR ORDER BY (PRIMARY,i2) ORDER BY a;
 a
 1
@@ -2425,8 +2382,6 @@ SELECT 1 FROM t1 GROUP BY SUBSTRING('',SLEEP(0),'');
 Warning	1292	Truncated incorrect INTEGER value: ''
 Warning	1292	Truncated incorrect INTEGER value: ''
 Warning	1292	Truncated incorrect INTEGER value: ''
-Warning	1292	Truncated incorrect INTEGER value: ''
-Warning	1292	Truncated incorrect INTEGER value: ''
 Warnings:
 SELECT 1 FROM t1 GROUP BY SUBSTRING(SYSDATE() FROM 'K' FOR 'jxW<');
 1
@@ -2434,10 +2389,6 @@ SELECT 1 FROM t1 GROUP BY SUBSTRING(SYSDATE() FROM 'K' FOR 'jxW<');
 Warning	1292	Truncated incorrect INTEGER value: 'K'
 Warning	1292	Truncated incorrect INTEGER value: 'K'
 Warning	1292	Truncated incorrect INTEGER value: 'K'
-Warning	1292	Truncated incorrect INTEGER value: 'K'
-Warning	1292	Truncated incorrect INTEGER value: 'K'
-Warning	1292	Truncated incorrect INTEGER value: 'jxW<'
-Warning	1292	Truncated incorrect INTEGER value: 'jxW<'
 Warning	1292	Truncated incorrect INTEGER value: 'jxW<'
 Warning	1292	Truncated incorrect INTEGER value: 'jxW<'
 Warning	1292	Truncated incorrect INTEGER value: 'jxW<'
@@ -2608,19 +2559,19 @@ SUM(alias2.col_varchar_nokey)	field2
 0	9
 Warnings:
 Warning	1292	Truncated incorrect DOUBLE value: 'f'
-Warning	1292	Truncated incorrect DOUBLE value: 'p'
-Warning	1292	Truncated incorrect DOUBLE value: 'p'
-Warning	1292	Truncated incorrect DOUBLE value: 'd'
-Warning	1292	Truncated incorrect DOUBLE value: 'b'
 Warning	1292	Truncated incorrect DOUBLE value: 'e'
 Warning	1292	Truncated incorrect DOUBLE value: 'p'
-Warning	1292	Truncated incorrect DOUBLE value: 'b'
-Warning	1292	Truncated incorrect DOUBLE value: 'p'
-Warning	1292	Truncated incorrect DOUBLE value: 'e'
+Warning	1292	Truncated incorrect DOUBLE value: 'f'
 Warning	1292	Truncated incorrect DOUBLE value: 'y'
 Warning	1292	Truncated incorrect DOUBLE value: 'p'
+Warning	1292	Truncated incorrect DOUBLE value: 'p'
+Warning	1292	Truncated incorrect DOUBLE value: 'b'
+Warning	1292	Truncated incorrect DOUBLE value: 'p'
+Warning	1292	Truncated incorrect DOUBLE value: 'd'
 Warning	1292	Truncated incorrect DOUBLE value: 'f'
-Warning	1292	Truncated incorrect DOUBLE value: 'f'
+Warning	1292	Truncated incorrect DOUBLE value: 'p'
+Warning	1292	Truncated incorrect DOUBLE value: 'b'
+Warning	1292	Truncated incorrect DOUBLE value: 'e'
 Warning	1292	Truncated incorrect DOUBLE value: 'p'
 Warning	1292	Truncated incorrect DOUBLE value: 'p'
 DROP TABLE t1,t2;

@@ -86,9 +86,6 @@ teststring	10
 teststring		11
 Warnings:
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 alter table t1 modify text1 blob not null, drop key key1, add key key1 (text1(20));
 insert into t1 values ('teststring ');
 select concat('|', text1, '|') from t1 order by text1;

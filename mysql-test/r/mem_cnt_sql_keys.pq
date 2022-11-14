@@ -17,13 +17,17 @@ memory/sql/Partition::prune_exec test passed.
 # Testing memory/sql/Blob_mem_storage::storage.
 memory/sql/Blob_mem_storage::storage test passed.
 # Testing memory/sql/Filesort_info::merge.
+memory/sql/Filesort_info::merge test passed.
 # Testing memory/sql/Filesort_info::record_pointers.
+memory/sql/Filesort_info::record_pointers test passed.
 # Testing memory/sql/Filesort_buffer::sort_keys.
+memory/sql/Filesort_buffer::sort_keys test passed.
 # Testing memory/sql/IndexRangeScanIterator::mrr_buf_desc.
 memory/sql/IndexRangeScanIterator::mrr_buf_desc test passed.
 # Testing memory/sql/READ_INFO.
 memory/sql/READ_INFO test passed.
 # Testing memory/sql/TABLE::sort_io_cache.
+memory/sql/TABLE::sort_io_cache test passed.
 # Testing memory/sql/Unique::sort_buffer.
 memory/sql/Unique::sort_buffer test passed.
 # Testing memory/sql/Unique::merge_buffer.

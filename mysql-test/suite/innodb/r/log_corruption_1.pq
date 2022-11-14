@@ -48,8 +48,8 @@ SET SESSION DEBUG = "+d,dict_set_clust_index_corrupted";
 CHECK TABLE t;
 # Verify that InnoDB cannot recover, because it encounters the corrupted redo record.
 # Matching the server logs for corrupted redo logs...
-Pattern "CORRUPT LOG RECORD FOUND" not found
-Pattern "Hex dump starting .* bytes before and ending .* bytes after the corrupted record" not found
+Pattern "CORRUPT LOG RECORD FOUND" found
+Pattern "Hex dump starting .* bytes before and ending .* bytes after the corrupted record" found
 Pattern "innodb-unknown-compound-v" not found
 ############################################################################################
 # Cleanup...

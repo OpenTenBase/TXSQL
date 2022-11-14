@@ -1,0 +1,162 @@
+set global reject_rw_mysql_user_sys_users = true;
+connection default
+create user abc identified by 'abc';
+grant all on *.* to 'abc'@'%' ;
+create user def identified by 'def';
+grant all on *.* to 'def'@'%' with grant option;
+create user tdsqlsys_abc identified by 'abc';
+grant all on *.* to 'tdsqlsys_abc'@'%' with grant option;
+
+
+
+connection sysu_conn(tdsqlsys_abc)
+create user tdsqlsys_def identified by 'def';
+grant all on *.* to 'tdsqlsys_def'@'%';
+flush privileges;
+select user from mysql.user;
+user
+abc
+def
+mysql.infoschema
+mysql.session
+mysql.sys
+root
+tdsqlsys_abc
+tdsqlsys_def
+
+
+
+connection abc_conn(tcp/ip connection);
+delete from mysql.user where user='tdsqlsys_def';
+ERROR HY000: Got error 210 - 'Row delete/update/insert operation is rejected' from storage engine
+see whether tdsqlsys_def is deleted --- should not be.
+connection sysu_conn(tdsqlsys_abc)
+select user from mysql.user where user='tdsqlsys_def';
+user
+tdsqlsys_def
+connection abc_conn(tcp/ip connection);
+drop user tdsqlsys_def;
+see whether tdsqlsys_def is deleted --- should not be.
+connection sysu_conn(tdsqlsys_abc)
+select user from mysql.user where user='tdsqlsys_def';
+user
+tdsqlsys_def
+connection abc_conn(tcp/ip connection);
+create user tmpusr;
+flush privileges;
+select user from mysql.user;
+user
+abc
+def
+mysql.infoschema
+mysql.session
+mysql.sys
+root
+tmpusr
+drop user tmpusr;
+create user tdsqlsys_xyz;
+ERROR HY000: The ACL operation failed due to the following error from SE: errcode 210 - Row delete/update/insert operation is rejected
+flush privileges;
+select user from mysql.user;
+user
+abc
+def
+mysql.infoschema
+mysql.session
+mysql.sys
+root
+show processlist;
+Id	User	Host	db	Command	Time	State	Info
+0	event_scheduler	localhost	NULL	Daemon	0	Waiting on empty queue	NULL
+0	abc	localhost:0	test	Query	0	init	show processlist
+
+
+
+connection def_conn(unix socket connection);
+drop user tdsqlsys_def;
+create user tmpusr;
+select user from mysql.user;
+user
+abc
+def
+mysql.infoschema
+mysql.session
+mysql.sys
+root
+tdsqlsys_abc
+tmpusr
+create user tdsqlsys_def identified by 'def';
+grant all on *.* to 'tdsqlsys_def'@'%' ;
+drop user tmpusr;
+create user tdsqlsys_xyz;
+select user from mysql.user;
+user
+abc
+def
+mysql.infoschema
+mysql.session
+mysql.sys
+root
+tdsqlsys_abc
+tdsqlsys_def
+tdsqlsys_xyz
+show processlist;
+Id	User	Host	db	Command	Time	State	Info
+0	event_scheduler	localhost	NULL	Daemon	0	Waiting on empty queue	NULL
+0	root	localhost	test	Sleep	0		NULL
+0	abc	localhost:0	test	Sleep	0		NULL
+0	def	localhost	test	Query	0	init	show processlist
+0	tdsqlsys_abc	localhost:0	test	Sleep	0		NULL
+0	tdsqlsys_def	localhost:0	test	Sleep	0		NULL
+0	tdsqlsys_def	localhost:0	test	Sleep	0		NULL
+
+
+
+connection sysu_conn(tdsqlsys_abc);
+drop user tdsqlsys_def;
+drop user tdsqlsys_xyz;
+create user tmpusr;
+select user from mysql.user;
+user
+abc
+def
+mysql.infoschema
+mysql.session
+mysql.sys
+root
+tdsqlsys_abc
+tmpusr
+create user tdsqlsys_def identified by 'def';
+grant all on *.* to 'tdsqlsys_def'@'%' ;
+drop user tmpusr;
+create user tdsqlsys_xyz;
+select user from mysql.user;
+user
+abc
+def
+mysql.infoschema
+mysql.session
+mysql.sys
+root
+tdsqlsys_abc
+tdsqlsys_def
+tdsqlsys_xyz
+show processlist;
+Id	User	Host	db	Command	Time	State	Info
+0	event_scheduler	localhost	NULL	Daemon	0	Waiting on empty queue	NULL
+0	root	localhost	test	Sleep	0		NULL
+0	abc	localhost:0	test	Sleep	0		NULL
+0	def	localhost	test	Sleep	0		NULL
+0	tdsqlsys_abc	localhost:0	test	Query	0	init	show processlist
+0	tdsqlsys_def	localhost:0	test	Sleep	0		NULL
+0	tdsqlsys_def	localhost:0	test	Sleep	0		NULL
+0	tdsqlsys_def	localhost:0	test	Sleep	0		NULL
+
+
+cleaning up
+drop user abc;
+drop user def;
+drop user tdsqlsys_abc;
+drop user tdsqlsys_def;
+drop user tdsqlsys_xyz;
+set global reject_rw_mysql_user_sys_users = false;

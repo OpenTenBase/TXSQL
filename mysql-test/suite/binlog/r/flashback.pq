@@ -12,7 +12,6 @@ SET timestamp=1000000000;
 # < CASE 1 >
 # Delete all existing binary logs.
 #
-RESET MASTER;
 CREATE TABLE t1 (
 c01 tinyint,
 c02 smallint,
@@ -23,6 +22,7 @@ c06 char(10),
 c07 varchar(20),
 c08 TEXT
 ) ENGINE=InnoDB;
+RESET MASTER;
 # < CASE 1 >
 # Insert data to t1
 #
@@ -53,40 +53,7 @@ ROLLBACK/*!*/;
 #010909  9:46:40 server id 1  end_log_pos # CRC32 XXX 	Previous-GTIDs
 # [empty]
 # at #
-#010909  9:46:40 server id 1  end_log_pos # CRC32 XXX 	Anonymous_GTID	last_committed=0	sequence_number=1	rbr_only=no	original_committed_timestamp=X	immediate_commit_timestamp=X	transaction_length=X
-# original_commit_timestamp=X (X-X-X X:X:X.X GMT)
-# immediate_commit_timestamp=X (X-X-X X:X:X.X GMT)
-/*!80001 SET @@session.original_commit_timestamp=X*//*!*/;
-/*!80014 SET @@session.original_server_version=X*//*!*/;
-/*!80014 SET @@session.immediate_server_version=X*//*!*/;
-SET @@SESSION.GTID_NEXT= 'ANONYMOUS'/*!*/;
-# at #
-#010909  9:46:40 server id 1  end_log_pos # CRC32 XXX 	Query	thread_id=#	exec_time=#	error_code=0	Xid = #
-use `test`/*!*/;
-SET TIMESTAMP=1000000000/*!*/;
-SET @@session.pseudo_thread_id=#/*!*/;
-SET @@session.foreign_key_checks=1, @@session.sql_auto_is_null=0, @@session.unique_checks=1, @@session.autocommit=1/*!*/;
-SET @@session.sql_mode=X/*!*/;
-SET @@session.auto_increment_increment=1, @@session.auto_increment_offset=1/*!*/;
-/*!\C utf8mb4 *//*!*/;
-SET @@session.character_set_client=X,@@session.collation_connection=X,@@session.collation_server=X/*!*/;
-SET @@session.lc_time_names=0/*!*/;
-SET @@session.collation_database=DEFAULT/*!*/;
-/*!80011 SET @@session.default_collation_for_utf8mb4=255*//*!*/;
-/*!80013 SET @@session.sql_require_primary_key=0*//*!*/;
-CREATE TABLE t1 (
-c01 tinyint,
-c02 smallint,
-c03 mediumint,
-c04 int,
-c05 bigint,
-c06 char(10),
-c07 varchar(20),
-c08 TEXT
-) ENGINE=InnoDB
-/*!*/;
-# at #
-#010909  9:46:40 server id 1  end_log_pos # CRC32 XXX 	Anonymous_GTID	last_committed=1	sequence_number=2	rbr_only=yes	original_committed_timestamp=X	immediate_commit_timestamp=X	transaction_length=X
+#010909  9:46:40 server id 1  end_log_pos # CRC32 XXX 	Anonymous_GTID	last_committed=0	sequence_number=1	rbr_only=yes	original_committed_timestamp=X	immediate_commit_timestamp=X	transaction_length=X
 /*!50718 SET TRANSACTION ISOLATION LEVEL READ COMMITTED*//*!*/;
 # original_commit_timestamp=X (X-X-X X:X:X.X GMT)
 # immediate_commit_timestamp=X (X-X-X X:X:X.X GMT)
@@ -97,6 +64,15 @@ SET @@SESSION.GTID_NEXT= 'ANONYMOUS'/*!*/;
 # at #
 #010909  9:46:40 server id 1  end_log_pos # CRC32 XXX 	Query	thread_id=#	exec_time=#	error_code=0
 SET TIMESTAMP=1000000000/*!*/;
+SET @@session.pseudo_thread_id=#/*!*/;
+SET @@session.foreign_key_checks=1, @@session.sql_auto_is_null=0, @@session.unique_checks=1, @@session.autocommit=1/*!*/;
+SET @@session.sql_mode=X/*!*/;
+SET @@session.auto_increment_increment=1, @@session.auto_increment_offset=1/*!*/;
+/*!\C utf8mb4 *//*!*/;
+SET @@session.character_set_client=X,@@session.collation_connection=X,@@session.collation_server=X/*!*/;
+SET @@session.lc_time_names=0/*!*/;
+SET @@session.collation_database=DEFAULT/*!*/;
+/*!80011 SET @@session.default_collation_for_utf8mb4=255*//*!*/;
 BEGIN
 /*!*/;
 # at #
@@ -117,7 +93,7 @@ BEGIN
 #010909  9:46:40 server id 1  end_log_pos # CRC32 XXX 	Xid = #
 COMMIT/*!*/;
 # at #
-#010909  9:46:40 server id 1  end_log_pos # CRC32 XXX 	Anonymous_GTID	last_committed=2	sequence_number=3	rbr_only=yes	original_committed_timestamp=X	immediate_commit_timestamp=X	transaction_length=X
+#010909  9:46:40 server id 1  end_log_pos # CRC32 XXX 	Anonymous_GTID	last_committed=1	sequence_number=2	rbr_only=yes	original_committed_timestamp=X	immediate_commit_timestamp=X	transaction_length=X
 /*!50718 SET TRANSACTION ISOLATION LEVEL READ COMMITTED*//*!*/;
 # original_commit_timestamp=X (X-X-X X:X:X.X GMT)
 # immediate_commit_timestamp=X (X-X-X X:X:X.X GMT)
@@ -148,7 +124,7 @@ BEGIN
 #010909  9:46:40 server id 1  end_log_pos # CRC32 XXX 	Xid = #
 COMMIT/*!*/;
 # at #
-#010909  9:46:40 server id 1  end_log_pos # CRC32 XXX 	Anonymous_GTID	last_committed=3	sequence_number=4	rbr_only=yes	original_committed_timestamp=X	immediate_commit_timestamp=X	transaction_length=X
+#010909  9:46:40 server id 1  end_log_pos # CRC32 XXX 	Anonymous_GTID	last_committed=2	sequence_number=3	rbr_only=yes	original_committed_timestamp=X	immediate_commit_timestamp=X	transaction_length=X
 /*!50718 SET TRANSACTION ISOLATION LEVEL READ COMMITTED*//*!*/;
 # original_commit_timestamp=X (X-X-X X:X:X.X GMT)
 # immediate_commit_timestamp=X (X-X-X X:X:X.X GMT)
@@ -179,7 +155,7 @@ BEGIN
 #010909  9:46:40 server id 1  end_log_pos # CRC32 XXX 	Xid = #
 COMMIT/*!*/;
 # at #
-#010909  9:46:40 server id 1  end_log_pos # CRC32 XXX 	Anonymous_GTID	last_committed=4	sequence_number=5	rbr_only=yes	original_committed_timestamp=X	immediate_commit_timestamp=X	transaction_length=X
+#010909  9:46:40 server id 1  end_log_pos # CRC32 XXX 	Anonymous_GTID	last_committed=3	sequence_number=4	rbr_only=yes	original_committed_timestamp=X	immediate_commit_timestamp=X	transaction_length=X
 /*!50718 SET TRANSACTION ISOLATION LEVEL READ COMMITTED*//*!*/;
 # original_commit_timestamp=X (X-X-X X:X:X.X GMT)
 # immediate_commit_timestamp=X (X-X-X X:X:X.X GMT)
@@ -238,7 +214,7 @@ BEGIN
 #010909  9:46:40 server id 1  end_log_pos # CRC32 XXX 	Xid = #
 COMMIT/*!*/;
 # at #
-#010909  9:46:40 server id 1  end_log_pos # CRC32 XXX 	Anonymous_GTID	last_committed=5	sequence_number=6	rbr_only=yes	original_committed_timestamp=X	immediate_commit_timestamp=X	transaction_length=X
+#010909  9:46:40 server id 1  end_log_pos # CRC32 XXX 	Anonymous_GTID	last_committed=4	sequence_number=5	rbr_only=yes	original_committed_timestamp=X	immediate_commit_timestamp=X	transaction_length=X
 /*!50718 SET TRANSACTION ISOLATION LEVEL READ COMMITTED*//*!*/;
 # original_commit_timestamp=X (X-X-X X:X:X.X GMT)
 # immediate_commit_timestamp=X (X-X-X X:X:X.X GMT)
@@ -312,7 +288,6 @@ ROLLBACK/*!*/;
 # [empty]
 # at #
 # at #
-# at #
 #010909  9:46:40 server id 1  end_log_pos # CRC32 XXX 	Table_map: `test`.`t1` mapped to number #
 # at #
 # at #
@@ -474,12 +449,6 @@ BEGIN/*!*/;
 # at #
 #010909  9:46:40 server id 1  end_log_pos # CRC32 XXX 	Query	thread_id=#	exec_time=#	error_code=0
 SET TIMESTAMP=1000000000/*!*/;
-COMMIT
-/*!*/;
-# at #
-#010909  9:46:40 server id 1  end_log_pos # CRC32 XXX 	Query	thread_id=#	exec_time=#	error_code=0	Xid = #
-use `test`/*!*/;
-SET TIMESTAMP=1000000000/*!*/;
 SET @@session.pseudo_thread_id=#/*!*/;
 SET @@session.foreign_key_checks=1, @@session.sql_auto_is_null=0, @@session.unique_checks=1, @@session.autocommit=1/*!*/;
 SET @@session.sql_mode=X/*!*/;
@@ -489,7 +458,8 @@ SET @@session.character_set_client=X,@@session.collation_connection=X,@@session.
 SET @@session.lc_time_names=0/*!*/;
 SET @@session.collation_database=DEFAULT/*!*/;
 /*!80011 SET @@session.default_collation_for_utf8mb4=255*//*!*/;
-/*!80013 SET @@session.sql_require_primary_key=0*//*!*/;
+COMMIT
+/*!*/;
 COMMIT /* added by mysqlbinlog *//*!*/;
 DELIMITER ;
 # End of log file

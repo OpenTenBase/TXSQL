@@ -9,7 +9,6 @@ Warning	3125	MAX_EXECUTION_TIME hint is supported by top-level standalone SELECT
 SELECT 1 FROM t1 WHERE a IN (SELECT /*+ MAX_EXECUTION_TIME(0) */ 1);
 1
 Warning	3125	MAX_EXECUTION_TIME hint is supported by top-level standalone SELECT statements only
-Warning	3125	MAX_EXECUTION_TIME hint is supported by top-level standalone SELECT statements only
 Warnings:
 SELECT (SELECT /*+ MAX_EXECUTION_TIME(0) */ a FROM t1);
 (SELECT /*+ MAX_EXECUTION_TIME(0) */ a FROM t1)
@@ -20,12 +19,10 @@ SELECT a FROM t1 WHERE a IN (SELECT /*+ MAX_EXECUTION_TIME(0) */ a FROM t1);
 a
 10
 Warning	3125	MAX_EXECUTION_TIME hint is supported by top-level standalone SELECT statements only
-Warning	3125	MAX_EXECUTION_TIME hint is supported by top-level standalone SELECT statements only
 Warnings:
 SELECT * FROM t1 WHERE a IN (SELECT /*+ MAX_EXECUTION_TIME(0) */ a FROM t1);
 a
 10
-Warning	3125	MAX_EXECUTION_TIME hint is supported by top-level standalone SELECT statements only
 Warning	3125	MAX_EXECUTION_TIME hint is supported by top-level standalone SELECT statements only
 Warnings:
 SELECT /*+ MAX_EXECUTION_TIME(0) */ * FROM t1
@@ -33,35 +30,28 @@ WHERE a IN (SELECT /*+ MAX_EXECUTION_TIME(0) */ a FROM t1);
 a
 10
 Warning	3125	MAX_EXECUTION_TIME hint is supported by top-level standalone SELECT statements only
-Warning	3125	MAX_EXECUTION_TIME hint is supported by top-level standalone SELECT statements only
 Warnings:
 SELECT * FROM t1
 WHERE a IN (SELECT a FROM t1 UNION SELECT /*+ MAX_EXECUTION_TIME(0) */ a FROM t1);
 a
 10
 Warning	3125	MAX_EXECUTION_TIME hint is supported by top-level standalone SELECT statements only
-Warning	3125	MAX_EXECUTION_TIME hint is supported by top-level standalone SELECT statements only
 Warnings:
 SELECT /*+ MAX_EXECUTION_TIME(0) */ * FROM t1
 WHERE a IN (SELECT a FROM t1 UNION SELECT /*+ MAX_EXECUTION_TIME(0) */ a FROM t1);
 a
 10
 Warning	3125	MAX_EXECUTION_TIME hint is supported by top-level standalone SELECT statements only
-Warning	3125	MAX_EXECUTION_TIME hint is supported by top-level standalone SELECT statements only
 Warnings:
 SELECT * FROM t1 UNION SELECT /*+ MAX_EXECUTION_TIME(0) */ * FROM t1;
 a
 10
-Warning	3125	MAX_EXECUTION_TIME hint is supported by top-level standalone SELECT statements only
-Warning	3125	MAX_EXECUTION_TIME hint is supported by top-level standalone SELECT statements only
 Warning	3125	MAX_EXECUTION_TIME hint is supported by top-level standalone SELECT statements only
 Warnings:
 SELECT /*+ MAX_EXECUTION_TIME(0) */ * FROM t1
 UNION SELECT /*+ MAX_EXECUTION_TIME(0) */ * FROM t1;
 a
 10
-Warning	3125	MAX_EXECUTION_TIME hint is supported by top-level standalone SELECT statements only
-Warning	3125	MAX_EXECUTION_TIME hint is supported by top-level standalone SELECT statements only
 Warning	3125	MAX_EXECUTION_TIME hint is supported by top-level standalone SELECT statements only
 Warnings:
 INSERT INTO t1 SELECT /*+ MAX_EXECUTION_TIME(0) */ * FROM t1;

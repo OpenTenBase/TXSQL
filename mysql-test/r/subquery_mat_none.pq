@@ -584,9 +584,9 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a1` AS `a1`,`test`.`t1`.`a2` AS `a2` from `test`.`t1` order by (/* select#2 */ select `test`.`columns`.`col` from `test`.`columns` limit 1)
 select * from t1 order by (select col from columns limit 1);
 a1	a2
+1 - 00	2 - 00
 1 - 01	2 - 01
 1 - 02	2 - 02
-1 - 00	2 - 00
 /******************************************************************************
 * Column types/sizes that affect materialization.
 ******************************************************************************/
@@ -2032,7 +2032,7 @@ Handler_read_last	0
 Handler_read_next	0
 Handler_read_prev	0
 Handler_read_rnd	0
-Handler_read_rnd_next	6
+Handler_read_rnd_next	9
 drop table t1,t2;
 #
 # Bug#13655791 DIFFERENT RESULT WITH WL6094 ON QUERY WITH XOR
@@ -2114,7 +2114,7 @@ Handler_read_last	0
 Handler_read_next	1
 Handler_read_prev	0
 Handler_read_rnd	0
-Handler_read_rnd_next	2
+Handler_read_rnd_next	4
 DROP TABLE t1,t2,t3,t4;
 #
 # Bug#13727407: Assert !item->const_item() || !item->not_null_tables()

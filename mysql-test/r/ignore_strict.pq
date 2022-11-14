@@ -410,11 +410,11 @@ LOAD_FILE('MYSQLTEST_VARDIR/tmp/wl6614.txt')
 3
 4
 LOAD DATA INFILE 'MYSQLTEST_VARDIR/tmp/wl6614.txt' INTO TABLE t2;
-ERROR 23000: Duplicate entry '4' for key 't2.PRIMARY'
+ERROR 23000: Duplicate entry '2' for key 't2.PRIMARY'
 LOAD DATA INFILE 'MYSQLTEST_VARDIR/tmp/wl6614.txt' IGNORE INTO TABLE t2;
 Warnings:
-Warning	1062	Duplicate entry '4' for key 't2.PRIMARY'
 Warning	1062	Duplicate entry '2' for key 't2.PRIMARY'
+Warning	1062	Duplicate entry '4' for key 't2.PRIMARY'
 SELECT * FROM t2;
 a
 1
@@ -425,8 +425,8 @@ DELETE FROM t2;
 INSERT INTO t2 VALUES (2),(4);
 LOAD DATA INFILE 'MYSQLTEST_VARDIR/tmp/wl6614.txt' IGNORE INTO TABLE t2;
 Warnings:
-Warning	1062	Duplicate entry '4' for key 't2.PRIMARY'
 Warning	1062	Duplicate entry '2' for key 't2.PRIMARY'
+Warning	1062	Duplicate entry '4' for key 't2.PRIMARY'
 SELECT * from t2;
 a
 1

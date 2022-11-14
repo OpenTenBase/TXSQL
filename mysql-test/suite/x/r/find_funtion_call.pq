@@ -1027,9 +1027,9 @@ send Mysqlx.Crud.Find {
 
 CONV
 null
-3
 24
 1
+3
 command ok
 send Mysqlx.Crud.Find {
   collection {
@@ -1107,9 +1107,9 @@ send Mysqlx.Crud.Find {
 
 DateAdd
 2000-02-01
+null
 2015-02-15
 2015-06-30
-null
 command ok
 RUN SHOW STATUS LIKE 'Mysqlx_crud_find'
 Variable_name	Value

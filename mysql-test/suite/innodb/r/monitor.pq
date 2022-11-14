@@ -419,14 +419,14 @@ max_count_reset, min_count_reset, count_reset, status
 from information_schema.innodb_metrics
 where name = "metadata_table_handles_opened";
 name	max_count	min_count	count	max_count_reset	min_count_reset	count_reset	status
-metadata_table_handles_opened	2	NULL	2	2	NULL	2	enabled
+metadata_table_handles_opened	1	NULL	1	1	NULL	1	enabled
 set global innodb_monitor_reset = metadata_table_handles_opened;
 select name, max_count, min_count, count,
 max_count_reset, min_count_reset, count_reset, status
 from information_schema.innodb_metrics
 where name = "metadata_table_handles_opened";
 name	max_count	min_count	count	max_count_reset	min_count_reset	count_reset	status
-metadata_table_handles_opened	2	NULL	2	NULL	NULL	0	enabled
+metadata_table_handles_opened	1	NULL	1	NULL	NULL	0	enabled
 drop table monitor_test;
 create table monitor_test(col int) engine = innodb;
 select * from monitor_test;
@@ -436,14 +436,14 @@ max_count_reset, min_count_reset, count_reset, status
 from information_schema.innodb_metrics
 where name = "metadata_table_handles_opened";
 name	max_count	min_count	count	max_count_reset	min_count_reset	count_reset	status
-metadata_table_handles_opened	4	NULL	4	2	NULL	2	enabled
+metadata_table_handles_opened	2	NULL	2	1	NULL	1	enabled
 set global innodb_monitor_reset_all = metadata_table_handles_opened;
 select name, max_count, min_count, count,
 max_count_reset, min_count_reset, count_reset, status
 from information_schema.innodb_metrics
 where name = "metadata_table_handles_opened";
 name	max_count	min_count	count	max_count_reset	min_count_reset	count_reset	status
-metadata_table_handles_opened	4	NULL	4	2	NULL	2	enabled
+metadata_table_handles_opened	2	NULL	2	1	NULL	1	enabled
 set global innodb_monitor_disable = metadata_table_handles_opened;
 set global innodb_monitor_reset = metadata_table_handles_opened;
 select name, max_count, min_count, count,
@@ -451,7 +451,7 @@ max_count_reset, min_count_reset, count_reset, status
 from information_schema.innodb_metrics
 where name = "metadata_table_handles_opened";
 name	max_count	min_count	count	max_count_reset	min_count_reset	count_reset	status
-metadata_table_handles_opened	4	NULL	4	NULL	NULL	0	disabled
+metadata_table_handles_opened	2	NULL	2	NULL	NULL	0	disabled
 drop table monitor_test;
 create table monitor_test(col int) engine = innodb;
 select * from monitor_test;
@@ -461,7 +461,7 @@ max_count_reset, min_count_reset, count_reset, status
 from information_schema.innodb_metrics
 where name = "metadata_table_handles_opened";
 name	max_count	min_count	count	max_count_reset	min_count_reset	count_reset	status
-metadata_table_handles_opened	4	NULL	4	NULL	NULL	0	disabled
+metadata_table_handles_opened	2	NULL	2	NULL	NULL	0	disabled
 set global innodb_monitor_reset_all = metadata_table_handles_opened;
 select name, max_count, min_count, count,
 max_count_reset, min_count_reset, count_reset, status
@@ -479,7 +479,7 @@ max_count_reset, min_count_reset, count_reset, status
 from information_schema.innodb_metrics
 where name = "metadata_table_handles_opened";
 name	max_count	min_count	count	max_count_reset	min_count_reset	count_reset	status
-metadata_table_handles_opened	2	NULL	2	2	NULL	2	enabled
+metadata_table_handles_opened	1	NULL	1	1	NULL	1	enabled
 set global innodb_monitor_enable = metadata_table_handles_closed;
 create index idx on monitor_test(col);
 select name, max_count, min_count, count,
@@ -487,14 +487,14 @@ max_count_reset, min_count_reset, count_reset, status
 from information_schema.innodb_metrics
 where name = "metadata_table_handles_closed";
 name	max_count	min_count	count	max_count_reset	min_count_reset	count_reset	status
-metadata_table_handles_closed	2	NULL	2	2	NULL	2	enabled
+metadata_table_handles_closed	1	NULL	1	1	NULL	1	enabled
 select name, max_count, min_count, count,
 max_count_reset, min_count_reset, count_reset, status
 from information_schema.innodb_metrics
 where name like "metadata%";
 name	max_count	min_count	count	max_count_reset	min_count_reset	count_reset	status
-metadata_table_handles_closed	2	NULL	2	2	NULL	2	enabled
-metadata_table_handles_opened	3	NULL	3	3	NULL	3	enabled
+metadata_table_handles_closed	1	NULL	1	1	NULL	1	enabled
+metadata_table_handles_opened	2	NULL	2	2	NULL	2	enabled
 metadata_table_reference_count	NULL	NULL	0	NULL	NULL	0	disabled
 set global innodb_monitor_disable = module_metadata;
 set global innodb_monitor_reset = module_metadata;
@@ -503,8 +503,8 @@ max_count_reset, min_count_reset, count_reset, status
 from information_schema.innodb_metrics
 where name like "metadata%";
 name	max_count	min_count	count	max_count_reset	min_count_reset	count_reset	status
-metadata_table_handles_closed	2	NULL	2	NULL	NULL	0	disabled
-metadata_table_handles_opened	3	NULL	3	NULL	NULL	0	disabled
+metadata_table_handles_closed	1	NULL	1	NULL	NULL	0	disabled
+metadata_table_handles_opened	2	NULL	2	NULL	NULL	0	disabled
 metadata_table_reference_count	NULL	NULL	0	NULL	NULL	0	disabled
 set global innodb_monitor_reset_all = module_metadata;
 select name, max_count, min_count, count,

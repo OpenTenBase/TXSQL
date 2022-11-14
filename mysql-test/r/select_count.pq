@@ -132,7 +132,7 @@ Handler_read_last	1
 Handler_read_next	0
 Handler_read_prev	0
 Handler_read_rnd	0
-Handler_read_rnd_next	0
+Handler_read_rnd_next	4
 Handler_rollback	0
 Handler_savepoint	0
 Handler_savepoint_rollback	0

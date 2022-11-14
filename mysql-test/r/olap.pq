@@ -309,16 +309,16 @@ CONCAT(':',product,':')	SUM(profit)	AVG(profit)
 NULL	7785	519.00000
 SELECT product, country_id , year, SUM(profit) FROM t1
 GROUP BY product, country_id, year WITH CUBE;
-ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'WITH CUBE' at line 2
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'CUBE' at line 2
 EXPLAIN SELECT product, country_id , year, SUM(profit) FROM t1
 GROUP BY product, country_id, year WITH CUBE;
-ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'WITH CUBE' at line 2
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'CUBE' at line 2
 SELECT product, country_id , year, SUM(profit) FROM t1
 GROUP BY product, country_id, year WITH CUBE UNION ALL
 SELECT product, country_id , year, SUM(profit) FROM t1
 GROUP BY product, country_id, year WITH ROLLUP;
-ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'WITH CUBE UNION ALL
-GROUP' at line 2
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'CUBE UNION ALL
+GROUP BY p' at line 2
 SELECT product, country_id , year, SUM(profit) FROM t1
 drop table t1,t2;
 CREATE TABLE t1 (i int);
@@ -501,10 +501,6 @@ a	SUM(b)
 SELECT SQL_CALC_FOUND_ROWS a, SUM(b) FROM t1 GROUP BY a WITH ROLLUP LIMIT 1;
 a	SUM(b)
 1	4
-Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
-Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
-Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
-Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
 Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
 Warnings:
 DROP TABLE t1;
@@ -882,8 +878,8 @@ INSERT INTO  t1 VALUES ('2012-12-20 00:00:00'), (NULL);
 SELECT f1 FROM t1 GROUP BY
 (SELECT f1 FROM t1 HAVING f1 < '2012-12-21 00:00:00') WITH ROLLUP;
 f1
-NULL
-NULL
+2012-12-20 00:00:00
+2012-12-20 00:00:00
 DROP TABLE t1;
 CREATE TABLE t1 (f1 DATE);
 INSERT INTO  t1 VALUES ('2012-12-20'), (NULL);
@@ -1548,10 +1544,6 @@ i	j	k	count
 555	NULL	555	3
 NULL	NULL	NULL	15
 Warning	1052	Column 'k' in group statement is ambiguous
-Warning	1052	Column 'k' in group statement is ambiguous
-Warning	1052	Column 'k' in group statement is ambiguous
-Warning	1052	Column 'k' in group statement is ambiguous
-Warning	1052	Column 'k' in group statement is ambiguous
 Warnings:
 SELECT * FROM (SELECT i, j, SUM(k) FROM t1 GROUP BY i, j WITH ROLLUP) as tmp
 ORDER BY i,j;
@@ -1888,10 +1880,6 @@ i	j	k	count
 555	NULL	555	3
 NULL	NULL	NULL	15
 Warnings:
-Warning	1052	Column 'k' in group statement is ambiguous
-Warning	1052	Column 'k' in group statement is ambiguous
-Warning	1052	Column 'k' in group statement is ambiguous
-Warning	1052	Column 'k' in group statement is ambiguous
 Warning	1052	Column 'k' in group statement is ambiguous
 SELECT * FROM (SELECT i, j, SUM(k) FROM t1 GROUP BY i, j WITH ROLLUP
 ORDER BY GROUPING(i),i, GROUPING(j),j) as tmp;
@@ -2238,7 +2226,6 @@ t1, t1 AS t2
 GROUP BY t1.a WITH ROLLUP
 HAVING COUNT(*) = 0 AND t1.a = '刔';
 a
-Warning	1292	Incorrect time value: '刔' for column 'a' at row 1
 Warning	1292	Incorrect time value: '刔' for column 'a' at row 1
 Warnings:
 DROP TABLE t1;

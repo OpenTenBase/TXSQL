@@ -39,7 +39,7 @@ id	rollno	GROUP_CONCAT(name)
 1	1	Reco
 2	2	Reco
 4	3	Reco
-8	4	Reco
+7	4	Reco
 Warning	1260	Row 1 was cut by GROUP_CONCAT()
 Warning	1260	Row 2 was cut by GROUP_CONCAT()
 Warning	1260	Row 3 was cut by GROUP_CONCAT()
@@ -52,7 +52,7 @@ SELECT id, rollno, GROUP_CONCAT(name) FROM t1 GROUP BY rollno;
 id	rollno	GROUP_CONCAT(name)
 1	1	Record_1,R
 2	2	Record_2
-6	3	Record_6,R
+4	3	Record_4,R
 7	4	Record_7,R
 Warning	1260	Row 2 was cut by GROUP_CONCAT()
 Warning	1260	Row 5 was cut by GROUP_CONCAT()
@@ -71,10 +71,10 @@ SET @@session.group_concat_max_len = 20;
 ## Warning should come here ##
 SELECT id, rollno, GROUP_CONCAT(name) FROM t1 GROUP BY rollno;
 id	rollno	GROUP_CONCAT(name)
-1	1	Record_1,Record_5,Re
+1	1	Record_1,Record_3,Re
 2	2	Record_2
 4	3	Record_4,Record_6
-8	4	Record_8,Record_7
+7	4	Record_7,Record_8
 Warning	1260	Row 3 was cut by GROUP_CONCAT()
 Warnings:
 '#--------------------FN_DYNVARS_034_04-------------------------#'
@@ -84,8 +84,8 @@ SET @@session.group_concat_max_len = 26;
 ## Verifying value of name column, it should not give warning now ##
 SELECT id, rollno, GROUP_CONCAT(name) FROM t1 GROUP BY rollno;
 id	rollno	GROUP_CONCAT(name)
+1	1	Record_1,Record_3,Record_5
 2	2	Record_2
-3	1	Record_3,Record_1,Record_5
 4	3	Record_4,Record_6
 7	4	Record_7,Record_8
 ## Dropping table t1 ##

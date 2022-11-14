@@ -100,6 +100,8 @@ ORDER BY event_time;
 general table>	argument
 general table>	CREATE USER 'duplicate_user'@'%' IDENTIFIED BY <secret>
 general table>	CREATE USER 'duplicate_user'@'%' IDENTIFIED BY <secret>
+general table>	CREATE USER 'duplicate_user'@'%' IDENTIFIED BY <secret>
+general table>	CREATE USER 'duplicate_user'@'%' IDENTIFIED BY <secret>
 # Expected: 1 OK stmt, 1 failed stmt, 0 unparseable stmts
 SELECT "slow table>",sql_text
 FROM mysql.slow_log
@@ -108,12 +110,16 @@ ORDER BY start_time;
 slow table>	sql_text
 slow table>	CREATE USER 'duplicate_user'@'%' IDENTIFIED BY <secret>
 slow table>	CREATE USER 'duplicate_user'@'%' IDENTIFIED BY <secret>
+slow table>	CREATE USER 'duplicate_user'@'%' IDENTIFIED BY <secret>
+slow table>	CREATE USER 'duplicate_user'@'%' IDENTIFIED BY <secret>
 SET @@global.slow_query_log_file=@save_sqlf;
 SET @@global.slow_query_log=@save_sql;
 SET @@global.log_output=@save_lo;
 SET @@session.long_query_time=@save_lqt;
 DROP USER 'duplicate_user'@'%';
 # Expected: 1 OK stmt, 1 failed stmt, 0 unparseable stmts
+slow file>CREATE USER 'duplicate_user'@'%' IDENTIFIED BY <secret>;
+slow file>CREATE USER 'duplicate_user'@'%' IDENTIFIED BY <secret>;
 slow file>CREATE USER 'duplicate_user'@'%' IDENTIFIED BY <secret>;
 slow file>CREATE USER 'duplicate_user'@'%' IDENTIFIED BY <secret>;
 TRUNCATE mysql.slow_log;

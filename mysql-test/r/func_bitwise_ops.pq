@@ -1107,7 +1107,7 @@ HEX(BIT_XOR(a))
 # (force use of Item_sum_*::copy_or_same())
 SELECT SQL_BUFFER_RESULT HEX(BIT_AND(a)), HEX(BIT_OR(a)), HEX(BIT_XOR(a)) FROM t;
 HEX(BIT_AND(a))	HEX(BIT_OR(a))	HEX(BIT_XOR(a))
-FFFFFFFFFFFFFFFFFFFF	00000000000000000000	00000000000000000000
+F000F000	FFF0FFF0	0FF00FF0
 DROP TABLE t;
 #
 # bitwise aggregate functions having arguments with different sizes
@@ -1219,10 +1219,6 @@ group_id	HEX(BIT_AND(a))	BIT_AND(192)	BIT_AND(0x303233)	BIT_AND(binary "foo")
 4	34567100ABF000F0F0	192	3158579	foo
 5	000002	192	3158579	foo
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 Warnings:
 SELECT BIT_COUNT(group_id), BIT_COUNT(a), BIT_COUNT(192), BIT_COUNT(0x303233),
 BIT_COUNT(binary "foo"), BIT_COUNT(NULL)
@@ -1240,10 +1236,6 @@ BIT_COUNT(group_id)	BIT_COUNT(a)	BIT_COUNT(192)	BIT_COUNT(0x303233)	BIT_COUNT(bi
 2	17	2	9	16	NULL
 2	33	2	9	16	NULL
 2	9	2	9	16	NULL
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 Warnings:
 #

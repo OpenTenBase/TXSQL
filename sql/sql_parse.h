@@ -101,9 +101,8 @@ bool is_explainable_query(enum enum_sql_command command);
 bool is_log_table_write_query(enum enum_sql_command command);
 bool alloc_query(THD *thd, const char *packet, size_t packet_length);
 #if defined(HAVE_OPT_CTX)
-void dispatch_sql_command(THD *thd, Parser_state *parser_state,
-                          bool log_statement = false,
-                          bool interceptable = false);
+void dispatch_sql_command(THD *thd, Parser_state *parser_state, bool log_statement = false,
+                 bool interceptable = false);
 #else
 void dispatch_sql_command(THD *thd, Parser_state *parser_state,
                           bool log_statement = false);

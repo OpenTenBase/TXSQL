@@ -541,9 +541,9 @@ a	MAX(d)	MIN(d)
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
-Handler_read_key	2
-Handler_read_last	1
-Handler_read_next	0
+Handler_read_key	1
+Handler_read_last	0
+Handler_read_next	4
 Handler_read_prev	0
 Handler_read_rnd	0
 Handler_read_rnd_next	0
@@ -1665,10 +1665,10 @@ a	MAX(d)	MIN(d)
 
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
-Handler_read_first	0
+Handler_read_first	1
 Handler_read_key	1
 Handler_read_last	0
-Handler_read_next	0
+Handler_read_next	4
 Handler_read_prev	0
 Handler_read_rnd	0
 Handler_read_rnd_next	0
@@ -2664,9 +2664,9 @@ a	MAX(d)	MIN(d)
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
-Handler_read_key	2
-Handler_read_last	1
-Handler_read_next	0
+Handler_read_key	1
+Handler_read_last	0
+Handler_read_next	4
 Handler_read_prev	0
 Handler_read_rnd	0
 Handler_read_rnd_next	0

@@ -5,14 +5,14 @@ grant Process on *.* to test22@localhost;
 flush privileges;
 kill 111;
 ERROR HY000: You are not owner of thread 111
-set global cdb_kill_user_extra='test22@localhost';
+set global cdb_kill_user_extra='test22@local%';
 show variables like 'cdb_kill_user_extra';
 Variable_name	Value
-cdb_kill_user_extra	test22@localhost
+cdb_kill_user_extra	test22@local%
 kill 111;
-set global cdb_kill_user_extra='test22@%';
+set global cdb_kill_user_extra='test22@127.0.0.%';
 show variables like 'cdb_kill_user_extra';
 Variable_name	Value
-cdb_kill_user_extra	test22@%
+cdb_kill_user_extra	test22@127.0.0.%
 kill 111;
 delete from mysql.user where user='test22' or user='test11';

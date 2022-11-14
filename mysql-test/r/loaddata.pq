@@ -9,7 +9,10 @@ Warning	1264	Out of range value for column 'a' at row 2
 Warning	1264	Out of range value for column 'b' at row 2
 Warning	1264	Out of range value for column 'c' at row 2
 Warning	1265	Data truncated for column 'd' at row 2
+Warning	4096	Delimiter ' ' in position 0 in datetime value ' 20030303' at row 3 is superfluous and is deprecated. Please remove.
 load data infile '../../std_data/loaddata1.dat' into table t1 fields terminated by ',' IGNORE 2 LINES;
+Warnings:
+Warning	4096	Delimiter ' ' in position 0 in datetime value ' 20030303' at row 1 is superfluous and is deprecated. Please remove.
 SELECT * from t1;
 a	b	c	d
 0000-00-00	0000-00-00	0000-00-00	0000-00-00
@@ -24,6 +27,7 @@ Warning	1265	Data truncated for column 'd' at row 1
 Warning	1264	Out of range value for column 'b' at row 2
 Warning	1264	Out of range value for column 'c' at row 2
 Warning	1265	Data truncated for column 'd' at row 2
+Warning	4096	Delimiter ' ' in position 0 in datetime value ' 20030303' at row 3 is superfluous and is deprecated. Please remove.
 SELECT * from t1;
 a	b	c	d
 NULL	0000-00-00	0000-00-00	0000-00-00
@@ -121,16 +125,16 @@ id	c1
 9	r.
 SELECT * INTO OUTFILE 'MYSQLTEST_VARDIR/tmp/t1' FIELDS ENCLOSED BY 'r' FROM t1;
 r1r	rrrr
-r5r	r.rrr
 r2r	rrrrrr
 r3r	rrrrrrrr
 r4r	rrrrrrrrrr
+r5r	r.rrr
 r6r	r.rrrrr
-r8r	r.rrrrrrrrr
 r7r	r.rrrrrrr
-r11r	rrrrrrr.r
+r8r	r.rrrrrrrrr
 r9r	rrr.r
 r10r	rrrrr.r
+r11r	rrrrrrr.r
 r12r	rrrrrrrrr.r
 r13r	r.rr.r
 r14r	r.rrrr.r
@@ -723,4 +727,43 @@ SELECT * FROM t1;
 json_col
 []
 []
+DROP TABLE t1;
+#
+# Bug 33714885 - LOAD DATA INFILE fails with ERROR 1054 :
+#   Unknown column XXXX in 'where clause'
+#
+CREATE TABLE t1 (c1 varchar(5), c2 varchar(5));
+INSERT INTO t1 VALUES ('a','a');
+CREATE TABLE t2 (d1 varchar(5), d2 varchar(5));
+INSERT INTO t2 VALUES ('a','a'), ('b','b');
+SELECT * FROM t2 INTO OUTFILE 'MYSQLTEST_VARDIR/tmp/t2.csv' FIELDS TERMINATED BY ',';;
+DELETE FROM t2;
+LOAD DATA INFILE 'MYSQLTEST_VARDIR/tmp/t2.csv' INTO TABLE t2 FIELDS TERMINATED BY ',' SET d1=(SELECT 1 FROM t1 WHERE c1=d2);;
+SELECT * FROM t2;
+d1	d2
+1	a
+NULL	b
+DROP TABLE t1, t2;
+CREATE TABLE t1 ( id int NOT NULL, brith datetime DEFAULT NULL, name int(10) COLLATE utf8mb4_general_ci DEFAULT NULL, PRIMARY KEY (id) );
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+LOAD DATA LOCAL INFILE 'MYSQLTEST_VARDIR/std_data/t1.csv' INTO TABLE t1 FIELDS TERMINATED BY ',';
+Warnings:
+Warning	1265	Data truncated for column 'brith' at row 2
+Warning	1366	Incorrect integer value: 'c' for column 'name' at row 2
+SELECT * FROM t1;
+id	brith	name
+1	2022-08-05 10:13:14	1
+3	0000-00-00 00:00:00	0
+5	2022-08-05 12:13:14	2
+DROP TABLE t1;
+set global txsql_load_data_local_strict_mode = 1;
+CREATE TABLE t1 ( id int NOT NULL, brith datetime DEFAULT NULL, name int(10) COLLATE utf8mb4_general_ci DEFAULT NULL, PRIMARY KEY (id) );
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+LOAD DATA LOCAL INFILE 'MYSQLTEST_VARDIR/std_data/t1.csv' INTO TABLE t1 FIELDS TERMINATED BY ',';
+ERROR 22007: Incorrect datetime value: '' for column 'brith' at row 2
+SELECT * FROM t1;
+id	brith	name
+set global txsql_load_data_local_strict_mode = 0;
 DROP TABLE t1;

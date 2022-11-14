@@ -9,23 +9,23 @@
 # Update data_len field to 512 in the data block containing the checkpoint_lsn...
 # Case 7A: Start MySQL... (attempt 1)
 # Verify...
-Pattern "Upgrade is not supported after a crash or shutdown with innodb_fast_shutdown = 2.* appears logically non empty" not found
+Pattern "Upgrade is not supported after a crash or shutdown with innodb_fast_shutdown = 2.* appears logically non empty" found
 Pattern "Upgrading redo log: .*, LSN=" not found
 Pattern "innodb-unknown-compound-v" not found
 # Case 7A: Start MySQL... (attempt 2)
 # Verify...
-Pattern "Upgrade is not supported after a crash or shutdown with innodb_fast_shutdown = 2.* appears logically non empty" not found
+Pattern "Upgrade is not supported after a crash or shutdown with innodb_fast_shutdown = 2.* appears logically non empty" found
 Pattern "Upgrading redo log: .*, LSN=" not found
 Pattern "innodb-unknown-compound-v" not found
 ############################################################################################
 # Case 7B: Start MySQL... (attempt 1)
 # Verify...
-Pattern "Upgrade after a crash is not supported.* appears corrupted" not found
+Pattern "Upgrade after a crash is not supported.* appears corrupted" found
 Pattern "Upgrading redo log: .*, LSN=" not found
 Pattern "innodb-unknown-compound-v" not found
 # Case 7B: Start MySQL... (attempt 2)
 # Verify...
-Pattern "Upgrade after a crash is not supported.* appears corrupted" not found
+Pattern "Upgrade after a crash is not supported.* appears corrupted" found
 Pattern "Upgrading redo log: .*, LSN=" not found
 Pattern "innodb-unknown-compound-v" not found
 ############################################################################################

@@ -25,7 +25,7 @@ SHOW SESSION STATUS LIKE 'Sort%';
 Variable_name	Value
 Sort_merge_passes	0
 Sort_range	0
-Sort_rows	0
-Sort_scan	0
+Sort_rows	139
+Sort_scan	1
 SET @@session.sort_buffer_size=DEFAULT;
 DROP TABLE t1;

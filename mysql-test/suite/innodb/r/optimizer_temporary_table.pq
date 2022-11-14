@@ -724,7 +724,7 @@ select a from t1 group by b order by sum(a);
 a
 1
 2
-4
+3
 explain format = json select a from t7 group by b order by sum(a);
 EXPLAIN
 {
@@ -3144,7 +3144,7 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`b` AS `b`,group_concat(`test`.`t1`.`a` separator ',') AS `group_concat(a)` from `test`.`t1`
 select b, group_concat(a) from t1;
 b	group_concat(a)
-a	9,3,2,3,4
+a	9,2,3,3,4
 select * from t1;
 a	b
 2	b
@@ -3226,7 +3226,7 @@ max(a), bit_and(a), bit_or(a) from t1 group by b;
 b	count(a)	sum(a)	avg(a)	std(a)	min(a)	max(a)	bit_and(a)	bit_or(a)
 a	1	9	9.0000	0	9	9	9	9
 b	1	2	2.0000	0	2	2	2	2
-c	3	10	3.3333	0.4714045207910317	3	4	0	7
+c	3	10	3.3333	0.4714045207910316	3	4	0	7
 select sql_big_result * from performance_schema.global_variables where variable_name like 'internal_tmp_mem_storage_engine';
 VARIABLE_NAME	VARIABLE_VALUE
 internal_tmp_mem_storage_engine	TempTable
@@ -3733,7 +3733,7 @@ select a from t7 group by b order by sum(a);
 a
 1
 2
-4
+3
 explain format = json select sql_big_result distinct * from t1, t2;
 EXPLAIN
 {
@@ -6065,7 +6065,7 @@ max(a), bit_and(a), bit_or(a) from t1 group by b;
 b	count(a)	sum(a)	avg(a)	std(a)	min(a)	max(a)	bit_and(a)	bit_or(a)
 a	1	9	9.0000	0	9	9	9	9
 b	1	2	2.0000	0	2	2	2	2
-c	3	10	3.3333	0.4714045207910317	3	4	0	7
+c	3	10	3.3333	0.4714045207910316	3	4	0	7
 select sql_big_result * from performance_schema.global_variables where variable_name like 'internal_tmp_mem_storage_engine';
 VARIABLE_NAME	VARIABLE_VALUE
 internal_tmp_mem_storage_engine	TempTable

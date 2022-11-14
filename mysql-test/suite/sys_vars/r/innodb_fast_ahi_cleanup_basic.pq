@@ -77,6 +77,7 @@ set global innodb_fast_ahi_cleanup_for_drop_table=2;
 ERROR 42000: Variable 'innodb_fast_ahi_cleanup_for_drop_table' can't be set to the value of '2'
 NOTE: The following should fail with ER_WRONG_VALUE_FOR_VAR (BUG#50643)
 set global innodb_fast_ahi_cleanup_for_drop_table=-3;
+ERROR 42000: Variable 'innodb_fast_ahi_cleanup_for_drop_table' can't be set to the value of '-3'
 select @@global.innodb_fast_ahi_cleanup_for_drop_table;
 @@global.innodb_fast_ahi_cleanup_for_drop_table
 1

@@ -1037,7 +1037,6 @@ SELECT VALUES(x) FROM t;
 VALUES(x)
 NULL
 Warning	1681	'VALUES function' is deprecated and will be removed in a future release.
-Warning	1681	'VALUES function' is deprecated and will be removed in a future release.
 Warnings:
 INSERT INTO t VALUES (1, VALUES(x));
 Warnings:

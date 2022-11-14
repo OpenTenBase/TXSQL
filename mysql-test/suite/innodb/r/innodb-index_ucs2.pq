@@ -35,8 +35,8 @@ a	b	c	d
 select * from t1 force index(b) order by b;
 a	b	c	d
 1	1	ab	ab
-3	2	ad	ad
 2	2	ac	ac
+3	2	ad	ad
 4	4	afe	afe
 8	9	fff	fff
 10	10	kkk	iii
@@ -71,8 +71,8 @@ a	b	c	d
 select * from t1 force index(b) order by b;
 a	b	c	d
 1	1	ab	ab
-3	2	ad	ad
 2	2	ac	ac
+3	2	ad	ad
 4	4	afe	afe
 8	9	fff	fff
 10	10	kkk	iii

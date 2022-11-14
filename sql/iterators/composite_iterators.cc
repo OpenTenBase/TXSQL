@@ -174,12 +174,18 @@ int LimitOffsetIterator::Read() {
 
 AggregateIterator::AggregateIterator(
     THD *thd, unique_ptr_destroy_only<RowIterator> source, JOIN *join,
-    TableCollection tables, bool rollup, AggType agg_type)
+    TableCollection tables, bool rollup
+#if defined(HAVE_PX)
+    , AggType agg_type
+#endif /* defined(HAVE_PX) */
+    )
     : RowIterator(thd),
       m_source(move(source)),
       m_join(join),
       m_rollup(rollup),
+#if defined(HAVE_PX)
       m_agg_type(agg_type),
+#endif /* defined(HAVE_PX) */
       m_tables(std::move(tables)) {
   const size_t upper_data_length = ComputeRowSizeUpperBound(m_tables);
   m_first_row_this_group.reserve(upper_data_length);
@@ -533,7 +539,11 @@ int AggregateIterator::Read() {
         // See the call to clear_fields().
         m_source->SetNullRowFlag(false);
       } else if (m_save_nullinfo != 0) {
-        m_join->restore_fields(m_save_nullinfo, m_agg_type);
+        m_join->restore_fields(m_save_nullinfo
+#if defined(HAVE_PX)
+        , m_agg_type
+#endif /* defined(HAVE_PX) */
+        );
         m_save_nullinfo = 0;
       }
       SetRollupLevel(INT_MAX);  // Higher-level iterators up above should not
@@ -1471,7 +1481,11 @@ class TemptableAggregateIterator final : public TableRowIterator {
       THD *thd, unique_ptr_destroy_only<RowIterator> subquery_iterator,
       Temp_table_param *temp_table_param, TABLE *table,
       unique_ptr_destroy_only<RowIterator> table_iterator, JOIN *join,
-      int ref_slice, AggType agg_type);
+      int ref_slice
+#if defined(HAVE_PX)
+      , AggType agg_type
+#endif /* defined(HAVE_PX) */
+      );
 
   bool Init() override;
   int Read() override;
@@ -1564,7 +1578,11 @@ TemptableAggregateIterator<Profiler>::TemptableAggregateIterator(
     THD *thd, unique_ptr_destroy_only<RowIterator> subquery_iterator,
     Temp_table_param *temp_table_param, TABLE *table,
     unique_ptr_destroy_only<RowIterator> table_iterator, JOIN *join,
-    int ref_slice, AggType agg_type)
+    int ref_slice
+#if defined(HAVE_PX)
+    , AggType agg_type
+#endif /* defined(HAVE_PX) */
+    )
     : TableRowIterator(thd, table),
       m_subquery_iterator(move(subquery_iterator)),
       m_table_iterator(move(table_iterator)),
@@ -1840,15 +1858,22 @@ RowIterator *temptable_aggregate_iterator::CreateIterator(
     THD *thd, unique_ptr_destroy_only<RowIterator> subquery_iterator,
     Temp_table_param *temp_table_param, TABLE *table,
     unique_ptr_destroy_only<RowIterator> table_iterator, JOIN *join,
-    int ref_slice, AggType agg_type) {
+    int ref_slice
+#if defined(HAVE_PX)
+    , AggType agg_type
+#endif /* defined(HAVE_PX) */
+    ) {
   if (thd->lex->is_explain_analyze) {
     RowIterator *const table_iter_ptr = table_iterator.get();
 
     auto iter =
         new (thd->mem_root) TemptableAggregateIterator<IteratorProfilerImpl>(
             thd, move(subquery_iterator), temp_table_param, table,
-            move(table_iterator), join, ref_slice, agg_type);
-
+            move(table_iterator), join, ref_slice
+#if defined(HAVE_PX)
+            , agg_type
+#endif /* defined(HAVE_PX) */
+            );
     /*
       Provide timing data for the iterator that iterates over the temporary
       table. This should include the time spent both materializing the table
@@ -1860,7 +1885,11 @@ RowIterator *temptable_aggregate_iterator::CreateIterator(
     return new (thd->mem_root)
         TemptableAggregateIterator<DummyIteratorProfiler>(
             thd, move(subquery_iterator), temp_table_param, table,
-            move(table_iterator), join, ref_slice, agg_type);
+            move(table_iterator), join, ref_slice
+#if defined(HAVE_PX)
+            , agg_type
+#endif /* defined(HAVE_PX) */
+            );
   }
 }
 

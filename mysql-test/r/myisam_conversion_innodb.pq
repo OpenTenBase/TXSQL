@@ -5,6 +5,7 @@ CREATE DATABASE mysqltest;
 #connect user=root
 SET @save_myisam_conversion_innodb=@@myisam_conversion_innodb;
 SET @save_tencent_myisam_conversion_innodb=@@tencent_myisam_conversion_innodb;
+include/assert.inc [Cdb_cnvt_myisam_to_innodb_counts = 0]
 "# Test 1.1 create table test unit "
 SET GLOBAL myisam_conversion_innodb=OFF;
 "myisam_conversion_innodb=OFF & connection con_root"
@@ -37,6 +38,7 @@ CREATE TABLE t1 (
 col1 int NOT NULL AUTO_INCREMENT PRIMARY KEY,
 col2 varchar(30) NOT NULL
 )ENGINE=InnoDB;
+include/assert.inc [Cdb_cnvt_myisam_to_innodb_counts = 1]
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
@@ -749,4 +751,61 @@ DROP TABLE IF EXISTS t1,t2,t3,t4;
 SET GLOBAL myisam_conversion_innodb=@save_myisam_conversion_innodb;
 SET GLOBAL tencent_myisam_conversion_innodb=@save_tencent_myisam_conversion_innodb;
 DROP TABLE IF EXISTS t1,t2,t3,t4;
+# restart:--default-storage-engine=myisam
+SET @save_myisam_conversion_innodb=@@myisam_conversion_innodb;
+SET @save_tencent_myisam_conversion_innodb=@@tencent_myisam_conversion_innodb;
+CREATE TABLE t1 (
+col1 int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+col2 varchar(30) NOT NULL
+);
+"t1 with myisam engine"
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `col1` int NOT NULL AUTO_INCREMENT,
+  `col2` varchar(30) NOT NULL,
+  PRIMARY KEY (`col1`)
+) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+SET GLOBAL tencent_myisam_conversion_innodb=ON;
+CREATE TABLE t2 (
+col1 int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+col2 varchar(30) NOT NULL
+);
+"t2 with innodb engine"
+SHOW CREATE TABLE t2;
+Table	Create Table
+t2	CREATE TABLE `t2` (
+  `col1` int NOT NULL AUTO_INCREMENT,
+  `col2` varchar(30) NOT NULL,
+  PRIMARY KEY (`col1`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+CREATE TABLE t3 (
+col1 int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+col2 varchar(30) NOT NULL
+);
+"t3 with myisam engine"
+SHOW CREATE TABLE t3;
+Table	Create Table
+t3	CREATE TABLE `t3` (
+  `col1` int NOT NULL AUTO_INCREMENT,
+  `col2` varchar(30) NOT NULL,
+  PRIMARY KEY (`col1`)
+) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+SET GLOBAL tencent_myisam_conversion_innodb=OFF;
+SET GLOBAL myisam_conversion_innodb=ON;
+CREATE TABLE t4 (
+col1 int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+col2 varchar(30) NOT NULL
+);
+"t4 with innodb engine"
+SHOW CREATE TABLE t4;
+Table	Create Table
+t4	CREATE TABLE `t4` (
+  `col1` int NOT NULL AUTO_INCREMENT,
+  `col2` varchar(30) NOT NULL,
+  PRIMARY KEY (`col1`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+SET GLOBAL myisam_conversion_innodb=@save_myisam_conversion_innodb;
+SET GLOBAL tencent_myisam_conversion_innodb=@save_tencent_myisam_conversion_innodb;
+DROP TABLE IF EXISTS t1, t2, t3, t4;
 DROP DATABASE IF EXISTS mysqltest;

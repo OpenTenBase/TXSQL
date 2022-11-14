@@ -129,14 +129,14 @@ grp	group_concat(a order by a,d-ascii(c)-a)
 0 rows affected
 Warnings generated:
 WARNING | 1292 | Truncated incorrect DOUBLE value: 'a'
+WARNING | 1292 | Truncated incorrect DOUBLE value: 'b'
 WARNING | 1292 | Truncated incorrect DOUBLE value: 'a'
-WARNING | 1292 | Truncated incorrect DOUBLE value: 'b'
-WARNING | 1292 | Truncated incorrect DOUBLE value: 'b'
 WARNING | 1292 | Truncated incorrect DOUBLE value: 'd'
 WARNING | 1292 | Truncated incorrect DOUBLE value: 'd'
+WARNING | 1292 | Truncated incorrect DOUBLE value: 'a'
 WARNING | 1292 | Truncated incorrect DOUBLE value: 'b'
 WARNING | 1292 | Truncated incorrect DOUBLE value: 'c'
-WARNING | 1292 | Truncated incorrect DOUBLE value: 'a'
+WARNING | 1292 | Truncated incorrect DOUBLE value: 'b'
 Got expected warning: 1292 
 RUN select grp,group_concat(a order by c-ascii(c),a) from test.t1 group by grp order by grp
 grp	group_concat(a order by c-ascii(c),a)
@@ -148,10 +148,10 @@ Warnings generated:
 WARNING | 1292 | Truncated incorrect DOUBLE value: 'a'
 WARNING | 1292 | Truncated incorrect DOUBLE value: 'b'
 WARNING | 1292 | Truncated incorrect DOUBLE value: 'c'
+WARNING | 1292 | Truncated incorrect DOUBLE value: 'D'
+WARNING | 1292 | Truncated incorrect DOUBLE value: 'E'
 WARNING | 1292 | Truncated incorrect DOUBLE value: 'd'
 WARNING | 1292 | Truncated incorrect DOUBLE value: 'C'
-WARNING | 1292 | Truncated incorrect DOUBLE value: 'E'
-WARNING | 1292 | Truncated incorrect DOUBLE value: 'D'
 WARNING | 1292 | Truncated incorrect DOUBLE value: 'D'
 WARNING | 1292 | Truncated incorrect DOUBLE value: 'd'
 Got expected warning: 1292 

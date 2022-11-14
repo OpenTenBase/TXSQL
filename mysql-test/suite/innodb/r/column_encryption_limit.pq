@@ -1,0 +1,65 @@
+call mtr.add_suppression("\\[Error\\] .*MY-\\d+.* Can't generate new master key for tablespace encryption, please check the keyring plugin is loaded.");
+call mtr.add_suppression("\\[Error\\] .*MY-\\d+.* Encryption can't find master key, please check the keyring plugin is loaded.");
+call mtr.add_suppression("\\[ERROR\\] .*MY-\\d+.* Function 'keyring_file' already exists");
+call mtr.add_suppression("\\[ERROR\\] .*MY-\\d+.* Couldn't load plugin named 'keyring_file' with soname 'keyring_file.*'.");
+call mtr.add_suppression("\\[ERROR\\] .*MY-\\d+.* illegal user or without master key can only read encrypted data of the encrypted .*");
+call mtr.add_suppression("Plugin keyring_file reported");
+create table t1(c1 int encryption);
+ERROR HY000: Can not define column 'c1' in encryption format, only support varchar not referenced by virtual columns
+create table t1(c1 char(128) encryption);
+ERROR HY000: Can not define column 'c1' in encryption format, only support varchar not referenced by virtual columns
+create table t1(c1 float encryption);
+ERROR HY000: Can not define column 'c1' in encryption format, only support varchar not referenced by virtual columns
+create table t1(c1 binary(128) encryption);
+ERROR HY000: Can not define column 'c1' in encryption format, only support varchar not referenced by virtual columns
+create table t1(c1 varbinary(128) encryption);
+ERROR HY000: Can not define column 'c1' in encryption format, only support varchar not referenced by virtual columns
+create table t1(c1 json encryption);
+ERROR HY000: Can not define column 'c1' in encryption format, only support varchar not referenced by virtual columns
+create table t1(c1 blob encryption);
+ERROR HY000: Can not define column 'c1' in encryption format, only support varchar not referenced by virtual columns
+create table t1(c1 text encryption);
+ERROR HY000: Can not define column 'c1' in encryption format, only support varchar not referenced by virtual columns
+create table t1(c1 varchar(1025) encryption);
+ERROR HY000: Encryption column length too big for column 'c1' (max = 1024)
+create table t1(c1 varchar(255) encryption) engine = myisam;
+ERROR HY000: Table storage engine 'MyISAM' does not support the create option 'ENCRYPTION COLUMNS'
+create table t1(c1 varchar(255) encryption) engine = memory;
+ERROR HY000: Table storage engine 'MEMORY' does not support the create option 'ENCRYPTION COLUMNS'
+create table t1(c1 int primary key, c2 int );
+alter table t1 add c3 varchar(32) encryption;
+alter table t1 add index k1(c3);
+ERROR HY000: Encryption column 'c3' is not allowed in the key list
+alter table t1 add index k2(c2, c3);
+ERROR HY000: Encryption column 'c3' is not allowed in the key list
+alter table t1 add i1 varchar(255) encryption algorithm=SM4 default '天', ALGORITHM=instant;
+ERROR 0A000: ALGORITHM=INSTANT is not supported for this operation. Try ALGORITHM=COPY/INPLACE.
+drop table t1;
+create table t1(c1 int primary key, c2 varchar(32));
+create table t2(c1 int primary key, c2 varchar(32) encryption, foreign key(c2) references t1(c2));
+ERROR HY000: Encryption column 'c2' is not allowed in the key list
+create table t2(c1 int primary key, c2 varchar(32) encryption);
+create table t3(c1 int primary key, c2 varchar(32), foreign key(c2) references t2(c2));
+ERROR HY000: Failed to add the foreign key constraint. Missing index for constraint 't3_ibfk_1' in the referenced table 't2'
+drop table t1, t2;
+create table t1(c1 int primary key, c2 varchar(255) encryption default 'abc', c3 varchar(255) generated always as (left(c2,100)) stored);
+ERROR HY000: Can not mixed use stored virtual column and encryption column in one table
+create table t1(c1 int primary key, c2 varchar(255) default 'abc' encryption algorithm=SM4);
+insert into t1 values(1,'a'),(2,'b'),(3,'c');
+set global cdb_column_encryption_whitelist = 'invalid';
+insert into t1 values(4,'d');
+ERROR HY000: illegal user can not write encryption column 'c2'
+update t1 set c1=c1+10 where c1=1;
+update t1 set c2='d' where c1=1;
+ERROR HY000: illegal user can not write encryption column 'c2'
+update t1 set c2='d' where c1=2;
+ERROR HY000: illegal user can not write encryption column 'c2'
+delete from t1 where c1=1;
+delete from t1 where c2='a';
+Warnings:
+Warning	4148	illegal user or without master key can only read encrypted data of the encrypted column 'c2'
+set global cdb_column_encryption_whitelist = '';
+alter instance rotate innodb master key;
+ERROR HY000: Can not alter rotate master key, because 'have encryption column'
+drop table t1;
+alter instance rotate innodb master key;

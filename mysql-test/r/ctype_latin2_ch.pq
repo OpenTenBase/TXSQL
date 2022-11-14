@@ -164,9 +164,9 @@ CREATE TABLE t1 ENGINE=INNODB AS SELECT repeat('a', 5) AS s1 LIMIT 0;
 INSERT INTO t1 VALUES ('x'),('y'),('z'),('X'),('Y'),('Z');
 SELECT * FROM t1 GROUP BY s1;
 s1
-Z
 x
 y
+z
 SELECT * FROM t1 ORDER BY s1;
 s1
 x
@@ -183,12 +183,12 @@ y
 z
 SELECT * FROM t1 ORDER BY s1;
 s1
-X
 x
-Y
+X
 y
-Z
+Y
 z
+Z
 DROP TABLE t1;
 SET sql_mode='';
 CREATE TABLE t1 ENGINE=FALCON AS SELECT repeat('a', 5) AS s1 LIMIT 0;
@@ -215,12 +215,12 @@ y
 z
 SELECT * FROM t1 ORDER BY s1;
 s1
-X
 x
-Y
+X
 y
-Z
+Y
 z
+Z
 DROP TABLE t1;
 SET sql_mode='';
 CREATE TABLE t1 ENGINE=MARIA AS SELECT repeat('a', 5) AS s1 LIMIT 0;
@@ -249,8 +249,8 @@ SELECT * FROM t1 ORDER BY s1;
 s1
 x
 X
-Y
 y
+Y
 z
 Z
 DROP TABLE t1;

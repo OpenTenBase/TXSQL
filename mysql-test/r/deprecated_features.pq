@@ -7,7 +7,7 @@ ERROR HY000: Unknown system variable 'table_type'
 backup table t1 to 'data.txt';
 ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'backup table t1 to 'data.txt'' at line 1
 restore table t1 from 'data.txt';
-ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'restore table t1 from 'data.txt'' at line 1
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'table t1 from 'data.txt'' at line 1
 show plugin;
 ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'plugin' at line 1
 load table t1 from master;

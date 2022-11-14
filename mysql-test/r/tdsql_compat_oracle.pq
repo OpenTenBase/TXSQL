@@ -1,0 +1,63 @@
+select 'tdsql' || null;
+'tdsql' || null
+tdsql
+select null || 'tdsql';
+null || 'tdsql'
+tdsql
+select to_char('2021-07-21 12:20:45.888888', 'hh24:mi:ss ff');
+to_char('2021-07-21 12:20:45.888888', 'hh24:mi:ss ff')
+12:20:45 888888
+select to_char('2021-07-21 12:20:45.888888', 'hh24:mi:ss ff0');
+to_char('2021-07-21 12:20:45.888888', 'hh24:mi:ss ff0')
+NULL
+Warning	4160	Failed to resolve the format string hh24:mi:ss ff0
+Warnings:
+select to_char('2021-07-21 12:20:45.888888', 'hh24:mi:ss ff1');
+to_char('2021-07-21 12:20:45.888888', 'hh24:mi:ss ff1')
+12:20:45 8
+select to_char('2021-07-21 12:20:45.888888', 'hh24:mi:ss ff2');
+to_char('2021-07-21 12:20:45.888888', 'hh24:mi:ss ff2')
+12:20:45 88
+select to_char('2021-07-21 12:20:45.888888', 'hh24:mi:ss ff3');
+to_char('2021-07-21 12:20:45.888888', 'hh24:mi:ss ff3')
+12:20:45 888
+select to_char('2021-07-21 12:20:45.888888', 'hh24:mi:ss ff4');
+to_char('2021-07-21 12:20:45.888888', 'hh24:mi:ss ff4')
+12:20:45 8888
+select to_char('2021-07-21 12:20:45.888888', 'hh24:mi:ss ff5');
+to_char('2021-07-21 12:20:45.888888', 'hh24:mi:ss ff5')
+12:20:45 88888
+select to_char('2021-07-21 12:20:45.888888', 'hh24:mi:ss ff6');
+to_char('2021-07-21 12:20:45.888888', 'hh24:mi:ss ff6')
+12:20:45 888888
+select to_char('2021-07-21 12:20:45.888888', 'hh24:mi:ss ff7');
+to_char('2021-07-21 12:20:45.888888', 'hh24:mi:ss ff7')
+NULL
+Warning	4160	Failed to resolve the format string hh24:mi:ss ff7
+Warnings:
+select to_char('2021-07-21 12:20:45.00001', 'hh24:mi:ss ff');
+to_char('2021-07-21 12:20:45.00001', 'hh24:mi:ss ff')
+12:20:45 000010
+select to_char('2021-07-21 12:20:45.01', 'hh24:mi:ss ff3');
+to_char('2021-07-21 12:20:45.01', 'hh24:mi:ss ff3')
+12:20:45 010
+select to_char('2021-07-21 12:20:45.0', 'hh24:mi:ss ff3');
+to_char('2021-07-21 12:20:45.0', 'hh24:mi:ss ff3')
+12:20:45 000
+select to_char('2021-07-21 12:20:45', 'hh24:mi:ss ff6');
+to_char('2021-07-21 12:20:45', 'hh24:mi:ss ff6')
+12:20:45 000000
+select substr('tdsql', 0, 5);
+substr('tdsql', 0, 5)
+tdsql
+set global tdsql_compat_oracle_mode=off;
+select 'tdsql' || null;
+'tdsql' || null
+NULL
+select null || 'tdsql';
+null || 'tdsql'
+NULL
+select substr('tdsql', 0, 5);
+substr('tdsql', 0, 5)
+
+set global tdsql_compat_oracle_mode=on;

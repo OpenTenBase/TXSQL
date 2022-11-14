@@ -25,10 +25,10 @@ Rel: Update a valid row
 1 rows affected
 Rows matched: 1  Changed: 1  Warnings: 0
 id	name	price
-1	lemon	1.20
-5	orange	0.90
-2	apple	0.25
 3	tomato	1.80
+1	lemon	1.20
+2	apple	0.25
+5	orange	0.90
 4	mango	3.14
 0 rows affected
 
@@ -41,11 +41,11 @@ Rel: Update non-existing row
 0 rows affected
 Rows matched: 0  Changed: 0  Warnings: 0
 id	name	price
-3	tomato	1.80
-5	orange	0.90
-2	apple	0.25
 1	banana	1.20
+2	apple	0.25
+5	orange	0.90
 4	mango	3.14
+3	tomato	1.80
 0 rows affected
 
 0 rows affected
@@ -57,11 +57,11 @@ Rel: Update multiple rows
 3 rows affected
 Rows matched: 3  Changed: 3  Warnings: 0
 id	name	price
-2	apple	0.25
-5	orange	0.90
 1	lemon	1.20
 4	lemon	3.14
 3	lemon	1.80
+2	apple	0.25
+5	orange	0.90
 0 rows affected
 
 0 rows affected
@@ -73,11 +73,11 @@ Rel: Update all rows (no criteria)
 5 rows affected
 Rows matched: 5  Changed: 5  Warnings: 0
 id	name	price
-3	lemon	1.80
-4	lemon	3.14
 2	lemon	0.25
-1	lemon	1.20
 5	lemon	0.90
+4	lemon	3.14
+1	lemon	1.20
+3	lemon	1.80
 0 rows affected
 
 0 rows affected
@@ -90,10 +90,10 @@ Rel: Update two first rows in desc order
 Rows matched: 2  Changed: 2  Warnings: 0
 id	name	price
 1	banana	1.20
-4	lemon	3.14
-5	orange	0.90
-3	lemon	1.80
 2	apple	0.25
+3	lemon	1.80
+5	orange	0.90
+4	lemon	3.14
 0 rows affected
 
 0 rows affected
@@ -103,11 +103,11 @@ Records: 5  Duplicates: 0  Warnings: 0
 Rel: Update non-existing column
 Got expected error: Unknown column 'noname' in 'field list' (code 1054)
 id	name	price
-3	tomato	1.80
-4	mango	3.14
+1	banana	1.20
 5	orange	0.90
 2	apple	0.25
-1	banana	1.20
+4	mango	3.14
+3	tomato	1.80
 0 rows affected
 
 0 rows affected
@@ -118,9 +118,9 @@ Rel: Update on a table with expression on invalid columns
 Got expected error: Unknown column 'noprice' in 'where clause' (code 1054)
 id	name	price
 1	banana	1.20
-3	tomato	1.80
 2	apple	0.25
 4	mango	3.14
+3	tomato	1.80
 5	orange	0.90
 0 rows affected
 
@@ -131,8 +131,22 @@ Records: 5  Duplicates: 0  Warnings: 0
 Rel: Update with empty operations type
 Got expected error: Invalid update expression list (code 5050)
 id	name	price
-1	banana	1.20
 2	apple	0.25
+3	tomato	1.80
+4	mango	3.14
+1	banana	1.20
+5	orange	0.90
+0 rows affected
+
+0 rows affected
+
+5 rows affected
+Records: 5  Duplicates: 0  Warnings: 0
+Rel: Update source column with table
+Got expected error: Invalid column name to update (code 5052)
+id	name	price
+2	apple	0.25
+1	banana	1.20
 5	orange	0.90
 4	mango	3.14
 3	tomato	1.80
@@ -146,23 +160,9 @@ Rel: Update source column with table
 Got expected error: Invalid column name to update (code 5052)
 id	name	price
 1	banana	1.20
-4	mango	3.14
-2	apple	0.25
 5	orange	0.90
 3	tomato	1.80
-0 rows affected
-
-0 rows affected
-
-5 rows affected
-Records: 5  Duplicates: 0  Warnings: 0
-Rel: Update source column with table
-Got expected error: Invalid column name to update (code 5052)
-id	name	price
-1	banana	1.20
 2	apple	0.25
-5	orange	0.90
-3	tomato	1.80
 4	mango	3.14
 0 rows affected
 
@@ -173,11 +173,11 @@ Records: 5  Duplicates: 0  Warnings: 0
 Rel: Update source column with table and schema
 Got expected error: Invalid column name to update (code 5052)
 id	name	price
-2	apple	0.25
-5	orange	0.90
 3	tomato	1.80
-1	banana	1.20
 4	mango	3.14
+1	banana	1.20
+5	orange	0.90
+2	apple	0.25
 0 rows affected
 
 0 rows affected
@@ -187,11 +187,11 @@ Records: 5  Duplicates: 0  Warnings: 0
 Rel: Update on an invalid schema
 Got expected error: Table 'ytest.xtable' doesn't exist (code 1146)
 id	name	price
-2	apple	0.25
-4	mango	3.14
-3	tomato	1.80
-5	orange	0.90
 1	banana	1.20
+3	tomato	1.80
+4	mango	3.14
+2	apple	0.25
+5	orange	0.90
 0 rows affected
 
 0 rows affected
@@ -201,22 +201,22 @@ Records: 5  Duplicates: 0  Warnings: 0
 Rel: Update on an invalid collection
 Got expected error: Table 'xtest.ytable' doesn't exist (code 1146)
 id	name	price
+1	banana	1.20
+3	tomato	1.80
 2	apple	0.25
 5	orange	0.90
-1	banana	1.20
 4	mango	3.14
-3	tomato	1.80
 0 rows affected
 Rel: Update one field twice
 
 5 rows affected
 Rows matched: 5  Changed: 5  Warnings: 0
 id	name	price
-1	lemon	1.20
+3	lemon	1.80
 5	lemon	0.90
+1	lemon	1.20
 4	lemon	3.14
 2	lemon	0.25
-3	lemon	1.80
 0 rows affected
 Mysqlx.Ok {
   msg: "bye!"

@@ -69,9 +69,9 @@ count(*)
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
-Handler_read_key	2
+Handler_read_key	1
 Handler_read_last	0
-Handler_read_next	0
+Handler_read_next	10
 Handler_read_prev	0
 Handler_read_rnd	0
 Handler_read_rnd_next	0
@@ -90,9 +90,9 @@ pk_2
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
-Handler_read_key	2
+Handler_read_key	1
 Handler_read_last	0
-Handler_read_next	0
+Handler_read_next	10
 Handler_read_prev	0
 Handler_read_rnd	0
 Handler_read_rnd_next	0
@@ -113,9 +113,9 @@ count(*)
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
-Handler_read_key	2
+Handler_read_key	1
 Handler_read_last	0
-Handler_read_next	0
+Handler_read_next	30
 Handler_read_prev	0
 Handler_read_rnd	0
 Handler_read_rnd_next	0
@@ -138,9 +138,9 @@ pk_1	pk_2
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
-Handler_read_key	2
+Handler_read_key	1
 Handler_read_last	0
-Handler_read_next	0
+Handler_read_next	30
 Handler_read_prev	0
 Handler_read_rnd	0
 Handler_read_rnd_next	0
@@ -161,9 +161,9 @@ MIN(pk_1)
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
-Handler_read_key	2
+Handler_read_key	1
 Handler_read_last	0
-Handler_read_next	0
+Handler_read_next	432
 Handler_read_prev	0
 Handler_read_rnd	0
 Handler_read_rnd_next	0
@@ -181,9 +181,9 @@ MIN(pk_1)
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
-Handler_read_key	2
+Handler_read_key	1
 Handler_read_last	0
-Handler_read_next	0
+Handler_read_next	30
 Handler_read_prev	0
 Handler_read_rnd	0
 Handler_read_rnd_next	0
@@ -201,9 +201,9 @@ MAX(pk_1)
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
-Handler_read_key	2
+Handler_read_key	1
 Handler_read_last	0
-Handler_read_next	0
+Handler_read_next	432
 Handler_read_prev	0
 Handler_read_rnd	0
 Handler_read_rnd_next	0
@@ -221,9 +221,9 @@ MAX(pk_1)
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
-Handler_read_key	2
+Handler_read_key	1
 Handler_read_last	0
-Handler_read_next	0
+Handler_read_next	30
 Handler_read_prev	0
 Handler_read_rnd	0
 Handler_read_rnd_next	0
@@ -245,9 +245,9 @@ MIN(pk_1)
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
-Handler_read_key	2
+Handler_read_key	1
 Handler_read_last	0
-Handler_read_next	0
+Handler_read_next	96
 Handler_read_prev	0
 Handler_read_rnd	0
 Handler_read_rnd_next	0
@@ -266,9 +266,9 @@ MIN(pk_1)
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
-Handler_read_key	4
+Handler_read_key	2
 Handler_read_last	0
-Handler_read_next	0
+Handler_read_next	224
 Handler_read_prev	0
 Handler_read_rnd	0
 Handler_read_rnd_next	0
@@ -292,9 +292,9 @@ count(*)
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
-Handler_read_key	2
+Handler_read_key	433
 Handler_read_last	0
-Handler_read_next	0
+Handler_read_next	3600
 Handler_read_prev	0
 Handler_read_rnd	0
 Handler_read_rnd_next	0
@@ -350,9 +350,9 @@ f1	pk_1	pk_2
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
-Handler_read_key	2
+Handler_read_key	1
 Handler_read_last	0
-Handler_read_next	0
+Handler_read_next	30
 Handler_read_prev	0
 Handler_read_rnd	0
 Handler_read_rnd_next	0
@@ -467,12 +467,12 @@ f1
 SHOW STATUS LIKE 'Handler_read%';
 Variable_name	Value
 Handler_read_first	1
-Handler_read_key	1
+Handler_read_key	3
 Handler_read_last	0
-Handler_read_next	0
+Handler_read_next	2
 Handler_read_prev	0
 Handler_read_rnd	0
-Handler_read_rnd_next	0
+Handler_read_rnd_next	3
 DROP TABLE t1, t2;
 #
 # Bug#20430526 ADDRESSSANITIZER: HEAP-BUFFER-OVERFLOW IN

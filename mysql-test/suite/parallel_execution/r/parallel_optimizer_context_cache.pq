@@ -740,10 +740,6 @@ select name,count(*) from t3 where name >= "extramarital" and price <= 39654943 
                 1
               ],
               "records_in_range": [
-                {
-                  "ranges": "see 'ranges' of range_scan_alternatives tab",
-                  "rows": 20868
-                }
               ]
             },
             {

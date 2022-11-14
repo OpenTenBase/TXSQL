@@ -3797,7 +3797,7 @@ err_exit:
  positioned on (i.e. we should not go to the next record yet) */
 #if defined(HAVE_PX)
 #else
- UNIV_INLINE
+ static
 #endif /* defined(HAVE_PX) */
 bool sel_restore_position_for_mysql(
     bool *same_user_rec, /*!< out: TRUE if we were able to restore
@@ -3964,7 +3964,7 @@ Record_buffer *row_sel_get_record_buffer(
 /** Pops a cached row for MySQL from the fetch cache. */
 #if defined(HAVE_PX)
 #else
-UNIV_INLINE
+static inline
 #endif /* defined(HAVE_PX) */
 void row_sel_dequeue_cached_row_for_mysql(
     byte *buf,                /*!< in/out: buffer where to copy the
@@ -4063,7 +4063,7 @@ static inline void row_sel_prefetch_cache_init(
  @return pointer to buffer. */
 #if defined(HAVE_PX)
 #else
-UNIV_INLINE
+static inline
 #endif /* defined(HAVE_PX) */
 byte *row_sel_fetch_last_buf(
     row_prebuilt_t *prebuilt) /*!< in/out: prebuilt struct */
@@ -4100,7 +4100,7 @@ byte *row_sel_fetch_last_buf(
 /** Pushes a row for MySQL to the fetch cache. */
 #if defined(HAVE_PX)
 #else
-UNIV_INLINE
+static inline
 #endif /* defined(HAVE_PX) */
 void row_sel_enqueue_cache_row_for_mysql(
     byte *mysql_rec,          /*!< in/out: MySQL record */

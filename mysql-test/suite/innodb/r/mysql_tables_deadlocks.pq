@@ -34,6 +34,10 @@ AND table_name NOT IN (
 "replication_asynchronous_connection_failover_managed"
 )
 ORDER BY table_name;
+Preparing deadlock scenario for mysql.column_statistics_history
+ROLLBACK;
+ERROR 40001: Deadlock found when trying to get lock; try restarting transaction
+ROLLBACK;
 Preparing deadlock scenario for mysql.component
 ROLLBACK;
 ERROR 40001: Deadlock found when trying to get lock; try restarting transaction
@@ -74,7 +78,15 @@ Preparing deadlock scenario for mysql.innodb_table_stats
 ROLLBACK;
 ERROR 40001: Deadlock found when trying to get lock; try restarting transaction
 ROLLBACK;
+Preparing deadlock scenario for mysql.outline
+ROLLBACK;
+ERROR 40001: Deadlock found when trying to get lock; try restarting transaction
+ROLLBACK;
 Preparing deadlock scenario for mysql.plugin
+ROLLBACK;
+ERROR 40001: Deadlock found when trying to get lock; try restarting transaction
+ROLLBACK;
+Preparing deadlock scenario for mysql.recycle_bin_info
 ROLLBACK;
 ERROR 40001: Deadlock found when trying to get lock; try restarting transaction
 ROLLBACK;
@@ -111,6 +123,10 @@ ROLLBACK;
 ERROR 40001: Deadlock found when trying to get lock; try restarting transaction
 ROLLBACK;
 Preparing deadlock scenario for mysql.slave_worker_info
+ROLLBACK;
+ERROR 40001: Deadlock found when trying to get lock; try restarting transaction
+ROLLBACK;
+Preparing deadlock scenario for mysql.tdsql_sequences
 ROLLBACK;
 ERROR 40001: Deadlock found when trying to get lock; try restarting transaction
 ROLLBACK;

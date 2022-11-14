@@ -48,7 +48,6 @@ s(p)≎⊤
 SELECT * FROM `∀p∊ℙ`.`∃s∊𝕊`;
 s(p)≎⊤
 Warning	1300	Cannot convert string '\xE2\x88\x83s\xE2\x88...' from utf8mb4 to utf8mb3
-Warning	1300	Cannot convert string '\xE2\x88\x83s\xE2\x88...' from utf8mb4 to utf8mb3
 Warnings:
 SELECT test_table_access_driver("MATH-INSERT-UTF8MB3");
 test_table_access_driver("MATH-INSERT-UTF8MB3")
@@ -83,7 +82,6 @@ s(p)≎⊤
 ∀p∊ℙ ∃s∊ℚ s(p)≎⊤
 SELECT * FROM `∀p∊ℙ`.`∃s∊𝕊`;
 s(p)≎⊤
-Warning	1300	Cannot convert string '\xE2\x88\x83s\xE2\x88...' from utf8mb4 to utf8mb3
 Warning	1300	Cannot convert string '\xE2\x88\x83s\xE2\x88...' from utf8mb4 to utf8mb3
 Warnings:
 ∀p∊ℙ ∃s∊𝕊 s(p)≎⊤

@@ -26,12 +26,10 @@ select binary v='a' from t1;
 binary v='a'
 0
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 Warnings:
 select binary v='a ' from t1;
 binary v='a '
 1
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 Warnings:
 insert into t1 values('a');
@@ -110,9 +108,9 @@ This is a test
 This is a test
 select * from t1 where v='This is a test' order by v;
 v
-This is a test
-This is a test
 This is a test 
+This is a test
+This is a test
 select * from t1 where v like 'S%' order by v;
 v
 Short string
@@ -438,8 +436,8 @@ This is a test
 This is a test
 select * from t1 where v='This is a test' order by v;
 v
-This is a test
 This is a test 
+This is a test
 This is a test
 select * from t1 where v like 'S%' order by v;
 v
@@ -519,9 +517,9 @@ This is a test
 This is a test
 select * from t1 where v='This is a test' order by v;
 v
-This is a test
-This is a test
 This is a test 
+This is a test
+This is a test
 select * from t1 where v like 'S%' order by v;
 v
 Short string

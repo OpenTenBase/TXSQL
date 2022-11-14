@@ -48,6 +48,10 @@ END WHILE;
 END$
 CALL test_system_table_alter_engine();
 @table_name
+MYSQL.COLUMN_STATISTICS_HISTORY
+ERROR
+Storage engine 'MyISAM' does not support system tables. [mysql.column_statistics_history]
+@table_name
 MYSQL.COLUMNS_PRIV
 ERROR
 Storage engine 'MyISAM' does not support system tables. [mysql.columns_priv]
@@ -104,6 +108,10 @@ MYSQL.INNODB_TABLE_STATS
 ERROR
 The used command is not allowed with this MySQL version
 @table_name
+MYSQL.OUTLINE
+ERROR
+Storage engine 'MyISAM' does not support system tables. [mysql.outline]
+@table_name
 MYSQL.PASSWORD_HISTORY
 ERROR
 Storage engine 'MyISAM' does not support system tables. [mysql.password_history]
@@ -119,6 +127,10 @@ Storage engine 'MyISAM' does not support system tables. [mysql.procs_priv]
 MYSQL.PROXIES_PRIV
 ERROR
 Storage engine 'MyISAM' does not support system tables. [mysql.proxies_priv]
+@table_name
+MYSQL.RECYCLE_BIN_INFO
+ERROR
+Storage engine 'MyISAM' does not support system tables. [mysql.recycle_bin_info]
 @table_name
 MYSQL.REPLICATION_ASYNCHRONOUS_CONNECTION_FAILOVER
 ERROR
@@ -167,6 +179,10 @@ Storage engine 'MyISAM' does not support system tables. [mysql.slave_worker_info
 MYSQL.TABLES_PRIV
 ERROR
 Storage engine 'MyISAM' does not support system tables. [mysql.tables_priv]
+@table_name
+MYSQL.TDSQL_SEQUENCES
+ERROR
+Storage engine 'MyISAM' does not support system tables. [mysql.tdsql_sequences]
 @table_name
 MYSQL.TIME_ZONE
 ERROR
@@ -244,6 +260,8 @@ END WHILE;
 END$
 CALL test_create_system_table();
 SEVERITY	ERRNO	MESSAGE
+Warning	1726	Storage engine 'MyISAM' does not support system tables. [mysql.column_statistics_history]
+SEVERITY	ERRNO	MESSAGE
 Warning	1726	Storage engine 'MyISAM' does not support system tables. [mysql.columns_priv]
 SEVERITY	ERRNO	MESSAGE
 Warning	1726	Storage engine 'MyISAM' does not support system tables. [mysql.component]
@@ -274,6 +292,8 @@ ERROR	3554	Access to system table 'mysql.innodb_index_stats' is rejected.
 SEVERITY	ERRNO	MESSAGE
 ERROR	3554	Access to system table 'mysql.innodb_table_stats' is rejected.
 SEVERITY	ERRNO	MESSAGE
+Warning	1726	Storage engine 'MyISAM' does not support system tables. [mysql.outline]
+SEVERITY	ERRNO	MESSAGE
 Warning	1726	Storage engine 'MyISAM' does not support system tables. [mysql.password_history]
 SEVERITY	ERRNO	MESSAGE
 Warning	1726	Storage engine 'MyISAM' does not support system tables. [mysql.plugin]
@@ -281,6 +301,8 @@ SEVERITY	ERRNO	MESSAGE
 Warning	1726	Storage engine 'MyISAM' does not support system tables. [mysql.procs_priv]
 SEVERITY	ERRNO	MESSAGE
 Warning	1726	Storage engine 'MyISAM' does not support system tables. [mysql.proxies_priv]
+SEVERITY	ERRNO	MESSAGE
+Warning	1726	Storage engine 'MyISAM' does not support system tables. [mysql.recycle_bin_info]
 SEVERITY	ERRNO	MESSAGE
 Warning	1726	Storage engine 'MyISAM' does not support system tables. [mysql.replication_asynchronous_connection_failover]
 SEVERITY	ERRNO	MESSAGE
@@ -305,6 +327,8 @@ SEVERITY	ERRNO	MESSAGE
 Warning	1726	Storage engine 'MyISAM' does not support system tables. [mysql.slave_worker_info]
 SEVERITY	ERRNO	MESSAGE
 Warning	1726	Storage engine 'MyISAM' does not support system tables. [mysql.tables_priv]
+SEVERITY	ERRNO	MESSAGE
+Warning	1726	Storage engine 'MyISAM' does not support system tables. [mysql.tdsql_sequences]
 SEVERITY	ERRNO	MESSAGE
 Warning	1726	Storage engine 'MyISAM' does not support system tables. [mysql.time_zone]
 SEVERITY	ERRNO	MESSAGE

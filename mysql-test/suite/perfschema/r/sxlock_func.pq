@@ -24,8 +24,13 @@ wait/synch/sxlock/innodb/index_tree_rw_lock
 wait/synch/sxlock/innodb/lock_sys_global_rw_lock
 wait/synch/sxlock/innodb/log_sn_lock
 wait/synch/sxlock/innodb/rsegs_lock
+wait/synch/sxlock/innodb/tlog_file_lock
+wait/synch/sxlock/innodb/tlog_page_lock
+wait/synch/sxlock/innodb/tlog_purge_lock
 wait/synch/sxlock/innodb/trx_i_s_cache_lock
 wait/synch/sxlock/innodb/trx_purge_latch
+wait/synch/sxlock/innodb/trx_sys_mvcc_lock
+wait/synch/sxlock/innodb/trx_sys_rw_lock
 wait/synch/sxlock/innodb/undo_spaces_lock
 select name from performance_schema.rwlock_instances
 where name in

@@ -1650,7 +1650,7 @@ companynr	count(*)
 50	11
 select count(*),min(fld4),max(fld4),sum(fld1),avg(fld1),std(fld1),variance(fld1) from t2 where companynr = 34 and fld4<>"";
 count(*)	min(fld4)	max(fld4)	sum(fld1)	avg(fld1)	std(fld1)	variance(fld1)
-70	absentee	vest	17788966	254128.0857	3272.593972209002	10709871.306938693
+70	absentee	vest	17788966	254128.0857	3272.5939722090234	10709871.306938833
 explain select count(*),min(fld4),max(fld4),sum(fld1),avg(fld1),std(fld1),variance(fld1) from t2 where companynr = 34 and fld4<>"";
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	1199	9.00	Parallel scan (4 workers); Using where
@@ -1660,7 +1660,7 @@ Warnings:
 Note	1003	/* select#1 */ select count(0) AS `count(*)`,min(`test`.`t2`.`fld4`) AS `min(fld4)`,max(`test`.`t2`.`fld4`) AS `max(fld4)`,sum(`test`.`t2`.`fld1`) AS `sum(fld1)`,avg(`test`.`t2`.`fld1`) AS `avg(fld1)`,std(`test`.`t2`.`fld1`) AS `std(fld1)`,variance(`test`.`t2`.`fld1`) AS `variance(fld1)` from `test`.`t2` where ((`test`.`t2`.`companynr` = 34) and (`test`.`t2`.`fld4` <> ''))
 select companynr,count(*),min(fld4),max(fld4),sum(fld1),avg(fld1),std(fld1),variance(fld1) from t2 group by companynr order by companynr limit 3;
 companynr	count(*)	min(fld4)	max(fld4)	sum(fld1)	avg(fld1)	std(fld1)	variance(fld1)
-00	82	Anthony	windmills	10355753	126289.6707	115550.97568479746	13352027981.708654
+00	82	Anthony	windmills	10355753	126289.6707	115550.97568479746	13352027981.708656
 29	95	abut	wetness	14473298	152350.5053	8368.547956641249	70032594.90260443
 34	70	absentee	vest	17788966	254128.0857	3272.5939722090234	10709871.306938833
 select
@@ -3313,12 +3313,10 @@ create view v1 as select s1, s2, 'x' as s3 from t1;
 select * from t1 natural join v1;
 s1	s2	s3
 Warning	1292	Truncated incorrect DECIMAL value: 'x'
-Warning	1292	Truncated incorrect DECIMAL value: 'x'
 Warnings:
 insert into t1 values (1,'x',5);
 select * from t1 natural join v1;
 s1	s2	s3
-Warning	1292	Truncated incorrect DECIMAL value: 'x'
 Warning	1292	Truncated incorrect DECIMAL value: 'x'
 Warnings:
 drop table t1;
@@ -3650,10 +3648,6 @@ f1	f2
 5	2005-12-30
 Warnings:
 Warning	1292	Incorrect date value: '2005-09-3a' for column 'f2' at row 1
-Warning	1292	Incorrect date value: '2005-09-3a' for column 'f2' at row 1
-Warning	1292	Incorrect date value: '2005-09-3a' for column 'f2' at row 1
-Warning	1292	Incorrect date value: '2005-09-3a' for column 'f2' at row 1
-Warning	1292	Incorrect date value: '2005-09-3a' for column 'f2' at row 1
 select * from t1 where f2 <= '2005-09-31' order by f2;
 ERROR HY000: Incorrect DATE value: '2005-09-31'
 select * from t1 where f2 <= '2005-09-3a' order by f2;
@@ -3661,10 +3655,6 @@ f1	f2
 1	2005-01-01
 2	2005-09-01
 Warnings:
-Warning	1292	Incorrect date value: '2005-09-3a' for column 'f2' at row 1
-Warning	1292	Incorrect date value: '2005-09-3a' for column 'f2' at row 1
-Warning	1292	Incorrect date value: '2005-09-3a' for column 'f2' at row 1
-Warning	1292	Incorrect date value: '2005-09-3a' for column 'f2' at row 1
 Warning	1292	Incorrect date value: '2005-09-3a' for column 'f2' at row 1
 drop table t1;
 create table t1 (f1 int, f2 int);
@@ -4280,8 +4270,6 @@ AND t1.ts BETWEEN "2006-01-01" AND "2006-12-31";
 a	ts	a	dt1	dt2
 30	2006-01-03 23:00:00	30	2006-01-01 00:00:00	2999-12-31 00:00:00
 Warning	1292	Incorrect datetime value: '2999-12-31 00:00:00' for column 'ts' at row 1
-Warning	1292	Incorrect datetime value: '2999-12-31 00:00:00' for column 'ts' at row 1
-Warning	1292	Incorrect datetime value: '2999-12-31 00:00:00' for column 'ts' at row 1
 Warnings:
 DROP TABLE t1,t2;
 create table t1 (a bigint unsigned);
@@ -4335,11 +4323,11 @@ cc !	4
 SELECT * FROM t2 ORDER BY name;
 name	n
 aa	2
-bb 	6
 bb	1
+bb 	6
+cc   	3
 cc	5
 cc 	7
-cc   	3
 cc !	4
 SELECT name, LENGTH(name), n FROM t2 ORDER BY name;
 name	LENGTH(name)	n
@@ -4347,8 +4335,8 @@ aa	2	2
 bb	2	1
 bb 	3	6
 cc   	5	3
-cc 	3	7
 cc	2	5
+cc 	3	7
 cc !	4	4
 EXPLAIN SELECT name, LENGTH(name), n FROM t2 WHERE name='cc ';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
@@ -4384,8 +4372,8 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t2`.`name` AS `name`,length(`test`.`t2`.`name`) AS `LENGTH(name)`,`test`.`t2`.`n` AS `n` from `test`.`t2` where (`test`.`t2`.`name` like 'cc%') order by `test`.`t2`.`name`
 SELECT name , LENGTH(name), n FROM t2 WHERE name LIKE 'cc%' ORDER BY name;
 name	LENGTH(name)	n
-cc	2	5
 cc   	5	3
+cc	2	5
 cc 	3	7
 cc !	4	4
 EXPLAIN SELECT * FROM t1 LEFT JOIN t2 ON t1.name=t2.name;
