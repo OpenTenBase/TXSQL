@@ -1,1 +1,1 @@
---log_profile_in_slow_log=on --slow_query_log=1 --long_query_time=2 --txsql_compute_query_time_for_slow_logging=2 --force-restart
+--log_profile_in_slow_log=on --slow_query_log=1 --long_query_time=2 --txsql_compute_query_time_for_slow_logging=2 --force-restart --tencent-root-cnf=$MYSQL_TEST_DIR/tmy.conf --cdb_tencentroot_slow_log_enabled=1

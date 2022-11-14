@@ -1,4 +1,6 @@
 --source include/not_windows.inc
+connect (con1,localhost,tencentroot,,);
+connection con1;
 
 SET @old_log_output = @@global.log_output;
 SET @old_slow_query_log = @@global.slow_query_log;

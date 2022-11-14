@@ -1,3 +1,5 @@
+connect (con1,localhost,tencentroot,,);
+connection con1;
 show variables like "%log_profile_in_slow_log%";
 show variables like "long_query_time";
 show variables like "slow_query_log";

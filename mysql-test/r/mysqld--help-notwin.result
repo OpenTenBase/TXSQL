@@ -350,6 +350,8 @@ The following options may be given as the first argument:
  Gtid supported in trans and nontrans mode!
  --cdb-opt-outline-enabled 
  outline switch
+ --cdb-optimize-gtid-lock 
+ Optimize gtid lock conflict when binlog_order_commits=0.
  --cdb-optimize-large-trans-binlog 
  Optimize large transaction binlog format from row to
  statement.
@@ -2127,6 +2129,7 @@ cdb-kill-user-extra (No default value)
 cdb-max-prefetch-rows 0
 cdb-more-gtid-feature-supported FALSE
 cdb-opt-outline-enabled FALSE
+cdb-optimize-gtid-lock FALSE
 cdb-optimize-large-trans-binlog FALSE
 cdb-optimize-large-trans-binlog-aver-affected-rows-threshold 10000
 cdb-optimize-large-trans-binlog-last-affected-rows-threshold 10000
@@ -2145,17 +2148,6 @@ cdb-recycle-bin-db-not-visible TRUE
 cdb-recycle-bin-enabled FALSE
 cdb-recycle-bin-retention 604800
 cdb-recycle-scheduler-interval 0
-cdb-more-gtid-feature-supported FALSE
-cdb-opt-outline-enabled FALSE
-cdb-optimize-gtid-lock FALSE
-cdb-optimize-large-trans-binlog FALSE
-cdb-optimize-large-trans-binlog-aver-affected-rows-threshold 10000
-cdb-optimize-large-trans-binlog-last-affected-rows-threshold 10000
-cdb-plan-cache FALSE
-cdb-plan-cache-query-length-limit 102400
-cdb-plan-cache-stats FALSE
-cdb-recycle-bin-db-not-visible TRUE
-cdb-recycle-bin-enabled FALSE
 cdb-replica-host-detection TRUE
 cdb-role CDB_ROLE_UNKNOWN
 cdb-session-var-privilege-check-enabled FALSE
@@ -2421,7 +2413,7 @@ performance-schema-max-socket-classes 10
 performance-schema-max-socket-instances -1
 performance-schema-max-sql-text-length 1024
 performance-schema-max-stage-classes 175
-performance-schema-max-statement-classes 239
+performance-schema-max-statement-classes 242
 performance-schema-max-statement-stack 10
 performance-schema-max-table-handles -1
 performance-schema-max-table-instances -1

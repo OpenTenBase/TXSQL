@@ -18,22 +18,22 @@ sleep(1)
 0
 /*4:16777217-1656991730-2*/select @@version_comment limit 1;
 @@version_comment
-Source distribution
+#
 select /*4:16777217-1656991730-3*/ sleep(1);
 sleep(1)
 0
 /*4:16777217-1656994730-2*/ /*sets:allsets */select @@version_comment limit 1;
 @@version_comment
-Source distribution
+#
 /*sets:allsets */ /*4:16777217-1656995730-2*/select @@version_comment limit 1;
 @@version_comment
-Source distribution
+#
 select @@version_comment limit 1;
 @@version_comment
-Source distribution
+#
 /*sets:allsets */ /*4:16777217-1656995731-1*/select @@version_comment limit 1;
 @@version_comment
-Source distribution
+#
 /*4:16777a217-1656991730-1*/ select sleep(1);
 sleep(1)
 0
@@ -55,7 +55,7 @@ sleep(1)
 0
 /*4:16777217-1656991730-2*/select @@version_comment limit 1;
 @@version_comment
-Source distribution
+#
 select /*4:16777217-1656991730-3*/ sleep(1);
 sleep(1)
 0

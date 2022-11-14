@@ -12032,6 +12032,9 @@ ER_CDB_STATISTICS_TRY_TO_KILL
 ER_READ_TIME_AND_GTS_FROM_RELAYLOG_FAILED
  eng "Can't read latest time and gts from relay log"
 
+ER_READ_TIME_AND_GTS_FROM_PREV
+  eng "Can't read latest time and gts in current file : %s, move to previous one"
+
 #
 # End of server-to-error-log message for CDB 8.0.
 #
