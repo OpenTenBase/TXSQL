@@ -1,1 +1,2 @@
+--performance-schema-max-rwlock-classes=100
 $PFS_EXAMPLE_OPT

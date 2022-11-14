@@ -9456,6 +9456,11 @@ void MYSQL_BIN_LOG::init_max_time_and_gts(bool relay_log) {
     }
     // have get the data from the latest file and return
     if (iothreadreadtime != 0 && iothreadreadgts != 0) break;
+    /*
+     * normally last binlog or realy log has gts, if misconfiguration
+     * give some tips
+     */
+    LogErr(WARNING_LEVEL, ER_READ_TIME_AND_GTS_FROM_PREV, filename);
   }
   // report a warning if no time or no gts have read
   if (iothreadreadtime == 0 || iothreadreadgts == 0) {

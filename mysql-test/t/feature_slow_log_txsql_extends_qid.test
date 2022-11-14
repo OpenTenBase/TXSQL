@@ -1,4 +1,6 @@
 --source include/not_windows.inc
+connect (con1,localhost,tencentroot,,);
+connection con1;
 
 TRUNCATE TABLE mysql.slow_log;
 
@@ -29,11 +31,16 @@ SELECT @@SESSION.txsql_extend_slow_log_level;
 # Queries with valid format.
 ################################################################################
 /*4:16777217-1656991730-1*/ select sleep(1);
+--replace_column 1 #
 /*4:16777217-1656991730-2*/select @@version_comment limit 1;
 select /*4:16777217-1656991730-3*/ sleep(1);
+--replace_column 1 #
 /*4:16777217-1656994730-2*/ /*sets:allsets */select @@version_comment limit 1;
+--replace_column 1 #
 /*sets:allsets */ /*4:16777217-1656995730-2*/select @@version_comment limit 1;
+--replace_column 1 #
 select @@version_comment limit 1;
+--replace_column 1 #
 /*sets:allsets */ /*4:16777217-1656995731-1*/select @@version_comment limit 1;
 
 ################################################################################
@@ -52,6 +59,7 @@ SELECT @@SESSION.txsql_extend_slow_log_level;
 # Queries with valid format.
 ################################################################################
 /*4:16777217-1656991730-1*/ select sleep(1);
+--replace_column 1 #
 /*4:16777217-1656991730-2*/select @@version_comment limit 1;
 select /*4:16777217-1656991730-3*/ sleep(1);
 

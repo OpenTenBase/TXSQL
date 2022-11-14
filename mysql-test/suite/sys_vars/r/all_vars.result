@@ -72,6 +72,10 @@ generated_random_password_length
 generated_random_password_length
 group_replication_consistency
 group_replication_consistency
+gtid_undeleted
+gtid_undeleted
+hidden_sensitive_variable
+hidden_sensitive_variable
 histogram_h_enabled
 histogram_h_enabled
 histogram_h_versions_limit

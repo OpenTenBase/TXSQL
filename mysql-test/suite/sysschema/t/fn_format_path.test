@@ -77,3 +77,4 @@ let $restart_parameters=;
 --remove_file $BOOTSTRAP_SQL
 --force-rmdir $MYSQL_TMP_DIR/custom_datadir
 --remove_file $MYSQLTEST_VARDIR/tmp/bootstrap.log
+--remove_file $MYSQLTEST_VARDIR/tmp/innodb_logstlog_0

@@ -1849,10 +1849,16 @@ void srv_export_innodb_status(void) {
     os_log_pending_writes is slightly off than real value.
     We don't want to print negative numbers in case of underflow.
   */
+  DBUG_EXECUTE_IF("ib_simulate_row_lock_waits_underflow",
+                  srv_stats.n_lock_wait_current_count.sub(2147483641););
+
   export_vars.innodb_row_lock_current_waits =
       (srv_stats.n_lock_wait_current_count < 0
            ? 0
            : srv_stats.n_lock_wait_current_count);
+
+  DBUG_EXECUTE_IF("ib_simulate_row_lock_waits_underflow",
+                  srv_stats.n_lock_wait_current_count.add(2147483641););
 
   export_vars.innodb_row_lock_time = srv_stats.n_lock_wait_time / 1000;
 

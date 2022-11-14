@@ -93,3 +93,4 @@ let SEARCH_PATTERN=Bootstrapping complete;
 --remove_file $SEARCH_FILE
 --force-rmdir $logdir
 --force-rmdir $datadir
+--remove_file $tmpdir/logdirtlog_0

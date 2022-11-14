@@ -1,0 +1,9 @@
+--echo #test for tencentroot status
+connect (conn1,localhost,root,,);
+connect (con_tencentroot, localhost, tencentroot,'', );
+--connection con_tencentroot
+--echo #Show some tencent status variables with tencentroot
+show status like 'Cdb_proxy_counts';
+--connection conn1
+--echo #Show some tencent status variables with root, nothing should happen
+show status like 'Cdb_proxy_counts';

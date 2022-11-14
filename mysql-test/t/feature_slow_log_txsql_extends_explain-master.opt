@@ -1,1 +1,1 @@
---local-infile=true
+--local-infile=true --tencent-root-cnf=$MYSQL_TEST_DIR/tmy.conf --cdb_tencentroot_slow_log_enabled=1
