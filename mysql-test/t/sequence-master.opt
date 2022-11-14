@@ -1,1 +1,2 @@
 --initialize --lower_case_table_names=1
+--txsql_root_user_mode=TDSQL_ROOT
