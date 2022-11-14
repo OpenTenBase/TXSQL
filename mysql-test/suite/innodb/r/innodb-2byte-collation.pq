@@ -121,8 +121,6 @@ a
 b
 Warnings:
 Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
-Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 DROP TABLE 2byte_collation;
 SET @innodb_change_buffering_debug_orig = @@innodb_change_buffering_debug;
 SET GLOBAL innodb_change_buffering_debug = 1;

@@ -392,21 +392,30 @@ def					_binary '12' | 1	8	21	2	N	32929	0	63
 SELECT binary '12' | '12';
 Catalog	Database	Table	Table_alias	Column	Column_alias	Type	Length	Max length	Is_null	Flags	Decimals	Charsetnr
 12
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warnings:
 binary '12' | '12'
 def					binary '12' | '12'	8	21	2	Y	32928	0	63
 SELECT binary '12' | binary '12';
 Catalog	Database	Table	Table_alias	Column	Column_alias	Type	Length	Max length	Is_null	Flags	Decimals	Charsetnr
 12
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warnings:
 binary '12' | binary '12'
 def					binary '12' | binary '12'	253	8	2	Y	128	31	63
 SELECT binary '12' | 0x0001;
 Catalog	Database	Table	Table_alias	Column	Column_alias	Type	Length	Max length	Is_null	Flags	Decimals	Charsetnr
 13
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warnings:
 binary '12' | 0x0001
 def					binary '12' | 0x0001	253	8	2	Y	128	31	63
 SELECT binary '12' | 1;
 Catalog	Database	Table	Table_alias	Column	Column_alias	Type	Length	Max length	Is_null	Flags	Decimals	Charsetnr
 13
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warnings:
 binary '12' | 1
 def					binary '12' | 1	8	21	2	Y	32928	0	63
 SELECT '12' | 0x01;
@@ -443,6 +452,8 @@ SELECT CAST(0x01 AS char) | 0x31393838 FROM t1 LIMIT 1;
 Catalog	Database	Table	Table_alias	Column	Column_alias	Type	Length	Max length	Is_null	Flags	Decimals	Charsetnr
 825833528
 CAST(0x01 AS char) | 0x31393838
+Warning	1292	Truncated incorrect INTEGER value: ''
+Warnings:
 def					CAST(0x01 AS char) | 0x31393838	8	21	9	Y	32928	0	63
 SELECT 0x01 << 1;
 Catalog	Database	Table	Table_alias	Column	Column_alias	Type	Length	Max length	Is_null	Flags	Decimals	Charsetnr
@@ -456,6 +467,8 @@ bd
 def					_binary '12' << 1	253	2	2	N	129	31	63
 SELECT binary '12' << 1;
 Catalog	Database	Table	Table_alias	Column	Column_alias	Type	Length	Max length	Is_null	Flags	Decimals	Charsetnr
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
+Warnings:
 bd
 binary '12' << 1
 def					binary '12' << 1	253	8	2	Y	128	31	63

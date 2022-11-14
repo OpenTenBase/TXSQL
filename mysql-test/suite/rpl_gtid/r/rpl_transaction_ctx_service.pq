@@ -76,8 +76,8 @@ INSERT t1 VALUES(1);
 COMMIT;
 INSERT t1 VALUES(2);
 SELECT * FROM t1;;
-c1	1
 c1	2
+c1	1
 include/assert.inc [At this point we should have 2 successful operations]
 include/sync_slave_sql_with_master.inc
 include/assert.inc [At this point we should have 2 successful operations]

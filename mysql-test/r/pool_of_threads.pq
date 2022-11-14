@@ -1633,7 +1633,7 @@ companynr	count(*)
 50	11
 select count(*),min(fld4),max(fld4),sum(fld1),avg(fld1),std(fld1),variance(fld1) from t2 where companynr = 34 and fld4<>"";
 count(*)	min(fld4)	max(fld4)	sum(fld1)	avg(fld1)	std(fld1)	variance(fld1)
-70	absentee	vest	17788966	254128.0857	3272.5939722090293	10709871.306938872
+70	absentee	vest	17788966	254128.0857	3272.5939722090234	10709871.306938833
 explain select count(*),min(fld4),max(fld4),sum(fld1),avg(fld1),std(fld1),variance(fld1) from t2 where companynr = 34 and fld4<>"";
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	#	#	Parallel scan (4 workers); Using where
@@ -1644,8 +1644,8 @@ Note	1003	/* select#1 */ select count(0) AS `count(*)`,min(`test`.`t2`.`fld4`) A
 select companynr,count(*),min(fld4),max(fld4),sum(fld1),avg(fld1),std(fld1),variance(fld1) from t2 group by companynr order by companynr limit 3;
 companynr	count(*)	min(fld4)	max(fld4)	sum(fld1)	avg(fld1)	std(fld1)	variance(fld1)
 00	82	Anthony	windmills	10355753	126289.6707	115550.97568479746	13352027981.708656
-29	95	abut	wetness	14473298	152350.5053	8368.547956641238	70032594.90260424
-34	70	absentee	vest	17788966	254128.0857	3272.5939722090147	10709871.306938777
+29	95	abut	wetness	14473298	152350.5053	8368.547956641249	70032594.90260443
+34	70	absentee	vest	17788966	254128.0857	3272.5939722090234	10709871.306938833
 select companynr,t2nr,count(price),sum(price),min(price),max(price),avg(price) from t3 where companynr = 37 group by companynr,t2nr order by companynr,t2nr limit 10;
 companynr	t2nr	count(price)	sum(price)	min(price)	max(price)	avg(price)
 37	1	1	5987435	5987435	5987435	5987435.0000

@@ -680,7 +680,7 @@ dberr_t PX_Scan_ctx::find_visible_record(byte *buf, const rec_t *&rec,
   Row_sel_get_clust_rec_for_mysql row_sel_get_clust_rec_for_mysql;
 
   /* The readview must has been assigned or in the readonly mode. */
-  // ut_ad(!m_trx || m_trx->read_view == nullptr || MVCC::is_view_active(m_trx->read_view));
+  ut_ad(!trx || trx->read_view->is_open() || (!trx->view_assigned));
 
   /*
     Check visibility with mvcc when innodb_read_only = true and get the visibility

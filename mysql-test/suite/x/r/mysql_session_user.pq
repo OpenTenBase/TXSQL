@@ -7,11 +7,6 @@ include/assert.inc [session_user should exist before X plugin install]
 #
 include/assert.inc [session_user should exist after X plugin install]
 #
-# Delete the user
-#
-DROP USER "mysql.session"@"localhost";
-call mtr.add_suppression("Plugin mysqlx reported: 'Unable to switch context to user mysql.session'");
-#
 # Recreate the user with an upgrade and see that X plugin works
 #
 Run mysql_upgrade

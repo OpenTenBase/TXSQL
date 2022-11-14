@@ -1,0 +1,72 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+#
+#  Prepare
+#
+call mtr.add_suppression("access __txsql_recycle_bin__ fail, the query string is");
+# open recycle bin on master
+set global cdb_recycle_bin_enabled = on;
+Warnings:
+Warning	1287	'@@cdb_recycle_bin_enabled' is deprecated and will be removed in a future release. Please use txsql_recycle_bin_enabled instead.
+set global cdb_recycle_bin_retention=1;
+Warnings:
+Warning	1287	'@@cdb_recycle_bin_retention' is deprecated and will be removed in a future release. Please use txsql_recycle_bin_retention instead.
+set global event_scheduler=off;
+show variables like 'event_scheduler';
+Variable_name	Value
+event_scheduler	OFF
+set global event_scheduler=on;
+show variables like 'event_scheduler';
+Variable_name	Value
+event_scheduler	ON
+set names utf8;
+Warnings:
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+# open recycle bin on slave
+set global cdb_recycle_bin_enabled = on;
+Warnings:
+Warning	1287	'@@cdb_recycle_bin_enabled' is deprecated and will be removed in a future release. Please use txsql_recycle_bin_enabled instead.
+#
+# case 1. table name is chinese.
+#
+set names utf8;
+Warnings:
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+create table 表1(a int);
+insert into 表1 values(1);
+truncate table 表1;
+select * from mysql.recycle_bin_info;
+table_name	origin_schema	origin_table	drop_time	purge_time
+<RECYCLED_TABLE>	test	表1	<DROP_TIME>	<PURGE_TIME>
+show tables in __txsql_recycle_bin__;
+Tables_in___txsql_recycle_bin__
+<RECYCLED_TABLE>
+#
+# case 2. test auto purge.
+#
+select * from mysql.recycle_bin_info;
+table_name	origin_schema	origin_table	drop_time	purge_time
+show tables in __txsql_recycle_bin__;
+Tables_in___txsql_recycle_bin__
+#
+# Cleanup 
+#
+set global cdb_recycle_bin_enabled = off;
+Warnings:
+Warning	1287	'@@cdb_recycle_bin_enabled' is deprecated and will be removed in a future release. Please use txsql_recycle_bin_enabled instead.
+drop table 表1;
+set global cdb_recycle_bin_enabled=0;
+Warnings:
+Warning	1287	'@@cdb_recycle_bin_enabled' is deprecated and will be removed in a future release. Please use txsql_recycle_bin_enabled instead.
+set global cdb_recycle_bin_retention=default;
+Warnings:
+Warning	1287	'@@cdb_recycle_bin_retention' is deprecated and will be removed in a future release. Please use txsql_recycle_bin_retention instead.
+set global event_scheduler=ON;;
+set global cdb_recycle_bin_enabled=0;
+Warnings:
+Warning	1287	'@@cdb_recycle_bin_enabled' is deprecated and will be removed in a future release. Please use txsql_recycle_bin_enabled instead.
+[connection master]
+include/rpl_end.inc

@@ -5,7 +5,9 @@
 #include "mysql/psi/mysql_mutex.h"
 #include "px_executor.h"
 #include "sql/log.h"
+#if defined(HAVE_OPT_CTX)
 #include "sql/parallel_execution/opt_interface.h"  // OPT_CTX
+#endif
 #include "sql/mysqld_thd_manager.h"
 
 static const int right_deep_tree_limit = 64;

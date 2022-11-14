@@ -239,8 +239,8 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1i`.`a1` AS `a1`,`test`.`t1i`.`a2` AS `a2` from `test`.`t1i` where <in_optimizer>((`test`.`t1i`.`a1`,`test`.`t1i`.`a2`),(`test`.`t1i`.`a1`,`test`.`t1i`.`a2`) in ( <materialize> (/* select#2 */ select `test`.`t2i`.`b1`,`test`.`t2i`.`b2` from `test`.`t2i` where true ), <primary_index_lookup>(`test`.`t1i`.`a1` in <temporary table> on <auto_distinct_key> where ((`test`.`t1i`.`a1` = `<materialized_subquery>`.`b1`) and (`test`.`t1i`.`a2` = `<materialized_subquery>`.`b2`)))))
 select * from t1i where (a1, a2) in (select b1, b2 from t2i order by b1, b2);
 a1	a2
-1 - 02	2 - 02
 1 - 01	2 - 01
+1 - 02	2 - 02
 /******************************************************************************
 * Views, UNIONs, several levels of nesting.
 ******************************************************************************/
@@ -560,7 +560,7 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a1` AS `a1`,`test`.`t1`.`a2` AS `a2` from `test`.`t1` group by (/* select#2 */ select `test`.`columns`.`col` from `test`.`columns` limit 1)
 select * from t1 group by (select col from columns limit 1);
 a1	a2
-1 - 01	2 - 01
+1 - 00	2 - 00
 explain
 select * from t1 group by (a1 in (select col from columns));
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
@@ -572,7 +572,7 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a1` AS `a1`,`test`.`t1`.`a2` AS `a2` from `test`.`t1` group by <in_optimizer>(`test`.`t1`.`a1`,`test`.`t1`.`a1` in ( <materialize> (/* select#2 */ select `test`.`columns`.`col` from `test`.`columns` where true ), <primary_index_lookup>(`test`.`t1`.`a1` in <temporary table> on <auto_distinct_key> where ((`test`.`t1`.`a1` = `<materialized_subquery>`.`col`)))))
 select * from t1 group by (a1 in (select col from columns));
 a1	a2
-1 - 01	2 - 01
+1 - 00	2 - 00
 Warning	1292	Truncated incorrect DOUBLE value: '1 - 00'
 Warning	1292	Truncated incorrect DOUBLE value: '1 - 01'
 Warning	1292	Truncated incorrect DOUBLE value: '1 - 02'
@@ -2037,7 +2037,7 @@ Handler_read_last	0
 Handler_read_next	0
 Handler_read_prev	0
 Handler_read_rnd	0
-Handler_read_rnd_next	3
+Handler_read_rnd_next	6
 drop table t1,t2;
 #
 # Bug#13655791 DIFFERENT RESULT WITH WL6094 ON QUERY WITH XOR
@@ -2119,7 +2119,7 @@ Handler_read_last	0
 Handler_read_next	1
 Handler_read_prev	0
 Handler_read_rnd	0
-Handler_read_rnd_next	2
+Handler_read_rnd_next	4
 DROP TABLE t1,t2,t3,t4;
 #
 # Bug#13727407: Assert !item->const_item() || !item->not_null_tables()

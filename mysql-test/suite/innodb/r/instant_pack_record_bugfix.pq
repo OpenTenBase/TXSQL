@@ -1,4 +1,3 @@
-set global cdb_instant_modify_column_enabled=on;
 CREATE TABLE t1 (id INT NOT NULL AUTO_INCREMENT PRIMARY KEY, a char(10), b varchar(10));
 INSERT INTO t1 VALUES(1, repeat('ax', 4), repeat('b', 8));
 INSERT INTO t1 VALUES(2, repeat('xa', 4), repeat('b', 8));
@@ -33,4 +32,3 @@ checksum table t1;
 Table	Checksum
 test.t1	1901372453
 drop table t1;
-set global cdb_instant_modify_column_enabled=off;

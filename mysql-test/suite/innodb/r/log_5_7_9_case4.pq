@@ -8,9 +8,9 @@
 ############################################################################################
 # Case 4A: Start MySQL...
 # Verify...
-Pattern "Redo log files created by unknown creator ping" not found
-Pattern "Upgrading redo log: .*, LSN=" not found
-Pattern "innodb-unknown-compound-v" not found
+Pattern "Redo log files created by unknown creator ping" found
+Pattern "Upgrading redo log: .*, LSN=" found
+Pattern "innodb-unknown-compound-v" found
 ############################################################################################
 # Cleanup...
 # restart

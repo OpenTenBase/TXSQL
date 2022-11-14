@@ -150,6 +150,8 @@ ps_statement_avg_latency_histogram	PROCEDURE
 ps_trace_statement_digest	PROCEDURE
 ps_trace_thread	PROCEDURE
 ps_truncate_all_tables	PROCEDURE
+recycle_bin_purge_table	PROCEDURE
+recycle_bin_recycle_table	PROCEDURE
 statement_performance_analyzer	PROCEDURE
 table_exists	PROCEDURE
 SELECT TRIGGER_NAME FROM INFORMATION_SCHEMA.TRIGGERS WHERE TRIGGER_SCHEMA = 'sys' ORDER BY TRIGGER_NAME;

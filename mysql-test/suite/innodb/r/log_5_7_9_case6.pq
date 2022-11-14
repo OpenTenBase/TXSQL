@@ -20,12 +20,12 @@ Pattern "innodb-unknown-compound-v" not found
 # Corrupt one of checkpoint headers (with older checkpoint_lsn)...
 # Case 6B: Start MySQL... (attempt 1)
 # Verify...
-Pattern "Upgrading redo log: .*, LSN=" not found
-Pattern "innodb-unknown-compound-v" not found
+Pattern "Upgrading redo log: .*, LSN=" found
+Pattern "innodb-unknown-compound-v" found
 # Case 6B: Start MySQL... (attempt 2)
 # Verify...
 Pattern "Upgrading redo log: .*, LSN=" not found
-Pattern "innodb-unknown-compound-v" not found
+Pattern "innodb-unknown-compound-v" found
 ############################################################################################
 # Cleanup...
 # restart

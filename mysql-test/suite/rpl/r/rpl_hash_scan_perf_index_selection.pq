@@ -1,0 +1,58 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+# init ==================================================================
+# construct table
+create table t1(
+a int,
+b int,
+c varchar(1024),
+key i_a(a),
+key i_b(b),
+key i_c(c)
+) DEFAULT charset=latin1 engine= innodb;
+set global slave_rows_search_algorithms='INDEX_SCAN,HASH_SCAN';
+Warnings:
+Warning	1287	'@@slave_rows_search_algorithms' is deprecated and will be removed in a future release.
+show variables like 'innodb_stats%';
+Variable_name	Value
+innodb_stats_auto_recalc	ON
+innodb_stats_include_delete_marked	OFF
+innodb_stats_method	nulls_equal
+innodb_stats_on_metadata	OFF
+innodb_stats_persistent	ON
+innodb_stats_persistent_sample_pages	20
+innodb_stats_recalc_with_histogram	OFF
+innodb_stats_skip_adjustment_for_primary_key	OFF
+innodb_stats_transient_sample_pages	8
+# construct data
+stop slave;
+Warnings:
+Warning	1287	'STOP SLAVE' is deprecated and will be removed in a future release. Please use STOP REPLICA instead
+start slave;
+Warnings:
+Warning	1287	'START SLAVE' is deprecated and will be removed in a future release. Please use START REPLICA instead
+# run ===================================================================
+ANALYZE table t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+update t1 set c=repeat("b", 100) where b=21;
+update t1 set c=repeat("b", 100) where b=43;
+update t1 set c=repeat("b", 100) where a=32;
+stop slave;
+Warnings:
+Warning	1287	'STOP SLAVE' is deprecated and will be removed in a future release. Please use STOP REPLICA instead
+start slave;
+Warnings:
+Warning	1287	'START SLAVE' is deprecated and will be removed in a future release. Please use START REPLICA instead
+select count(*) from t1 where b=43 and c like 'b%' ;
+count(*)
+20
+# cleanup ===============================================================
+drop table if exists t1;
+set global slave_rows_search_algorithms=default;
+Warnings:
+Warning	1287	'@@slave_rows_search_algorithms' is deprecated and will be removed in a future release.
+include/rpl_end.inc

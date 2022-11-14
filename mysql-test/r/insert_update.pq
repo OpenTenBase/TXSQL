@@ -59,10 +59,6 @@ a	b	c	VALUES(a)
 5	0	30	NULL
 8	9	60	NULL
 Warning	1681	'VALUES function' is deprecated and will be removed in a future release.
-Warning	1681	'VALUES function' is deprecated and will be removed in a future release.
-Warning	1681	'VALUES function' is deprecated and will be removed in a future release.
-Warning	1681	'VALUES function' is deprecated and will be removed in a future release.
-Warning	1681	'VALUES function' is deprecated and will be removed in a future release.
 Warnings:
 analyze table t1;
 Table	Op	Msg_type	Msg_text
@@ -184,10 +180,6 @@ a	b	c	VALUES(a)
 3	4	127	NULL
 5	0	30	NULL
 8	9	60	NULL
-Warning	1681	'VALUES function' is deprecated and will be removed in a future release.
-Warning	1681	'VALUES function' is deprecated and will be removed in a future release.
-Warning	1681	'VALUES function' is deprecated and will be removed in a future release.
-Warning	1681	'VALUES function' is deprecated and will be removed in a future release.
 Warning	1681	'VALUES function' is deprecated and will be removed in a future release.
 Warnings:
 DROP TABLE t1;
@@ -345,13 +337,11 @@ select @stamp1:=f2 from t1;
 @stamp1:=f2
 #
 #	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
-#	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
 Warnings:
 insert into t1(f1) values(1) on duplicate key update f1=1;
 select @stamp2:=f2 from t1;
 @stamp2:=f2
 #
-#	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
 #	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
 Warnings:
 select if( @stamp1 = @stamp2, "correct", "wrong");

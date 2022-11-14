@@ -72,8 +72,6 @@ f1
 101
 Warnings:
 Warning	1292	Incorrect datetime value: '1'
-Warning	1292	Incorrect datetime value: '1'
-Warning	1292	Incorrect datetime value: '1'
 DROP TABLE t1;
 #
 # Bug #31397840: Wrong result of SELECT DISTINCT JSON_ARRAYAGG

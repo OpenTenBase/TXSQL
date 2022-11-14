@@ -1677,11 +1677,11 @@ insert into t1 values ('one',10,25), ('two',10,50), ('two',10,50), ('one',20,25)
 create view v1 as select * from t1;
 select col1,group_concat(col2,col3) from t1 group by col1;
 col1	group_concat(col2,col3)
-one	1025,3025,2025
+one	1025,2025,3025
 two	1050,1050
 select col1,group_concat(col2,col3) from v1 group by col1;
 col1	group_concat(col2,col3)
-one	1025,3025,2025
+one	1025,2025,3025
 two	1050,1050
 drop view v1;
 drop table t1;
@@ -2044,14 +2044,10 @@ select * from v1 where f1='2005.02.02';
 f1
 2005-02-02
 Warning	4095	Delimiter '.' in position 4 in datetime value '2005.02.02' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '.' in position 4 in datetime value '2005.02.02' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '.' in position 4 in datetime value '2005.02.02' at row 1 is deprecated. Prefer the standard '-'.
 Warnings:
 select * from v1 where '2005.02.02'=f1;
 f1
 2005-02-02
-Warning	4095	Delimiter '.' in position 4 in datetime value '2005.02.02' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '.' in position 4 in datetime value '2005.02.02' at row 1 is deprecated. Prefer the standard '-'.
 Warning	4095	Delimiter '.' in position 4 in datetime value '2005.02.02' at row 1 is deprecated. Prefer the standard '-'.
 Warnings:
 drop view v1;
@@ -2635,10 +2631,6 @@ not blank
 SELECT IF(x IS NULL, 'blank', 'not blank') AS x FROM t1 GROUP BY x;
 x
 Warning	1052	Column 'x' in group statement is ambiguous
-Warning	1052	Column 'x' in group statement is ambiguous
-Warning	1052	Column 'x' in group statement is ambiguous
-Warning	1052	Column 'x' in group statement is ambiguous
-Warning	1052	Column 'x' in group statement is ambiguous
 Warnings:
 blank
 not blank
@@ -2655,10 +2647,6 @@ blank
 not blank
 SELECT IF(x IS NULL, 'blank', 'not blank') AS x FROM v1 GROUP BY x;
 x
-Warning	1052	Column 'x' in group statement is ambiguous
-Warning	1052	Column 'x' in group statement is ambiguous
-Warning	1052	Column 'x' in group statement is ambiguous
-Warning	1052	Column 'x' in group statement is ambiguous
 Warning	1052	Column 'x' in group statement is ambiguous
 Warnings:
 blank
@@ -2732,26 +2720,6 @@ id	td
 Warning	4095	Delimiter '.' in position 4 in datetime value '2005.01.02' at row 1 is deprecated. Prefer the standard '-'.
 Warning	4095	Delimiter '.' in position 4 in datetime value '2005.01.02' at row 1 is deprecated. Prefer the standard '-'.
 Warning	4095	Delimiter '.' in position 4 in datetime value '2005.01.02' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '.' in position 4 in datetime value '2005.01.02' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '.' in position 4 in datetime value '2005.01.02' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '.' in position 4 in datetime value '2005.01.02' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '.' in position 4 in datetime value '2005.01.02' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '.' in position 4 in datetime value '2005.01.02' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '.' in position 4 in datetime value '2005.01.02' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '.' in position 4 in datetime value '2005.01.02' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '.' in position 4 in datetime value '2005.01.02' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '.' in position 4 in datetime value '2005.01.02' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '.' in position 4 in datetime value '2005.01.02' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '.' in position 4 in datetime value '2005.01.04' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '.' in position 4 in datetime value '2005.01.04' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '.' in position 4 in datetime value '2005.01.04' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '.' in position 4 in datetime value '2005.01.04' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '.' in position 4 in datetime value '2005.01.04' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '.' in position 4 in datetime value '2005.01.04' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '.' in position 4 in datetime value '2005.01.04' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '.' in position 4 in datetime value '2005.01.04' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '.' in position 4 in datetime value '2005.01.04' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '.' in position 4 in datetime value '2005.01.04' at row 1 is deprecated. Prefer the standard '-'.
 Warning	4095	Delimiter '.' in position 4 in datetime value '2005.01.04' at row 1 is deprecated. Prefer the standard '-'.
 Warning	4095	Delimiter '.' in position 4 in datetime value '2005.01.04' at row 1 is deprecated. Prefer the standard '-'.
 Warning	4095	Delimiter '.' in position 4 in datetime value '2005.01.04' at row 1 is deprecated. Prefer the standard '-'.
@@ -2765,28 +2733,6 @@ id	td
 Warning	4095	Delimiter '.' in position 4 in datetime value '2005.01.02' at row 1 is deprecated. Prefer the standard '-'.
 Warning	4095	Delimiter '.' in position 4 in datetime value '2005.01.02' at row 1 is deprecated. Prefer the standard '-'.
 Warning	4095	Delimiter '.' in position 4 in datetime value '2005.01.02' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '.' in position 4 in datetime value '2005.01.02' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '.' in position 4 in datetime value '2005.01.02' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '.' in position 4 in datetime value '2005.01.02' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '.' in position 4 in datetime value '2005.01.02' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '.' in position 4 in datetime value '2005.01.02' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '.' in position 4 in datetime value '2005.01.02' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '.' in position 4 in datetime value '2005.01.02' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '.' in position 4 in datetime value '2005.01.02' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '.' in position 4 in datetime value '2005.01.02' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '.' in position 4 in datetime value '2005.01.02' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '.' in position 4 in datetime value '2005.01.02' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '.' in position 4 in datetime value '2005.01.04' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '.' in position 4 in datetime value '2005.01.04' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '.' in position 4 in datetime value '2005.01.04' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '.' in position 4 in datetime value '2005.01.04' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '.' in position 4 in datetime value '2005.01.04' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '.' in position 4 in datetime value '2005.01.04' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '.' in position 4 in datetime value '2005.01.04' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '.' in position 4 in datetime value '2005.01.04' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '.' in position 4 in datetime value '2005.01.04' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '.' in position 4 in datetime value '2005.01.04' at row 1 is deprecated. Prefer the standard '-'.
-Warning	4095	Delimiter '.' in position 4 in datetime value '2005.01.04' at row 1 is deprecated. Prefer the standard '-'.
 Warning	4095	Delimiter '.' in position 4 in datetime value '2005.01.04' at row 1 is deprecated. Prefer the standard '-'.
 Warning	4095	Delimiter '.' in position 4 in datetime value '2005.01.04' at row 1 is deprecated. Prefer the standard '-'.
 Warning	4095	Delimiter '.' in position 4 in datetime value '2005.01.04' at row 1 is deprecated. Prefer the standard '-'.
@@ -3334,11 +3280,11 @@ Note	1003	/* select#1 */ select `test`.`t1`.`f1` AS `f1`,`test`.`t1`.`f2` AS `f2
 select * from v1 order by f1;
 f1	f2
 1	2
-1	1
 1	3
-2	2
+1	1
 2	3
 2	1
+2	2
 explain select * from v1 order by f1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Parallel scan (4 workers); Using filesort

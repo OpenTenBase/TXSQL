@@ -8,19 +8,19 @@ use testdb;
 create table t1(
 a int,
 b varchar(10)
-)ENGINE=MyISAM DEFAULT CHARSET=utf8;
+)ENGINE=MyISAM DEFAULT CHARSET=utf8mb3;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` int DEFAULT NULL,
   `b` varchar(10) DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3
 create table t2(
 id int PRIMARY KEY, 
 title VARCHAR(200), 
 body TEXT, 
 FULLTEXT(title, body) 
-)ENGINE=MyISAM DEFAULT CHARSET=utf8;
+)ENGINE=MyISAM DEFAULT CHARSET=utf8mb3;
 show create table t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
@@ -29,10 +29,10 @@ t2	CREATE TABLE `t2` (
   `body` text,
   PRIMARY KEY (`id`),
   FULLTEXT KEY `title` (`title`,`body`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3
 create table t3(
 ti timestamp NOT NULL DEFAULT 'x' 
-)ENGINE=MyISAM DEFAULT CHARSET=utf8;
+)ENGINE=MyISAM DEFAULT CHARSET=utf8mb3;
 ERROR 42000: Invalid default value for 'ti'
 CREATE TABLE tindb (
 `t1` varchar(10) DEFAULT NULL,
@@ -1057,7 +1057,7 @@ CREATE TABLE tindb (
 `t1020` varchar(10) DEFAULT NULL,
 `t1021` varchar(10) DEFAULT NULL,
 `t1022` varchar(10) DEFAULT NULL
-) ENGINE=MyISAM DEFAULT CHARSET=utf8;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8mb3;
 include/rpl_sync.inc
 use testdb;
 show create table tindb;
@@ -2085,7 +2085,7 @@ tindb	CREATE TABLE `tindb` (
   `t1020` varchar(10) DEFAULT NULL,
   `t1021` varchar(10) DEFAULT NULL,
   `t1022` varchar(10) DEFAULT NULL
-) ENGINE=MyISAM DEFAULT CHARSET=utf8
+) ENGINE=MyISAM DEFAULT CHARSET=utf8mb3
 select count(*) from  tindb;
 count(*)
 0
@@ -3124,7 +3124,7 @@ CREATE TABLE tindb (
 `t1020` varchar(10) DEFAULT NULL,
 `t1021` varchar(10) DEFAULT NULL,
 `t1022` varchar(10) DEFAULT NULL
-) ENGINE=MyISAM DEFAULT CHARSET=utf8;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8mb3;
 COMMIT;
 END|
 CALL create_tindb;
@@ -4155,7 +4155,7 @@ tindb	CREATE TABLE `tindb` (
   `t1020` varchar(10) DEFAULT NULL,
   `t1021` varchar(10) DEFAULT NULL,
   `t1022` varchar(10) DEFAULT NULL
-) ENGINE=MyISAM DEFAULT CHARSET=utf8
+) ENGINE=MyISAM DEFAULT CHARSET=utf8mb3
 select count(*) from  tindb;
 count(*)
 0

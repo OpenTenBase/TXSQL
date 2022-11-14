@@ -5,6 +5,7 @@ SELECT * FROM information_schema.table_constraints
 WHERE table_schema = 'mysql' AND table_name != 'ndb_binlog_index'
 ORDER BY table_schema,table_name,constraint_name COLLATE utf8_general_ci;
 CONSTRAINT_CATALOG	CONSTRAINT_SCHEMA	CONSTRAINT_NAME	TABLE_SCHEMA	TABLE_NAME	CONSTRAINT_TYPE	ENFORCED
+def	mysql	PRIMARY	mysql	column_statistics_history	PRIMARY KEY	YES
 def	mysql	PRIMARY	mysql	columns_priv	PRIMARY KEY	YES
 def	mysql	PRIMARY	mysql	component	PRIMARY KEY	YES
 def	mysql	PRIMARY	mysql	db	PRIMARY KEY	YES
@@ -19,10 +20,12 @@ def	mysql	PRIMARY	mysql	help_relation	PRIMARY KEY	YES
 def	mysql	PRIMARY	mysql	help_topic	PRIMARY KEY	YES
 def	mysql	PRIMARY	mysql	innodb_index_stats	PRIMARY KEY	YES
 def	mysql	PRIMARY	mysql	innodb_table_stats	PRIMARY KEY	YES
+def	mysql	PRIMARY	mysql	outline	PRIMARY KEY	YES
 def	mysql	PRIMARY	mysql	password_history	PRIMARY KEY	YES
 def	mysql	PRIMARY	mysql	plugin	PRIMARY KEY	YES
 def	mysql	PRIMARY	mysql	procs_priv	PRIMARY KEY	YES
 def	mysql	PRIMARY	mysql	proxies_priv	PRIMARY KEY	YES
+def	mysql	PRIMARY	mysql	recycle_bin_info	PRIMARY KEY	YES
 def	mysql	PRIMARY	mysql	replication_asynchronous_connection_failover	PRIMARY KEY	YES
 def	mysql	PRIMARY	mysql	replication_asynchronous_connection_failover_managed	PRIMARY KEY	YES
 def	mysql	PRIMARY	mysql	replication_group_configuration_version	PRIMARY KEY	YES
@@ -35,6 +38,7 @@ def	mysql	PRIMARY	mysql	slave_master_info	PRIMARY KEY	YES
 def	mysql	PRIMARY	mysql	slave_relay_log_info	PRIMARY KEY	YES
 def	mysql	PRIMARY	mysql	slave_worker_info	PRIMARY KEY	YES
 def	mysql	PRIMARY	mysql	tables_priv	PRIMARY KEY	YES
+def	mysql	PRIMARY	mysql	tdsql_sequences	PRIMARY KEY	YES
 def	mysql	PRIMARY	mysql	time_zone	PRIMARY KEY	YES
 def	mysql	PRIMARY	mysql	time_zone_leap_second	PRIMARY KEY	YES
 def	mysql	PRIMARY	mysql	time_zone_name	PRIMARY KEY	YES
@@ -44,6 +48,7 @@ def	mysql	PRIMARY	mysql	user	PRIMARY KEY	YES
 def	mysql	name	mysql	help_category	UNIQUE	YES
 def	mysql	name	mysql	help_keyword	UNIQUE	YES
 def	mysql	name	mysql	help_topic	UNIQUE	YES
+def	mysql	ui1	mysql	outline	UNIQUE	YES
 # Test 03
 SET optimizer_switch = 'derived_merge=off';
 SELECT DISTINCT
@@ -269,10 +274,6 @@ g1	dt
 7	2005-04-04 01:21:01
 7	2005-04-04 01:21:01
 7	2005-04-04 01:21:01
-Warning	1292	Truncated incorrect DOUBLE value: '13:16:53.053569'
-Warning	1292	Truncated incorrect DOUBLE value: '13:16:53.053569'
-Warning	1292	Truncated incorrect DOUBLE value: '13:16:53.053569'
-Warning	1292	Truncated incorrect DOUBLE value: '13:16:53.053569'
 Warning	1292	Truncated incorrect DOUBLE value: '13:16:53.053569'
 Warnings:
 # Test 06

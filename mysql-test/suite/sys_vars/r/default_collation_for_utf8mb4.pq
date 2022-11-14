@@ -1,9 +1,9 @@
 SELECT @@GLOBAL.default_collation_for_utf8mb4;
 @@GLOBAL.default_collation_for_utf8mb4
-utf8mb4_0900_ai_ci
+utf8mb4_general_ci
 SELECT @@SESSION.default_collation_for_utf8mb4;
 @@SESSION.default_collation_for_utf8mb4
-utf8mb4_0900_ai_ci
+utf8mb4_general_ci
 #
 SET @@default_collation_for_utf8mb4 = DEFAULT;
 Warnings:
@@ -35,24 +35,54 @@ ERROR HY000: Invalid default collation latin2_general_ci: utf8mb4_0900_ai_ci or 
 SET @@default_collation_for_utf8mb4 = utf8mb4_general_ci;
 Warnings:
 Warning	1681	Updating 'default_collation_for_utf8mb4' is deprecated. It will be made read-only in a future release.
+set @@default_collation_for_utf8mb4 = utf8mb4_bin;
+Warnings:
+Warning	1681	Updating 'default_collation_for_utf8mb4' is deprecated. It will be made read-only in a future release.
+select @@default_collation_for_utf8mb4;
+@@default_collation_for_utf8mb4
+utf8mb4_bin
+set global default_collation_for_utf8mb4 = utf8mb4_spanish_ci;
+Warnings:
+Warning	1681	Updating 'default_collation_for_utf8mb4' is deprecated. It will be made read-only in a future release.
+select @@global.default_collation_for_utf8mb4;
+@@global.default_collation_for_utf8mb4
+utf8mb4_spanish_ci
+select @@default_collation_for_utf8mb4;
+@@default_collation_for_utf8mb4
+utf8mb4_bin
+set @@default_collation_for_utf8mb4 = utf8mb4_is_0900_ai_ci;
+Warnings:
+Warning	1681	Updating 'default_collation_for_utf8mb4' is deprecated. It will be made read-only in a future release.
+select @@default_collation_for_utf8mb4;
+@@default_collation_for_utf8mb4
+utf8mb4_is_0900_ai_ci
+set global default_collation_for_utf8mb4 = utf8mb4_persian_ci;
+Warnings:
+Warning	1681	Updating 'default_collation_for_utf8mb4' is deprecated. It will be made read-only in a future release.
+select @@global.default_collation_for_utf8mb4;
+@@global.default_collation_for_utf8mb4
+utf8mb4_persian_ci
+select @@default_collation_for_utf8mb4;
+@@default_collation_for_utf8mb4
+utf8mb4_is_0900_ai_ci
 #
 # String literals
 #
 SELECT COLLATION(_utf8mb4 'a');
 COLLATION(_utf8mb4 'a')
-utf8mb4_general_ci
+utf8mb4_is_0900_ai_ci
 SELECT COLLATION(_utf8mb4 'b' COLLATE utf8mb4_0900_ai_ci);
 COLLATION(_utf8mb4 'b' COLLATE utf8mb4_0900_ai_ci)
 utf8mb4_0900_ai_ci
 SELECT COLLATION(_utf8mb4 0x20);
 COLLATION(_utf8mb4 0x20)
-utf8mb4_general_ci
+utf8mb4_is_0900_ai_ci
 SELECT COLLATION(_utf8mb4 0x20 COLLATE utf8mb4_0900_ai_ci);
 COLLATION(_utf8mb4 0x20 COLLATE utf8mb4_0900_ai_ci)
 utf8mb4_0900_ai_ci
 SELECT COLLATION(_utf8mb4 0b10100);
 COLLATION(_utf8mb4 0b10100)
-utf8mb4_general_ci
+utf8mb4_is_0900_ai_ci
 SELECT COLLATION(_utf8mb4 0b10100 COLLATE utf8mb4_0900_ai_ci);
 COLLATION(_utf8mb4 0b10100 COLLATE utf8mb4_0900_ai_ci)
 utf8mb4_0900_ai_ci
@@ -66,7 +96,7 @@ utf8mb4_0900_ai_ci
 SET NAMES utf8mb4;
 SELECT @@collation_connection;
 @@collation_connection
-utf8mb4_general_ci
+utf8mb4_is_0900_ai_ci
 #
 SET NAMES utf8mb4 COLLATE utf8mb4_0900_ai_ci;
 SELECT @@collation_connection;
@@ -81,7 +111,7 @@ latin1_swedish_ci
 SET NAMES DEFAULT;
 SELECT @@collation_connection;
 @@collation_connection
-utf8mb4_general_ci
+utf8mb4_is_0900_ai_ci
 #
 SET @@default_collation_for_utf8mb4 = DEFAULT;
 Warnings:
@@ -422,7 +452,7 @@ Warnings:
 Warning	1681	Updating 'default_collation_for_utf8mb4' is deprecated. It will be made read-only in a future release.
 SHOW GLOBAL VARIABLES LIKE '%default_collation_for_utf8mb4%';
 Variable_name	Value
-default_collation_for_utf8mb4	utf8mb4_0900_ai_ci
+default_collation_for_utf8mb4	utf8mb4_persian_ci
 SHOW SESSION VARIABLES LIKE '%default_collation_for_utf8mb4%';
 Variable_name	Value
 default_collation_for_utf8mb4	utf8mb4_general_ci
@@ -446,6 +476,9 @@ st1	CREATE TABLE `st1` (
 DROP DATABASE db1;
 USE test;
 SET @@default_collation_for_utf8mb4 = DEFAULT;
+Warnings:
+Warning	1681	Updating 'default_collation_for_utf8mb4' is deprecated. It will be made read-only in a future release.
+SET @@global.default_collation_for_utf8mb4 = 'utf8mb4_general_ci';
 Warnings:
 Warning	1681	Updating 'default_collation_for_utf8mb4' is deprecated. It will be made read-only in a future release.
 #

@@ -176,6 +176,7 @@ id	c1
 test isolation level
 Variable_name	Value
 transaction_isolation	REPEATABLE-READ
+tx_isolation	REPEATABLE-READ
 id	c1
 1	aaa
 2	bbb

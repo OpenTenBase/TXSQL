@@ -2442,21 +2442,21 @@ handle_ok
 		[data][t2.c9][ 10][1988-12-20]
 
 	[meta] current col: 0
-		[data][t2.c1][  1][6]
+		[data][t2.c1][  1][4]
 	[meta] current col: 1
-		[data][t2.c2][  1][6]
+		[data][t2.c2][  1][4]
 	[meta] current col: 2
-		[data][t2.c3][  2][15]
+		[data][t2.c3][  2][13]
 	[meta] current col: 3
-		[data][t2.c4][  2][15]
+		[data][t2.c4][  2][13]
 	[meta] current col: 4
-		[data][t2.c5][  2][15]
+		[data][t2.c5][  2][13]
 	[meta] current col: 5
-		[data][t2.c6][  2][25]
+		[data][t2.c6][  2][23]
 	[meta] current col: 6
-		[data][t2.c7][  1][7]
+		[data][t2.c7][  1][5]
 	[meta] current col: 7
-		[data][t2.c8][  8][6580.001]
+		[data][t2.c8][  8][6578.001]
 	[meta] current col: 8
 		[data][t2.c9][ 10][1988-12-20]
 
@@ -2480,40 +2480,40 @@ handle_ok
 		[data][t2.c9][ 10][1988-12-20]
 
 	[meta] current col: 0
-		[data][t2.c1][  1][5]
+		[data][t2.c1][  1][7]
 	[meta] current col: 1
-		[data][t2.c2][  1][5]
+		[data][t2.c2][  1][7]
 	[meta] current col: 2
-		[data][t2.c3][  2][14]
+		[data][t2.c3][  2][16]
 	[meta] current col: 3
-		[data][t2.c4][  2][14]
+		[data][t2.c4][  2][16]
 	[meta] current col: 4
-		[data][t2.c5][  2][14]
+		[data][t2.c5][  2][16]
 	[meta] current col: 5
-		[data][t2.c6][  2][24]
+		[data][t2.c6][  2][26]
 	[meta] current col: 6
-		[data][t2.c7][  1][6]
+		[data][t2.c7][  1][8]
 	[meta] current col: 7
-		[data][t2.c8][  8][6579.001]
+		[data][t2.c8][  8][6581.001]
 	[meta] current col: 8
 		[data][t2.c9][ 10][1988-12-20]
 
 	[meta] current col: 0
-		[data][t2.c1][  1][4]
+		[data][t2.c1][  1][6]
 	[meta] current col: 1
-		[data][t2.c2][  1][4]
+		[data][t2.c2][  1][6]
 	[meta] current col: 2
-		[data][t2.c3][  2][13]
+		[data][t2.c3][  2][15]
 	[meta] current col: 3
-		[data][t2.c4][  2][13]
+		[data][t2.c4][  2][15]
 	[meta] current col: 4
-		[data][t2.c5][  2][13]
+		[data][t2.c5][  2][15]
 	[meta] current col: 5
-		[data][t2.c6][  2][23]
+		[data][t2.c6][  2][25]
 	[meta] current col: 6
-		[data][t2.c7][  1][5]
+		[data][t2.c7][  1][7]
 	[meta] current col: 7
-		[data][t2.c8][  8][6578.001]
+		[data][t2.c8][  8][6580.001]
 	[meta] current col: 8
 		[data][t2.c9][ 10][1988-12-20]
 
@@ -2556,21 +2556,21 @@ handle_ok
 		[data][t2.c9][ 10][1988-12-20]
 
 	[meta] current col: 0
-		[data][t2.c1][  1][7]
+		[data][t2.c1][  1][5]
 	[meta] current col: 1
-		[data][t2.c2][  1][7]
+		[data][t2.c2][  1][5]
 	[meta] current col: 2
-		[data][t2.c3][  2][16]
+		[data][t2.c3][  2][14]
 	[meta] current col: 3
-		[data][t2.c4][  2][16]
+		[data][t2.c4][  2][14]
 	[meta] current col: 4
-		[data][t2.c5][  2][16]
+		[data][t2.c5][  2][14]
 	[meta] current col: 5
-		[data][t2.c6][  2][26]
+		[data][t2.c6][  2][24]
 	[meta] current col: 6
-		[data][t2.c7][  1][8]
+		[data][t2.c7][  1][6]
 	[meta] current col: 7
-		[data][t2.c8][  8][6581.001]
+		[data][t2.c8][  8][6579.001]
 	[meta] current col: 8
 		[data][t2.c9][ 10][1988-12-20]
 
@@ -7602,25 +7602,6 @@ handle_ok
 		[data][t2.c9][ 10][1988-12-20]
 
 	[meta] current col: 0
-		[data][t2.c1][  1][6]
-	[meta] current col: 1
-		[data][t2.c2][  1][6]
-	[meta] current col: 2
-		[data][t2.c3][  2][15]
-	[meta] current col: 3
-		[data][t2.c4][  2][15]
-	[meta] current col: 4
-		[data][t2.c5][  2][15]
-	[meta] current col: 5
-		[data][t2.c6][  2][25]
-	[meta] current col: 6
-		[data][t2.c7][  1][7]
-	[meta] current col: 7
-		[data][t2.c8][  8][6580.001]
-	[meta] current col: 8
-		[data][t2.c9][ 10][1988-12-20]
-
-	[meta] current col: 0
 		[data][t2.c1][  1][4]
 	[meta] current col: 1
 		[data][t2.c2][  1][4]
@@ -7636,25 +7617,6 @@ handle_ok
 		[data][t2.c7][  1][5]
 	[meta] current col: 7
 		[data][t2.c8][  8][6578.001]
-	[meta] current col: 8
-		[data][t2.c9][ 10][1988-12-20]
-
-	[meta] current col: 0
-		[data][t2.c1][  1][9]
-	[meta] current col: 1
-		[data][t2.c2][  1][9]
-	[meta] current col: 2
-		[data][t2.c3][  2][18]
-	[meta] current col: 3
-		[data][t2.c4][  2][18]
-	[meta] current col: 4
-		[data][t2.c5][  2][18]
-	[meta] current col: 5
-		[data][t2.c6][  2][28]
-	[meta] current col: 6
-		[data][t2.c7][  2][10]
-	[meta] current col: 7
-		[data][t2.c8][  8][6583.001]
 	[meta] current col: 8
 		[data][t2.c9][ 10][1988-12-20]
 
@@ -7678,21 +7640,40 @@ handle_ok
 		[data][t2.c9][ 10][1988-12-20]
 
 	[meta] current col: 0
-		[data][t2.c1][  1][8]
+		[data][t2.c1][  1][7]
 	[meta] current col: 1
-		[data][t2.c2][  1][8]
+		[data][t2.c2][  1][7]
 	[meta] current col: 2
-		[data][t2.c3][  2][17]
+		[data][t2.c3][  2][16]
 	[meta] current col: 3
-		[data][t2.c4][  2][17]
+		[data][t2.c4][  2][16]
 	[meta] current col: 4
-		[data][t2.c5][  2][17]
+		[data][t2.c5][  2][16]
 	[meta] current col: 5
-		[data][t2.c6][  2][27]
+		[data][t2.c6][  2][26]
 	[meta] current col: 6
-		[data][t2.c7][  1][9]
+		[data][t2.c7][  1][8]
 	[meta] current col: 7
-		[data][t2.c8][  8][6582.001]
+		[data][t2.c8][  8][6581.001]
+	[meta] current col: 8
+		[data][t2.c9][ 10][1988-12-20]
+
+	[meta] current col: 0
+		[data][t2.c1][  1][6]
+	[meta] current col: 1
+		[data][t2.c2][  1][6]
+	[meta] current col: 2
+		[data][t2.c3][  2][15]
+	[meta] current col: 3
+		[data][t2.c4][  2][15]
+	[meta] current col: 4
+		[data][t2.c5][  2][15]
+	[meta] current col: 5
+		[data][t2.c6][  2][25]
+	[meta] current col: 6
+		[data][t2.c7][  1][7]
+	[meta] current col: 7
+		[data][t2.c8][  8][6580.001]
 	[meta] current col: 8
 		[data][t2.c9][ 10][1988-12-20]
 
@@ -7716,21 +7697,40 @@ handle_ok
 		[data][t2.c9][ 10][1988-12-20]
 
 	[meta] current col: 0
-		[data][t2.c1][  1][7]
+		[data][t2.c1][  1][8]
 	[meta] current col: 1
-		[data][t2.c2][  1][7]
+		[data][t2.c2][  1][8]
 	[meta] current col: 2
-		[data][t2.c3][  2][16]
+		[data][t2.c3][  2][17]
 	[meta] current col: 3
-		[data][t2.c4][  2][16]
+		[data][t2.c4][  2][17]
 	[meta] current col: 4
-		[data][t2.c5][  2][16]
+		[data][t2.c5][  2][17]
 	[meta] current col: 5
-		[data][t2.c6][  2][26]
+		[data][t2.c6][  2][27]
 	[meta] current col: 6
-		[data][t2.c7][  1][8]
+		[data][t2.c7][  1][9]
 	[meta] current col: 7
-		[data][t2.c8][  8][6581.001]
+		[data][t2.c8][  8][6582.001]
+	[meta] current col: 8
+		[data][t2.c9][ 10][1988-12-20]
+
+	[meta] current col: 0
+		[data][t2.c1][  1][9]
+	[meta] current col: 1
+		[data][t2.c2][  1][9]
+	[meta] current col: 2
+		[data][t2.c3][  2][18]
+	[meta] current col: 3
+		[data][t2.c4][  2][18]
+	[meta] current col: 4
+		[data][t2.c5][  2][18]
+	[meta] current col: 5
+		[data][t2.c6][  2][28]
+	[meta] current col: 6
+		[data][t2.c7][  2][10]
+	[meta] current col: 7
+		[data][t2.c8][  8][6583.001]
 	[meta] current col: 8
 		[data][t2.c9][ 10][1988-12-20]
 

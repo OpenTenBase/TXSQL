@@ -2,10 +2,12 @@
 #define PX_CODEC_INCLUDED
 
 #include <vector>
+#include <bitset>
 #include "include/mem_root_deque.h"
 #include "px.h"
 
 struct PX_iovec;
+class TABLE;
 class Temp_table_param;
 class THD;
 class Item;
@@ -21,7 +23,9 @@ class PX_codec {
   PX_codec() {}
   virtual ~PX_codec() {}
 
-  virtual int init(mem_root_deque<Item *> *items, std::vector<Field *> *fields) = 0;
+  virtual int init(mem_root_deque<Item *> *items,
+                   std::vector<Field *> *fields,
+                   const mem_root_deque<TABLE *> *tables = nullptr) = 0;
   virtual int encode(std::vector<PX_iovec> &memory_trunks) = 0;
   virtual int decode(uchar *data, Size len) = 0;
 };
@@ -34,7 +38,7 @@ class PX_codec {
   rather than real data size.
 
   There are four protocol fields for hidden information: length, property
-  bitmap and its length, and an optional row id (ref).
+  bitmap and its length, and null row bitset.
 
   Each user field has a const property and a null property. Only a field
   which is non-const and non-null gets delivered in a protocol field. 
@@ -47,8 +51,8 @@ class PX_codec {
 
   The physical layout of a compact row is:
 
-  | length | bitmap_len | bitmap |  ref  | field1 | field2 | ... |
-  (4-bytes)     (2)    (bitmap_len) (2)
+  | length | null row bitset | bitmap_len | bitmap | field1 | field2 | ... |
+  (4-bytes)    (8-bytes)      (bitmap_len)   (2)
 
   Note that 2-byte bitmap_len is sufficient for MAX_FIELDS(4096), because
   the max number of bitmap bytes is (4096 * 2 + 7 ) / 8 = 1024 bytes (2^10).
@@ -87,7 +91,9 @@ class PX_compact_codec : public PX_codec {
   PX_compact_codec(THD *thd, bool use_item, Temp_table_param *temp_table_param);
   ~PX_compact_codec();
 
-  int init(mem_root_deque<Item *> *items, std::vector<Field *> *fields) override;
+  int init(mem_root_deque<Item *> *items,
+           std::vector<Field *> *fields,
+           const mem_root_deque<TABLE *> *tables = nullptr) override;
   int encode(std::vector<PX_iovec> &memory_trunks) override;
   int decode(uchar *data, Size len) override;
 
@@ -116,6 +122,9 @@ class PX_compact_codec : public PX_codec {
   uint16 null_len{0};
   uint32 total_copy_bytes{0};
   uint null_num{0};
+  const mem_root_deque<TABLE *> *m_tables{nullptr};
+  std::bitset<64> m_null_row_set;
+  ulonglong m_null_row_value{0};
 };
 
 #endif

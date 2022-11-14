@@ -55,10 +55,6 @@ AND t2.f1 IN (SELECT /*+ QB_NAME(subq2) */ f1 FROM t5);
 count(*)
 10
 Warning	3126	Hint JOIN_PREFIX( `t2`,`t1`) is ignored as conflicting/duplicated
-Warning	3126	Hint JOIN_PREFIX( `t2`,`t1`) is ignored as conflicting/duplicated
-Warning	3126	Hint JOIN_PREFIX( `t2`,`t1`) is ignored as conflicting/duplicated
-Warning	3126	Hint JOIN_PREFIX( `t2`,`t1`) is ignored as conflicting/duplicated
-Warning	3126	Hint JOIN_PREFIX( `t2`,`t1`) is ignored as conflicting/duplicated
 Warnings:
 explain SELECT /*+ JOIN_PREFIX(t3, t2, t1) JOIN_PREFIX(t2, t1) */ count(*) FROM t1 JOIN t2 JOIN t3
 WHERE t1.f1 IN (SELECT /*+ QB_NAME(subq1) */ f1 FROM t4)

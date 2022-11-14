@@ -1524,9 +1524,6 @@ SELECT 1 FROM t1 GROUP BY @b := @a, @b;
 1
 1
 Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
-Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
-Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
-Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
 Warnings:
 DROP TABLE t1;
 CREATE TABLE t1 SELECT 0.123456789012345678901234567890123456 AS f1;
@@ -2017,8 +2014,8 @@ GREATEST(a, 1323)
 (SELECT GREATEST(a, 1323) FROM t1) UNION ALL (SELECT GREATEST(a, 1323) FROM t1 LIMIT 0);
 GREATEST(a, 1323)
 20000716055804.035
-1323.000
 20080821000000.000
+1323.000
 DROP TABLE t1;
 #
 # End of 5.6 tests

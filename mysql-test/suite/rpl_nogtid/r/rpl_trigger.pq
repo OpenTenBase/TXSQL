@@ -91,7 +91,6 @@ select a=b && a=c from t1;
 a=b && a=c
 1
 Warning	1287	'&&' is deprecated and will be removed in a future release. Please use AND instead
-Warning	1287	'&&' is deprecated and will be removed in a future release. Please use AND instead
 Warnings:
 SELECT routine_name, definer
 FROM information_schema.routines
@@ -119,7 +118,6 @@ t1_first	root@localhost
 select a=b && a=c from t1;
 a=b && a=c
 1
-Warning	1287	'&&' is deprecated and will be removed in a future release. Please use AND instead
 Warning	1287	'&&' is deprecated and will be removed in a future release. Please use AND instead
 Warnings:
 test

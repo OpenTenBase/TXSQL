@@ -1447,9 +1447,6 @@ SELECT * FROM t WHERE i > 'A';
 i
 1
 Warning	1292	Truncated incorrect DOUBLE value: 'A'
-Warning	1292	Truncated incorrect DOUBLE value: 'A'
-Warning	1292	Truncated incorrect DOUBLE value: 'A'
-Warning	1292	Truncated incorrect DOUBLE value: 'A'
 Warnings:
 EXPLAIN SELECT * FROM t WHERE i > 'A';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
@@ -3830,9 +3827,6 @@ test.t	analyze	status	OK
 SELECT * FROM t WHERE i > 'A';
 i
 1
-Warning	1292	Truncated incorrect DOUBLE value: 'A'
-Warning	1292	Truncated incorrect DOUBLE value: 'A'
-Warning	1292	Truncated incorrect DOUBLE value: 'A'
 Warning	1292	Truncated incorrect DOUBLE value: 'A'
 Warnings:
 EXPLAIN SELECT * FROM t WHERE i > 'A';
@@ -6271,9 +6265,6 @@ SELECT * FROM t WHERE i > 'A';
 i
 1
 Warning	1292	Truncated incorrect DOUBLE value: 'A'
-Warning	1292	Truncated incorrect DOUBLE value: 'A'
-Warning	1292	Truncated incorrect DOUBLE value: 'A'
-Warning	1292	Truncated incorrect DOUBLE value: 'A'
 Warnings:
 EXPLAIN SELECT * FROM t WHERE i > 'A';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
@@ -7784,9 +7775,6 @@ test.t	analyze	status	OK
 SELECT * FROM t WHERE i > 'A';
 i
 1
-Warning	1292	Truncated incorrect DOUBLE value: 'A'
-Warning	1292	Truncated incorrect DOUBLE value: 'A'
-Warning	1292	Truncated incorrect DOUBLE value: 'A'
 Warning	1292	Truncated incorrect DOUBLE value: 'A'
 Warnings:
 EXPLAIN SELECT * FROM t WHERE i > 'A';
@@ -9383,9 +9371,6 @@ SELECT * FROM t WHERE i > 'A';
 i
 1
 Warning	1292	Truncated incorrect DOUBLE value: 'A'
-Warning	1292	Truncated incorrect DOUBLE value: 'A'
-Warning	1292	Truncated incorrect DOUBLE value: 'A'
-Warning	1292	Truncated incorrect DOUBLE value: 'A'
 Warnings:
 EXPLAIN SELECT * FROM t WHERE i > 'A';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
@@ -10897,9 +10882,6 @@ test.t	analyze	status	OK
 SELECT * FROM t WHERE i > 'A';
 i
 1
-Warning	1292	Truncated incorrect DOUBLE value: 'A'
-Warning	1292	Truncated incorrect DOUBLE value: 'A'
-Warning	1292	Truncated incorrect DOUBLE value: 'A'
 Warning	1292	Truncated incorrect DOUBLE value: 'A'
 Warnings:
 EXPLAIN SELECT * FROM t WHERE i > 'A';
@@ -12498,9 +12480,6 @@ SELECT * FROM t WHERE i > 'A';
 i
 1
 Warning	1292	Truncated incorrect DOUBLE value: 'A'
-Warning	1292	Truncated incorrect DOUBLE value: 'A'
-Warning	1292	Truncated incorrect DOUBLE value: 'A'
-Warning	1292	Truncated incorrect DOUBLE value: 'A'
 Warnings:
 EXPLAIN SELECT * FROM t WHERE i > 'A';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
@@ -14011,9 +13990,6 @@ test.t	analyze	status	OK
 SELECT * FROM t WHERE i > 'A';
 i
 1
-Warning	1292	Truncated incorrect DOUBLE value: 'A'
-Warning	1292	Truncated incorrect DOUBLE value: 'A'
-Warning	1292	Truncated incorrect DOUBLE value: 'A'
 Warning	1292	Truncated incorrect DOUBLE value: 'A'
 Warnings:
 EXPLAIN SELECT * FROM t WHERE i > 'A';
@@ -15609,9 +15585,6 @@ test.t	analyze	status	OK
 SELECT * FROM t WHERE i > 'A';
 i
 1
-Warning	1292	Truncated incorrect DOUBLE value: 'A'
-Warning	1292	Truncated incorrect DOUBLE value: 'A'
-Warning	1292	Truncated incorrect DOUBLE value: 'A'
 Warning	1292	Truncated incorrect DOUBLE value: 'A'
 Warnings:
 EXPLAIN SELECT * FROM t WHERE i > 'A';
@@ -24219,9 +24192,6 @@ SELECT * FROM t WHERE i > 'A';
 i
 1
 Warning	1292	Truncated incorrect DOUBLE value: 'A'
-Warning	1292	Truncated incorrect DOUBLE value: 'A'
-Warning	1292	Truncated incorrect DOUBLE value: 'A'
-Warning	1292	Truncated incorrect DOUBLE value: 'A'
 Warnings:
 EXPLAIN SELECT * FROM t WHERE i > 'A';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
@@ -27509,9 +27479,6 @@ SELECT * FROM t WHERE i > 'A';
 i
 1
 Warning	1292	Truncated incorrect DOUBLE value: 'A'
-Warning	1292	Truncated incorrect DOUBLE value: 'A'
-Warning	1292	Truncated incorrect DOUBLE value: 'A'
-Warning	1292	Truncated incorrect DOUBLE value: 'A'
 Warnings:
 EXPLAIN SELECT * FROM t WHERE i > 'A';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
@@ -30356,8 +30323,6 @@ test.t	analyze	status	OK
 SELECT * FROM t WHERE d <= 0x1FFFFFFFFFFFFFFFF;
 d
 Warning	1292	Truncated incorrect BINARY value: 'x'01ffffffffffffffff''
-Warning	1292	Truncated incorrect BINARY value: 'x'01ffffffffffffffff''
-Warning	1292	Truncated incorrect BINARY value: 'x'01ffffffffffffffff''
 Warnings:
 EXPLAIN SELECT * FROM t WHERE d <= 0x1FFFFFFFFFFFFFFFF;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
@@ -30898,8 +30863,6 @@ test.t	analyze	status	OK
 0x constant too large; gets truncated to zero
 SELECT * FROM t WHERE d <= 0x1FFFFFFFFFFFFFFFF;
 d
-Warning	1292	Truncated incorrect BINARY value: 'x'01ffffffffffffffff''
-Warning	1292	Truncated incorrect BINARY value: 'x'01ffffffffffffffff''
 Warning	1292	Truncated incorrect BINARY value: 'x'01ffffffffffffffff''
 Warnings:
 EXPLAIN SELECT * FROM t WHERE d <= 0x1FFFFFFFFFFFFFFFF;
@@ -31567,10 +31530,6 @@ d
 10.4
 10.5
 Warning	1292	Truncated incorrect DECIMAL value: 'A'
-Warning	1292	Truncated incorrect DECIMAL value: 'A'
-Warning	1292	Truncated incorrect DECIMAL value: 'A'
-Warning	1292	Truncated incorrect DECIMAL value: 'A'
-Warning	1292	Truncated incorrect DECIMAL value: 'A'
 Warnings:
 EXPLAIN SELECT d FROM t WHERE d > 'A';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
@@ -32231,10 +32190,6 @@ d
 10.3
 10.4
 10.5
-Warning	1292	Truncated incorrect DECIMAL value: 'A'
-Warning	1292	Truncated incorrect DECIMAL value: 'A'
-Warning	1292	Truncated incorrect DECIMAL value: 'A'
-Warning	1292	Truncated incorrect DECIMAL value: 'A'
 Warning	1292	Truncated incorrect DECIMAL value: 'A'
 Warnings:
 EXPLAIN SELECT d FROM t WHERE d > 'A';
@@ -34793,8 +34748,6 @@ SELECT * FROM f WHERE f >= '2 garbage';
 f
 2
 Warning	1292	Truncated incorrect DOUBLE value: '2 garbage'
-Warning	1292	Truncated incorrect DOUBLE value: '2 garbage'
-Warning	1292	Truncated incorrect DOUBLE value: '2 garbage'
 Warnings:
 DROP TABLE f;
 #
@@ -35623,8 +35576,6 @@ INSERT INTO f VALUES (-1), (2);
 SELECT * FROM f WHERE f >= '2 garbage';
 f
 2
-Warning	1292	Truncated incorrect DOUBLE value: '2 garbage'
-Warning	1292	Truncated incorrect DOUBLE value: '2 garbage'
 Warning	1292	Truncated incorrect DOUBLE value: '2 garbage'
 Warnings:
 DROP TABLE f;
@@ -36463,8 +36414,6 @@ INSERT INTO f VALUES (-1), (2);
 SELECT * FROM f WHERE f >= '2 garbage';
 f
 2
-Warning	1292	Truncated incorrect DOUBLE value: '2 garbage'
-Warning	1292	Truncated incorrect DOUBLE value: '2 garbage'
 Warning	1292	Truncated incorrect DOUBLE value: '2 garbage'
 Warnings:
 DROP TABLE f;
@@ -37317,8 +37266,6 @@ SELECT * FROM f WHERE f >= '2 garbage';
 f
 2
 Warning	1292	Truncated incorrect DOUBLE value: '2 garbage'
-Warning	1292	Truncated incorrect DOUBLE value: '2 garbage'
-Warning	1292	Truncated incorrect DOUBLE value: '2 garbage'
 Warnings:
 DROP TABLE f;
 #
@@ -38147,8 +38094,6 @@ INSERT INTO f VALUES (-1), (2);
 SELECT * FROM f WHERE f >= '2 garbage';
 f
 2
-Warning	1292	Truncated incorrect DOUBLE value: '2 garbage'
-Warning	1292	Truncated incorrect DOUBLE value: '2 garbage'
 Warning	1292	Truncated incorrect DOUBLE value: '2 garbage'
 Warnings:
 DROP TABLE f;
@@ -39001,8 +38946,6 @@ SELECT * FROM f WHERE f >= '2 garbage';
 f
 2
 Warning	1292	Truncated incorrect DOUBLE value: '2 garbage'
-Warning	1292	Truncated incorrect DOUBLE value: '2 garbage'
-Warning	1292	Truncated incorrect DOUBLE value: '2 garbage'
 Warnings:
 DROP TABLE f;
 #
@@ -39853,8 +39796,6 @@ INSERT INTO f VALUES (-1), (2);
 SELECT * FROM f WHERE f >= '2 garbage';
 f
 2
-Warning	1292	Truncated incorrect DOUBLE value: '2 garbage'
-Warning	1292	Truncated incorrect DOUBLE value: '2 garbage'
 Warning	1292	Truncated incorrect DOUBLE value: '2 garbage'
 Warnings:
 DROP TABLE f;
@@ -48919,15 +48860,9 @@ Note	1003	/* select#1 */ select `test`.`tbl_ts`.`t` AS `t` from `test`.`tbl_ts` 
 SELECT * FROM tbl_ts WHERE t <  2018;
 t
 Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
 Warnings:
 SELECT * FROM tbl_ts WHERE t <= 2018;
 t
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
 Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
 Warnings:
 SELECT * FROM tbl_ts WHERE t >  2018;
@@ -48936,9 +48871,6 @@ t
 2018-06-19 21:00:00
 2038-01-19 06:14:07
 Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
 Warnings:
 SELECT * FROM tbl_ts WHERE t >= 2018;
 t
@@ -48946,15 +48878,9 @@ t
 2018-06-19 21:00:00
 2038-01-19 06:14:07
 Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
 Warnings:
 SELECT * FROM tbl_ts WHERE t =  2018;
 t
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
 Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
 Warnings:
 SELECT * FROM tbl_ts WHERE t <> 2018;
@@ -48962,9 +48888,6 @@ t
 1970-01-01 03:00:01
 2018-06-19 21:00:00
 2038-01-19 06:14:07
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
 Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
 Warnings:
 EXPLAIN  SELECT * FROM tbl_ts WHERE t <  2018;
@@ -49147,15 +49070,9 @@ Note	1003	/* select#1 */ select `test`.`tbl_ts`.`t` AS `t` from `test`.`tbl_ts` 
 SELECT * FROM tbl_ts WHERE t <  2018.55;
 t
 Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
 Warnings:
 SELECT * FROM tbl_ts WHERE t <= 2018.55;
 t
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
 Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
 Warnings:
 SELECT * FROM tbl_ts WHERE t >  2018.55;
@@ -49164,9 +49081,6 @@ t
 2018-06-19 21:00:00
 2038-01-19 06:14:07
 Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
 Warnings:
 SELECT * FROM tbl_ts WHERE t >= 2018.55;
 t
@@ -49174,15 +49088,9 @@ t
 2018-06-19 21:00:00
 2038-01-19 06:14:07
 Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
 Warnings:
 SELECT * FROM tbl_ts WHERE t =  2018.55;
 t
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
 Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
 Warnings:
 SELECT * FROM tbl_ts WHERE t <> 2018.55;
@@ -49190,9 +49098,6 @@ t
 1970-01-01 03:00:01
 2018-06-19 21:00:00
 2038-01-19 06:14:07
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
 Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
 Warnings:
 EXPLAIN  SELECT * FROM tbl_ts WHERE t <  2018.55;
@@ -50434,15 +50339,9 @@ Note	1003	/* select#1 */ select `test`.`tbl_ts`.`t` AS `t` from `test`.`tbl_ts` 
 SELECT * FROM tbl_ts WHERE t <  2018;
 t
 Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
 Warnings:
 SELECT * FROM tbl_ts WHERE t <= 2018;
 t
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
 Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
 Warnings:
 SELECT * FROM tbl_ts WHERE t >  2018;
@@ -50451,9 +50350,6 @@ t
 2018-06-19 21:00:00.00
 2038-01-19 06:14:07.99
 Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
 Warnings:
 SELECT * FROM tbl_ts WHERE t >= 2018;
 t
@@ -50461,15 +50357,9 @@ t
 2018-06-19 21:00:00.00
 2038-01-19 06:14:07.99
 Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
 Warnings:
 SELECT * FROM tbl_ts WHERE t =  2018;
 t
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
 Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
 Warnings:
 SELECT * FROM tbl_ts WHERE t <> 2018;
@@ -50477,9 +50367,6 @@ t
 1970-01-01 03:00:01.00
 2018-06-19 21:00:00.00
 2038-01-19 06:14:07.99
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
 Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
 Warnings:
 EXPLAIN  SELECT * FROM tbl_ts WHERE t <  2018;
@@ -50662,15 +50549,9 @@ Note	1003	/* select#1 */ select `test`.`tbl_ts`.`t` AS `t` from `test`.`tbl_ts` 
 SELECT * FROM tbl_ts WHERE t <  2018.55;
 t
 Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
 Warnings:
 SELECT * FROM tbl_ts WHERE t <= 2018.55;
 t
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
 Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
 Warnings:
 SELECT * FROM tbl_ts WHERE t >  2018.55;
@@ -50679,9 +50560,6 @@ t
 2018-06-19 21:00:00.00
 2038-01-19 06:14:07.99
 Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
 Warnings:
 SELECT * FROM tbl_ts WHERE t >= 2018.55;
 t
@@ -50689,15 +50567,9 @@ t
 2018-06-19 21:00:00.00
 2038-01-19 06:14:07.99
 Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
 Warnings:
 SELECT * FROM tbl_ts WHERE t =  2018.55;
 t
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
 Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
 Warnings:
 SELECT * FROM tbl_ts WHERE t <> 2018.55;
@@ -50705,9 +50577,6 @@ t
 1970-01-01 03:00:01.00
 2018-06-19 21:00:00.00
 2038-01-19 06:14:07.99
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
 Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
 Warnings:
 EXPLAIN  SELECT * FROM tbl_ts WHERE t <  2018.55;
@@ -51961,15 +51830,9 @@ Note	1003	/* select#1 */ select `test`.`tbl_ts`.`t` AS `t` from `test`.`tbl_ts` 
 SELECT * FROM tbl_ts WHERE t <  2018;
 t
 Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
 Warnings:
 SELECT * FROM tbl_ts WHERE t <= 2018;
 t
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
 Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
 Warnings:
 SELECT * FROM tbl_ts WHERE t >  2018;
@@ -51978,9 +51841,6 @@ t
 2018-06-19 21:00:00.000000
 2038-01-19 06:14:07.999999
 Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
 Warnings:
 SELECT * FROM tbl_ts WHERE t >= 2018;
 t
@@ -51988,15 +51848,9 @@ t
 2018-06-19 21:00:00.000000
 2038-01-19 06:14:07.999999
 Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
 Warnings:
 SELECT * FROM tbl_ts WHERE t =  2018;
 t
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
 Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
 Warnings:
 SELECT * FROM tbl_ts WHERE t <> 2018;
@@ -52004,9 +51858,6 @@ t
 1970-01-01 03:00:01.000000
 2018-06-19 21:00:00.000000
 2038-01-19 06:14:07.999999
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
 Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
 Warnings:
 EXPLAIN  SELECT * FROM tbl_ts WHERE t <  2018;
@@ -52189,15 +52040,9 @@ Note	1003	/* select#1 */ select `test`.`tbl_ts`.`t` AS `t` from `test`.`tbl_ts` 
 SELECT * FROM tbl_ts WHERE t <  2018.55;
 t
 Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
 Warnings:
 SELECT * FROM tbl_ts WHERE t <= 2018.55;
 t
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
 Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
 Warnings:
 SELECT * FROM tbl_ts WHERE t >  2018.55;
@@ -52206,9 +52051,6 @@ t
 2018-06-19 21:00:00.000000
 2038-01-19 06:14:07.999999
 Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
 Warnings:
 SELECT * FROM tbl_ts WHERE t >= 2018.55;
 t
@@ -52216,15 +52058,9 @@ t
 2018-06-19 21:00:00.000000
 2038-01-19 06:14:07.999999
 Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
 Warnings:
 SELECT * FROM tbl_ts WHERE t =  2018.55;
 t
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
 Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
 Warnings:
 SELECT * FROM tbl_ts WHERE t <> 2018.55;
@@ -52232,9 +52068,6 @@ t
 1970-01-01 03:00:01.000000
 2018-06-19 21:00:00.000000
 2038-01-19 06:14:07.999999
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
 Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
 Warnings:
 EXPLAIN  SELECT * FROM tbl_ts WHERE t <  2018.55;
@@ -53524,15 +53357,9 @@ Note	1003	/* select#1 */ select `test`.`tbl_datetime`.`t` AS `t` from `test`.`tb
 SELECT * FROM tbl_datetime WHERE t <  2018;
 t
 Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
 Warnings:
 SELECT * FROM tbl_datetime WHERE t <= 2018;
 t
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
 Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
 Warnings:
 SELECT * FROM tbl_datetime WHERE t >  2018;
@@ -53541,9 +53368,6 @@ t
 2018-06-19 21:00:00
 2038-01-19 06:14:07
 Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
 Warnings:
 SELECT * FROM tbl_datetime WHERE t >= 2018;
 t
@@ -53551,15 +53375,9 @@ t
 2018-06-19 21:00:00
 2038-01-19 06:14:07
 Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
 Warnings:
 SELECT * FROM tbl_datetime WHERE t =  2018;
 t
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
 Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
 Warnings:
 SELECT * FROM tbl_datetime WHERE t <> 2018;
@@ -53567,9 +53385,6 @@ t
 1970-01-01 03:00:01
 2018-06-19 21:00:00
 2038-01-19 06:14:07
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
 Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
 Warnings:
 EXPLAIN  SELECT * FROM tbl_datetime WHERE t <  2018;
@@ -53752,15 +53567,9 @@ Note	1003	/* select#1 */ select `test`.`tbl_datetime`.`t` AS `t` from `test`.`tb
 SELECT * FROM tbl_datetime WHERE t <  2018.55;
 t
 Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
 Warnings:
 SELECT * FROM tbl_datetime WHERE t <= 2018.55;
 t
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
 Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
 Warnings:
 SELECT * FROM tbl_datetime WHERE t >  2018.55;
@@ -53769,9 +53578,6 @@ t
 2018-06-19 21:00:00
 2038-01-19 06:14:07
 Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
 Warnings:
 SELECT * FROM tbl_datetime WHERE t >= 2018.55;
 t
@@ -53779,15 +53585,9 @@ t
 2018-06-19 21:00:00
 2038-01-19 06:14:07
 Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
 Warnings:
 SELECT * FROM tbl_datetime WHERE t =  2018.55;
 t
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
 Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
 Warnings:
 SELECT * FROM tbl_datetime WHERE t <> 2018.55;
@@ -53795,9 +53595,6 @@ t
 1970-01-01 03:00:01
 2018-06-19 21:00:00
 2038-01-19 06:14:07
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
 Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
 Warnings:
 EXPLAIN  SELECT * FROM tbl_datetime WHERE t <  2018.55;
@@ -55087,15 +54884,9 @@ Note	1003	/* select#1 */ select `test`.`tbl_datetime`.`t` AS `t` from `test`.`tb
 SELECT * FROM tbl_datetime WHERE t <  2018;
 t
 Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
 Warnings:
 SELECT * FROM tbl_datetime WHERE t <= 2018;
 t
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
 Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
 Warnings:
 SELECT * FROM tbl_datetime WHERE t >  2018;
@@ -55104,9 +54895,6 @@ t
 2018-06-19 21:00:00.00
 2038-01-19 06:14:07.99
 Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
 Warnings:
 SELECT * FROM tbl_datetime WHERE t >= 2018;
 t
@@ -55114,15 +54902,9 @@ t
 2018-06-19 21:00:00.00
 2038-01-19 06:14:07.99
 Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
 Warnings:
 SELECT * FROM tbl_datetime WHERE t =  2018;
 t
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
 Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
 Warnings:
 SELECT * FROM tbl_datetime WHERE t <> 2018;
@@ -55130,9 +54912,6 @@ t
 1970-01-01 03:00:01.00
 2018-06-19 21:00:00.00
 2038-01-19 06:14:07.99
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
 Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
 Warnings:
 EXPLAIN  SELECT * FROM tbl_datetime WHERE t <  2018;
@@ -55315,15 +55094,9 @@ Note	1003	/* select#1 */ select `test`.`tbl_datetime`.`t` AS `t` from `test`.`tb
 SELECT * FROM tbl_datetime WHERE t <  2018.55;
 t
 Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
 Warnings:
 SELECT * FROM tbl_datetime WHERE t <= 2018.55;
 t
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
 Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
 Warnings:
 SELECT * FROM tbl_datetime WHERE t >  2018.55;
@@ -55332,9 +55105,6 @@ t
 2018-06-19 21:00:00.00
 2038-01-19 06:14:07.99
 Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
 Warnings:
 SELECT * FROM tbl_datetime WHERE t >= 2018.55;
 t
@@ -55342,15 +55112,9 @@ t
 2018-06-19 21:00:00.00
 2038-01-19 06:14:07.99
 Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
 Warnings:
 SELECT * FROM tbl_datetime WHERE t =  2018.55;
 t
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
 Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
 Warnings:
 SELECT * FROM tbl_datetime WHERE t <> 2018.55;
@@ -55358,9 +55122,6 @@ t
 1970-01-01 03:00:01.00
 2018-06-19 21:00:00.00
 2038-01-19 06:14:07.99
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
 Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
 Warnings:
 EXPLAIN  SELECT * FROM tbl_datetime WHERE t <  2018.55;
@@ -56650,15 +56411,9 @@ Note	1003	/* select#1 */ select `test`.`tbl_datetime`.`t` AS `t` from `test`.`tb
 SELECT * FROM tbl_datetime WHERE t <  2018;
 t
 Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
 Warnings:
 SELECT * FROM tbl_datetime WHERE t <= 2018;
 t
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
 Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
 Warnings:
 SELECT * FROM tbl_datetime WHERE t >  2018;
@@ -56667,9 +56422,6 @@ t
 2018-06-19 21:00:00.000000
 2038-01-19 06:14:07.999999
 Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
 Warnings:
 SELECT * FROM tbl_datetime WHERE t >= 2018;
 t
@@ -56677,15 +56429,9 @@ t
 2018-06-19 21:00:00.000000
 2038-01-19 06:14:07.999999
 Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
 Warnings:
 SELECT * FROM tbl_datetime WHERE t =  2018;
 t
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
 Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
 Warnings:
 SELECT * FROM tbl_datetime WHERE t <> 2018;
@@ -56693,9 +56439,6 @@ t
 1970-01-01 03:00:01.000000
 2018-06-19 21:00:00.000000
 2038-01-19 06:14:07.999999
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
 Warning	1292	Incorrect datetime value: '2018' for column 't' at row 1
 Warnings:
 EXPLAIN  SELECT * FROM tbl_datetime WHERE t <  2018;
@@ -56878,15 +56621,9 @@ Note	1003	/* select#1 */ select `test`.`tbl_datetime`.`t` AS `t` from `test`.`tb
 SELECT * FROM tbl_datetime WHERE t <  2018.55;
 t
 Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
 Warnings:
 SELECT * FROM tbl_datetime WHERE t <= 2018.55;
 t
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
 Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
 Warnings:
 SELECT * FROM tbl_datetime WHERE t >  2018.55;
@@ -56895,9 +56632,6 @@ t
 2018-06-19 21:00:00.000000
 2038-01-19 06:14:07.999999
 Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
 Warnings:
 SELECT * FROM tbl_datetime WHERE t >= 2018.55;
 t
@@ -56905,15 +56639,9 @@ t
 2018-06-19 21:00:00.000000
 2038-01-19 06:14:07.999999
 Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
 Warnings:
 SELECT * FROM tbl_datetime WHERE t =  2018.55;
 t
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
 Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
 Warnings:
 SELECT * FROM tbl_datetime WHERE t <> 2018.55;
@@ -56921,9 +56649,6 @@ t
 1970-01-01 03:00:01.000000
 2018-06-19 21:00:00.000000
 2038-01-19 06:14:07.999999
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
-Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
 Warning	1292	Incorrect datetime value: '2018.55' for column 't' at row 1
 Warnings:
 EXPLAIN  SELECT * FROM tbl_datetime WHERE t <  2018.55;
@@ -57951,16 +57676,10 @@ SELECT * FROM tbl_date WHERE d <  2018;
 d
 0000-01-01
 Warning	1292	Incorrect date value: '2018' for column 'd' at row 1
-Warning	1292	Incorrect date value: '2018' for column 'd' at row 1
-Warning	1292	Incorrect date value: '2018' for column 'd' at row 1
-Warning	1292	Incorrect date value: '2018' for column 'd' at row 1
 Warnings:
 SELECT * FROM tbl_date WHERE d <= 2018;
 d
 0000-01-01
-Warning	1292	Incorrect date value: '2018' for column 'd' at row 1
-Warning	1292	Incorrect date value: '2018' for column 'd' at row 1
-Warning	1292	Incorrect date value: '2018' for column 'd' at row 1
 Warning	1292	Incorrect date value: '2018' for column 'd' at row 1
 Warnings:
 SELECT * FROM tbl_date WHERE d >  2018;
@@ -57968,24 +57687,15 @@ d
 2038-01-19
 9999-12-31
 Warning	1292	Incorrect date value: '2018' for column 'd' at row 1
-Warning	1292	Incorrect date value: '2018' for column 'd' at row 1
-Warning	1292	Incorrect date value: '2018' for column 'd' at row 1
-Warning	1292	Incorrect date value: '2018' for column 'd' at row 1
 Warnings:
 SELECT * FROM tbl_date WHERE d >= 2018;
 d
 2038-01-19
 9999-12-31
 Warning	1292	Incorrect date value: '2018' for column 'd' at row 1
-Warning	1292	Incorrect date value: '2018' for column 'd' at row 1
-Warning	1292	Incorrect date value: '2018' for column 'd' at row 1
-Warning	1292	Incorrect date value: '2018' for column 'd' at row 1
 Warnings:
 SELECT * FROM tbl_date WHERE d =  2018;
 d
-Warning	1292	Incorrect date value: '2018' for column 'd' at row 1
-Warning	1292	Incorrect date value: '2018' for column 'd' at row 1
-Warning	1292	Incorrect date value: '2018' for column 'd' at row 1
 Warning	1292	Incorrect date value: '2018' for column 'd' at row 1
 Warnings:
 SELECT * FROM tbl_date WHERE d <> 2018;
@@ -57993,9 +57703,6 @@ d
 0000-01-01
 2038-01-19
 9999-12-31
-Warning	1292	Incorrect date value: '2018' for column 'd' at row 1
-Warning	1292	Incorrect date value: '2018' for column 'd' at row 1
-Warning	1292	Incorrect date value: '2018' for column 'd' at row 1
 Warning	1292	Incorrect date value: '2018' for column 'd' at row 1
 Warnings:
 EXPLAIN  SELECT * FROM tbl_date WHERE d <  2018;
@@ -58244,16 +57951,10 @@ SELECT * FROM tbl_date WHERE d <  2018.55;
 d
 0000-01-01
 Warning	1292	Incorrect date value: '2018.55' for column 'd' at row 1
-Warning	1292	Incorrect date value: '2018.55' for column 'd' at row 1
-Warning	1292	Incorrect date value: '2018.55' for column 'd' at row 1
-Warning	1292	Incorrect date value: '2018.55' for column 'd' at row 1
 Warnings:
 SELECT * FROM tbl_date WHERE d <= 2018.55;
 d
 0000-01-01
-Warning	1292	Incorrect date value: '2018.55' for column 'd' at row 1
-Warning	1292	Incorrect date value: '2018.55' for column 'd' at row 1
-Warning	1292	Incorrect date value: '2018.55' for column 'd' at row 1
 Warning	1292	Incorrect date value: '2018.55' for column 'd' at row 1
 Warnings:
 SELECT * FROM tbl_date WHERE d >  2018.55;
@@ -58261,24 +57962,15 @@ d
 2038-01-19
 9999-12-31
 Warning	1292	Incorrect date value: '2018.55' for column 'd' at row 1
-Warning	1292	Incorrect date value: '2018.55' for column 'd' at row 1
-Warning	1292	Incorrect date value: '2018.55' for column 'd' at row 1
-Warning	1292	Incorrect date value: '2018.55' for column 'd' at row 1
 Warnings:
 SELECT * FROM tbl_date WHERE d >= 2018.55;
 d
 2038-01-19
 9999-12-31
 Warning	1292	Incorrect date value: '2018.55' for column 'd' at row 1
-Warning	1292	Incorrect date value: '2018.55' for column 'd' at row 1
-Warning	1292	Incorrect date value: '2018.55' for column 'd' at row 1
-Warning	1292	Incorrect date value: '2018.55' for column 'd' at row 1
 Warnings:
 SELECT * FROM tbl_date WHERE d =  2018.55;
 d
-Warning	1292	Incorrect date value: '2018.55' for column 'd' at row 1
-Warning	1292	Incorrect date value: '2018.55' for column 'd' at row 1
-Warning	1292	Incorrect date value: '2018.55' for column 'd' at row 1
 Warning	1292	Incorrect date value: '2018.55' for column 'd' at row 1
 Warnings:
 SELECT * FROM tbl_date WHERE d <> 2018.55;
@@ -58286,9 +57978,6 @@ d
 0000-01-01
 2038-01-19
 9999-12-31
-Warning	1292	Incorrect date value: '2018.55' for column 'd' at row 1
-Warning	1292	Incorrect date value: '2018.55' for column 'd' at row 1
-Warning	1292	Incorrect date value: '2018.55' for column 'd' at row 1
 Warning	1292	Incorrect date value: '2018.55' for column 'd' at row 1
 Warnings:
 EXPLAIN  SELECT * FROM tbl_date WHERE d <  2018.55;
@@ -58619,7 +58308,6 @@ t
 SELECT * FROM t WHERE t = 'abra cadabra';
 t
 Warning	1292	Incorrect time value: 'abra cadabra' for column 't' at row 1
-Warning	1292	Incorrect time value: 'abra cadabra' for column 't' at row 1
 Warnings:
 Note: for explicit TIME literal, the fraction part is not truncated
 This is existing behavior, not changed for WL#11935.
@@ -58755,7 +58443,6 @@ SELECT col_date FROM a WHERE
 (col_int <> 'C') ;
 col_date
 Warning	1292	Truncated incorrect DOUBLE value: 'C'
-Warning	1292	Truncated incorrect DOUBLE value: 'C'
 Warnings:
 DROP TABLE a;
 CREATE TABLE t11 (col_time TIME);
@@ -58773,7 +58460,6 @@ Note	1003	/* select#1 */ select `test`.`t11`.`col_time` AS `col_time` from `test
 SELECT col_time FROM t11 HAVING col_time > 156970;
 col_time
 Warning	1292	Incorrect time value: '156970' for column 'col_time' at row 1
-Warning	1292	Incorrect time value: '156970' for column 'col_time' at row 1
 Warnings:
 EXPLAIN SELECT col_time FROM t11 WHERE col_time > 156970;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
@@ -58785,7 +58471,6 @@ Warning	1292	Incorrect time value: '156970' for column 'col_time' at row 1
 Note	1003	/* select#1 */ select `test`.`t11`.`col_time` AS `col_time` from `test`.`t11` where (`test`.`t11`.`col_time` > 156970)
 SELECT col_time FROM t11 WHERE col_time > 156970;
 col_time
-Warning	1292	Incorrect time value: '156970' for column 'col_time' at row 1
 Warning	1292	Incorrect time value: '156970' for column 'col_time' at row 1
 Warnings:
 EXPLAIN SELECT col_time FROM t11 WHERE col_time < 156970;
@@ -58799,7 +58484,6 @@ Note	1003	/* select#1 */ select `test`.`t11`.`col_time` AS `col_time` from `test
 SELECT col_time FROM t11 WHERE col_time < 156970;
 col_time
 11:00:00
-Warning	1292	Incorrect time value: '156970' for column 'col_time' at row 1
 Warning	1292	Incorrect time value: '156970' for column 'col_time' at row 1
 Warnings:
 DROP TABLE t11;

@@ -490,6 +490,7 @@ bool px_access_path::WalkAccessPathsForCompat(
     }
     case AccessPath::SORT_MERGE_JOIN: {
       // SORT_MERGE_JOIN is not supported in parallel query.
+      parallel_safe = false;
       break;
     }
     case AccessPath::FILTER: {

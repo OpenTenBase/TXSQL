@@ -1,5 +1,6 @@
 show tables where Tables_in_db != 'ndb_binlog_index';
 Tables_in_db
+column_statistics_history
 columns_priv
 component
 db
@@ -15,10 +16,12 @@ help_relation
 help_topic
 innodb_index_stats
 innodb_table_stats
+outline
 password_history
 plugin
 procs_priv
 proxies_priv
+recycle_bin_info
 replication_asynchronous_connection_failover
 replication_asynchronous_connection_failover_managed
 replication_group_configuration_version
@@ -32,6 +35,7 @@ slave_relay_log_info
 slave_worker_info
 slow_log
 tables_priv
+tdsql_sequences
 time_zone
 time_zone_leap_second
 time_zone_name

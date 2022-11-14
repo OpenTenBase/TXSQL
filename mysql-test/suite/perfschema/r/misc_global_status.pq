@@ -20,7 +20,7 @@ WHERE VARIABLE_NAME = 'Select_range';
 VARIABLE_NAME	VARIABLE_VALUE
 Select_range	1
 VARIABLE_NAME	DELTA
-Select_range	5
+Select_range	1
 SELECT * from test.t_range where (a >= 3) AND (a <= 5);
 a	b
 3	3
@@ -31,7 +31,7 @@ WHERE VARIABLE_NAME = 'Select_range';
 VARIABLE_NAME	VARIABLE_VALUE
 Select_range	1
 VARIABLE_NAME	DELTA
-Select_range	10
+Select_range	2
 SELECT * from test.t_range where (a >= 3) AND (a <= 5);
 a	b
 3	3
@@ -47,7 +47,7 @@ WHERE VARIABLE_NAME = 'Select_range';
 VARIABLE_NAME	VARIABLE_VALUE
 Select_range	2
 VARIABLE_NAME	DELTA
-Select_range	20
+Select_range	4
 SELECT * from test.t_range where (a >= 3) AND (a <= 5);
 a	b
 3	3
@@ -68,9 +68,9 @@ WHERE VARIABLE_NAME = 'Select_range';
 VARIABLE_NAME	VARIABLE_VALUE
 Select_range	3
 VARIABLE_NAME	DELTA
-Select_range	35
+Select_range	7
 VARIABLE_NAME	DELTA
-Select_range	35
+Select_range	7
 SELECT `USER`, `HOST`, VARIABLE_NAME, VARIABLE_VALUE
 FROM performance_schema.status_by_account WHERE VARIABLE_NAME = 'Select_range'
   AND `USER` LIKE 'user%'
@@ -80,15 +80,15 @@ user1	localhost	Select_range	1
 user2	localhost	Select_range	2
 user3	localhost	Select_range	3
 VARIABLE_NAME	DELTA
-Select_range	35
+Select_range	7
 TRUNCATE TABLE performance_schema.accounts;
 VARIABLE_NAME	DELTA
-Select_range	35
+Select_range	7
 VARIABLE_NAME	DELTA
-Select_range	35
+Select_range	7
 TRUNCATE TABLE performance_schema.accounts;
 VARIABLE_NAME	DELTA
-Select_range	35
+Select_range	7
 DROP TABLE test.t_range;
 REVOKE ALL PRIVILEGES, GRANT OPTION FROM user1@localhost;
 REVOKE ALL PRIVILEGES, GRANT OPTION FROM user2@localhost;

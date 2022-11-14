@@ -132,7 +132,7 @@ bool PX_sender::Init() {
   // Set up codec with its input items or fields.
   if (m_use_item) {
     assert(m_send_fields->size());
-    if (m_codec->init(m_send_fields, nullptr)) goto err;
+    if (m_codec->init(m_send_fields, nullptr, nullptr)) goto err;
   } else {
     for (const TABLE *table : *m_tables) {
       for (Field **pfield = table->field; *pfield != nullptr; ++pfield) {
@@ -141,7 +141,7 @@ bool PX_sender::Init() {
           m_fields.push_back(field);
       }
     }
-    if (m_codec->init(nullptr, &m_fields)) goto err;
+    if (m_codec->init(nullptr, &m_fields, m_tables)) goto err;
   }
 
   DBUG_EXECUTE_IF("px_sender_init_codec_error", {

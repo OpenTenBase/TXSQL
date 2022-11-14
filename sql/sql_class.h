@@ -113,13 +113,13 @@
 #include "violite.h"
 #include "sql/opt_statistics.h"
 #include "sql/rpl_replica.h" // get_seconds_behind_master
+#ifndef DBUG_OFF
+#include "sql/parallel_execution/opt_dbug.h"  // Opt_dbug_session
+#endif
 
 /* Changes from TXSQL start. */
 #include "sql/sql_seq.h"
 #include <list>
-#ifndef DBUG_OFF
-#include "sql/parallel_execution/opt_dbug.h"  // Opt_dbug_session
-#endif
 /* Changes from TXSQL end. */
 
 enum enum_check_fields : int;

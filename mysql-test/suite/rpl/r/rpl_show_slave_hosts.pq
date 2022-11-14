@@ -16,7 +16,7 @@ Warning	1287	'START SLAVE' is deprecated and will be removed in a future release
 include/wait_for_slave_io_to_start.inc
 SHOW SLAVE HOSTS;
 Server_id	Host	Port	Master_id	Slave_UUID
-2		SLAVE_PORT	1	SLAVE_UUID
+2	localhost	SLAVE_PORT	1	SLAVE_UUID
 3	slave2	SLAVE_PORT	1	SLAVE_UUID
 Warning	1287	SLAVE_PORT
 Warnings:
@@ -25,7 +25,7 @@ CREATE TABLE t1(a int);
 DROP TABLE t1;
 SHOW SLAVE HOSTS;
 Server_id	Host	Port	Master_id	Slave_UUID
-2		SLAVE_PORT	1	SLAVE_UUID
+2	localhost	SLAVE_PORT	1	SLAVE_UUID
 Warnings:
 Warning	1287	'SHOW SLAVE HOSTS' is deprecated and will be removed in a future release. Please use SHOW REPLICAS instead
 include/rpl_end.inc

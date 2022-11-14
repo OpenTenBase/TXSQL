@@ -98,8 +98,6 @@ a	a	b	b
 3	3	1	NULL
 4	NULL	NULL	NULL
 Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
-Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
-Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
 Warnings:
 SELECT FOUND_ROWS();
 FOUND_ROWS()
@@ -114,7 +112,7 @@ Handler_read_last	0
 Handler_read_next	0
 Handler_read_prev	0
 Handler_read_rnd	0
-Handler_read_rnd_next	5
+Handler_read_rnd_next	8
 DROP TABLE t1,t2,t3,t4;
 CREATE TABLE t1 (
 a int(11) default NULL,

@@ -6,11 +6,15 @@ Note	####	Storing MySQL user name or password information in the master info rep
 #
 # recycle bin test
 #
-call mtr.add_suppression("access __cdb_recycle_bin__ fail, the query string is");
+call mtr.add_suppression("access __txsql_recycle_bin__ fail, the query string is");
 #
 # drop temporary table with "drop table" will occur ER_NO_SUCH_TABLE error 
 set global cdb_recycle_bin_enabled=on;
+Warnings:
+Warning	1287	'@@cdb_recycle_bin_enabled' is deprecated and will be removed in a future release. Please use txsql_recycle_bin_enabled instead.
 set global cdb_recycle_bin_enabled= on;
+Warnings:
+Warning	1287	'@@cdb_recycle_bin_enabled' is deprecated and will be removed in a future release. Please use txsql_recycle_bin_enabled instead.
 CREATE TEMPORARY TABLE t1(
 a INT PRIMARY KEY,
 b VARCHAR(255)
@@ -49,8 +53,8 @@ select * from mysql.recycle_bin_info;
 table_name	origin_schema	origin_table	drop_time	purge_time
 <RECYCLED_TABLE>	test	t1	<DROP_TIME>	<PURGE_TIME>
 <RECYCLED_TABLE>	test	t2	<DROP_TIME>	<PURGE_TIME>
-show tables from __cdb_recycle_bin__;
-Tables_in___cdb_recycle_bin__
+show tables from __txsql_recycle_bin__;
+Tables_in___txsql_recycle_bin__
 <RECYCLED_TABLE>
 <RECYCLED_TABLE>
 include/sync_slave_sql_with_master.inc
@@ -58,8 +62,8 @@ select * from mysql.recycle_bin_info;
 table_name	origin_schema	origin_table	drop_time	purge_time
 <RECYCLED_TABLE>	test	t1	<DROP_TIME>	<PURGE_TIME>
 <RECYCLED_TABLE>	test	t2	<DROP_TIME>	<PURGE_TIME>
-show tables from __cdb_recycle_bin__;
-Tables_in___cdb_recycle_bin__
+show tables from __txsql_recycle_bin__;
+Tables_in___txsql_recycle_bin__
 <RECYCLED_TABLE>
 <RECYCLED_TABLE>
 
@@ -69,31 +73,31 @@ call sys.recycle_bin_recycle_table("<RECYCLED_TABLE>");
 select * from mysql.recycle_bin_info;
 table_name	origin_schema	origin_table	drop_time	purge_time
 <RECYCLED_TABLE>	test	t2	<DROP_TIME>	<PURGE_TIME>
-show tables from __cdb_recycle_bin__;
-Tables_in___cdb_recycle_bin__
+show tables from __txsql_recycle_bin__;
+Tables_in___txsql_recycle_bin__
 <RECYCLED_TABLE>
 include/sync_slave_sql_with_master.inc
 select * from mysql.recycle_bin_info;
 table_name	origin_schema	origin_table	drop_time	purge_time
 <RECYCLED_TABLE>	test	t2	<DROP_TIME>	<PURGE_TIME>
-show tables from  __cdb_recycle_bin__;
-Tables_in___cdb_recycle_bin__
+show tables from  __txsql_recycle_bin__;
+Tables_in___txsql_recycle_bin__
 <RECYCLED_TABLE>
 
 # phase4. purge table from recycle_bin
 call sys.recycle_bin_purge_table("<RECYCLED_TABLE>");
 select * from mysql.recycle_bin_info;
 table_name	origin_schema	origin_table	drop_time	purge_time
-show tables from __cdb_recycle_bin__;
-Tables_in___cdb_recycle_bin__
+show tables from __txsql_recycle_bin__;
+Tables_in___txsql_recycle_bin__
 include/sync_slave_sql_with_master.inc
 select * from mysql.recycle_bin_info;
 table_name	origin_schema	origin_table	drop_time	purge_time
-show tables from __cdb_recycle_bin__;
-Tables_in___cdb_recycle_bin__
+show tables from __txsql_recycle_bin__;
+Tables_in___txsql_recycle_bin__
 
 #
-# test __cdb_recycle_bin__ protect
+# test __txsql_recycle_bin__ protect
 #
 show tables;
 Tables_in_test
@@ -103,37 +107,45 @@ table_name	origin_schema	origin_table	drop_time	purge_time
 create table t2 (a int);
 insert into t2 values (1), (2), (3);
 drop table t2;
-show tables from __cdb_recycle_bin__;
-Tables_in___cdb_recycle_bin__
+show tables from __txsql_recycle_bin__;
+Tables_in___txsql_recycle_bin__
 <RECYCLED_TABLE>
 include/sync_slave_sql_with_master.inc
-use __cdb_recycle_bin__;
+use __txsql_recycle_bin__;
 select * from <RECYCLED_TABLE>;
-ERROR 42000: Access denied for user 'root'@'localhost' to database '__cdb_recycle_bin__'
+ERROR 42000: Access denied for user 'root'@'localhost' to database '__txsql_recycle_bin__'
 insert into <RECYCLED_TABLE> values (4), (5), (6);
-ERROR 42000: Access denied for user 'root'@'localhost' to database '__cdb_recycle_bin__'
+ERROR 42000: Access denied for user 'root'@'localhost' to database '__txsql_recycle_bin__'
 update <RECYCLED_TABLE> set a= 8 where a= 3;
-ERROR 42000: Access denied for user 'root'@'localhost' to database '__cdb_recycle_bin__'
+ERROR 42000: Access denied for user 'root'@'localhost' to database '__txsql_recycle_bin__'
 delete from  <RECYCLED_TABLE> where a= 6;
-ERROR 42000: Access denied for user 'root'@'localhost' to database '__cdb_recycle_bin__'
+ERROR 42000: Access denied for user 'root'@'localhost' to database '__txsql_recycle_bin__'
 alter table <RECYCLED_TABLE> add column b int;
-ERROR 42000: Access denied for user 'root'@'localhost' to database '__cdb_recycle_bin__'
+ERROR 42000: Access denied for user 'root'@'localhost' to database '__txsql_recycle_bin__'
 create table tt (a int);
-ERROR 42000: Access denied for user 'root'@'localhost' to database '__cdb_recycle_bin__'
+ERROR 42000: Access denied for user 'root'@'localhost' to database '__txsql_recycle_bin__'
 drop table <RECYCLED_TABLE>;
-ERROR 42000: Access denied for user 'root'@'localhost' to database '__cdb_recycle_bin__'
+ERROR 42000: Access denied for user 'root'@'localhost' to database '__txsql_recycle_bin__'
 show tables;
-Tables_in___cdb_recycle_bin__
+Tables_in___txsql_recycle_bin__
 <RECYCLED_TABLE>
 #
 # clear environment
 # 
 set global cdb_recycle_bin_enabled=0;
+Warnings:
+Warning	1287	'@@cdb_recycle_bin_enabled' is deprecated and will be removed in a future release. Please use txsql_recycle_bin_enabled instead.
 use test;
 set global cdb_recycle_bin_enabled=off;
+Warnings:
+Warning	1287	'@@cdb_recycle_bin_enabled' is deprecated and will be removed in a future release. Please use txsql_recycle_bin_enabled instead.
 drop table t1;
 set global cdb_recycle_bin_enabled=on;
+Warnings:
+Warning	1287	'@@cdb_recycle_bin_enabled' is deprecated and will be removed in a future release. Please use txsql_recycle_bin_enabled instead.
 call sys.recycle_bin_purge_table("<RECYCLED_TABLE>");
 set global cdb_recycle_bin_enabled=0;
+Warnings:
+Warning	1287	'@@cdb_recycle_bin_enabled' is deprecated and will be removed in a future release. Please use txsql_recycle_bin_enabled instead.
 include/sync_slave_sql_with_master.inc
 include/rpl_end.inc

@@ -5,6 +5,7 @@ mtr.asserted_test_suppressions                     OK
 mtr.global_suppressions                            OK
 mtr.test_ignored_global_suppressions               OK
 mtr.test_suppressions                              OK
+mysql.column_statistics_history                    OK
 mysql.columns_priv                                 OK
 mysql.component                                    OK
 mysql.db                                           OK
@@ -21,10 +22,12 @@ mysql.help_relation                                OK
 mysql.help_topic                                   OK
 mysql.innodb_index_stats                           OK
 mysql.innodb_table_stats                           OK
+mysql.outline                                      OK
 mysql.password_history                             OK
 mysql.plugin                                       OK
 mysql.procs_priv                                   OK
 mysql.proxies_priv                                 OK
+mysql.recycle_bin_info                             OK
 mysql.replication_asynchronous_connection_failover OK
 mysql.replication_asynchronous_connection_failover_managed OK
 mysql.replication_group_configuration_version      OK
@@ -39,6 +42,7 @@ mysql.slave_worker_info                            OK
 mysql.slow_log
 note     : The storage engine for the table doesn't support analyze
 mysql.tables_priv                                  OK
+mysql.tdsql_sequences                              OK
 mysql.time_zone                                    OK
 mysql.time_zone_leap_second                        OK
 mysql.time_zone_name                               OK
@@ -56,6 +60,9 @@ mtr.test_ignored_global_suppressions
 note     : Table does not support optimize, doing recreate + analyze instead
 status   : OK
 mtr.test_suppressions
+note     : Table does not support optimize, doing recreate + analyze instead
+status   : OK
+mysql.column_statistics_history
 note     : Table does not support optimize, doing recreate + analyze instead
 status   : OK
 mysql.columns_priv
@@ -107,6 +114,9 @@ error    : The used command is not allowed with this MySQL version
 status   : Operation failed
 note     : Table does not support optimize, doing recreate + analyze instead
 status   : OK
+mysql.outline
+note     : Table does not support optimize, doing recreate + analyze instead
+status   : OK
 mysql.password_history
 note     : Table does not support optimize, doing recreate + analyze instead
 status   : OK
@@ -117,6 +127,9 @@ mysql.procs_priv
 note     : Table does not support optimize, doing recreate + analyze instead
 status   : OK
 mysql.proxies_priv
+note     : Table does not support optimize, doing recreate + analyze instead
+status   : OK
+mysql.recycle_bin_info
 note     : Table does not support optimize, doing recreate + analyze instead
 status   : OK
 mysql.replication_asynchronous_connection_failover
@@ -155,6 +168,9 @@ status   : OK
 mysql.slow_log
 note     : The storage engine for the table doesn't support optimize
 mysql.tables_priv
+note     : Table does not support optimize, doing recreate + analyze instead
+status   : OK
+mysql.tdsql_sequences
 note     : Table does not support optimize, doing recreate + analyze instead
 status   : OK
 mysql.time_zone
@@ -178,6 +194,7 @@ status   : OK
 sys.sys_config
 note     : Table does not support optimize, doing recreate + analyze instead
 status   : OK
+mysql.column_statistics_history                    OK
 mysql.columns_priv                                 OK
 mysql.component                                    OK
 mysql.db                                           OK
@@ -194,10 +211,12 @@ mysql.help_relation                                OK
 mysql.help_topic                                   OK
 mysql.innodb_index_stats                           OK
 mysql.innodb_table_stats                           OK
+mysql.outline                                      OK
 mysql.password_history                             OK
 mysql.plugin                                       OK
 mysql.procs_priv                                   OK
 mysql.proxies_priv                                 OK
+mysql.recycle_bin_info                             OK
 mysql.replication_asynchronous_connection_failover OK
 mysql.replication_asynchronous_connection_failover_managed OK
 mysql.replication_group_configuration_version      OK
@@ -212,12 +231,16 @@ mysql.slave_worker_info                            OK
 mysql.slow_log
 note     : The storage engine for the table doesn't support analyze
 mysql.tables_priv                                  OK
+mysql.tdsql_sequences                              OK
 mysql.time_zone                                    OK
 mysql.time_zone_leap_second                        OK
 mysql.time_zone_name                               OK
 mysql.time_zone_transition                         OK
 mysql.time_zone_transition_type                    OK
 mysql.user                                         OK
+mysql.column_statistics_history
+note     : Table does not support optimize, doing recreate + analyze instead
+status   : OK
 mysql.columns_priv
 note     : Table does not support optimize, doing recreate + analyze instead
 status   : OK
@@ -267,6 +290,9 @@ error    : The used command is not allowed with this MySQL version
 status   : Operation failed
 note     : Table does not support optimize, doing recreate + analyze instead
 status   : OK
+mysql.outline
+note     : Table does not support optimize, doing recreate + analyze instead
+status   : OK
 mysql.password_history
 note     : Table does not support optimize, doing recreate + analyze instead
 status   : OK
@@ -277,6 +303,9 @@ mysql.procs_priv
 note     : Table does not support optimize, doing recreate + analyze instead
 status   : OK
 mysql.proxies_priv
+note     : Table does not support optimize, doing recreate + analyze instead
+status   : OK
+mysql.recycle_bin_info
 note     : Table does not support optimize, doing recreate + analyze instead
 status   : OK
 mysql.replication_asynchronous_connection_failover
@@ -315,6 +344,9 @@ status   : OK
 mysql.slow_log
 note     : The storage engine for the table doesn't support optimize
 mysql.tables_priv
+note     : Table does not support optimize, doing recreate + analyze instead
+status   : OK
+mysql.tdsql_sequences
 note     : Table does not support optimize, doing recreate + analyze instead
 status   : OK
 mysql.time_zone

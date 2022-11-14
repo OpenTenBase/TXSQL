@@ -34,28 +34,24 @@ isbn	city	libname	a
 007	Berkeley	Berkeley Public2	1
 select t2.isbn,city,t1.libname,count(distinct t1.libname) as a from t3 left join t1 on t3.libname=t1.libname left join t2 on t3.isbn=t2.isbn group by city having count(distinct t1.libname) > 1;
 isbn	city	libname	a
-001	New York	NYC Lib	2
-007	Berkeley	Berkeley Public2	2
+000	New York	New York Public Libra	2
+007	Berkeley	Berkeley Public1	2
 select t2.isbn,city,t1.libname,count(distinct t1.libname) as a from t3 left join t1 on t3.libname=t1.libname left join t2 on t3.isbn=t2.isbn group by city having count(distinct concat(t1.libname,'a')) > 1;
 isbn	city	libname	a
 000	New York	New York Public Libra	2
-007	Berkeley	Berkeley Public2	2
+007	Berkeley	Berkeley Public1	2
 select t2.isbn,city,@bar:=t1.libname,count(distinct t1.libname) as a
 from t3 left join t1 on t3.libname=t1.libname left join t2
 on t3.isbn=t2.isbn group by city having count(distinct
 t1.libname) > 1;
 isbn	city	@bar:=t1.libname	a
-001	New York	New York Public Libra	2
-007	Berkeley	Berkeley Public2	2
-Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
-Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
-Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
-Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
+000	New York	New York Public Libra	2
+007	Berkeley	Berkeley Public1	2
 Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
 Warnings:
 SELECT @bar;
 @bar
-Berkeley Public1
+Berkeley Public2
 select t2.isbn,city,concat(@bar:=t1.libname),count(distinct t1.libname) as a
 from t3 left join t1 on t3.libname=t1.libname left join t2
 on t3.isbn=t2.isbn group by city having count(distinct
@@ -64,14 +60,10 @@ isbn	city	concat(@bar:=t1.libname)	a
 000	New York	New York Public Libra	2
 007	Berkeley	Berkeley Public1	2
 Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
-Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
-Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
-Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
-Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
 Warnings:
 SELECT @bar;
 @bar
-NYC Lib
+Berkeley Public2
 drop table t1, t2, t3;
 create table t1 (f1 int);
 insert into t1 values (1);

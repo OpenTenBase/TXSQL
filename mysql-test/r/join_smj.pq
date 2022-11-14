@@ -793,7 +793,7 @@ columns.TABLE_CATALOG, columns.TABLE_SCHEMA, columns.COLUMN_DEFAULT, columns.IS_
 from information_schema.statistics join information_schema.columns using(table_name,column_name) where table_name='user';
 TABLE_NAME	COLUMN_NAME	TABLE_CATALOG	TABLE_SCHEMA	NON_UNIQUE	INDEX_SCHEMA	INDEX_NAME	SEQ_IN_INDEX	COLLATION	SUB_PART	PACKED	NULLABLE	INDEX_TYPE	COMMENT	TABLE_CATALOG	TABLE_SCHEMA	COLUMN_DEFAULT	IS_NULLABLE	DATA_TYPE	CHARACTER_MAXIMUM_LENGTH	CHARACTER_OCTET_LENGTH	NUMERIC_PRECISION	NUMERIC_SCALE	CHARACTER_SET_NAME	COLLATION_NAME	COLUMN_TYPE	COLUMN_KEY	EXTRA	PRIVILEGES	COLUMN_COMMENT
 user	Host	def	mysql	0	mysql	PRIMARY	1	A	NULL	NULL		BTREE		def	mysql		NO	char	255	255	NULL	NULL	ascii	ascii_general_ci	char(255)	PRI		select,insert,update,references	
-user	User	def	mysql	0	mysql	PRIMARY	2	A	NULL	NULL		BTREE		def	mysql		NO	char	32	96	NULL	NULL	utf8	utf8_bin	char(32)	PRI		select,insert,update,references	
+user	User	def	mysql	0	mysql	PRIMARY	2	A	NULL	NULL		BTREE		def	mysql		NO	char	32	96	NULL	NULL	utf8mb3	utf8mb3_bin	char(32)	PRI		select,insert,update,references	
 drop table t1;
 drop table t2;
 drop table t3;
@@ -1744,9 +1744,9 @@ EXPLAIN
         "exchange_table": {
           "table_name": "<sender1>",
           "access_type": "ALL",
-          "rows_examined_per_scan": 0,
+          "rows_examined_per_scan": 1,
           "rows_produced_per_join": 0,
-          "filtered": "0.00",
+          "filtered": "100.00",
           "send_to": "<receiver1>",
           "cost_info": {
             "read_cost": "0.00",
@@ -1760,9 +1760,9 @@ EXPLAIN
         "exchange_table": {
           "table_name": "<receiver1>",
           "access_type": "ALL",
-          "rows_examined_per_scan": 0,
+          "rows_examined_per_scan": 1,
           "rows_produced_per_join": 0,
-          "filtered": "0.00",
+          "filtered": "100.00",
           "receive_from": "<sender1>",
           "cost_info": {
             "read_cost": "0.00",
@@ -1805,7 +1805,7 @@ EXPLAIN
         -> Parallel index scan on t1 using j  (cost=411.60 rows=4096)
 -> Select #2 (subquery in projection; dependent)
     -> Limit: 1 row(s)  (cost=410.97 rows=1)
-        -> Index lookup on t2 using j (j=t1.j; iterate backwards)  (cost=410.97 rows=4096)
+        -> Covering index lookup on t2 using j (j=t1.j; iterate backwards)  (cost=410.97 rows=4096)
 
 Warnings:
 Note	1276	Field or reference 'test.t1.j' of SELECT #2 was resolved in SELECT #1
@@ -1833,7 +1833,7 @@ EXPLAIN
     -> PX Sender (slice: 1; workers: 2)
         -> Parallel table scan on t1  (cost=0.45 rows=2)
 -> Select #2 (subquery in projection; dependent)
-    -> Aggregate: count(0)
+    -> Aggregate: count(0)  (cost=1.75 rows=1)
         -> Nested loop left join  (cost=1.35 rows=4)
             -> Table scan on t2  (cost=0.45 rows=2)
             -> Filter: (t3.a > (t2.a - t1.a))  (cost=0.35 rows=2)
@@ -1856,17 +1856,17 @@ left join t t3 on t3.a>t2.a-t1.a)
 from t t1
 group by t1.a;
 EXPLAIN
--> Table scan on <temporary>
-    -> Temporary table with deduplication  (cost=0.45 rows=2)
+-> Table scan on <temporary>  (cost=1.26..2.52 rows=2)
+    -> Temporary table with deduplication  (cost=1.91..3.17 rows=2)
         -> PX Receiver (slice: 0; workers: 1)
             -> PX Sender (slice: 1; workers: 2)
                 -> Parallel table scan on t1  (cost=0.45 rows=2)
--> Select #2 (subquery in projection; dependent)
-    -> Aggregate: count(0)
-        -> Nested loop left join  (cost=1.35 rows=4)
-            -> Table scan on t2  (cost=0.45 rows=2)
-            -> Filter: (t3.a > (t2.a - t1.a))  (cost=0.35 rows=2)
-                -> Table scan on t3  (cost=0.35 rows=2)
+        -> Select #2 (subquery in projection; dependent)
+            -> Aggregate: count(0)  (cost=1.75 rows=1)
+                -> Nested loop left join  (cost=1.35 rows=4)
+                    -> Table scan on t2  (cost=0.45 rows=2)
+                    -> Filter: (t3.a > (t2.a - t1.a))  (cost=0.35 rows=2)
+                        -> Table scan on t3  (cost=0.35 rows=2)
 
 Warnings:
 Note	1276	Field or reference 'test.t1.a' of SELECT #2 was resolved in SELECT #1
@@ -1890,7 +1890,7 @@ EXPLAIN
     -> PX Sender (slice: 1; workers: 2)
         -> Parallel table scan on t  (cost=0.45 rows=2)
 -> Select #2 (subquery in projection; dependent)
-    -> Aggregate: count(0)
+    -> Aggregate: count(0)  (cost=1.75 rows=1)
         -> Nested loop left join  (cost=1.35 rows=4)
             -> Table scan on t2  (cost=0.45 rows=2)
             -> Filter: (t3.a > (t2.a - t.a))  (cost=0.35 rows=2)
@@ -1918,9 +1918,9 @@ EXPLAIN
     -> PX Sender (slice: 1; workers: 2)
         -> Parallel table scan on t1  (cost=0.45 rows=2)
 -> Select #2 (subquery in projection; dependent)
-    -> Table scan on dt  (cost=2.73 rows=2)
-        -> Materialize
-            -> Aggregate: count(0)
+    -> Table scan on dt  (cost=2.51..2.51 rows=1)
+        -> Materialize  (cost=4.36..4.36 rows=1)
+            -> Aggregate: count(0)  (cost=1.75 rows=1)
                 -> Nested loop left join  (cost=1.35 rows=4)
                     -> Table scan on t2  (cost=0.45 rows=2)
                     -> Filter: (t3.a > (t2.a - t1.a))  (cost=0.35 rows=2)
@@ -1952,12 +1952,12 @@ lateral
 from t t2
 left join t t3 on t3.a>t2.a-t1.a) as dt;
 EXPLAIN
--> Nested loop inner join
+-> Nested loop inner join  (cost=7.25 rows=2)
     -> Invalidate materialized tables (row from t1)  (cost=0.45 rows=2)
         -> Table scan on t1  (cost=0.45 rows=2)
-    -> Table scan on dt  (cost=3.40 rows=2)
-        -> Materialize (invalidate on row from t1)
-            -> Aggregate: count(0)
+    -> Table scan on dt  (cost=2.51..2.51 rows=1)
+        -> Materialize (invalidate on row from t1)  (cost=4.36..4.36 rows=1)
+            -> Aggregate: count(0)  (cost=1.75 rows=1)
                 -> Nested loop left join  (cost=1.35 rows=4)
                     -> Table scan on t2  (cost=0.45 rows=2)
                     -> Filter: (t3.a > (t2.a - t1.a))  (cost=0.35 rows=2)
@@ -1981,12 +1981,12 @@ lateral
 from t t2
 left join t t3 on t3.a>t2.a-t1.a) as dt;
 EXPLAIN
--> Nested loop inner join
+-> Nested loop inner join  (cost=7.25 rows=2)
     -> Invalidate materialized tables (row from t1)  (cost=0.45 rows=2)
         -> Table scan on t1  (cost=0.45 rows=2)
-    -> Table scan on dt  (cost=3.40 rows=2)
-        -> Materialize (invalidate on row from t1)
-            -> Aggregate: count(0)
+    -> Table scan on dt  (cost=2.51..2.51 rows=1)
+        -> Materialize (invalidate on row from t1)  (cost=4.36..4.36 rows=1)
+            -> Aggregate: count(0)  (cost=1.75 rows=1)
                 -> Nested loop left join  (cost=1.35 rows=4)
                     -> Table scan on t2  (cost=0.45 rows=2)
                     -> Filter: (t3.a > (t2.a - t1.a))  (cost=0.35 rows=2)
@@ -2011,12 +2011,12 @@ from t t2
 left join t t3 on t3.a>t2.a-t1.a) as dt
 on true;
 EXPLAIN
--> Nested loop inner join
+-> Nested loop inner join  (cost=7.25 rows=2)
     -> Invalidate materialized tables (row from t1)  (cost=0.45 rows=2)
         -> Table scan on t1  (cost=0.45 rows=2)
-    -> Table scan on dt  (cost=3.40 rows=2)
-        -> Materialize (invalidate on row from t1)
-            -> Aggregate: count(0)
+    -> Table scan on dt  (cost=2.51..2.51 rows=1)
+        -> Materialize (invalidate on row from t1)  (cost=4.36..4.36 rows=1)
+            -> Aggregate: count(0)  (cost=1.75 rows=1)
                 -> Nested loop left join  (cost=1.35 rows=4)
                     -> Table scan on t2  (cost=0.45 rows=2)
                     -> Filter: (t3.a > (t2.a - t1.a))  (cost=0.35 rows=2)
@@ -2102,7 +2102,7 @@ c1	c2	c1	c2	c1	c2
 3	3	3	3	3	3
 explain format = tree SELECT  count(1) FROM t1 b1 JOIN t1 b2   ON  b1.c1 = b2.c1;
 EXPLAIN
--> Aggregate: count(1)
+-> Aggregate: count(1)  (cost=2.00 rows=1)
     -> Inner hash join (b2.c1 = b1.c1)  (cost=1.70 rows=3)
         -> Table scan on b2  (cost=0.12 rows=3)
         -> Hash
@@ -2112,7 +2112,7 @@ EXPLAIN
 
 explain format = tree  SELECT  count(1) FROM t1 b1 force index (idx2) straight_join t1 b2   ON  b1.c2 = b2.c1;
 EXPLAIN
--> Aggregate: count(1)
+-> Aggregate: count(1)  (cost=2.75 rows=1)
     -> Inner hash join (b2.c1 = b1.c2)  (cost=2.45 rows=3)
         -> Table scan on b2  (cost=0.12 rows=3)
         -> Hash
@@ -2122,7 +2122,7 @@ EXPLAIN
 
 explain format = tree  SELECT  count(1) FROM t1 b1 force index (idx2) straight_join t1 b2   ON  b1.c2 + 1 = b2.c1;
 EXPLAIN
--> Aggregate: count(1)
+-> Aggregate: count(1)  (cost=2.75 rows=1)
     -> Inner hash join ((b1.c2 + 1) = b2.c1)  (cost=2.45 rows=3)
         -> Table scan on b2  (cost=0.12 rows=3)
         -> Hash
@@ -2132,7 +2132,7 @@ EXPLAIN
 
 explain format = tree  SELECT  count(1) FROM t2 b3 straight_join t1 b1 on b3.c2 = b1.c1 straight_join t1 b2  ON  b1.c1 = b2.c1;
 EXPLAIN
--> Aggregate: count(1)
+-> Aggregate: count(1)  (cost=3.15 rows=1)
     -> Inner hash join (b2.c1 = b3.c2)  (cost=2.85 rows=3)
         -> Table scan on b2  (cost=0.12 rows=3)
         -> Hash
@@ -2145,7 +2145,7 @@ EXPLAIN
 
 explain format = tree  SELECT  count(1) FROM t2 b3 straight_join t1 b1 on b3.c2 = b1.c1 straight_join t1 b2  ON  b3.c2 = b2.c1;
 EXPLAIN
--> Aggregate: count(1)
+-> Aggregate: count(1)  (cost=3.15 rows=1)
     -> Inner hash join (b2.c1 = b3.c2)  (cost=2.85 rows=3)
         -> Table scan on b2  (cost=0.12 rows=3)
         -> Hash
@@ -2158,7 +2158,7 @@ EXPLAIN
 
 explain format = tree  SELECT  count(1) FROM t2 b3 straight_join t1 b1 on b3.c2 = b1.c1 straight_join t1 b2  ON  b3.c1 = b2.c1;
 EXPLAIN
--> Aggregate: count(1)
+-> Aggregate: count(1)  (cost=3.15 rows=1)
     -> Inner hash join (b2.c1 = b3.c1)  (cost=2.85 rows=3)
         -> Table scan on b2  (cost=0.12 rows=3)
         -> Hash
@@ -2171,7 +2171,7 @@ EXPLAIN
 
 explain format = tree  SELECT  count(1) FROM t2 b3 straight_join t1 b1 on b3.c2 = b1.c1 straight_join t1 b2  ON  b1.c1 + 1 = b2.c1;
 EXPLAIN
--> Aggregate: count(1)
+-> Aggregate: count(1)  (cost=3.15 rows=1)
     -> Inner hash join ((b3.c2 + 1) = b2.c1)  (cost=2.85 rows=3)
         -> Table scan on b2  (cost=0.12 rows=3)
         -> Hash
@@ -2184,7 +2184,7 @@ EXPLAIN
 
 explain format = tree  SELECT  count(1) FROM t1 b1 force index (idx2) straight_join t1 b2   ON  b1.c2 = b2.c1 straight_join t2 b3 on b1.c2 = b3.c2;
 EXPLAIN
--> Aggregate: count(1)
+-> Aggregate: count(1)  (cost=3.80 rows=1)
     -> Nested loop inner join  (cost=3.50 rows=3)
         -> Inner hash join (b2.c1 = b1.c2)  (cost=2.45 rows=3)
             -> Table scan on b2  (cost=0.12 rows=3)
@@ -2193,7 +2193,7 @@ EXPLAIN
                     -> PX Sender (slice: 1; workers: 3)
                         -> Filter: (b1.c2 is not null)  (cost=1.30 rows=3)
                             -> Parallel index scan on b1 using idx2  (cost=1.30 rows=3)
-        -> Index lookup on b3 using idx2 (c2=b1.c2)  (cost=0.28 rows=1)
+        -> Covering index lookup on b3 using idx2 (c2=b1.c2)  (cost=0.28 rows=1)
 
 drop table t1, t2;
 CREATE TABLE t1 (c1 INT, c2 INT, c3 INT, key idx2(c2));
@@ -2208,7 +2208,7 @@ Table	Op	Msg_type	Msg_text
 test.t2	analyze	status	OK
 explain format = tree  SELECT  count(1) FROM t2 b3 straight_join t1 b1 on b3.c2 = b1.c1 and b3.c3= b1.c1  straight_join t1 b2  ON  b1.c1 = b2.c1;
 EXPLAIN
--> Aggregate: count(1)
+-> Aggregate: count(1)  (cost=3.15 rows=1)
     -> Inner hash join (b2.c1 = b3.c2)  (cost=2.85 rows=3)
         -> Table scan on b2  (cost=0.12 rows=3)
         -> Hash
@@ -2222,7 +2222,7 @@ EXPLAIN
 
 explain format = tree  SELECT  count(1) FROM t2 b3 straight_join t1 b1 on b3.c2 = b1.c1 and b1.c3= 3  straight_join t1 b2  ON  b1.c1 = b2.c1;
 EXPLAIN
--> Aggregate: count(1)
+-> Aggregate: count(1)  (cost=1.95 rows=1)
     -> Inner hash join (b2.c1 = b3.c2)  (cost=1.85 rows=1)
         -> Table scan on b2  (cost=0.12 rows=3)
         -> Hash
@@ -2236,7 +2236,7 @@ EXPLAIN
 
 explain format = tree  SELECT  count(1) FROM t2 b3 straight_join t1 b1 on b3.c2 = b1.c1 and b3.c3= 3  straight_join t1 b2  ON  b1.c1 = b2.c1;
 EXPLAIN
--> Aggregate: count(1)
+-> Aggregate: count(1)  (cost=1.75 rows=1)
     -> Inner hash join (b2.c1 = b3.c2)  (cost=1.65 rows=1)
         -> Table scan on b2  (cost=0.35 rows=3)
         -> Hash
@@ -2250,7 +2250,7 @@ EXPLAIN
 
 explain format = tree  SELECT  count(1) FROM t2 b3 straight_join t1 b1 on b3.c2 = b1.c1 and b1.c3 = b3.c3  straight_join t1 b2  ON  b1.c1 = b2.c1;
 EXPLAIN
--> Aggregate: count(1)
+-> Aggregate: count(1)  (cost=3.15 rows=1)
     -> Inner hash join (b2.c1 = b3.c2)  (cost=2.85 rows=3)
         -> Table scan on b2  (cost=0.12 rows=3)
         -> Hash
@@ -2263,7 +2263,7 @@ EXPLAIN
 
 explain format = tree  SELECT  count(1) FROM t2 b3 straight_join t1 b1 on b3.c2 = b1.c1 straight_join t1 b2  ON  b1.c1 = b2.c1 and b2.c3 = b3.c1;
 EXPLAIN
--> Aggregate: count(1)
+-> Aggregate: count(1)  (cost=3.15 rows=1)
     -> Inner hash join (b2.c3 = b3.c1), (b2.c1 = b3.c2)  (cost=2.85 rows=3)
         -> Table scan on b2  (cost=0.12 rows=3)
         -> Hash
@@ -2276,7 +2276,7 @@ EXPLAIN
 
 explain format = tree  SELECT  count(1) FROM t2 b3 straight_join t1 b1 on b3.c2 = b1.c1 straight_join t1 b2  ON  b1.c1 = b2.c1 and b2.c1 = b3.c2;
 EXPLAIN
--> Aggregate: count(1)
+-> Aggregate: count(1)  (cost=3.15 rows=1)
     -> Inner hash join (b2.c1 = b3.c2)  (cost=2.85 rows=3)
         -> Table scan on b2  (cost=0.12 rows=3)
         -> Hash
@@ -2289,7 +2289,7 @@ EXPLAIN
 
 explain format = tree  SELECT  count(1) FROM t2 b3 straight_join t1 b1 on b3.c2 = b1.c1 straight_join t1 b2  ON  b1.c1 = b2.c1 and b2.c3 = b3.c2;
 EXPLAIN
--> Aggregate: count(1)
+-> Aggregate: count(1)  (cost=3.15 rows=1)
     -> Inner hash join (b2.c3 = b3.c2), (b2.c1 = b3.c2)  (cost=2.85 rows=3)
         -> Table scan on b2  (cost=0.12 rows=3)
         -> Hash
@@ -2302,11 +2302,11 @@ EXPLAIN
 
 explain format = tree  SELECT  count(1) FROM t2 b3 left join t1 b1 on b3.c1 = b1.c2 left join t1 b2  ON  b1.c2 = b2.c1;
 EXPLAIN
--> Aggregate: count(1)
+-> Aggregate: count(1)  (cost=2.23 rows=1)
     -> Left hash join (b2.c1 = b1.c2)  (cost=1.33 rows=9)
         -> Nested loop left join  (cost=1.60 rows=3)
             -> Table scan on b3  (cost=0.55 rows=3)
-            -> Index lookup on b1 using idx2 (c2=b3.c1)  (cost=0.28 rows=1)
+            -> Covering index lookup on b1 using idx2 (c2=b3.c1)  (cost=0.28 rows=1)
         -> Hash
             -> PX Receiver (slice: 0; workers: 1)
                 -> PX Sender (slice: 1; workers: 3)

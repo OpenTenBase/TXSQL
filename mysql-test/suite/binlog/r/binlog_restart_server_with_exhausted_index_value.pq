@@ -8,11 +8,11 @@ RESET MASTER;
 FLUSH BINARY LOGS;
 ERROR HY000: Binary logging not possible. Message: Can't generate a unique log-filename binlog.(1-999), while rotating the binlog. Aborting the server
 Occurrences of 'Aborting' in the input file: 1
-Occurrences of 'MYSQL_BIN_LOG::open failed to generate new file name.' in the input file: 0
-Occurrences of 'Can't generate a unique log-filename .*' in the input file: 0
-Occurrences of 'Log filename extension number exhausted: 2147483647. Please fix this by archiving old logs and updating the index files.' in the input file: 0
+Occurrences of 'MYSQL_BIN_LOG::open failed to generate new file name.' in the input file: 1
+Occurrences of 'Can't generate a unique log-filename .*' in the input file: 1
+Occurrences of 'Log filename extension number exhausted: 2147483647. Please fix this by archiving old logs and updating the index files.' in the input file: 1
 Occurrences of 'Aborting' in the input file: 1
-Occurrences of 'MYSQL_BIN_LOG::open failed to generate new file name.' in the input file: 0
-Occurrences of 'Can't generate a unique log-filename .*' in the input file: 0
-Occurrences of 'Log filename extension number exhausted: 2147483647. Please fix this by archiving old logs and updating the index files.' in the input file: 0
+Occurrences of 'MYSQL_BIN_LOG::open failed to generate new file name.' in the input file: 1
+Occurrences of 'Can't generate a unique log-filename .*' in the input file: 1
+Occurrences of 'Log filename extension number exhausted: 2147483647. Please fix this by archiving old logs and updating the index files.' in the input file: 1
 # restart

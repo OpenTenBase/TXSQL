@@ -1,0 +1,295 @@
+DROP DATABASE IF EXISTS dbtest_parts_0_31;
+CREATE DATABASE if not exists dbtest_parts_0_31;
+USE dbtest_parts_0_31;
+CREATE TABLE `g2` (
+`pno` int(10) unsigned NOT NULL,
+`sid` int(10) unsigned NOT NULL,
+dummy varchar(128),
+PRIMARY KEY (`pno`,`sid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8
+PARTITION BY LIST (pno)
+SUBPARTITION BY HASH (sid )
+SUBPARTITIONS 4
+(PARTITION p0 VALUES IN (0) ENGINE = InnoDB,
+PARTITION p1 VALUES IN (1) ENGINE = InnoDB,
+PARTITION p2 VALUES IN (2) ENGINE = InnoDB,
+PARTITION p3 VALUES IN (3) ENGINE = InnoDB,
+PARTITION p4 VALUES IN (4) ENGINE = InnoDB);
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+select * from g2;
+pno	sid	dummy
+SELECT COUNT(*) FROM g2;
+COUNT(*)
+0
+insert into g2(pno,sid) values(0,0);
+insert into g2(pno,sid) values(0,1);
+insert into g2(pno,sid) values(0,2);
+insert into g2(pno,sid) values(0,3);
+insert into g2(pno,sid) values(1,0);
+insert into g2 (pno,sid) values(1,1);
+insert into g2(pno,sid) values(1,2);
+insert into g2(pno,sid) values(1,3);
+insert into g2 (pno,sid) values(2,0);
+insert into g2 (pno,sid) values(2,1);
+insert into g2(pno,sid) values(2,2);
+insert into g2(pno,sid) values(2,3);
+insert into g2 (pno,sid) values(3,0);
+insert into g2 (pno,sid) values(3,1);
+insert into g2(pno,sid) values(3,2);
+insert into g2(pno,sid) values(3,3);
+insert into g2(pno,sid) values(4,0);
+insert into g2(pno,sid) values(4,1);
+insert into g2(pno,sid) values(4,2);
+insert into g2(pno,sid) values(4,3);
+SELECT COUNT(*) FROM g2;
+COUNT(*)
+20
+select count(1) from g2 where pno=0;
+count(1)
+4
+select count(1) from g2 where pno=1;
+count(1)
+4
+select count(1) from g2 where pno=2;
+count(1)
+4
+select count(1) from g2 where pno=3;
+count(1)
+4
+select count(1) from g2 where pno=4;
+count(1)
+4
+# 1.1 hide all the partitions
+# TestPoint : set tdsql_hide_partitions
+SHOW GLOBAL VARIABLES LIKE "tdsql_hide_partitions";
+Variable_name	Value
+tdsql_hide_partitions	
+SET GLOBAL tdsql_hide_partitions='0-4';
+# TestPoint : show tdsql_hide_partitions
+SHOW GLOBAL VARIABLES LIKE "tdsql_hide_partitions";
+Variable_name	Value
+tdsql_hide_partitions	0-4
+# TestPoint : select after hiding partitions
+SELECT COUNT(*) FROM g2;
+COUNT(*)
+0
+SET GLOBAL tdsql_hide_partitions='1';
+select count(1) from g2 where pno=0;
+count(1)
+4
+select count(1) from g2 where pno=1;
+count(1)
+0
+select count(1) from g2 where pno=2;
+count(1)
+4
+select count(1) from g2 where pno=3;
+count(1)
+4
+select count(1) from g2 where pno=4;
+count(1)
+4
+# TestPoint : insert after hiding partitions
+insert into g2 values(1,1,'fatal bug insert');
+ERROR HY000: Table has no partition for value 2147483647
+UPDATE g2 set dummy='fatal bug' where pno=1;
+delete from g2 where pno=1;
+replace into g2 values(1,1,'fatal bug replace');
+ERROR HY000: Table has no partition for value 2147483647
+select * from g2 where pno=1;
+pno	sid	dummy
+select count(1) from g2 where pno=0;
+count(1)
+4
+select count(1) from g2 where pno=1;
+count(1)
+0
+select count(1) from g2 where pno=2;
+count(1)
+4
+select count(1) from g2 where pno=3;
+count(1)
+4
+select count(1) from g2 where pno=4;
+count(1)
+4
+SET GLOBAL tdsql_hide_partitions='';
+select * from g2 where pno=1;
+pno	sid	dummy
+1	0	NULL
+1	1	NULL
+1	2	NULL
+1	3	NULL
+SET GLOBAL tdsql_hide_partitions='2';
+select count(1) from g2 where pno=0;
+count(1)
+4
+select count(1) from g2 where pno=1;
+count(1)
+4
+select count(1) from g2 where pno=2;
+count(1)
+0
+select count(1) from g2 where pno=3;
+count(1)
+4
+select count(1) from g2 where pno=4;
+count(1)
+4
+# TestPoint : insert after hiding partitions
+insert into g2 values(2,2,'fatal bug insert');
+ERROR HY000: Table has no partition for value 2147483647
+UPDATE g2 set dummy='fatal bug' where pno=2;
+delete from g2 where pno=2;
+replace into g2 values(2,1,'fatal bug replace');
+ERROR HY000: Table has no partition for value 2147483647
+select * from g2 where pno=2;
+pno	sid	dummy
+select count(1) from g2 where pno=0;
+count(1)
+4
+select count(1) from g2 where pno=1;
+count(1)
+4
+select count(1) from g2 where pno=2;
+count(1)
+0
+select count(1) from g2 where pno=3;
+count(1)
+4
+select count(1) from g2 where pno=4;
+count(1)
+4
+SET GLOBAL tdsql_hide_partitions='';
+SHOW GLOBAL VARIABLES LIKE "tdsql_hide_partitions";
+Variable_name	Value
+tdsql_hide_partitions	
+select * from g2;
+pno	sid	dummy
+0	0	NULL
+0	1	NULL
+0	2	NULL
+0	3	NULL
+1	0	NULL
+1	1	NULL
+1	2	NULL
+1	3	NULL
+2	0	NULL
+2	1	NULL
+2	2	NULL
+2	3	NULL
+3	0	NULL
+3	1	NULL
+3	2	NULL
+3	3	NULL
+4	0	NULL
+4	1	NULL
+4	2	NULL
+4	3	NULL
+alter table g2 drop partition p1;
+show create table g2;
+Table	Create Table
+g2	CREATE TABLE `g2` (
+  `pno` int unsigned NOT NULL,
+  `sid` int unsigned NOT NULL,
+  `dummy` varchar(128) DEFAULT NULL,
+  PRIMARY KEY (`pno`,`sid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3
+/*!50100 PARTITION BY LIST (`pno`)
+SUBPARTITION BY HASH (`sid`)
+SUBPARTITIONS 4
+(PARTITION p0 VALUES IN (0) ENGINE = InnoDB,
+ PARTITION p2 VALUES IN (2) ENGINE = InnoDB,
+ PARTITION p3 VALUES IN (3) ENGINE = InnoDB,
+ PARTITION p4 VALUES IN (4) ENGINE = InnoDB) */
+SET GLOBAL tdsql_hide_partitions='';
+select count(1) from g2 where pno=0;
+count(1)
+4
+select count(1) from g2 where pno=1;
+count(1)
+0
+select count(1) from g2 where pno=2;
+count(1)
+4
+select count(1) from g2 where pno=3;
+count(1)
+4
+select count(1) from g2 where pno=4;
+count(1)
+4
+# TestPoint : insert after hiding partitions
+insert into g2 values(1,1,'fatal bug insert');
+ERROR HY000: Table has no partition for value 1
+UPDATE g2 set dummy='fatal bug insert' where pno=1;
+delete from g2 where pno=1;
+replace into g2 values(1,1,'fatal bug replace');
+ERROR HY000: Table has no partition for value 1
+select * from g2 where pno=1;
+pno	sid	dummy
+SET GLOBAL tdsql_hide_partitions='2';
+select count(1) from g2 where pno=0;
+count(1)
+4
+select count(1) from g2 where pno=1;
+count(1)
+0
+select count(1) from g2 where pno=2;
+count(1)
+0
+select count(1) from g2 where pno=3;
+count(1)
+4
+select count(1) from g2 where pno=4;
+count(1)
+4
+# TestPoint : insert after hiding partitions
+insert into g2 values(2,2,'fatal bug insert');
+ERROR HY000: Table has no partition for value 2147483647
+UPDATE g2 set dummy='fatal bug insert' where pno=2;
+delete from g2 where pno=2;
+replace into g2 values(2,1,'fatal bug replace');
+ERROR HY000: Table has no partition for value 2147483647
+select * from g2 where pno=2;
+pno	sid	dummy
+insert into g2  values(3,10,'p3');
+insert into g2  values(3,11,'p3');
+insert into g2 values(3,21,'p3');
+insert into g2 values(3,31,'p3');
+select * from g2 partition(p3);
+pno	sid	dummy
+3	0	NULL
+3	1	NULL
+3	10	p3
+3	11	p3
+3	2	NULL
+3	21	p3
+3	3	NULL
+3	31	p3
+delete from g2 where pno=3;
+select * from g2 partition(p3);
+pno	sid	dummy
+SET GLOBAL tdsql_hide_partitions='';
+SHOW GLOBAL VARIABLES LIKE "tdsql_hide_partitions";
+Variable_name	Value
+tdsql_hide_partitions	
+select * from g2;
+pno	sid	dummy
+0	0	NULL
+0	1	NULL
+0	2	NULL
+0	3	NULL
+2	0	NULL
+2	1	NULL
+2	2	NULL
+2	3	NULL
+4	0	NULL
+4	1	NULL
+4	2	NULL
+4	3	NULL
+select * from g2 where dummy like '%fatal%';
+pno	sid	dummy
+DROP DATABASE dbtest_parts_0_31;

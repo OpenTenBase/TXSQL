@@ -1815,7 +1815,7 @@ of t1 (12), plus one additional look-up to check whether table
 contains a NULL value.
 show status like "handler_read_key";
 Variable_name	Value
-Handler_read_key	13
+Handler_read_key	15
 drop table t1,t2;
 #
 # Bug#13495157 - SUBQUERY MATERIALIZATION NOT USED FOR CERTAIN
@@ -2021,7 +2021,7 @@ Handler_read_last	0
 Handler_read_next	0
 Handler_read_prev	0
 Handler_read_rnd	0
-Handler_read_rnd_next	3
+Handler_read_rnd_next	6
 drop table t1,t2;
 #
 # Bug#13655791 DIFFERENT RESULT WITH WL6094 ON QUERY WITH XOR
@@ -2103,7 +2103,7 @@ Handler_read_last	0
 Handler_read_next	1
 Handler_read_prev	0
 Handler_read_rnd	0
-Handler_read_rnd_next	2
+Handler_read_rnd_next	4
 DROP TABLE t1,t2,t3,t4;
 #
 # Bug#13727407: Assert !item->const_item() || !item->not_null_tables()

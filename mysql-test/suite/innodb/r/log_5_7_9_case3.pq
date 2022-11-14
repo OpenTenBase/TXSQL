@@ -10,8 +10,8 @@
 ############################################################################################
 # Case 3A: Start MySQL...
 # Verify...
-Pattern "Invalid redo log header checksum" not found
-Pattern "Failed to read header of the redo log file .*ib_logfile0" not found
+Pattern "Invalid redo log header checksum" found
+Pattern "Failed to read header of the redo log file .*ib_logfile0" found
 Pattern "Upgrading redo log: .*, LSN=" not found
 Pattern "innodb-unknown-compound-v" not found
 ############################################################################################

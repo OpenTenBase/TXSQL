@@ -37,7 +37,9 @@ PX_compact_codec::~PX_compact_codec() {
 
   @return 0 success, 1 fails
 */
-int PX_compact_codec::init(mem_root_deque<Item *> *items, std::vector<Field *> *fields) {
+int PX_compact_codec::init(mem_root_deque<Item *> *items,
+                           std::vector<Field *> *fields,
+                           const mem_root_deque<TABLE *> *tables) {
   THD *thd = get_thd();
   assert(thd);
   size_t field_size = m_use_item ? items->size() : fields->size();
@@ -68,6 +70,9 @@ int PX_compact_codec::init(mem_root_deque<Item *> *items, std::vector<Field *> *
   m_skip_flag = new (thd->mem_root) char[field_size / PX_HIDDEN_FIELD_COUNT + 2];
   if (!m_skip_flag) goto oom;
 
+  m_null_row_set.reset();
+  m_tables = tables;
+
   return 0;
 
 oom:
@@ -82,6 +87,8 @@ void PX_compact_codec::reset() {
   null_len = 0;
   total_copy_bytes = 0;
   null_num = 0;
+  m_null_row_set.reset();
+  m_null_row_value = 0;
 }
 
 /**
@@ -99,6 +106,14 @@ int PX_compact_codec::encode(std::vector<PX_iovec> &memory_trunks) {
     if (compact_items()) return 1;
   } else {
     if (compact_fields()) return 1;
+  }
+
+  for (size_t i =0; i < m_tables->size(); ++i) {
+    TABLE *table = (*m_tables)[i];
+    assert(table);
+    if (table && table->has_null_row()) {
+      m_null_row_set.set(i, true);
+    }
   }
 
   /*
@@ -126,8 +141,11 @@ int PX_compact_codec::encode(std::vector<PX_iovec> &memory_trunks) {
   m_compact_row[2].m_len = 2;
   total_copy_bytes += 2;
 
-  /* The m_encoded_row_data[1] is reserved for stable output. */
-  m_compact_row[1].m_need_send = false;
+  /* The m_encoded_row_data[1] is reserved for null row info. */
+  m_null_row_value = m_null_row_set.to_ullong();
+  m_compact_row[1].m_len = sizeof(ulonglong);
+  m_compact_row[1].m_ptr = (uchar *)&m_null_row_value;
+  total_copy_bytes += sizeof(ulonglong);
 
   m_compact_row[0].m_ptr = (uchar *)&total_copy_bytes;
   m_compact_row[0].m_len = 4;
@@ -371,6 +389,18 @@ int PX_compact_codec::decode(uchar *data, Size len) {
   // len
   assert(*(uint32*)data + sizeof(uint32) == len);
   data += sizeof(uint32);
+
+  // null row bitset
+  ulonglong m_null_row_value = *(ulonglong *)data;
+  std::bitset<64> null_row_set(m_null_row_value);
+  for (size_t i = 0; i < m_tables->size(); ++i) {
+    assert((*m_tables)[i]);
+    if (null_row_set[i]) {
+      (*m_tables)[i]->set_null_row();
+    }
+  }
+  data += sizeof(ulonglong);
+
   // bitmap_len
   uint null_len = *(uint16 *)data;
   data = data + sizeof(uint16);

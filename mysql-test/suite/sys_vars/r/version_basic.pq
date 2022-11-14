@@ -5,8 +5,8 @@ COUNT(@@GLOBAL.version)
 1 Expected
 '#---------------------BS_STVARS_053_02----------------------#'
 SET @@GLOBAL.version=1;
-ERROR HY000: Variable 'version' is a read only variable
-Expected error 'Read only variable'
+ERROR 42000: Incorrect argument type to variable 'version'
+Expected error 'ER_WRONG_TYPE_FOR_VAR'
 SELECT COUNT(@@GLOBAL.version);
 COUNT(@@GLOBAL.version)
 1

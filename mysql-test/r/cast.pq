@@ -334,12 +334,6 @@ Warnings:
 Warning	1292	Truncated incorrect BINARY(2) value: 'aaa'
 Warning	1292	Truncated incorrect BINARY(2) value: 'aab'
 Warning	1292	Truncated incorrect BINARY(2) value: 'aac'
-Warning	1292	Truncated incorrect BINARY(2) value: 'aab'
-Warning	1292	Truncated incorrect BINARY(2) value: 'aaa'
-Warning	1292	Truncated incorrect BINARY(2) value: 'aab'
-Warning	1292	Truncated incorrect BINARY(2) value: 'aab'
-Warning	1292	Truncated incorrect BINARY(2) value: 'aaa'
-Warning	1292	Truncated incorrect BINARY(2) value: 'aac'
 SELECT a, CAST(a AS UNSIGNED) FROM t1 ORDER BY CAST(a AS CHAR charset binary) ;
 a	CAST(a AS UNSIGNED)
 aaa	3

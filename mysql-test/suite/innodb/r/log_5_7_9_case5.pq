@@ -7,14 +7,14 @@
 ############################################################################################
 # Case 5A: Start MySQL... (attempt 1)
 # Verify...
-Pattern "log file was created by mysqlbackup --apply-log at MEB4567890123456789012345678901\." not found
-Pattern "Upgrading redo log: .*, LSN=" not found
-Pattern "innodb-unknown-compound-v" not found
+Pattern "log file was created by mysqlbackup --apply-log at MEB4567890123456789012345678901\." found
+Pattern "Upgrading redo log: .*, LSN=" found
+Pattern "innodb-unknown-compound-v" found
 # Case 5A: Start MySQL... (attempt 2)
 # Verify...
 Pattern "log file was created by mysqlbackup --apply-log at MEB4567890123456789012345678901\." not found
 Pattern "Upgrading redo log: .*, LSN=" not found
-Pattern "innodb-unknown-compound-v" not found
+Pattern "innodb-unknown-compound-v" found
 ############################################################################################
 # Cleanup...
 # restart

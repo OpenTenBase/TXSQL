@@ -37,8 +37,6 @@ SELECT /*+ MAX_EXECUTION_TIME(4294967296) */ 1 FROM t1;
 1
 1
 Warning	1064	Unsupported MAX_EXECUTION_TIME near ') */ 1 FROM t1' at line 1
-Warning	1064	Unsupported MAX_EXECUTION_TIME near ') */ 1 FROM t1' at line 1
-Warning	1064	Unsupported MAX_EXECUTION_TIME near ') */ 1 FROM t1' at line 1
 Warnings:
 SELECT /*+ MAX_EXECUTION_TIME(1) */ *, SLEEP(1000) FROM t1;
 ERROR HY000: Query execution was interrupted, maximum statement execution time exceeded

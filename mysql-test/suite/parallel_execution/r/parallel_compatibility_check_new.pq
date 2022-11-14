@@ -83,11 +83,10 @@ sum(col1+RAND(1))
 58.82638306340797
 explain format=tree select sum(col1)+RAND(1) from t1;
 EXPLAIN
--> Aggregate: sum(t1.col1)
+-> Aggregate: sum(t1.col1)  (cost=2.25 rows=1)
     -> PX Receiver (slice: 0; workers: 1)
         -> PX Sender (slice: 1; workers: 4)
-            -> Aggregate: sum(t1.col1)  (cost=2.25 rows=1)
-                -> Parallel table scan on t1  (cost=1.25 rows=10)
+            -> Parallel table scan on t1  (cost=1.25 rows=10)
 
 select sum(col1)+RAND(1) from t1;
 sum(col1)+RAND(1)
@@ -103,46 +102,44 @@ select * from t1 where RAND(1)>1;
 id	col1	col2
 explain format=tree select sum(col1) + RAND(1) from t1 group by col2 order by col2;
 EXPLAIN
--> Group aggregate: sum(t1.col1)
+-> Group aggregate: sum(t1.col1)  (cost=2.25 rows=10)
     -> PX Receiver (merge sort; slice: 0; workers: 1)
         -> PX Sender (slice: 1; workers: 4)
-            -> Group aggregate: sum(t1.col1)  (cost=2.25 rows=10)
-                -> Parallel index scan on t1 using idx  (cost=1.25 rows=10)
+            -> Parallel index scan on t1 using idx  (cost=1.25 rows=10)
 
 select sum(col1) + RAND(1) from t1 group by col2 order by col2;
 sum(col1) + RAND(1)
 1.4054035371219773
-2.4054035371219773
-3.4054035371219773
-4.405403537121977
-5.871614180385707
-6.871614180385707
-7.871614180385707
-8.871614180385707
-9.14186032129625
-10.14186032129625
+2.8716141803857074
+3.141860321296249
+4.0944590960577685
+5.046714547133739
+6.950195478229034
+7.6108337804776
+8.203582498434542
+9.185411181473556
+10.3163084427978
 explain format=tree select sum(col1) + RAND(1) from t1 group by col2 order by sum(col1);
 EXPLAIN
--> Sort: sum(`sum(t1.col1)`)
+-> Sort: `sum(t1.col1)`
     -> Stream results  (cost=2.25 rows=10)
-        -> Group aggregate: sum(t1.col1), sum(t1.col1)
+        -> Group aggregate: sum(t1.col1), sum(t1.col1)  (cost=2.25 rows=10)
             -> PX Receiver (merge sort; slice: 0; workers: 1)
                 -> PX Sender (slice: 1; workers: 4)
-                    -> Group aggregate: sum(t1.col1), sum(t1.col1)  (cost=2.25 rows=10)
-                        -> Parallel index scan on t1 using idx  (cost=1.25 rows=10)
+                    -> Parallel index scan on t1 using idx  (cost=1.25 rows=10)
 
 select sum(col1) + RAND(1) from t1 group by col2 order by sum(col1);
 sum(col1) + RAND(1)
-10.14186032129625
-10.14186032129625
-10.14186032129625
-10.14186032129625
-10.14186032129625
-10.14186032129625
-10.14186032129625
-10.14186032129625
-10.14186032129625
-10.14186032129625
+1.4054035371219773
+2.8716141803857074
+3.141860321296249
+4.0944590960577685
+5.046714547133739
+6.950195478229034
+7.6108337804776
+8.203582498434542
+9.185411181473556
+10.3163084427978
 explain format=tree select sum(col1) from t1 group by col2 having RAND(1) > 1 order by sum(col1);
 EXPLAIN
 -> Sort: sum(`sum(col1)`)

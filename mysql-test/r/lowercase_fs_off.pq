@@ -81,7 +81,7 @@ DROP TABLE t1;
 # 2. initialize the server.
 # 3. Restart the server with a different lower_case_table_names setting. Should fail.
 # 4. Look for error.
-#    Found lower_case_table_names error 0 times.
+#    Found lower_case_table_names error 1 times.
 # 5. Restart the server against default datadir.
 # 6. Cleanup.
 #    Delete $DDIR.

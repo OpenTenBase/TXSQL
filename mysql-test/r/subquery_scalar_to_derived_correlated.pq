@@ -219,10 +219,10 @@ SELECT a,
 (SELECT t2.a FROM t2 ORDER BY t1.a LIMIT 1)
 FROM t1;
 a	(SELECT t2.a FROM t2 ORDER BY t1.a LIMIT 1)
+1	1
 2	1
 3	1
 4	1
-1	1
 EXPLAIN SELECT a,
 (SELECT t2.a FROM t2 ORDER BY t1.a LIMIT 1)
 FROM t1;
@@ -288,7 +288,7 @@ EXPLAIN SELECT * FROM t1 WHERE (SELECT a FROM t2 WHERE t2.a = t1.a) > 0;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	2	50.00	NULL
 1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	25.00	Using where; Using join buffer (hash join)
-2	DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Parallel scan (3 workers); Using where; Using temporary
+2	DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Parallel scan (4 workers); Using where; Using temporary
 2	DERIVED	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Send to (<receiver1>)
 2	DERIVED	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	0	0.00	Receive from (<sender1>); Using temporary
 Warnings:

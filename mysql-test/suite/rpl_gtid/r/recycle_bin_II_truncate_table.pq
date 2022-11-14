@@ -6,11 +6,15 @@ Note	####	Storing MySQL user name or password information in the master info rep
 #
 #  Prepare
 #
-call mtr.add_suppression("access __cdb_recycle_bin__ fail, the query string is");
+call mtr.add_suppression("access __txsql_recycle_bin__ fail, the query string is");
 # open recycle bin on master
 set global cdb_recycle_bin_enabled = on;
+Warnings:
+Warning	1287	'@@cdb_recycle_bin_enabled' is deprecated and will be removed in a future release. Please use txsql_recycle_bin_enabled instead.
 # open recycle bin on slave
 set global cdb_recycle_bin_enabled = on;
+Warnings:
+Warning	1287	'@@cdb_recycle_bin_enabled' is deprecated and will be removed in a future release. Please use txsql_recycle_bin_enabled instead.
 #
 # Run 
 #
@@ -21,6 +25,8 @@ set global cdb_recycle_bin_enabled = on;
 # case1.1. replicate truncate table while the cdb_recycle_bin_enable of
 #          slave is off
 set global cdb_recycle_bin_enabled= off;
+Warnings:
+Warning	1287	'@@cdb_recycle_bin_enabled' is deprecated and will be removed in a future release. Please use txsql_recycle_bin_enabled instead.
 create table t1 (a int);
 show create table t1;
 Table	Create Table
@@ -37,8 +43,8 @@ truncate t1;
 select * from mysql.recycle_bin_info;
 table_name	origin_schema	origin_table	drop_time	purge_time
 <RECYCLED_TABLE>	test	t1	<DROP_TIME>	<PURGE_TIME>
-show tables in __cdb_recycle_bin__;
-Tables_in___cdb_recycle_bin__
+show tables in __txsql_recycle_bin__;
+Tables_in___txsql_recycle_bin__
 <RECYCLED_TABLE>
 select * from t1;
 a
@@ -52,8 +58,8 @@ t1	CREATE TABLE `t1` (
 select * from mysql.recycle_bin_info;
 table_name	origin_schema	origin_table	drop_time	purge_time
 <RECYCLED_TABLE>	test	t1	<DROP_TIME>	<PURGE_TIME>
-show tables in __cdb_recycle_bin__;
-Tables_in___cdb_recycle_bin__
+show tables in __txsql_recycle_bin__;
+Tables_in___txsql_recycle_bin__
 <RECYCLED_TABLE>
 select * from t1;
 a
@@ -66,6 +72,8 @@ t1	CREATE TABLE `t1` (
 # case1.2. replicate truncate table while the cdb_recycle_bin_enable of
 #          slave is on
 set global cdb_recycle_bin_enabled= on;
+Warnings:
+Warning	1287	'@@cdb_recycle_bin_enabled' is deprecated and will be removed in a future release. Please use txsql_recycle_bin_enabled instead.
 create table t2 (a int);
 show create table t2;
 Table	Create Table
@@ -83,8 +91,8 @@ select * from mysql.recycle_bin_info;
 table_name	origin_schema	origin_table	drop_time	purge_time
 <RECYCLED_TABLE>	test	t1	<DROP_TIME>	<PURGE_TIME>
 <RECYCLED_TABLE>	test	t2	<DROP_TIME>	<PURGE_TIME>
-show tables in __cdb_recycle_bin__;
-Tables_in___cdb_recycle_bin__
+show tables in __txsql_recycle_bin__;
+Tables_in___txsql_recycle_bin__
 <RECYCLED_TABLE>
 <RECYCLED_TABLE>
 select * from t2;
@@ -100,8 +108,8 @@ select * from mysql.recycle_bin_info;
 table_name	origin_schema	origin_table	drop_time	purge_time
 <RECYCLED_TABLE>	test	t1	<DROP_TIME>	<PURGE_TIME>
 <RECYCLED_TABLE>	test	t2	<DROP_TIME>	<PURGE_TIME>
-show tables in __cdb_recycle_bin__;
-Tables_in___cdb_recycle_bin__
+show tables in __txsql_recycle_bin__;
+Tables_in___txsql_recycle_bin__
 <RECYCLED_TABLE>
 <RECYCLED_TABLE>
 select * from t2;
@@ -140,8 +148,8 @@ table_name	origin_schema	origin_table	drop_time	purge_time
 <RECYCLED_TABLE>	test	t1	<DROP_TIME>	<PURGE_TIME>
 <RECYCLED_TABLE>	test	t2	<DROP_TIME>	<PURGE_TIME>
 <RECYCLED_TABLE>	test	t3	<DROP_TIME>	<PURGE_TIME>
-show tables in __cdb_recycle_bin__;
-Tables_in___cdb_recycle_bin__
+show tables in __txsql_recycle_bin__;
+Tables_in___txsql_recycle_bin__
 <RECYCLED_TABLE>
 <RECYCLED_TABLE>
 <RECYCLED_TABLE>
@@ -162,8 +170,8 @@ table_name	origin_schema	origin_table	drop_time	purge_time
 <RECYCLED_TABLE>	test	t1	<DROP_TIME>	<PURGE_TIME>
 <RECYCLED_TABLE>	test	t2	<DROP_TIME>	<PURGE_TIME>
 <RECYCLED_TABLE>	test	t3	<DROP_TIME>	<PURGE_TIME>
-show tables in __cdb_recycle_bin__;
-Tables_in___cdb_recycle_bin__
+show tables in __txsql_recycle_bin__;
+Tables_in___txsql_recycle_bin__
 <RECYCLED_TABLE>
 <RECYCLED_TABLE>
 <RECYCLED_TABLE>
@@ -210,8 +218,8 @@ table_name	origin_schema	origin_table	drop_time	purge_time
 <RECYCLED_TABLE>	test	t2	<DROP_TIME>	<PURGE_TIME>
 <RECYCLED_TABLE>	test	t3	<DROP_TIME>	<PURGE_TIME>
 <RECYCLED_TABLE>	test	t5	<DROP_TIME>	<PURGE_TIME>
-show tables in __cdb_recycle_bin__;
-Tables_in___cdb_recycle_bin__
+show tables in __txsql_recycle_bin__;
+Tables_in___txsql_recycle_bin__
 <RECYCLED_TABLE>
 <RECYCLED_TABLE>
 <RECYCLED_TABLE>
@@ -231,8 +239,8 @@ table_name	origin_schema	origin_table	drop_time	purge_time
 <RECYCLED_TABLE>	test	t2	<DROP_TIME>	<PURGE_TIME>
 <RECYCLED_TABLE>	test	t3	<DROP_TIME>	<PURGE_TIME>
 <RECYCLED_TABLE>	test	t5	<DROP_TIME>	<PURGE_TIME>
-show tables in __cdb_recycle_bin__;
-Tables_in___cdb_recycle_bin__
+show tables in __txsql_recycle_bin__;
+Tables_in___txsql_recycle_bin__
 <RECYCLED_TABLE>
 <RECYCLED_TABLE>
 <RECYCLED_TABLE>
@@ -255,6 +263,8 @@ call mtr.add_suppression("is missing!");
 # case3.1 crash before first commit
 #        
 set global cdb_recycle_bin_enabled = on;
+Warnings:
+Warning	1287	'@@cdb_recycle_bin_enabled' is deprecated and will be removed in a future release. Please use txsql_recycle_bin_enabled instead.
 set session debug="+d,rb_crash_before_commit1";
 #
 # crash at rb_crash_before_commit1
@@ -273,6 +283,8 @@ debug
 # case3.2 crash after first commit
 #        
 set global cdb_recycle_bin_enabled = on;
+Warnings:
+Warning	1287	'@@cdb_recycle_bin_enabled' is deprecated and will be removed in a future release. Please use txsql_recycle_bin_enabled instead.
 set session debug="+d,rb_crash_after_commit1";
 #
 # crash at rb_crash_after_commit1
@@ -295,8 +307,8 @@ table_name	origin_schema	origin_table	drop_time	purge_time
 <RECYCLED_TABLE>	test	t3	<DROP_TIME>	<PURGE_TIME>
 <RECYCLED_TABLE>	test	t5	<DROP_TIME>	<PURGE_TIME>
 <RECYCLED_TABLE>	test	t6	<DROP_TIME>	<PURGE_TIME>
-show tables in __cdb_recycle_bin__;
-Tables_in___cdb_recycle_bin__
+show tables in __txsql_recycle_bin__;
+Tables_in___txsql_recycle_bin__
 <RECYCLED_TABLE>
 <RECYCLED_TABLE>
 <RECYCLED_TABLE>
@@ -307,6 +319,8 @@ insert into t6 values(2);
 # case3.3 crash after second commit
 #        
 set global cdb_recycle_bin_enabled = on;
+Warnings:
+Warning	1287	'@@cdb_recycle_bin_enabled' is deprecated and will be removed in a future release. Please use txsql_recycle_bin_enabled instead.
 set session debug="+d,rb_crash_after_commit2";
 #
 # crash at rb_crash_after_commit2
@@ -328,8 +342,8 @@ table_name	origin_schema	origin_table	drop_time	purge_time
 <RECYCLED_TABLE>	test	t5	<DROP_TIME>	<PURGE_TIME>
 <RECYCLED_TABLE>	test	t6	<DROP_TIME>	<PURGE_TIME>
 <RECYCLED_TABLE>	test	t6	<DROP_TIME>	<PURGE_TIME>
-show tables in __cdb_recycle_bin__;
-Tables_in___cdb_recycle_bin__
+show tables in __txsql_recycle_bin__;
+Tables_in___txsql_recycle_bin__
 <RECYCLED_TABLE>
 <RECYCLED_TABLE>
 <RECYCLED_TABLE>
@@ -343,6 +357,8 @@ Tables_in___cdb_recycle_bin__
 # case4.1 create table like error 
 #        
 set global cdb_recycle_bin_enabled = on;
+Warnings:
+Warning	1287	'@@cdb_recycle_bin_enabled' is deprecated and will be removed in a future release. Please use txsql_recycle_bin_enabled instead.
 create table t7(a int);
 insert into t7 values(1);
 set session debug="+d,rb_fail_to_create_table";
@@ -359,8 +375,8 @@ table_name	origin_schema	origin_table	drop_time	purge_time
 <RECYCLED_TABLE>	test	t5	<DROP_TIME>	<PURGE_TIME>
 <RECYCLED_TABLE>	test	t6	<DROP_TIME>	<PURGE_TIME>
 <RECYCLED_TABLE>	test	t6	<DROP_TIME>	<PURGE_TIME>
-show tables in __cdb_recycle_bin__;
-Tables_in___cdb_recycle_bin__
+show tables in __txsql_recycle_bin__;
+Tables_in___txsql_recycle_bin__
 <RECYCLED_TABLE>
 <RECYCLED_TABLE>
 <RECYCLED_TABLE>
@@ -372,6 +388,8 @@ set session debug="-d,rb_fail_to_create_table";
 # case4.2 with foreign key 
 #  
 set global cdb_recycle_bin_enabled = on;
+Warnings:
+Warning	1287	'@@cdb_recycle_bin_enabled' is deprecated and will be removed in a future release. Please use txsql_recycle_bin_enabled instead.
 create table t8_parent(a int primary key);
 create table t8_child(
 a int not null,
@@ -407,6 +425,8 @@ t3
 t5
 t6
 t7
+call sys.recycle_bin_recycle_table("<RECYCLED_TABLE>");
+ERROR HY000: Cannot recovery a table which references to the table in <RECYCLED_TABLE>) first.
 #
 # case4.3 scheduler thread clear recycle 
 #  
@@ -427,8 +447,8 @@ table_name	origin_schema	origin_table	drop_time	purge_time
 <RECYCLED_TABLE>	test	t7	<DROP_TIME>	<PURGE_TIME>
 <RECYCLED_TABLE>	test	t8_child	<DROP_TIME>	<PURGE_TIME>
 <RECYCLED_TABLE>	test	t8_parent	<DROP_TIME>	<PURGE_TIME>
-show tables in __cdb_recycle_bin__;
-Tables_in___cdb_recycle_bin__
+show tables in __txsql_recycle_bin__;
+Tables_in___txsql_recycle_bin__
 <RECYCLED_TABLE>
 <RECYCLED_TABLE>
 <RECYCLED_TABLE>
@@ -461,6 +481,10 @@ call sys.recycle_bin_purge_table("<RECYCLED_TABLE>");
 # Cleanup 
 # 
 set global cdb_recycle_bin_enabled=0;
+Warnings:
+Warning	1287	'@@cdb_recycle_bin_enabled' is deprecated and will be removed in a future release. Please use txsql_recycle_bin_enabled instead.
 set global cdb_recycle_bin_enabled=0;
+Warnings:
+Warning	1287	'@@cdb_recycle_bin_enabled' is deprecated and will be removed in a future release. Please use txsql_recycle_bin_enabled instead.
 [connection master]
 include/rpl_end.inc

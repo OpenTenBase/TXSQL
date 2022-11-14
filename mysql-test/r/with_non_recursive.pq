@@ -479,8 +479,8 @@ foo	bar	foo	bar
 1	2	1	2
 with qn (foo, bar) as (select a, b from t1) select qn1.bar,foo from qn qn1;
 bar	foo
-3	2
 NULL	NULL
+3	2
 create table t3
 with qn (foo, bar) as (select a, b from t1) select bar,foo from qn;
 desc t3;
@@ -703,7 +703,7 @@ from t1 straight_join tt straight_join tt as tt_
 where t1.a=tt.a and tt.a=tt_.a
 limit 1;
 a
-2
+1
 # One merged, one materialized: index creation on the second
 # should of course ignore the first
 with q as (select * from t1)
@@ -1169,8 +1169,8 @@ WITH qn AS (SELECT 10*a as a FROM t1),
 qn2 AS (SELECT 3*a FROM qn)
 SELECT * from qn2;
 3*a
-NULL
 60
+NULL
 WITH qn AS (SELECT a FROM t1), qn2 AS (SELECT a FROM qn)
 SELECT * from qn2;
 a
@@ -1823,7 +1823,7 @@ select /*+ no_merge(tt) */ tt.a
 from t1 straight_join tt where t1.a=tt.a
 limit 1;
 a
-1
+3
 show status like "handler_write";
 Variable_name	Value
 Handler_write	10
@@ -1834,7 +1834,7 @@ from t1 straight_join tt straight_join tt as tt_
 where t1.a=tt.a and tt.a=tt_.a
 limit 1;
 a
-2
+3
 # One merged, one materialized: index creation on the second
 # should of course ignore the first
 with q as (select * from t1)

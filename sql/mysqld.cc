@@ -979,8 +979,9 @@ MySQL clients support the protocol:
 #include "sql/srv_session.h"
 #include "sql/opt_statistics.h"
 #include "sql/sql_executor.h"
+#if defined(HAVE_PX)
 #include "sql/parallel_execution/px_executor.h" // PX_Executor
-
+#endif /* defined(HAVE_PX) */
 #include "sql/opt_statistics.h"
 #include "my_md5.h"
 #include <set>

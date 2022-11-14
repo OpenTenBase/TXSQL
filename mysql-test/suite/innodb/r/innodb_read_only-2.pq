@@ -117,6 +117,6 @@ case # 3
 #    Try to restart the server without --innodb-read-only after removing
 #    write permissions of system tablespace. Server should not start.
 #    This confirms server is not automatically started in read-only mode.
-Pattern "The innodb_system data file 'ibdata1' must be writable" not found
+Pattern "The innodb_system data file 'ibdata1' must be writable" found
 # restart
 DROP DATABASE testdb_wl6445;

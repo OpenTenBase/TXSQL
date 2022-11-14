@@ -10,18 +10,18 @@
 ############################################################################################
 # Case 1A: Start MySQL... (attempt 1)
 # Verify...
-Pattern "Redo log format is v1\. The redo log was created before MySQL 8\.0\." not found
-Pattern "Redo log is from an earlier version" not found
+Pattern "Redo log format is v1\. The redo log was created before MySQL 8\.0\." found
+Pattern "Redo log is from an earlier version" found
 Pattern "The latest found checkpoint is at lsn =" not found
-Pattern "Upgrading redo log: .*, LSN=" not found
-Pattern "innodb-unknown-compound-v" not found
+Pattern "Upgrading redo log: .*, LSN=" found
+Pattern "innodb-unknown-compound-v" found
 # Case 1A: Start MySQL... (attempt 2)
 # Verify...
 Pattern "Redo log format is v1\. The redo log was created before MySQL 8\.0\." not found
 Pattern "Redo log is from an earlier version" not found
-Pattern "The latest found checkpoint is at lsn =" not found
+Pattern "The latest found checkpoint is at lsn =" found
 Pattern "Upgrading redo log: .*, LSN=" not found
-Pattern "innodb-unknown-compound-v" not found
+Pattern "innodb-unknown-compound-v" found
 # Redo log has become upgraded - replacing with older (from before upgrade)...
 # Cleanup...
 # restart
@@ -31,18 +31,18 @@ Pattern "innodb-unknown-compound-v" not found
 ############################################################################################
 # Case 1B-1: Start MySQL with --innodb-force-recovery=1...
 # Verify...
-Pattern "Database upgrade cannot be accomplished with innodb_force_recovery > 0" not found
+Pattern "Database upgrade cannot be accomplished with innodb_force_recovery > 0" found
 Pattern "Cannot upgrade format .* of redo log files when innodb-force-recovery > 0" not found
 Pattern "The latest found checkpoint is at lsn =" not found
 # Case 1B-2: Start MySQL with --innodb-force-recovery=6...
 # Verify...
-Pattern "Database upgrade cannot be accomplished with innodb_force_recovery > 0" not found
+Pattern "Database upgrade cannot be accomplished with innodb_force_recovery > 0" found
 Pattern "Cannot upgrade format .* of redo log files when innodb-force-recovery > 0" not found
 Pattern "The latest found checkpoint is at lsn =" not found
 ############################################################################################
 # Case 1C: Start MySQL with innodb-read-only=ON...
 # Verify...
-Pattern "Database upgrade cannot be accomplished in read-only mode" not found
+Pattern "Database upgrade cannot be accomplished in read-only mode" found
 Pattern "The latest found checkpoint is at lsn =" not found
 ############################################################################################
 # Cleanup...

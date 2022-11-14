@@ -154,6 +154,7 @@ bool ReverseIndexRangeScanIterator::Init() {
 int ReverseIndexRangeScanIterator::Read() {
   DBUG_TRACE;
 
+#if defined(HAVE_PX)
   if (m_parallel_scan) {
     int result = table()->file->ha_px_scan_next(table()->record[0], thd()->px_scan_ctx);
     if (result == 0) {
@@ -164,6 +165,7 @@ int ReverseIndexRangeScanIterator::Read() {
     }
     return HandleError(result);
   }
+#endif /* defined(HAVE_PX) */
 
   /* The max key is handled as follows:
    *   - if there is NO_MAX_RANGE, start at the end and move backwards

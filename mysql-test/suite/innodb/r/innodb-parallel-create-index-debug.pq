@@ -3,7 +3,7 @@ CREATE TABLE t1 (c1 char(127) PRIMARY KEY, c2 char(127), c3 char(127)) ENGINE=IN
 ANALYZE TABLE t1;
 Table	Op	Msg_type	Msg_text
 test.t1	analyze	status	OK
-SET SESSION innodb_parallel_ddl=ON;
+SET SESSION innodb_txsql_parallel_ddl=ON;
 
 
 #TEST DIFFERENT SUBTREE LEVEL
@@ -25,10 +25,7 @@ COUNT(*)
 CHECK TABLE t1;
 Table	Op	Msg_type	Msg_text
 test.t1	check	status	OK
-SHOW INDEX FROM t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
-t1	0	PRIMARY	1	c1	A	982	NULL	NULL		BTREE			YES	NULL
-SET SESSION innodb_parallel_ddl=ON;
+SET SESSION innodb_txsql_parallel_ddl=ON;
 set debug= '+d,crash_after_merge_sort_before_build_btree';
 ALTER TABLE t1 ADD INDEX k_c2(c2), add unique index k_c3(c3);
 ERROR HY000: Lost connection to MySQL server during query
@@ -38,10 +35,7 @@ COUNT(*)
 CHECK TABLE t1;
 Table	Op	Msg_type	Msg_text
 test.t1	check	status	OK
-SHOW INDEX FROM t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
-t1	0	PRIMARY	1	c1	A	982	NULL	NULL		BTREE			YES	NULL
-SET SESSION innodb_parallel_ddl=ON;
+SET SESSION innodb_txsql_parallel_ddl=ON;
 set debug= '+d,crash_after_build_subtree_before_merge_subtree';
 ALTER TABLE t1 ADD INDEX k_c2(c2), add unique index k_c3(c3);
 ERROR HY000: Lost connection to MySQL server during query
@@ -51,10 +45,7 @@ COUNT(*)
 CHECK TABLE t1;
 Table	Op	Msg_type	Msg_text
 test.t1	check	status	OK
-SHOW INDEX FROM t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
-t1	0	PRIMARY	1	c1	A	982	NULL	NULL		BTREE			YES	NULL
-SET SESSION innodb_parallel_ddl=ON;
+SET SESSION innodb_txsql_parallel_ddl=ON;
 set debug= '+d,crash_after_merge_subtree_before_compress_tree';
 ALTER TABLE t1 ADD INDEX k_c2(c2), add unique index k_c3(c3);
 ERROR HY000: Lost connection to MySQL server during query
@@ -64,10 +55,7 @@ COUNT(*)
 CHECK TABLE t1;
 Table	Op	Msg_type	Msg_text
 test.t1	check	status	OK
-SHOW INDEX FROM t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
-t1	0	PRIMARY	1	c1	A	982	NULL	NULL		BTREE			YES	NULL
-SET SESSION innodb_parallel_ddl=ON;
+SET SESSION innodb_txsql_parallel_ddl=ON;
 set debug= '+d,crash_after_compress_tree';
 ALTER TABLE t1 ADD INDEX k_c2(c2), add unique index k_c3(c3);
 ERROR HY000: Lost connection to MySQL server during query
@@ -77,10 +65,7 @@ COUNT(*)
 CHECK TABLE t1;
 Table	Op	Msg_type	Msg_text
 test.t1	check	status	OK
-SHOW INDEX FROM t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
-t1	0	PRIMARY	1	c1	A	982	NULL	NULL		BTREE			YES	NULL
-SET SESSION innodb_parallel_ddl=ON;
+SET SESSION innodb_txsql_parallel_ddl=ON;
 set debug= '+d,crash_during_compress_tree';
 ALTER TABLE t1 ADD INDEX k_c2(c2), add unique index k_c3(c3);
 ERROR HY000: Lost connection to MySQL server during query
@@ -90,34 +75,22 @@ COUNT(*)
 CHECK TABLE t1;
 Table	Op	Msg_type	Msg_text
 test.t1	check	status	OK
-SHOW INDEX FROM t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
-t1	0	PRIMARY	1	c1	A	982	NULL	NULL		BTREE			YES	NULL
-SET SESSION innodb_parallel_ddl=ON;
+SET SESSION innodb_txsql_parallel_ddl=ON;
 SET session debug= @old_debug;
 set debug = '+d,get_child_page_id_failed';
 ALTER TABLE t1 ADD INDEX k_c2(c2), add unique index k_c3(c3);
-ERROR HY000: Incorrect key file for table 't1'; try to repair it
-SHOW INDEX FROM t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
-t1	0	PRIMARY	1	c1	A	982	NULL	NULL		BTREE			YES	NULL
+ERROR HY000: Index k_c3 is corrupted
 SET session debug= @old_debug;
 set SESSION debug = '+d,get_rightmost_child_page_id_failed';
 ALTER TABLE t1 ADD INDEX k_c2(c2), add unique index k_c3(c3);
-ERROR HY000: Incorrect key file for table 't1'; try to repair it
-SHOW INDEX FROM t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
-t1	0	PRIMARY	1	c1	A	982	NULL	NULL		BTREE			YES	NULL
+ERROR HY000: Index k_c3 is corrupted
 SET session debug= @old_debug;
-SET SESSION innodb_ddl_threads=1;
+SET SESSION innodb_txsql_ddl_threads=4;
 set SESSION debug = '+d,row_merge_sort_failed';
 ALTER TABLE t1 ADD INDEX k_c2(c2), add unique index k_c3(c3);
-ERROR HY000: Incorrect key file for table 't1'; try to repair it
-SHOW INDEX FROM t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
-t1	0	PRIMARY	1	c1	A	982	NULL	NULL		BTREE			YES	NULL
+ERROR HY000: Index k_c3 is corrupted
 SET session debug= @old_debug;
-SET SESSION innodb_ddl_threads=4;
+SET SESSION innodb_txsql_ddl_threads=4;
 
 
 #TEST RE-ADD BUF FAILURE AND SCAN_THREAD=1 AND DDL_THREAD>1
@@ -130,81 +103,46 @@ SET SESSION debug= @old_debug;
 SET SESSION innodb_parallel_read_threads=4;
 set debug = '+d,parallel_merge_sort_fail';
 ALTER TABLE t1 ADD INDEX k_c2(c2), add unique index k_c3(c3);
-ERROR HY000: Incorrect key file for table 't1'; try to repair it
-SHOW INDEX FROM t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
-t1	0	PRIMARY	1	c1	A	982	NULL	NULL		BTREE			YES	NULL
+ERROR HY000: Index k_c3 is corrupted
 SET session debug= @old_debug;
 set debug = '+d,compress_tree_get_cursor_by_page_no_failed';
 ALTER TABLE t1 ADD INDEX k_c2(c2), add unique index k_c3(c3);
-ERROR HY000: Incorrect key file for table 't1'; try to repair it
-SHOW INDEX FROM t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
-t1	0	PRIMARY	1	c1	A	982	NULL	NULL		BTREE			YES	NULL
+ERROR HY000: Index k_c3 is corrupted
 SET session debug= @old_debug;
 set debug = '+d,build_btr_worker_fail';
 ALTER TABLE t1 ADD INDEX k_c2(c2), add unique index k_c3(c3);
-ERROR HY000: Incorrect key file for table 't1'; try to repair it
-SHOW INDEX FROM t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
-t1	0	PRIMARY	1	c1	A	982	NULL	NULL		BTREE			YES	NULL
+ERROR HY000: Index k_c3 is corrupted
 SET session debug= @old_debug;
 set debug = '+d,merge_to_index_root_failed';
 ALTER TABLE t1 ADD INDEX k_c2(c2), add unique index k_c3(c3);
-ERROR HY000: Incorrect key file for table 't1'; try to repair it
-SHOW INDEX FROM t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
-t1	0	PRIMARY	1	c1	A	982	NULL	NULL		BTREE			YES	NULL
+ERROR HY000: Index k_c3 is corrupted
 SET session debug= @old_debug;
 set debug = '+d,link_adjacent_paths_trx_interrupted';
 ALTER TABLE t1 ADD INDEX k_c2(c2), add unique index k_c3(c3);
 ERROR 70100: Query execution was interrupted
-SHOW INDEX FROM t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
-t1	0	PRIMARY	1	c1	A	982	NULL	NULL		BTREE			YES	NULL
 SET session debug= @old_debug;
 set debug = '+d,merge_to_index_root_trx_interrupted';
 ALTER TABLE t1 ADD INDEX k_c2(c2), add unique index k_c3(c3);
 ERROR 70100: Query execution was interrupted
-SHOW INDEX FROM t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
-t1	0	PRIMARY	1	c1	A	982	NULL	NULL		BTREE			YES	NULL
 SET session debug= @old_debug;
 set debug = '+d,compress_tree_trx_interrupted';
 ALTER TABLE t1 ADD INDEX k_c2(c2), add unique index k_c3(c3);
 ERROR 70100: Query execution was interrupted
-SHOW INDEX FROM t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
-t1	0	PRIMARY	1	c1	A	982	NULL	NULL		BTREE			YES	NULL
 SET session debug= @old_debug;
 set debug = '+d,compress_tree_trx_interrupted1';
 ALTER TABLE t1 ADD INDEX k_c2(c2), add unique index k_c3(c3);
 ERROR 70100: Query execution was interrupted
-SHOW INDEX FROM t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
-t1	0	PRIMARY	1	c1	A	982	NULL	NULL		BTREE			YES	NULL
 SET session debug= @old_debug;
 set debug = '+d,build_btr_worker_init_failed';
 ALTER TABLE t1 ADD INDEX k_c2(c2), add unique index k_c3(c3);
 ERROR HY000: Out of memory; check if mysqld or some other process uses all available memory; if not, you may have to use 'ulimit' to allow mysqld to use more memory or you can add more swap space
-SHOW INDEX FROM t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
-t1	0	PRIMARY	1	c1	A	982	NULL	NULL		BTREE			YES	NULL
 SET session debug= @old_debug;
 set debug = '+d,merge_to_index_root_no_enough_space';
 ALTER TABLE t1 ADD INDEX k_c2(c2), add unique index k_c3(c3);
 ERROR HY000: Got error 11 - 'InnoDB error' from storage engine
-SHOW INDEX FROM t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
-t1	0	PRIMARY	1	c1	A	982	NULL	NULL		BTREE			YES	NULL
 SET session debug= @old_debug;
 set debug = '+d,force_parallel';
 ALTER TABLE t1 ADD INDEX k_c2(c2), add unique index k_c3(c3);
-SHOW INDEX FROM t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
-t1	0	PRIMARY	1	c1	A	982	NULL	NULL		BTREE			YES	NULL
-t1	0	k_c3	1	c3	A	982	NULL	NULL	YES	BTREE			YES	NULL
-t1	1	k_c2	1	c2	A	982	NULL	NULL	YES	BTREE			YES	NULL
 ALTER TABLE t1 DROP INDEX k_c2, DROP INDEX k_c3;
 SET session debug= @old_debug;
 
@@ -212,9 +150,6 @@ SET session debug= @old_debug;
 TEST PARTITION FILES CORRUPTION
 set debug = '+d,parallel_partition_files_corruption';
 ALTER TABLE t1 ADD INDEX k_c2(c2), add unique index k_c3(c3);
-ERROR HY000: Incorrect key file for table 't1'; try to repair it
-SHOW INDEX FROM t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
-t1	0	PRIMARY	1	c1	A	982	NULL	NULL		BTREE			YES	NULL
+ERROR HY000: Index k_c3 is corrupted
 SET session debug= @old_debug;
 DROP TABLE t1;

@@ -823,11 +823,11 @@ f
 8
 SELECT my_row_id, f FROM t1;
 my_row_id	f
-1	3
-2	7
-3	8
-4	1
-5	4
+1	1
+2	3
+3	7
+4	4
+5	8
 # Primary key is generated for the table t2 while loading.
 # Table t2 should list generated primary key information.
 SHOW CREATE TABLE t2;

@@ -1,0 +1,36 @@
+#
+# Prepare 
+#
+call mtr.add_suppression("access __txsql_recycle_bin__ fail, the query string is");
+set global cdb_recycle_bin_enabled=on;
+Warnings:
+Warning	1287	'@@cdb_recycle_bin_enabled' is deprecated and will be removed in a future release. Please use txsql_recycle_bin_enabled instead.
+CREATE TABLE t1(
+a INT 
+);
+#
+# Run
+# 
+show variables like 'lower_case_table_names';
+Variable_name	Value
+lower_case_table_names	1
+show variables like 'cdb_recycle_bin_enabled';
+Variable_name	Value
+cdb_recycle_bin_enabled	ON
+insert into t1 values(1);
+insert into t1 values(2);
+insert into t1 values(3);
+truncate table t1;
+insert into t1 values(3);
+drop table t1;
+#
+# Cleanup
+# 
+set global cdb_recycle_bin_enabled=on;
+Warnings:
+Warning	1287	'@@cdb_recycle_bin_enabled' is deprecated and will be removed in a future release. Please use txsql_recycle_bin_enabled instead.
+call sys.recycle_bin_purge_table("<RECYCLED_TABLE>");
+call sys.recycle_bin_purge_table("<RECYCLED_TABLE>");
+set global cdb_recycle_bin_enabled=0;
+Warnings:
+Warning	1287	'@@cdb_recycle_bin_enabled' is deprecated and will be removed in a future release. Please use txsql_recycle_bin_enabled instead.

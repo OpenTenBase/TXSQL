@@ -91,7 +91,7 @@ bool PX_receiver::Init() {
         goto err;
       }
 
-      if (m_codec->init(nullptr, &m_fields)) {
+      if (m_codec->init(nullptr, &m_fields, m_tables)) {
         goto err;
       }
       break;

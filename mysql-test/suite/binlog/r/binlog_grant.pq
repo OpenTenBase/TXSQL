@@ -7,6 +7,17 @@ GRANT USAGE ON *.* TO `mysqltest_1`@`localhost`
 **** Variable SQL_LOG_BIN ****
 [root]
 set session sql_log_bin = 1;
+set global forbid_remote_change_sql_log_bin=ON;
+set session sql_log_bin = 1;
+set global forbid_remote_change_sql_log_bin=OFF;
+create user superuser_tmp;
+grant all on *.* to 'superuser_tmp'@'%';
+set session sql_log_bin = 1;
+set global forbid_remote_change_sql_log_bin=ON;
+set session sql_log_bin = 1;
+ERROR HY000: Operation only allowed for clients connected via local unix socket when corresponding 'forbid_remote_change_sql_log_bin' variable is ON.
+set global forbid_remote_change_sql_log_bin=OFF;
+drop user superuser_tmp;
 [plain]
 set session sql_log_bin = 1;
 ERROR 42000: Access denied; you need (at least one of) the SUPER, SYSTEM_VARIABLES_ADMIN or SESSION_VARIABLES_ADMIN privilege(s) for this operation

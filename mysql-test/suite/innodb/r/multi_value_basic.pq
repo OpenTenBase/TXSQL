@@ -1081,24 +1081,20 @@ COUNT(*)
 1
 EXPLAIN SELECT COUNT(*) FROM t FORCE INDEX (mv_id) WHERE id = '1';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t	NULL	ref	mv_id	mv_id	4	const	5	100.00	Parallel scan (4 workers)
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+1	SIMPLE	t	NULL	ref	mv_id	mv_id	4	const	5	100.00	NULL
 Warnings:
 Note	1003	/* select#1 */ select count(0) AS `COUNT(*)` from `test`.`t` FORCE INDEX (`mv_id`) where (`test`.`t`.`id` = 1)
 SELECT COUNT(*) FROM t FORCE INDEX (mv_id) WHERE id = '1';
 COUNT(*)
-5
+1
 EXPLAIN SELECT COUNT(*) FROM t FORCE INDEX (mv_doc_id) WHERE doc_id = '2';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t	NULL	ref	mv_doc_id	mv_doc_id	5	const	11	100.00	Parallel scan (4 workers)
-1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
-1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
+1	SIMPLE	t	NULL	ref	mv_doc_id	mv_doc_id	5	const	11	100.00	NULL
 Warnings:
 Note	1003	/* select#1 */ select count(0) AS `COUNT(*)` from `test`.`t` FORCE INDEX (`mv_doc_id`) where (`test`.`t`.`doc_id` = 2)
 SELECT COUNT(*) FROM t FORCE INDEX (mv_doc_id) WHERE doc_id = '2';
 COUNT(*)
-11
+3
 EXPLAIN SELECT COUNT(*) FROM t FORCE INDEX (mv_doc_id) WHERE doc_id = '2' OR doc_id IS NULL;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	ref_or_null	mv_doc_id	mv_doc_id	5	const	14	100.00	Using where

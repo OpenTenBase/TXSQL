@@ -766,7 +766,7 @@ SELECT SUM(variable_value) AS Total_handler_reads
 FROM performance_schema.session_status
 WHERE variable_name LIKE 'Handler_read%';
 Total_handler_reads
-8
+12
 DROP TABLE t1, t2, t3;
 #
 # Bug#29898802	WL#2241: SIG6 IN HASH_JOIN_BUFFER::LOADINTOTABLEBUFFERS()

@@ -165,8 +165,8 @@ NULL
 
 
 a
-HELLO
 hello
+HELLO
 HELLO MY
 select b from t1 order by b;
 b
@@ -272,10 +272,10 @@ hello
 select distinct c from t1;
 c
 
-HELLO
 HELLO MY
 NULL
 a
+hello
 select distinct d from t1;
 d
 
@@ -290,7 +290,7 @@ c
 NULL
 
 a
-HELLO
+hello
 HELLO MY
 select distinct d from t1 order by d;
 d
@@ -346,10 +346,10 @@ hello	1
 select c,count(*) from t1 group by c;
 c	count(*)
 	2
-HELLO	2
 HELLO MY	1
 NULL	2
 a	1
+hello	2
 select d,count(*) from t1 group by d;
 d	count(*)
 	1
@@ -780,16 +780,16 @@ alter table t1 modify a char(5);
 select hex(a) from t1 order by a;
 hex(a)
 NULL
-61
 6100
+61
 61
 6161
 62
 select hex(concat(a,'\0')) as b from t1 order by concat(a,'\0');
 b
 NULL
-6100
 610000
+6100
 6100
 616100
 6200

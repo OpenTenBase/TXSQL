@@ -8,7 +8,6 @@ INSERT INTO t1 VALUES (101, 202, '-r-', '=raker=');
 SELECT * INTO OUTFILE 'MYSQLTEST_VARDIR/tmp/bug31663.txt' FIELDS TERMINATED BY 'raker' FROM t1;
 Warnings:
 Warning	1475	First character of the FIELDS TERMINATED string is ambiguous; please use non-optional and non-empty FIELDS ENCLOSED BY
-Warning	1475	First character of the FIELDS TERMINATED string is ambiguous; please use non-optional and non-empty FIELDS ENCLOSED BY
 SELECT LOAD_FILE('MYSQLTEST_VARDIR/tmp/bug31663.txt');
 LOAD_FILE('MYSQLTEST_VARDIR/tmp/bug31663.txt')
 
@@ -39,7 +38,6 @@ DROP TABLE t2;
 SELECT * INTO OUTFILE 'MYSQLTEST_VARDIR/tmp/bug31663.txt' FIELDS TERMINATED BY '0' FROM t1;
 Warnings:
 Warning	1475	First character of the FIELDS TERMINATED string is ambiguous; please use non-optional and non-empty FIELDS ENCLOSED BY
-Warning	1475	First character of the FIELDS TERMINATED string is ambiguous; please use non-optional and non-empty FIELDS ENCLOSED BY
 SELECT LOAD_FILE('MYSQLTEST_VARDIR/tmp/bug31663.txt');
 LOAD_FILE('MYSQLTEST_VARDIR/tmp/bug31663.txt')
 
@@ -56,7 +54,6 @@ DROP TABLE t2;
 # FIELDS OPTIONALLY ENCLOSED BY '"' TERMINATED BY '0', warning:
 SELECT * INTO OUTFILE 'MYSQLTEST_VARDIR/tmp/bug31663.txt' FIELDS OPTIONALLY ENCLOSED BY '"' TERMINATED BY '0' FROM t1;
 Warnings:
-Warning	1475	First character of the FIELDS TERMINATED string is ambiguous; please use non-optional and non-empty FIELDS ENCLOSED BY
 Warning	1475	First character of the FIELDS TERMINATED string is ambiguous; please use non-optional and non-empty FIELDS ENCLOSED BY
 SELECT LOAD_FILE('MYSQLTEST_VARDIR/tmp/bug31663.txt');
 LOAD_FILE('MYSQLTEST_VARDIR/tmp/bug31663.txt')
@@ -96,7 +93,6 @@ C3
 SELECT * INTO OUTFILE 'MYSQLTEST_VARDIR/tmp/bug32533.txt' FIELDS ENCLOSED BY 0xC3 FROM t1;
 Warnings:
 Warning	1638	Non-ASCII separator arguments are not fully supported
-Warning	1638	Non-ASCII separator arguments are not fully supported
 TRUNCATE t1;
 SELECT HEX(LOAD_FILE('MYSQLTEST_VARDIR/tmp/bug32533.txt'));
 HEX(LOAD_FILE('MYSQLTEST_VARDIR/tmp/bug32533.txt'))
@@ -131,21 +127,15 @@ ERROR 42000: Field separator argument is not what is expected; check the manual
 SELECT * FROM t1 INTO OUTFILE 'MYSQLTEST_VARDIR/tmp/t1.txt' FIELDS ENCLOSED BY '—ä';
 Warnings:
 Warning	1638	Non-ASCII separator arguments are not fully supported
-Warning	1638	Non-ASCII separator arguments are not fully supported
-Warning	1638	Non-ASCII separator arguments are not fully supported
 LOAD DATA INFILE 'MYSQLTEST_VARDIR/tmp/t1.txt' INTO TABLE t2 CHARACTER SET binary FIELDS ENCLOSED BY '—ä';
 ERROR 42000: Field separator argument is not what is expected; check the manual
 SELECT * FROM t1 INTO OUTFILE 'MYSQLTEST_VARDIR/tmp/t1.txt' FIELDS ESCAPED BY '—ä';
 Warnings:
 Warning	1638	Non-ASCII separator arguments are not fully supported
-Warning	1638	Non-ASCII separator arguments are not fully supported
-Warning	1638	Non-ASCII separator arguments are not fully supported
 LOAD DATA INFILE 'MYSQLTEST_VARDIR/tmp/t1.txt' INTO TABLE t2 CHARACTER SET binary FIELDS ESCAPED BY '—ä';
 ERROR 42000: Field separator argument is not what is expected; check the manual
 SELECT * FROM t1 INTO OUTFILE 'MYSQLTEST_VARDIR/tmp/t1.txt' FIELDS TERMINATED BY '—ä';
 Warnings:
-Warning	1638	Non-ASCII separator arguments are not fully supported
-Warning	1638	Non-ASCII separator arguments are not fully supported
 Warning	1638	Non-ASCII separator arguments are not fully supported
 ##################################################
 1—äABC-·‚˜—äDEF-¬√ƒ
@@ -170,11 +160,9 @@ a	b	c
 SELECT * FROM t1 INTO OUTFILE 'MYSQLTEST_VARDIR/tmp/t1.txt' LINES STARTING BY '—ä';
 Warnings:
 Warning	1638	Non-ASCII separator arguments are not fully supported
-Warning	1638	Non-ASCII separator arguments are not fully supported
-Warning	1638	Non-ASCII separator arguments are not fully supported
 ##################################################
-—ä2	\N	\N
 —ä1	ABC-·‚˜	DEF-¬√ƒ
+—ä2	\N	\N
 ##################################################
 TRUNCATE t2;
 LOAD DATA INFILE 'MYSQLTEST_VARDIR/tmp/t1.txt' INTO TABLE t2 CHARACTER SET binary LINES STARTING BY '—ä';
@@ -186,8 +174,6 @@ a	b	c
 2	NULL	NULL
 SELECT * FROM t1 INTO OUTFILE 'MYSQLTEST_VARDIR/tmp/t1.txt' LINES TERMINATED BY '—ä';
 Warnings:
-Warning	1638	Non-ASCII separator arguments are not fully supported
-Warning	1638	Non-ASCII separator arguments are not fully supported
 Warning	1638	Non-ASCII separator arguments are not fully supported
 ##################################################
 1	ABC-·‚˜	DEF-¬√ƒ—ä2	\N	\N—ä##################################################
@@ -252,8 +238,6 @@ a	b	c
 # UTF-8 charset:
 SELECT * INTO OUTFILE 'MYSQLTEST_VARDIR/tmp/t1.txt' CHARACTER SET utf8 FROM t1;
 Warnings:
-Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
-Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 ##################################################
 1	ABC-–ê–ë–í	DEF-√Ç√É√Ñ

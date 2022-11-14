@@ -280,8 +280,8 @@ bool WalkAccessPathsForExplain(THD *thd, AccessPath *path, PX_exchange_context *
     case AccessPath::TABLE_SAMPLE: {
       if (!thd->lex->explain_format->is_tree()) {
         if (join && join->px_encounter_exchange) {
-          // QEP_TAB *tab = get_matched_tab(join, path->table_sample().table);
-          // if (tab) plan_slice->add_tab(tab);
+          QEP_TAB *tab = get_matched_tab(join, path->table_sample().table);
+          if (tab) plan_slice->add_tab(tab);
         }
       }
       break;

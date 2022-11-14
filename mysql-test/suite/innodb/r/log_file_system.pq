@@ -5,7 +5,7 @@ SHOW TABLES;
 Tables_in_test
 t1
 # Recovery and clean shutdown with old data file path
-Pattern "\[ERROR\] \[[^]]*\] \[[^]]*\] unknown option '--innodb-nonexistent-option'" not found
+Pattern "\[ERROR\] \[[^]]*\] \[[^]]*\] unknown option '--innodb-nonexistent-option'" found
 # Start with new data file path
 INSERT INTO t1 VALUES (1);
 # Kill the server
@@ -14,7 +14,7 @@ SHOW TABLES;
 Tables_in_test
 t1
 # Recovery and shutdown with innodb-force-recovery (ignore unknown file)
-Pattern "\[ERROR\] \[[^]]*\] \[[^]]*\] unknown option '--innodb-nonexistent-option'" not found
+Pattern "\[ERROR\] \[[^]]*\] \[[^]]*\] unknown option '--innodb-nonexistent-option'" found
 # Cleanup
 # No log should be generated while persistent tablespaces are idle
 # FIXME: Something occasionally violates this (log_write_requests=1)
@@ -48,5 +48,5 @@ WHERE TABLESPACE_NAME='innodb_system';
 FILE_NAME
 ./ibdata1
 ./ibdata2
-Pattern "\[ERROR\] .* File .*foo: 'open' returned OS error 71. Cannot continue operation" not found
+Pattern "\[ERROR\] .* File .*foo: 'open' returned OS error 71. Cannot continue operation" found
 # restart:

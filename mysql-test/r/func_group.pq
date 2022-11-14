@@ -26,20 +26,20 @@ sum(a)
 NULL
 select a from t1 order by rand(10);
 a
-3
-6
 2
+6
 1
+3
 5
 4
 select distinct a from t1 order by rand(10);
 a
-3
-1
 2
-4
-5
 6
+1
+3
+5
+4
 select count(distinct a),count(distinct grp) from t1;
 count(distinct a)	count(distinct grp)
 6	3
@@ -1175,7 +1175,7 @@ SELECT
 WHERE ttt.a = ccc.b AND ttt.a = t.a GROUP BY ttt.a) AS minid   
 FROM t1 t, t2 c WHERE t.a = c.b;
 minid
-NULL
+1
 DROP TABLE t1,t2;
 create table t1 select variance(0);
 show create table t1;
@@ -1405,7 +1405,7 @@ i	count(*)	std(e1/e2)
 3	4	0
 select round(std(s1/s2), 17) from bug22555;
 round(std(s1/s2), 17)
-0.21325763586649335
+0.2132576358664934
 select std(o1/o2) from bug22555;
 std(o1/o2)
 0.2132576358664934
@@ -1592,7 +1592,7 @@ a
 1
 SELECT COUNT(*), a FROM t1;
 COUNT(*)	a
-4	2
+4	1
 DROP TABLE t1;
 set SQL_MODE=ONLY_FULL_GROUP_BY;
 CREATE TABLE t1 (a INT);

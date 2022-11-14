@@ -285,7 +285,7 @@ Note	1003	/* select#1 */ select sum(`test`.`t1`.`b`) AS `s` from `test`.`t1` gro
 select sum(b) s from t1 group by a;
 s
 -0.00
-0.00
+-0.00
 0.00
 0.00
 0.00
@@ -324,7 +324,7 @@ Note	1003	/* select#1 */ select sum(`test`.`t1`.`b`) AS `s` from `test`.`t1` gro
 select sum(b) s from t1 group by a;
 s
 -0.00
--0.00
+0.00
 0.00
 0.00
 0.00
@@ -338,14 +338,14 @@ s
 select sum(b) s from t1 group by a having s <=> 0;
 s
 -0.00
--0.00
+0.00
 0.00
 0.00
 0.00
 select sum(b) s from t1 group by a having s <=> 0 order by s;
 s
 -0.00
--0.00
+0.00
 0.00
 0.00
 0.00

@@ -153,10 +153,10 @@ f0	f1	f2
 12492	0	0
 SHOW SESSION STATUS LIKE 'Sort%';
 Variable_name	Value
-Sort_merge_passes	0
+Sort_merge_passes	102
 Sort_range	0
-Sort_rows	0
-Sort_scan	0
+Sort_rows	101
+Sort_scan	1
 FLUSH STATUS;
 CREATE TABLE t2 (f1 int);
 INSERT INTO t2 VALUES (0), (0);

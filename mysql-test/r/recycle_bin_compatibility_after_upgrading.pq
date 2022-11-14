@@ -1,0 +1,218 @@
+#
+# Test recycle bin compatibility after upgrading from 8022
+#
+#
+# Test 1: Test create database permissions
+#
+create database __txsql_recycle_bin__;
+ERROR HY000: Access to system schema '__txsql_recycle_bin__' is rejected.
+create database __cdb_recycle_bin__;
+ERROR HY000: Access to system schema '__cdb_recycle_bin__' is rejected.
+create database __cdb_recycle_bin__;
+drop database __cdb_recycle_bin__;
+#
+# Test 2: The 8022 does not contain __cdb_recycle_bin__
+#
+# Stop the running server.
+# Unzip a 8.0.22 datadir
+# Restart the server
+# SHOW DATABASES
+SHOW DATABASES;
+Database
+__txsql_recycle_bin__
+information_schema
+mtr
+mysql
+performance_schema
+sys
+test
+# Test recycle_bin
+create table t1(a int);
+set global cdb_recycle_bin_enabled= on;
+Warnings:
+Warning	1287	'@@cdb_recycle_bin_enabled' is deprecated and will be removed in a future release. Please use txsql_recycle_bin_enabled instead.
+drop table t1;
+select * from mysql.recycle_bin_info;
+table_name	origin_schema	origin_table	drop_time	purge_time
+<RECYCLED_TABLE>	test	t1	<DROP_TIME>	<PURGE_TIME>
+show tables from __txsql_recycle_bin__;
+Tables_in___txsql_recycle_bin__
+<RECYCLED_TABLE>
+call sys.recycle_bin_recycle_table("<RECYCLED_TABLE>");
+select * from mysql.recycle_bin_info;
+table_name	origin_schema	origin_table	drop_time	purge_time
+show tables from __txsql_recycle_bin__;
+Tables_in___txsql_recycle_bin__
+drop table t1;
+select * from mysql.recycle_bin_info;
+table_name	origin_schema	origin_table	drop_time	purge_time
+<RECYCLED_TABLE>	test	t1	<DROP_TIME>	<PURGE_TIME>
+show tables from __txsql_recycle_bin__;
+Tables_in___txsql_recycle_bin__
+<RECYCLED_TABLE>
+call sys.recycle_bin_purge_table("<RECYCLED_TABLE>");
+select * from mysql.recycle_bin_info;
+table_name	origin_schema	origin_table	drop_time	purge_time
+show tables from __txsql_recycle_bin__;
+Tables_in___txsql_recycle_bin__
+# clean
+#
+# Test 3: The 8022 contains __cdb_recycle_bin__
+#
+# Unzip a 8.0.22 datadir
+# Restart the server
+# SHOW DATABASES
+SHOW DATABASES;
+Database
+__cdb_recycle_bin__
+information_schema
+mtr
+mysql
+performance_schema
+sys
+test
+# Test recycle_bin
+create table t1(a int);
+set global cdb_recycle_bin_enabled= on;
+Warnings:
+Warning	1287	'@@cdb_recycle_bin_enabled' is deprecated and will be removed in a future release. Please use txsql_recycle_bin_enabled instead.
+drop table t1;
+select * from mysql.recycle_bin_info;
+table_name	origin_schema	origin_table	drop_time	purge_time
+<RECYCLED_TABLE>	test	t1	<DROP_TIME>	<PURGE_TIME>
+show tables from __cdb_recycle_bin__;
+Tables_in___cdb_recycle_bin__
+<RECYCLED_TABLE>
+call sys.recycle_bin_recycle_table("<RECYCLED_TABLE>");
+select * from mysql.recycle_bin_info;
+table_name	origin_schema	origin_table	drop_time	purge_time
+show tables from __cdb_recycle_bin__;
+Tables_in___cdb_recycle_bin__
+drop table t1;
+select * from mysql.recycle_bin_info;
+table_name	origin_schema	origin_table	drop_time	purge_time
+<RECYCLED_TABLE>	test	t1	<DROP_TIME>	<PURGE_TIME>
+show tables from __cdb_recycle_bin__;
+Tables_in___cdb_recycle_bin__
+<RECYCLED_TABLE>
+call sys.recycle_bin_purge_table("<RECYCLED_TABLE>");
+select * from mysql.recycle_bin_info;
+table_name	origin_schema	origin_table	drop_time	purge_time
+show tables from __cdb_recycle_bin__;
+Tables_in___cdb_recycle_bin__
+# clean
+#
+# Test 4: SET recycle-bin-startup-mode = CDB
+#
+# Unzip a 8.0.22 datadir
+# Restart the server
+# SHOW DATABASES
+SHOW DATABASES;
+Database
+__cdb_recycle_bin__
+__txsql_recycle_bin__
+information_schema
+mtr
+mysql
+performance_schema
+sys
+test
+# Test recycle_bin
+create table t1(a int);
+set global cdb_recycle_bin_enabled= on;
+Warnings:
+Warning	1287	'@@cdb_recycle_bin_enabled' is deprecated and will be removed in a future release. Please use txsql_recycle_bin_enabled instead.
+drop table t1;
+select * from mysql.recycle_bin_info;
+table_name	origin_schema	origin_table	drop_time	purge_time
+<RECYCLED_TABLE>	test	t1	<DROP_TIME>	<PURGE_TIME>
+show tables from __cdb_recycle_bin__;
+Tables_in___cdb_recycle_bin__
+<RECYCLED_TABLE>
+call sys.recycle_bin_recycle_table("<RECYCLED_TABLE>");
+select * from mysql.recycle_bin_info;
+table_name	origin_schema	origin_table	drop_time	purge_time
+show tables from __cdb_recycle_bin__;
+Tables_in___cdb_recycle_bin__
+drop table t1;
+select * from mysql.recycle_bin_info;
+table_name	origin_schema	origin_table	drop_time	purge_time
+<RECYCLED_TABLE>	test	t1	<DROP_TIME>	<PURGE_TIME>
+show tables from __cdb_recycle_bin__;
+Tables_in___cdb_recycle_bin__
+<RECYCLED_TABLE>
+call sys.recycle_bin_purge_table("<RECYCLED_TABLE>");
+select * from mysql.recycle_bin_info;
+table_name	origin_schema	origin_table	drop_time	purge_time
+show tables from __cdb_recycle_bin__;
+Tables_in___cdb_recycle_bin__
+#
+# Test 5: SET recycle-bin-startup-mode = TXSQL
+#
+# shutdwon first
+# Restart the server
+# SHOW DATABASES
+SHOW DATABASES;
+Database
+__cdb_recycle_bin__
+__txsql_recycle_bin__
+information_schema
+mtr
+mysql
+performance_schema
+sys
+test
+create table t1(a int);
+set global cdb_recycle_bin_enabled= on;
+Warnings:
+Warning	1287	'@@cdb_recycle_bin_enabled' is deprecated and will be removed in a future release. Please use txsql_recycle_bin_enabled instead.
+drop table t1;
+select * from mysql.recycle_bin_info;
+table_name	origin_schema	origin_table	drop_time	purge_time
+<RECYCLED_TABLE>	test	t1	<DROP_TIME>	<PURGE_TIME>
+show tables from __txsql_recycle_bin__;
+Tables_in___txsql_recycle_bin__
+<RECYCLED_TABLE>
+call sys.recycle_bin_recycle_table("<RECYCLED_TABLE>");
+select * from mysql.recycle_bin_info;
+table_name	origin_schema	origin_table	drop_time	purge_time
+show tables from __txsql_recycle_bin__;
+Tables_in___txsql_recycle_bin__
+drop table t1;
+select * from mysql.recycle_bin_info;
+table_name	origin_schema	origin_table	drop_time	purge_time
+<RECYCLED_TABLE>	test	t1	<DROP_TIME>	<PURGE_TIME>
+show tables from __txsql_recycle_bin__;
+Tables_in___txsql_recycle_bin__
+<RECYCLED_TABLE>
+call sys.recycle_bin_purge_table("<RECYCLED_TABLE>");
+select * from mysql.recycle_bin_info;
+table_name	origin_schema	origin_table	drop_time	purge_time
+show tables from __txsql_recycle_bin__;
+Tables_in___txsql_recycle_bin__
+#
+# Test 6: SET __cdb_recycle_bin__ and __txsql_recycle_bin__ coexist
+#
+# shutdwon first
+# start the server without recycle-bin-startup-mode
+# search error log
+#
+# Test 7: SET recycle-bin-startup-mode = CDB and __txsql_recycle_bin__ already exist
+#
+drop database __cdb_recycle_bin__;
+# shutdwon first
+# Restart the server
+# search error log
+#
+# Test 8: SET recycle-bin-startup-mode = TXSQL and __cdb_recycle_bin__ already exist
+#
+drop database __txsql_recycle_bin__;
+create database __cdb_recycle_bin__;
+# shutdwon first
+# Restart the server
+#
+# Remove files and stop the server.
+#
+#
+# Restart with default options.
+#

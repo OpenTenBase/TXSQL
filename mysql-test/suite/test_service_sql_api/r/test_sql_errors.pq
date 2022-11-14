@@ -194,8 +194,8 @@ c1  c2  c3  c4  c5
 DATE(10) TIME(11) TIMESTAMP(7) DATETIME(12) YEAR(13) 
 (BINARY ) (BINARY ) (BINARY ) (BINARY ) (UNSIGNED ZEROFILL ) 
 Write a string
-2015-07-07  20:17:00  2013-12-31 17:59:47  2012-10-31 15:57:47  2010  
 2015-07-06  20:15:00  2015-12-31 14:59:48  2014-11-30 13:58:47  2015  
+2015-07-07  20:17:00  2013-12-31 17:59:47  2012-10-31 15:57:47  2010  
 
 affected rows : 0
 server status : 34
@@ -222,8 +222,8 @@ c1  c2  c3  c4  c5  c6  c7  c8  c9
 TINY(1) SHORT(2) INT24(9) LONG(3) LONG(3) SHORT(2) INT24(9) LONG(3) LONG(3) 
 () () () () () (UNSIGNED ) (UNSIGNED ) (UNSIGNED ) () 
 Write a string
-91  92  93  94  95  96  97  98  99  
 81  82  83  84  85  86  87  88  89  
+91  92  93  94  95  96  97  98  99  
 
 affected rows : 0
 server status : 34
@@ -240,8 +240,8 @@ c1  c2
 LONGLONG(8) LONGLONG(8) 
 () (UNSIGNED ) 
 Write a string
-91  92  
 81  82  
+91  92  
 
 affected rows : 0
 server status : 34

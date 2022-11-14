@@ -1,4 +1,6 @@
 INSTALL PLUGIN rpl_semi_sync_master SONAME 'semisync_master.so';
+Warnings:
+Note	1287	'rpl_semi_sync_master' is deprecated and will be removed in a future release. Please use rpl_semi_sync_source instead
 select @@global.rpl_semi_sync_master_wait_forever;
 @@global.rpl_semi_sync_master_wait_forever
 0

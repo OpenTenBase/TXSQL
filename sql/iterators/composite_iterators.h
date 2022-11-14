@@ -217,8 +217,11 @@ class LimitOffsetIterator final : public RowIterator {
 class AggregateIterator final : public RowIterator {
  public:
   AggregateIterator(THD *thd, unique_ptr_destroy_only<RowIterator> source,
-                    JOIN *join, pack_rows::TableCollection tables, bool rollup,
-                    AggType agg_type);
+                    JOIN *join, pack_rows::TableCollection tables, bool rollup
+#if defined(HAVE_PX)
+                    , AggType agg_type
+#endif /* defined(HAVE_PX) */
+                    );
 
   bool Init() override;
   int Read() override;
@@ -271,8 +274,10 @@ class AggregateIterator final : public RowIterator {
   /// Whether this is a rollup query.
   const bool m_rollup;
 
+#if defined(HAVE_PX)
   /// Whether this is a final aggregate
   AggType m_agg_type;
+#endif /* defined(HAVE_PX) */
 
   /**
     For rollup: The index of the first group item that did _not_ change when we
@@ -562,7 +567,11 @@ RowIterator *CreateIterator(
     THD *thd, unique_ptr_destroy_only<RowIterator> subquery_iterator,
     Temp_table_param *temp_table_param, TABLE *table,
     unique_ptr_destroy_only<RowIterator> table_iterator, JOIN *join,
-    int ref_slice, AggType agg_type);
+    int ref_slice
+#if defined(HAVE_PX)
+    , AggType agg_type
+#endif /* defined(HAVE_PX) */
+    );
 
 }  // namespace temptable_aggregate_iterator
 

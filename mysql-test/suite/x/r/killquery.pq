@@ -44,7 +44,7 @@ RUN KILL QUERY $ID
 0 rows affected
 switched to session third
 sleep(20)	b
-1	1
+1	2
 Got expected error: Query execution was interrupted (code 1317)
 RUN SELECT '"third" session must work' AS state
 state

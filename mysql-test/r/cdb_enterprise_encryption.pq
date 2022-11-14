@@ -195,6 +195,11 @@ Successfully removed!
 SELECT REMOVE_KEY_RECORDS('Dsa', 1);
 REMOVE_KEY_RECORDS('Dsa', 1)
 Successfully removed!
+SHOW STATUS LIKE "%CDB_ENTERPRISE_ENCRYPTION_COUNTS%";
+Variable_name	Value
+SHOW STATUS LIKE "%CDB_ENTERPRISE_ENCRYPTION_COUNTS%";
+Variable_name	Value
+cdb_enterprise_encryption_counts	32
 DROP FUNCTION IF EXISTS modify_public_params;
 DROP FUNCTION IF EXISTS create_asymmetric_priv_key;
 DROP FUNCTION IF EXISTS create_asymmetric_pub_key;

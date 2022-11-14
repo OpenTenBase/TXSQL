@@ -325,8 +325,8 @@ group by col_t1
 having (select col_t1 from t2 where col_t1 = col_t2 order by col_t2 limit 1);
 sum(col1)
 40
-30
 20
+30
 select t1.col1 from t1
 where t1.col2 in 
 (select t2.col2 from t2 

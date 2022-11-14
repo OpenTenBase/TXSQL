@@ -276,14 +276,13 @@ struct AccessPath {
     REMOVE_DUPLICATES,
     REMOVE_DUPLICATES_ON_INDEX,
     ALTERNATIVE,
-    CACHE_INVALIDATOR
-#if defined(HAVE_PX)
-    ,
+    CACHE_INVALIDATOR,
 
     // Access paths that modify tables.
     DELETE_ROWS,
-    UPDATE_ROWS,
-
+    UPDATE_ROWS
+#if defined(HAVE_PX)
+    ,
     // Exchange
     PX_RECEIVE,
     PX_SEND,
@@ -1285,7 +1284,6 @@ struct AccessPath {
       AccessPath *child;
       const char *name;
     } cache_invalidator;
-#if defined(HAVE_PX)
     struct {
       AccessPath *child;
       table_map tables_to_delete_from;
@@ -1296,6 +1294,7 @@ struct AccessPath {
       table_map tables_to_update;
       table_map immediate_tables;
     } update_rows;
+#if defined(HAVE_PX)
     struct {
       AccessPath *child;
       JOIN *join;

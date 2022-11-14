@@ -2177,7 +2177,8 @@ VARIABLE_NAME	VARIABLE_VALUE
 Handler_commit	1
 Handler_external_lock	4
 Handler_read_first	1
-Handler_read_key	1
+Handler_read_key	2
+Handler_read_rnd_next	2
 # 1 read_first (NOTE only reads from one partition!)
 # 2 read_key
 FLUSH STATUS;

@@ -129,11 +129,11 @@ EXECUTING:[16][SELECT * FROM v1]
 		[data][v1.c1][  1][1]
 		[data][v1.c2][  3][aaa]
 
-		[data][v1.c1][  1][3]
-		[data][v1.c2][  3][ccc]
-
 		[data][v1.c1][  1][2]
 		[data][v1.c2][  3][bbb]
+
+		[data][v1.c1][  1][3]
+		[data][v1.c2][  3][ccc]
 
 		[end] server status: 34
 		[end] server status: AUTOCOMMIT QUERY_NO_INDEX_USED 
@@ -392,14 +392,14 @@ EXECUTING:[16][SELECT * FROM v1]
 		[meta][charset result] collation: utf8mb3_general_ci
 		[meta][charset result] sort order: 
 
-		[data][v1.c1][  1][1]
-		[data][v1.c2][  3][aaa]
-
 		[data][v1.c1][  1][2]
 		[data][v1.c2][  3][bbb]
 
 		[data][v1.c1][  1][3]
 		[data][v1.c2][  3][ccc]
+
+		[data][v1.c1][  1][1]
+		[data][v1.c2][  3][aaa]
 
 		[end] server status: 34
 		[end] server status: AUTOCOMMIT QUERY_NO_INDEX_USED 
@@ -916,14 +916,14 @@ EXECUTING:[16][SELECT * FROM v1]
 		[meta][charset result] collation: utf8mb3_general_ci
 		[meta][charset result] sort order: 
 
-		[data][v1.c1][  1][3]
-		[data][v1.c2][  3][ccc]
-
 		[data][v1.c1][  1][1]
 		[data][v1.c2][  5][abcde]
 
 		[data][v1.c1][  1][2]
 		[data][v1.c2][  3][bbb]
+
+		[data][v1.c1][  1][3]
+		[data][v1.c2][  3][ccc]
 
 		[end] server status: 34
 		[end] server status: AUTOCOMMIT QUERY_NO_INDEX_USED 
@@ -1082,14 +1082,14 @@ EXECUTING:[16][SELECT * FROM v1]
 		[meta][charset result] collation: utf8mb3_general_ci
 		[meta][charset result] sort order: 
 
-		[data][v1.c1][  1][2]
-		[data][v1.c2][  3][bbb]
-
 		[data][v1.c1][  1][1]
 		[data][v1.c2][  5][abcde]
 
 		[data][v1.c1][  1][3]
 		[data][v1.c2][  3][ccc]
+
+		[data][v1.c1][  1][2]
+		[data][v1.c2][  3][bbb]
 
 		[end] server status: 34
 		[end] server status: AUTOCOMMIT QUERY_NO_INDEX_USED 

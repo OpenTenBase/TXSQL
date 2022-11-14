@@ -109,10 +109,6 @@ N
 A
 Warnings:
 Warning	1681	'SQL_NO_CACHE' is deprecated and will be removed in a future release.
-Warning	1681	'SQL_NO_CACHE' is deprecated and will be removed in a future release.
-Warning	1681	'SQL_NO_CACHE' is deprecated and will be removed in a future release.
-Warning	1681	'SQL_NO_CACHE' is deprecated and will be removed in a future release.
-Warning	1681	'SQL_NO_CACHE' is deprecated and will be removed in a future release.
 set session debug = '-d,filesort_force_sort_row_ids';
 #
 # Test end

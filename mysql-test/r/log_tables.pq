@@ -707,16 +707,10 @@ SELECT SQL_NO_CACHE 'Bug#31700 - SCAN',f1,f2,f3,SLEEP(1.1) FROM t1 WHERE f3=4;
 Bug#31700 - SCAN	f1	f2	f3	SLEEP(1.1)
 Bug#31700 - SCAN	4	4	4	0
 Warning	1681	'SQL_NO_CACHE' is deprecated and will be removed in a future release.
-Warning	1681	'SQL_NO_CACHE' is deprecated and will be removed in a future release.
-Warning	1681	'SQL_NO_CACHE' is deprecated and will be removed in a future release.
-Warning	1681	'SQL_NO_CACHE' is deprecated and will be removed in a future release.
-Warning	1681	'SQL_NO_CACHE' is deprecated and will be removed in a future release.
 Warnings:
 SELECT SQL_NO_CACHE 'Bug#31700 - KEY', f1,f2,f3,SLEEP(1.1) FROM t1 WHERE f2=3;
 Bug#31700 - KEY	f1	f2	f3	SLEEP(1.1)
 Bug#31700 - KEY	3	3	3	0
-Warning	1681	'SQL_NO_CACHE' is deprecated and will be removed in a future release.
-Warning	1681	'SQL_NO_CACHE' is deprecated and will be removed in a future release.
 Warning	1681	'SQL_NO_CACHE' is deprecated and will be removed in a future release.
 Warnings:
 SELECT SQL_NO_CACHE 'Bug#31700 - PK',  f1,f2,f3,SLEEP(1.1) FROM t1 WHERE f1=2;

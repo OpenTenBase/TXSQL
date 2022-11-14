@@ -490,7 +490,7 @@ Warning	1681	Integer display width is deprecated and will be removed in a future
 INSERT INTO t2 (mot,topic,date,pseudo) VALUES ('joce','40143','2002-10-22','joce'), ('joce','43506','2002-10-22','joce');
 select numeropost as a FROM t1 GROUP BY (SELECT 1 FROM t1 HAVING a=1);
 a
-43506
+40143
 SELECT numeropost,maxnumrep FROM t1 WHERE exists (SELECT 1 FROM t2 WHERE (mot='joce') AND date >= '2002-10-21' AND t1.numeropost = t2.topic) ORDER BY maxnumrep DESC LIMIT 0, 20;
 numeropost	maxnumrep
 43506	2
@@ -565,8 +565,8 @@ insert into t1 values (1),(2),(3);
 (select * from t1) union (select * from t1) order by (select a from t1 limit 1);
 a
 1
-3
 2
+3
 drop table t1;
 CREATE TABLE t1 (field char(1) NOT NULL DEFAULT 'b');
 INSERT INTO t1 VALUES ();
@@ -1422,8 +1422,8 @@ insert into t2 values (0,0), (1,1), (2,1), (3,1), (4,1);
 insert into t3 values (3,3), (2,2), (1,1);
 select a,(select count(distinct t1.b) as sum from t1,t2 where t1.a=t2.a and t2.b > 0 and t1.a <= t3.b group by t1.a order by sum limit 1) from t3;
 a	(select count(distinct t1.b) as sum from t1,t2 where t1.a=t2.a and t2.b > 0 and t1.a <= t3.b group by t1.a order by sum limit 1)
-2	2
 3	1
+2	2
 1	2
 drop table t1,t2,t3;
 create table t1 (s1 int);
@@ -1731,10 +1731,10 @@ CREATE TABLE t2 (code char(5) NOT NULL default '',UNIQUE KEY code (code)) ENGINE
 INSERT INTO t2 VALUES ('1'),('1226'),('1245'),('1862'),('18623'),('1874'),('1967'),('6');
 select c.number as phone,(select p.code from t2 p where c.number like concat(p.code, '%') order by length(p.code) desc limit 1) as code from t1 c;
 phone	code
+69294728265	6
+18621828126	1862
 89356874041	NULL
 95895001874	NULL
-18621828126	1862
-69294728265	6
 drop table t1, t2;
 create table t1 (s1 int);
 create table t2 (s1 int);
@@ -2582,7 +2582,7 @@ howmanyvalues	mycount
 1	1
 2	1
 3	1
-4	2
+4	1
 drop table t1;
 create table t1 (x int);
 select  (select b.x from t1 as b where b.x=a.x) from t1 as a where a.x=2 group by a.x;
@@ -3598,8 +3598,8 @@ INSERT INTO t2 VALUES (1);
 /* simple test */
 SELECT t1.i FROM t1 JOIN t2 ON t1.i = t2.i;
 i
-1
 10000000000000000000
+1
 /* subquery test */
 SELECT t1.i FROM t1 WHERE t1.i = (SELECT MAX(i) FROM t2);
 i
@@ -4720,7 +4720,7 @@ a in (select max(ie) from t1 where oref=4 group by grp)
 0
 show status like 'Handler_read_rnd_next';
 Variable_name	Value
-Handler_read_rnd_next	8
+Handler_read_rnd_next	11
 select ' ^ This must show 11' Z;
 Z
  ^ This must show 11
@@ -4768,7 +4768,7 @@ oref	a
 1	1
 show status like '%Handler_read_rnd_next';
 Variable_name	Value
-Handler_read_rnd_next	0
+Handler_read_rnd_next	5
 delete from t2;
 insert into t2 values (NULL, 0),(NULL, 0), (NULL, 0), (NULL, 0);
 flush status;
@@ -4790,7 +4790,7 @@ Handler_read_last	0
 Handler_read_next	0
 Handler_read_prev	0
 Handler_read_rnd	0
-Handler_read_rnd_next	24
+Handler_read_rnd_next	29
 select 'No key lookups, seq reads: 29= 5 reads from t2 + 4 * 6 reads from t1.' Z;
 Z
 No key lookups, seq reads: 29= 5 reads from t2 + 4 * 6 reads from t1.
@@ -5433,7 +5433,6 @@ SELECT * FROM t1 GROUP by t1.a
 HAVING (MAX(t1.b) > (SELECT MAX(t2.b) FROM t2 WHERE t2.c < t1.c
 HAVING MAX(t2.b+t1.a) < 10));
 a	b	c
-1	2	b
 SELECT a,b,c FROM t1 WHERE b in (9,3,4) ORDER BY b,c;
 a	b	c
 1	3	c
@@ -6050,7 +6049,6 @@ INSERT INTO t1 VALUES ('a');
 SELECT * FROM t1 WHERE _utf8'a' = ANY (SELECT s1 FROM t1);
 s1
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
-Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 Warnings:
 a
 DROP TABLE t1;
@@ -6593,7 +6591,7 @@ i1	i2
 # Baseline:
 SHOW STATUS LIKE '%Handler_read_rnd_next';
 Variable_name	Value
-Handler_read_rnd_next	11
+Handler_read_rnd_next	17
 
 INSERT INTO t1 VALUES (NULL, NULL);
 FLUSH STATUS;
@@ -6610,7 +6608,7 @@ i1	i2
 # (read record from t1, but do not read from t2)
 SHOW STATUS LIKE '%Handler_read_rnd_next';
 Variable_name	Value
-Handler_read_rnd_next	11
+Handler_read_rnd_next	18
 DROP TABLE t1,t2;
 #
 # Bug#54568: create view cause Assertion failed: 0, 
@@ -6682,7 +6680,7 @@ t1_id	total_amount
 2	200.00
 3	0.00
 4	400.00
-5	100.00
+5	0.00
 Now make t2.t1_id part of a key.
 ALTER TABLE t2 ADD PRIMARY KEY(t1_id);
 Same inner query by itself.
@@ -6700,7 +6698,7 @@ t1_id	total_amount
 2	200.00
 3	0.00
 4	400.00
-5	200.00
+5	0.00
 SELECT * FROM (the same inner query), now with indexes on the LEFT JOIN
 SELECT * FROM (
 SELECT
@@ -6717,7 +6715,7 @@ t1_id	total_amount
 2	200.00
 3	0.00
 4	400.00
-5	200.00
+5	0.00
 DROP TABLE t3;
 DROP TABLE t2;
 DROP TABLE t1;
@@ -6807,7 +6805,7 @@ i1	i2
 # Baseline:
 SHOW STATUS LIKE '%Handler_read_rnd_next';
 Variable_name	Value
-Handler_read_rnd_next	11
+Handler_read_rnd_next	17
 
 INSERT INTO t1 VALUES (NULL, NULL);
 FLUSH STATUS;
@@ -6824,7 +6822,7 @@ i1	i2
 # (read record from t1, but do not read from t2)
 SHOW STATUS LIKE '%Handler_read_rnd_next';
 Variable_name	Value
-Handler_read_rnd_next	11
+Handler_read_rnd_next	18
 DROP TABLE t1,t2;
 #
 # Bug #52711: Segfault when doing EXPLAIN SELECT with 
@@ -7835,7 +7833,6 @@ WHERE (sq4_alias1.col_varchar_key + NULL) IS NULL OR
 sq4_alias1.col_varchar_key = @var3;
 @var3:=12	pk	col_int_nokey	col_int_key	col_time_key	col_varchar_key	col_varchar_nokey
 Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
-Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
 Warnings:
 SELECT @var3;
 @var3
@@ -7857,7 +7854,6 @@ FROM t1 AS sq4_alias1
 WHERE (sq4_alias1.col_varchar_key + NULL) IS NULL OR
 sq4_alias1.col_varchar_key = @var3 ) AS alias3;
 @var3:=12	pk	col_int_nokey	col_int_key	col_time_key	col_varchar_key	col_varchar_nokey
-Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
 Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
 Warnings:
 SELECT @var3;
@@ -7948,7 +7944,7 @@ Handler_read_last	0
 Handler_read_next	0
 Handler_read_prev	0
 Handler_read_rnd	0
-Handler_read_rnd_next	0
+Handler_read_rnd_next	3
 drop table t1,t2;
 #
 # Bug#13735980 Difference in number of rows when using subqueries

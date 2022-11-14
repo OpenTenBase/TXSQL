@@ -536,8 +536,6 @@ SELECT 1 FROM t1 WHERE ROW(a, b) >=
 ROW('1', (SELECT 1 FROM t1 WHERE a > '1234abc'));
 1
 Warning	1292	Incorrect time value: '1234abc' for column 'a' at row 1
-Warning	1292	Incorrect time value: '1234abc' for column 'a' at row 1
-Warning	1292	Incorrect time value: '1234abc' for column 'a' at row 1
 Warnings:
 DROP TABLE t1;
 #

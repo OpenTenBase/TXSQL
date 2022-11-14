@@ -384,7 +384,7 @@ select if(@bug28261 = f1, '', @bug28261:= f1) from t1;
 if(@bug28261 = f1, '', @bug28261:= f1)
 
 2001-01-01
-2001-01-01
+2002-02-02
 2002-02-02
 Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
 Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
@@ -395,7 +395,7 @@ Warning	1292	Incorrect datetime value: ''
 Warnings:
 select if(@bug28261 = f1, '', @bug28261:= f1) from t1;
 if(@bug28261 = f1, '', @bug28261:= f1)
-
+2001-01-01
 2001-01-01
 2002-02-02
 2002-02-02
@@ -407,9 +407,9 @@ Warning	1287	Setting user variables within expressions is deprecated and will be
 Warnings:
 select if(@bug28261 = f1, '', @bug28261:= f1) from t1;
 if(@bug28261 = f1, '', @bug28261:= f1)
-
 2001-01-01
 2001-01-01
+2002-02-02
 2002-02-02
 Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
 Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
@@ -428,13 +428,9 @@ f1
 2001-01-01 00:00:00
 2002-02-02 00:00:00
 Warning	1292	Incorrect datetime value: '2002010' for column 'f1' at row 1
-Warning	1292	Incorrect datetime value: '2002010' for column 'f1' at row 1
-Warning	1292	Incorrect datetime value: '2002010' for column 'f1' at row 1
 Warnings:
 select * from t1 where f1 between 20020101 and 2007010100000;
 f1
-Warning	1292	Incorrect datetime value: '2007010100000' for column 'f1' at row 1
-Warning	1292	Incorrect datetime value: '2007010100000' for column 'f1' at row 1
 Warning	1292	Incorrect datetime value: '2007010100000' for column 'f1' at row 1
 Warnings:
 drop table t1;

@@ -196,7 +196,6 @@ WHERE sq2_alias1.col_varchar_nokey <= alias1.col_varchar_key
         } /* empty_result */
       } /* join_optimization */
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -506,7 +505,6 @@ FROM t1
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -1967,6 +1965,7 @@ ON table2 .col_int_key = table1 .col_int_key
                             "rowid_ordered": false,
                             "using_mrr": false,
                             "index_only": true,
+                            "in_memory": -1,
                             "rows": 4,
                             "cost": 0.677442,
                             "chosen": false,
@@ -2045,7 +2044,6 @@ ON table2 .col_int_key = table1 .col_int_key
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -2300,12 +2298,13 @@ SELECT 1 FROM t1 WHERE 1 LIKE
                                             {
                                               "index": "a",
                                               "ranges": [
-                                                "1 <= a <= 1"
+                                                "a = 1"
                                               ] /* ranges */,
                                               "index_dives_for_eq_ranges": true,
                                               "rowid_ordered": true,
                                               "using_mrr": true,
                                               "index_only": false,
+                                              "in_memory": 1,
                                               "rows": 1,
                                               "cost": 0.6,
                                               "chosen": false,
@@ -2314,12 +2313,13 @@ SELECT 1 FROM t1 WHERE 1 LIKE
                                             {
                                               "index": "a_2",
                                               "ranges": [
-                                                "1 <= a <= 1"
+                                                "a = 1"
                                               ] /* ranges */,
                                               "index_dives_for_eq_ranges": true,
                                               "rowid_ordered": false,
                                               "using_mrr": false,
                                               "index_only": true,
+                                              "in_memory": 1,
                                               "rows": 1,
                                               "cost": 0.36,
                                               "chosen": false,
@@ -2425,7 +2425,6 @@ SELECT 1 FROM t1 WHERE 1 LIKE
         } /* empty_result */
       } /* join_optimization */
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -2796,7 +2795,6 @@ EXPLAIN SELECT c1, c2 FROM t1 ORDER BY c1 DESC LIMIT 1	{
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_explain": {
         "select#": 1,

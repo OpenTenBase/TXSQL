@@ -45,6 +45,14 @@ The following options may be given as the first argument:
  --admin-ssl-crlpath=name 
  --admin-ssl-key=name 
  --admin-tls-ciphersuites=name 
+ --admin-username-prefix=name 
+ User name prefixed with this string is treated as admin
+ user
+ --allow-access-dd-tables 
+ allow current user to access the dd tables
+ --allow-rollback-last-query 
+ Allow to rollback last query of the transaction by
+ ROLLBACK LAST QUERY
  --allow-suspicious-udfs 
  Allows use of UDFs consisting of only one symbol xxx()
  without corresponding xxx_init() or xxx_deinit(). That
@@ -67,6 +75,21 @@ The following options may be given as the first argument:
  --auto-increment-offset[=#] 
  Offset added to Auto-increment columns. Used when
  auto-increment-increment != 1
+ --auto-perf-node-request 
+ start a new RO node as statistic node.
+ --auto-stats-interval-begin[=name] 
+ start time of auto statistic. This var need to be set
+ together with auto_stats_interval_duration, otherwise
+ this will not take effect.
+ --auto-stats-interval-duration[=#] 
+ Set the duration of auto statistic in hours. This var
+ need to be set together with auto_stats_interval_begin,
+ otherwise this will not take effect.
+ --auto-stats-node-selection[=name] 
+ cdb node_role value to assign when mysqld startup. SLAVE
+ means backup node, STANDBY means read-only node.
+ --auto-stats-thread-monitor-interval[=#] 
+ Interval to monitor from master to slave.
  --autocommit        Set default value for autocommit (0 or 1)
  (Defaults to on; use --skip-autocommit to disable.)
  --automatic-sp-privileges 
@@ -242,6 +265,10 @@ The following options may be given as the first argument:
  decide which transactions can be executed in parallel
  when using replica_parallel_type=LOGICAL_CLOCK. Possible
  values are COMMIT_ORDER, WRITESET and WRITESET_SESSION.
+ --binlog-write-threshold=# 
+ The max allowed size (in bytes) of the transactional and
+ statement cache for current transaction. If there are
+ more than this binlog, the transaction commit will fail.
  --block-encryption-mode=name 
  mode for AES_ENCRYPT/AES_DECRYPT
  --bulk-insert-buffer-size=# 
@@ -264,6 +291,17 @@ The following options may be given as the first argument:
  audit switch
  --cdb-audit-truncat-sql-len[=#] 
  Audit sql text truncate length 
+ --cdb-auto-statistics-enabled 
+ Enable auto statistics for histogram.
+ --cdb-column-encryption-whitelist=name 
+ allows user to access column encryption data,if set 0 or
+ empty string means no priv limit 
+ --cdb-compressed-histogram-enabled 
+ Enable to use compressed histogram, which consists of
+ most common values and equi-height buckets for other
+ values.
+ --cdb-convert-memory-to-innodb 
+ memory storage convert innodb
  --cdb-enable-key-rotate 
  Whether enable key roate (default ON).
  (Defaults to on; use --skip-cdb-enable-key-rotate to disable.)
@@ -275,13 +313,68 @@ The following options may be given as the first argument:
  --cdb-enable-resource-statistics 
  enable_resource_statistics.
  (Defaults to on; use --skip-cdb-enable-resource-statistics to disable.)
+ --cdb-fire-wall-enabled 
+ CDB fire wall switch. Can be ON/OFF.
+ --cdb-forbid-mysql-write 
+ only tencentroot can modify mysql schema when this value
+ is true
+ --cdb-forbid-system-database-write 
+ only tencentroot can modify information_schema,
+ performance_schema and sys database when this value is
+ true 
+ --cdb-hash-scan-index-selection-enabled 
+ Enalbe hash_scan_index_selection
+ --cdb-hash-scan-max-agg-event-size[=#] 
+ Maximum event size allowed after aggregation. Default is
+ 0 and if variable is 0, the event aggregation never work
+ --cdb-instance-mode[=name] 
+ cdb_instance_mode value to assign when mysqld works.
+ CDB_INSTANCEMODE_READWRITE means accept any requests,
+ CDB_INSTANCEMODE_LOCKWRITE means doesn't accept write
+ requests, CDB_INSTANCEMODE_LOCKREAD means doesn't accept
+ read requests, users with super privilege will be handled
+ uninfluential 
+ --cdb-instant-modify-column-enabled 
+ Enable instant modify column. Default is FALSE
  --cdb-kill-idle-trans-timeout[=#] 
  The number of seconds the server waits for next command
  on an active transaction before closing it
+ --cdb-kill-user-extra=name 
+ Kill any session except tencentroot user
  --cdb-lock-connect-detect-enabled 
  Enable connection check when transaction is blocked by
  row lock. Default is TRUE
  (Defaults to on; use --skip-cdb-lock-connect-detect-enabled to disable.)
+ --cdb-max-prefetch-rows[=#] 
+ set max number of prefetch rows by limiting the size of
+ record_buffer, so it can reduce the negative impact on
+ performance when prefetching a large number of records on
+ an index. 0 means turn off the limit.
+ --cdb-more-gtid-feature-supported 
+ Gtid supported in trans and nontrans mode!
+ --cdb-opt-outline-enabled 
+ outline switch
+ --cdb-optimize-gtid-lock 
+ Optimize gtid lock conflict when binlog_order_commits=0.
+ --cdb-optimize-large-trans-binlog 
+ Optimize large transaction binlog format from row to
+ statement.
+ --cdb-optimize-large-trans-binlog-aver-affected-rows-threshold=# 
+ Optimize large transaction binlog format from row to
+ statement, and it's one of thresholds of sql tatistics.
+ --cdb-optimize-large-trans-binlog-last-affected-rows-threshold=# 
+ Optimize large transaction binlog format from row to
+ statement, and it's one of thresholds of sql tatistics.
+ --cdb-optimize-ps-priv-check 
+ This option is deprecated. Use txsql_simplify_priv_check
+ instead.
+ --cdb-plan-cache    Plan cache switch. When cdb_plan_cache turns on, some SQL
+ execution plan will be saved and optimize once. Currently
+ it works on some limited prepare statement. 
+ --cdb-plan-cache-stats 
+ Statistics of plan cache hit info. When
+ cdb_plan_cache_stats turns on, THD level statistics can
+ be showed.
  --cdb-pt-filter     Swither of filter pt operation. If turning off, all the
  events include pt special event will be send to secondary
  backup instance.
@@ -308,6 +401,34 @@ The following options may be given as the first argument:
  Print stackframe at the timepoint ofmax query memory
  usage. (THIS WILL HEAVILY IMPACT PERFORMANCE! DO NOT
  ENABLEIF YOU DON'T KNOW WHAT YOU ARE DOING!)
+ --cdb-recycle-bin-db-not-visible 
+ This option is deprecated. Use
+ txsql_recycle_bin_db_not_visible instead.
+ (Defaults to on; use --skip-cdb-recycle-bin-db-not-visible to disable.)
+ --cdb-recycle-bin-enabled 
+ This option is deprecated. Use txsql_recycle_bin_enabled
+ instead.
+ --cdb-recycle-bin-retention=# 
+ This option is deprecated. Use
+ txsql_recycle_bin_retention instead.
+ --cdb-recycle-scheduler-interval=# 
+ This option is deprecated. Use
+ txsql_recycle_scheduler_interval instead.
+ --cdb-replica-host-detection 
+ Autocomplete the Hostname or IP of the slave if the
+ option report_host is not set, deriving from the
+ connection. Auto-detection has the limitation documented
+ with report_host.
+ (Defaults to on; use --skip-cdb-replica-host-detection to disable.)
+ --cdb-role=name     Set the role of the current node in a flat replication
+ cluster. CDB_ROLE_MASTER and CDB_ROLE_SLAVE nodes form a
+ HA group. Changes come from CCDB_ROLE_MASTER and get
+ applied to CDB_ROLE_SLAVE. CDB_ROLE_RO form another group
+ of nodes that also apply changes but do not participate
+ in HA. In most cases, there is only one CDB_ROLE_SLAVE in
+ an HA group, and it does not serve user requests.
+ Changing the role requires stopping or reconnecting the
+ replication channel.
  --cdb-session-var-privilege-check-enabled 
  Enable SESSION_VARIABLES_ADMIN privilege check for some
  session variables which may cause replication problems,
@@ -317,10 +438,32 @@ The following options may be given as the first argument:
  variables.
  --cdb-skip-event-scheduler 
  Enable the event scheduler.Possible values are ON,OFF
+ --cdb-sql-filter=name 
+ Add one filter rule or delete one
+ --cdb-sql-filter-enable 
+ set to ON if cdb_sql_filter_enable
+ --cdb-sql-filter-seperator=name 
+ seperator in sql filter rule,only the first character of
+ this var is seperator.If var length is 0, ',' is default
+ seperatorSee Cdb_Sql_Filter_Manager::get_seperator
+ --cdb-sql-statistics 
+ sql statistics switch.
+ --cdb-sql-statistics-info-threshold=# 
+ cdb_sql_statistics_info threshold in the map.
  --cdb-tencentroot-audit-action-enabled 
  tencentroot audit switch
  --cdb-tencentroot-slow-log-enabled 
  Enable to log tencentroot's slow query.
+ --cdb-working-mode-default[=name] 
+ cdb_working_mode value to assign when mysqld works.
+ CDB_WORKMODE_OFFLINE means don't accept any requests,
+ CDB_WORKMODE_READONLY means just accept read requests,
+ CDB_WORKMODE_READWRITE means accept requests as usual.
+ users with super privilege will be handled uninfluential 
+ --cdb-working-mode-enabled 
+ switching on and off for mysqld workmode 
+ --cdb-workmode-life-interval[=#] 
+ life circle for cdb work mode.
  --character-set-client-handshake 
  Don't ignore client side character set value sent during
  handshake.
@@ -346,6 +489,9 @@ The following options may be given as the first argument:
  --concurrent-insert[=name] 
  Use concurrent insert with MyISAM. Possible values are
  NEVER, AUTO, ALWAYS
+ --conn-wait-no-timeout 
+ For proxy support temp table keep the connection of temp
+ table
  --connect-timeout=# The number of seconds the mysqld server is waiting for a
  connect packet before responding with 'Bad handshake'
  --connection-memory-chunk-size=# 
@@ -367,6 +513,9 @@ The following options may be given as the first argument:
  --default-authentication-plugin=name 
  The default authentication plugin used by the server to
  hash the password.
+ --default-collation-for-utf8mb4=name 
+ Controls default collation for utf8mb4 while replicating
+ implicit utf8mb4 collations.
  --default-password-lifetime=# 
  The number of days after which the password will expire.
  --default-storage-engine=name 
@@ -419,6 +568,8 @@ The following options may be given as the first argument:
  before storage engine initialization, where each plugin
  is identified as name=library, where name is the plugin
  name and library is the plugin library in plugin_dir.
+ --enable-backup-dcn-switch 
+ enable the backup dcn switch
  --end-markers-in-json 
  In JSON output ("EXPLAIN FORMAT=JSON" and optimizer
  trace), if variable is set to 1, repeats the structure's
@@ -464,6 +615,35 @@ The following options may be given as the first argument:
  --flush             Flush MyISAM tables to disk between SQL commands
  --flush-time=#      A dedicated thread is created to flush all tables at the
  given interval
+ --forbid-remote-change-master 
+ Forbid change master by user with SUPER_ACL
+ --forbid-remote-change-sql-log-bin 
+ Forbid modifying sql_log_bin from tcp/ip connections,
+ only allow so for unix socket connections.
+ --forbid-remote-drop-meta 
+ Forbid dropping database mysql, information_schema,
+ performance_schema, sys, sysdb, xa, or its tables or rows
+ in such tables for clients not connected from local unix
+ socket.
+ --forbid-remote-install-plugin 
+ Forbid installing plugins for clients not connected from
+ local unix socket.
+ --forbid-remote-stop-server 
+ Forbid remote user from SHUTDOWN or RESTART server
+ --forbid-server-path-remote-access 
+ Forbid accessing server path from remote tcp/ip
+ connection.
+ --forbid-server-path-remote-change 
+ Forbid modifying server path variables from remote tcp/ip
+ connection.
+ --freeze-transaction-enable 
+ After set to ON, block the newly started transaction,
+ while waiting for the write transaction that is currently
+ active to commit
+ --freeze-wait-timeout-sec=# 
+ After the session is frozen, wait for more than specified
+ second without being notified, automatically wake up and
+ report an error.
  --ft-boolean-syntax=name 
  List of operators for MATCH ... AGAINST ( ... IN BOOLEAN
  MODE)
@@ -533,9 +713,21 @@ The following options may be given as the first argument:
  without a GTID to be replicated and executed on all
  servers, and finally set all servers to GTID_MODE = ON.
  -?, --help          Display this help and exit.
+ --hidden-sensitive-variable 
+ hidde sensitive variable so remote user with super_acl
+ can't change them.
  --histogram-generation-max-mem-size=# 
  Maximum amount of memory available for generating
  histograms
+ --histogram-history-enabled 
+ When enabled, automatically save and remove versions of
+ histograms in mysql.column_statistics_history.
+ --histogram-history-versions-limit=# 
+ The maximum number of records per column in the table
+ mysql.column_statistics_history.
+ --histogram-statistics-concurrency[=#] 
+ limitation of concurrency of the histogram statistics.It
+ takes effect only when the slave host and port are set.
  --host-cache-size=# How many host names should be cached to avoid resolving.
  --information-schema-stats-expiry=# 
  The number of seconds after which mysqld server will
@@ -652,6 +844,8 @@ The following options may be given as the first argument:
  --log-isam[=name]   Log all MyISAM changes to file.
  --log-output=name   Syntax: log-output=value[,value...], where "value" could
  be TABLE, FILE or NONE
+ --log-profile-in-slow-log 
+ Log thd profile in slow log file
  --log-queries-not-using-indexes 
  Log queries that are executed without benefit of any
  index to the slow log if it is open
@@ -678,6 +872,11 @@ The following options may be given as the first argument:
  --log-slow-slave-statements 
  This option is deprecated. Use
  log_slow_replica_statements instead.
+ --log-slow-verbosity=name 
+ Verbosity level for the slow log(explain/0 supported)
+ --log-statement-of-query-event 
+ Enable log statement format binlog of query event
+ (Defaults to on; use --skip-log-statement-of-query-event to disable.)
  --log-statements-unsafe-for-binlog 
  Log statements considered unsafe when using statement
  based binary logging.
@@ -788,12 +987,24 @@ The following options may be given as the first argument:
  --max-write-lock-count=# 
  After this many write locks, allow some read locks to run
  in between
+ --mc-enable         Global transaction sequence switch.Set to on to open, set
+ to off to close
+ --mc-gts-check      After turning on mc_gts_check, gts from statment cann't
+ less than innodb_min_purge_gts.
+ (Defaults to on; use --skip-mc-gts-check to disable.)
+ --mc-sleep-mode     After turning on mc_enable, use sleep instead of row lock
+ for prepare records.
  --memlock           Lock mysqld in memory.
+ --merge-join-buffer-size=# 
+ The size of the buffer that is used for the sort merge
+ join
  --min-examined-row-limit=# 
  Don't write queries to slow log that examine fewer rows
  than that
  --myisam-block-size=# 
  Block size to be used for MyISAM index pages
+ --myisam-conversion-innodb=name 
+ myisam conversion innodb mode, can be ON/OFF/WARN/TRY
  --myisam-data-pointer-size=# 
  Default pointer size to be used for MyISAM tables
  --myisam-max-sort-file-size=# 
@@ -840,6 +1051,8 @@ The following options may be given as the first argument:
  --no-dd-upgrade     Abort restart if automatic upgrade or downgrade of the
  data dictionary is needed. Deprecated option. Use
  --upgrade=NONE instead.
+ --num-seq-threads[=#] 
+ Number of sequence worker threads.
  --offline-mode      Make the server into offline mode
  --old               Use compatible behavior
  --old-alter-table   Use old, non-optimized alter table
@@ -888,8 +1101,8 @@ The following options may be given as the first argument:
  block_nested_loop, batched_key_access,
  use_index_extensions, condition_fanout_filter,
  derived_merge, hash_join, subquery_to_derived,
- prefer_ordering_index, derived_condition_pushdown} and
- val is one of {on, off, default}
+ prefer_ordering_index, derived_condition_pushdown,
+ sort_merge_join} and val is one of {on, off, default}
  --optimizer-trace=name 
  Controls tracing of the Optimizer:
  optimizer_trace=option=val[,option=val...], where option
@@ -993,6 +1206,14 @@ The following options may be given as the first argument:
  --performance-schema-events-stages-history-size=# 
  Number of rows per thread in EVENTS_STAGES_HISTORY. Use 0
  to disable, -1 for automated sizing.
+ --performance-schema-events-statements-histogram-base-factor=# 
+ Bucket factor. Used for bucket timer value increase in in
+ table EVENTS_STATEMENTS_HISTOGRAM_BY_DIGEST and
+ EVENTS_STATEMENTS_HISTOGRAM_GLOBAL.
+ --performance-schema-events-statements-histogram-bucket-number=# 
+ Number of buckets in table
+ EVENTS_STATEMENTS_HISTOGRAM_BY_DIGEST and
+ EVENTS_STATEMENTS_HISTOGRAM_GLOBAL.
  --performance-schema-events-statements-history-long-size=# 
  Number of rows in EVENTS_STATEMENTS_HISTORY_LONG. Use 0
  to disable, -1 for automated sizing.
@@ -1142,6 +1363,8 @@ The following options may be given as the first argument:
  --print-identified-with-as-hex 
  SHOW CREATE USER will print the AS clause as HEX if it
  contains non-prinable characters
+ --print-proxy-info-for-processlist 
+ print more information of proxy in processlist.
  --profiling-history-size=# 
  Limit of query profiling memory
  --protocol-compression-algorithms=name 
@@ -1188,11 +1411,38 @@ The following options may be given as the first argument:
  --read-rnd-buffer-size=# 
  When reading rows in sorted order after a sort, the rows
  are read through this buffer to avoid a disk seeks
+ --recycle-bin-drop-if-exceed-limit 
+ This option is deprecated. Use
+ txsql_recycle_bin_drop_if_exceed_limit instead.
+ --recycle-bin-enabled 
+ This option is deprecated. Use txsql_recycle_bin_enabled
+ instead.
+ --recycle-bin-max-size[=#] 
+ This option is deprecated. Use txsql_recycle_bin_max_size
+ instead.
+ --recycle-bin-startup-mode=name 
+ Set which database is used by recycle bin. CDB mode
+ specifies to use the __cdb_recycle_bin database; TXSQL
+ mode specifies to use the __txsql_recycle_bin database;
+ An error will be reported if both databases exist and the
+ recyle-bin-startup-mode is not specified. An error will
+ be reported if the database of the specified mode does
+ not exist.
  --regexp-stack-limit=# 
  Stack size limit for regular expressions matches
  --regexp-time-limit=# 
  Timeout for regular expressions matches, in steps of the
  match engine, typically on the order of milliseconds.
+ --reject-rw-mysql-user-sys-users 
+ Reject inserting/updating/deleting/fetching mysql.user
+ rows whose 'user' field starts with
+ opt_admin_username_prefix from normal users.Rejected
+ insert will return error , but all other operations will
+ be silently ignored with such rows.
+ --reject-table-no-pk 
+ When set, tables must be created with a primary key, and
+ an existing primary key cannot be removed with 'ALTER
+ TABLE'. Attempts to do so will result in an error.
  --relay-log=name    The location and name to use for relay logs
  --relay-log-index=name 
  File that holds the names for relay log files.
@@ -1434,6 +1684,13 @@ The following options may be given as the first argument:
  The delay in milliseconds after each buffer sync for
  SELECT INTO OUTFILE/DUMPFILE. Requires
  select_into_sync_disk = ON.
+ --select-update-enable-semi-read 
+ Enable semi-read for statement like select for update
+ --seq-currval-before-first-nextval-return-error 
+ Currval before first nextval return error if setting to
+ true
+ --sequence-same-nextval-in-query 
+ Same nextval in one statement if setting to true
  --server-id=#       Uniquely identifies the server instance in the community
  of replication partners
  --server-id-bits=#  Set number of significant bits in server-id
@@ -1640,6 +1897,20 @@ The following options may be given as the first argument:
  --tc-heuristic-recover=name 
  Decision to use in heuristic recover process. Possible
  values are OFF, COMMIT or ROLLBACK.
+ --tdsql-allow-access-internal-table 
+ allow current user to access tdsql internal table
+ --tdsql-buffer-pool-optimize-pct=# 
+ use this variable to limit the innodb buffer pool real
+ size
+ --tdsql-compat-oracle-mode 
+ Keep tdsql compatible with oracle if it's set.
+ --tdsql-forbid-write 
+ tdsql forbid write if set, is not the same with read_only
+ --tdsql-hide-partitions[=name] 
+ TDSQL: Partitions to disable, effective for partitions of
+ all partitioned tables on the DB instance. Specifiy as
+ comma separated numbers or number ranges, e.g. 1,3-6,7
+ means parititions 1,3,4,5,6,7.
  --temptable-max-mmap=# 
  Maximum amount of memory (in bytes) the TempTable storage
  engine is allowed to allocate from MMAP-backed files
@@ -1652,6 +1923,9 @@ The following options may be given as the first argument:
  Use mmap files for temptables. This variable is
  deprecated and will be removed in a future release.
  (Defaults to on; use --skip-temptable-use-mmap to disable.)
+ --tencent-myisam-conversion-innodb=name 
+ control tencentroot/system user, myisam conversion innodb
+ mode, can be ON/OFF/WARN/TRY
  --tencent-reserved-connection=# 
  Reserve more connections for tencent root user, default
  is 20. 
@@ -1730,6 +2004,10 @@ The following options may be given as the first argument:
  Workaround Linux kernel bug: missing events in epollm if
  EPOLL_CTL_MOD is used.The bug if fiexed in the newest 3.x
  kernel series
+ --threshold-of-interesting-order-for-merge-join[=#] 
+ For the two paths involved in the join, the VAR describes
+ the ratio of disordered path to ordered path (interesting
+ order). Sort Merge Join is not used below the threshold.
  --tls-ciphersuites=name 
  --tmp-table-size=#  If an internal in-memory temporary table in the MEMORY or
  TempTable storage engine exceeds this size, MySQL will
@@ -1752,7 +2030,20 @@ The following options may be given as the first argument:
  This option is used to let the server know when to
  extract the write set which will be used for various
  purposes. 
+ --txsql-compute-query-time-for-slow-logging[=#] 
+ Compute query time for slow logging by measuring from
+ query reception(2) or query start(1) or after locking(0)
+ to end time.
+ --txsql-disable-gtid-in-undo 
+ Do not record GTID in undo log header which cause
+ performance degradation. If set to ON, clone statement is
+ not allowed.
+ --txsql-extend-slow-log-level=# 
+ Control the level of extended information in slow log.
  --txsql-found-rows  Sets the total size of the transactional cache
+ --txsql-load-data-local-strict-mode 
+ Whether to emit errors (or warnings) in strict mode when
+ executing LOAD DATA LOCAL INFILE statement
  --txsql-max-parallel-worker-threads[=#] 
  Specify the maximum number of worker threads for parallel
  execution on the server. A zero value disables parallel
@@ -1766,9 +2057,14 @@ The following options may be given as the first argument:
  context does not have any cap on memory.
  --txsql-optimizer-context-prealloc-size[=#] 
  Default buffer size of the optimizer context
+ --txsql-parallel-copy-ddl 
+ Enable to use parallel processing for ddl with copy
+ algorithm.
  --txsql-parallel-cost-threshold[=#] 
  Only statements with estimated cost above the specified
  threshold can be executed in parallel.
+ --txsql-parallel-ddl-merge-sort-k-value[=#] 
+ K-ways merge sort when using parallel ddl.
  --txsql-parallel-degree[=#] 
  Default degree of parallelism for a statement. A zero
  value effectively disables parallel execution.
@@ -1796,7 +2092,37 @@ The following options may be given as the first argument:
  Allow count start to use pread parallel optimization It
  is for Unqualified count star only.
  (Defaults to on; use --skip-txsql-pread-count-enabled to disable.)
+ --txsql-range-estimation-by-histogram 
+ Enable range estimation by histogram instead of index
+ dive. If histogram for the first index column is missing,
+ fall back to index dive. Use guesstimates for other
+ columns without histograms.
+ --txsql-recycle-bin-db-not-visible 
+ switch of recycle bin
+ (Defaults to on; use --skip-txsql-recycle-bin-db-not-visible to disable.)
+ --txsql-recycle-bin-drop-if-exceed-limit 
+ drop table if exceeding limit size of recycle bin
+ --txsql-recycle-bin-enabled 
+ switch of recycle bin
+ --txsql-recycle-bin-max-size[=#] 
+ Max size of recycle bin, Note we allow first exceeding
+ limit of size, but next drop will fail
+ --txsql-recycle-bin-retention=# 
+ Retention time of each table in recycle bin.
+ --txsql-recycle-scheduler-interval=# 
+ Schedule interval time of each check whether exists table
+ to be purged in recycle bin database.
+ --txsql-root-user-mode=name 
+ What kind of root user mode used.
  --txsql-row-count   Sets the total size of the transactional cache
+ --txsql-simplify-priv-check 
+ Enable to optimize privilege checking for prepared
+ statement and stored procedure.
+ --txsql-slave-wait-group-done[=#] 
+ when run cmd: stop slave, the slave's coordernate thread
+ just received unfinish's trx,it will check whether has
+ new binlog events(for txsql_slave_wait_group_done
+ seconds)
  --txsql-use-db      Sets current database by session variable
  --updatable-views-with-limit=name 
  YES = Don't issue an error message (warning only) if a
@@ -1854,10 +2180,18 @@ admin-ssl-crl (No default value)
 admin-ssl-crlpath (No default value)
 admin-ssl-key (No default value)
 admin-tls-ciphersuites (No default value)
+admin-username-prefix tdsqlsys_
+allow-access-dd-tables FALSE
+allow-rollback-last-query FALSE
 allow-suspicious-udfs FALSE
 authentication-policy *,,
 auto-increment-increment 1
 auto-increment-offset 1
+auto-perf-node-request FALSE
+auto-stats-interval-begin 03:00
+auto-stats-interval-duration 1
+auto-stats-node-selection DEDICATED
+auto-stats-thread-monitor-interval 10
 autocommit TRUE
 automatic-sp-privileges TRUE
 avoid-temporal-upgrade FALSE
@@ -1888,6 +2222,7 @@ binlog-transaction-compression FALSE
 binlog-transaction-compression-level-zstd 3
 binlog-transaction-dependency-history-size 25000
 binlog-transaction-dependency-tracking COMMIT_ORDER
+binlog-write-threshold 0
 block-encryption-mode aes-128-ecb
 bulk-insert-buffer-size 8388608
 caching-sha2-password-digest-rounds 5000
@@ -1896,12 +2231,34 @@ caching-sha2-password-public-key-path public_key.pem
 cdb-admin-port-allow-for-normal-user TRUE
 cdb-audit-action-enabled FALSE
 cdb-audit-truncat-sql-len 1024
+cdb-auto-statistics-enabled FALSE
+cdb-column-encryption-whitelist (No default value)
+cdb-compressed-histogram-enabled FALSE
+cdb-convert-memory-to-innodb FALSE
 cdb-enable-key-rotate TRUE
 cdb-enable-lock-statistics FALSE
 cdb-enable-precise-memory-usage TRUE
 cdb-enable-resource-statistics TRUE
+cdb-fire-wall-enabled FALSE
+cdb-forbid-mysql-write FALSE
+cdb-forbid-system-database-write FALSE
+cdb-hash-scan-index-selection-enabled FALSE
+cdb-hash-scan-max-agg-event-size 0
+cdb-instance-mode READWRITE
+cdb-instant-modify-column-enabled FALSE
 cdb-kill-idle-trans-timeout 0
+cdb-kill-user-extra (No default value)
 cdb-lock-connect-detect-enabled TRUE
+cdb-max-prefetch-rows 0
+cdb-more-gtid-feature-supported FALSE
+cdb-opt-outline-enabled FALSE
+cdb-optimize-gtid-lock FALSE
+cdb-optimize-large-trans-binlog FALSE
+cdb-optimize-large-trans-binlog-aver-affected-rows-threshold 10000
+cdb-optimize-large-trans-binlog-last-affected-rows-threshold 10000
+cdb-optimize-ps-priv-check FALSE
+cdb-plan-cache FALSE
+cdb-plan-cache-stats FALSE
 cdb-pt-filter TRUE
 cdb-pt-table-checksum FALSE
 cdb-pt-white-list-user 
@@ -1910,10 +2267,24 @@ cdb-query-memory-log-threshold 1073741824
 cdb-query-memory-profile-enabled FALSE
 cdb-query-memory-profile-max-stage-num 100
 cdb-query-memory-stack-enabled FALSE
+cdb-recycle-bin-db-not-visible TRUE
+cdb-recycle-bin-enabled FALSE
+cdb-recycle-bin-retention 604800
+cdb-recycle-scheduler-interval 0
+cdb-replica-host-detection TRUE
+cdb-role CDB_ROLE_UNKNOWN
 cdb-session-var-privilege-check-enabled FALSE
 cdb-skip-event-scheduler FALSE
+cdb-sql-filter (No default value)
+cdb-sql-filter-enable FALSE
+cdb-sql-filter-seperator ,
+cdb-sql-statistics FALSE
+cdb-sql-statistics-info-threshold 10000
 cdb-tencentroot-audit-action-enabled FALSE
 cdb-tencentroot-slow-log-enabled FALSE
+cdb-working-mode-default READWRITE
+cdb-working-mode-enabled FALSE
+cdb-workmode-life-interval 10
 character-set-client-handshake TRUE
 character-set-filesystem binary
 character-set-server utf8mb4
@@ -1923,6 +2294,7 @@ chroot (No default value)
 collation-server utf8mb4_0900_ai_ci
 completion-type NO_CHAIN
 concurrent-insert AUTO
+conn-wait-no-timeout FALSE
 connect-timeout 10
 connection-memory-chunk-size 8912
 connection-memory-limit 18446744073709551615
@@ -1931,6 +2303,7 @@ create-admin-listener-thread FALSE
 cte-max-recursion-depth 1000
 daemonize FALSE
 default-authentication-plugin caching_sha2_password
+default-collation-for-utf8mb4 (No default value)
 default-password-lifetime 0
 default-storage-engine InnoDB
 default-table-encryption FALSE
@@ -1945,6 +2318,7 @@ disabled-storage-engines
 disconnect-on-expired-password TRUE
 disconnect-slave-event-count 0
 div-precision-increment 4
+enable-backup-dcn-switch FALSE
 end-markers-in-json FALSE
 enforce-gtid-consistency FALSE
 eq-range-index-dive-limit 200
@@ -1955,6 +2329,15 @@ external-locking FALSE
 extra-max-connections 300
 flush FALSE
 flush-time 0
+forbid-remote-change-master FALSE
+forbid-remote-change-sql-log-bin FALSE
+forbid-remote-drop-meta FALSE
+forbid-remote-install-plugin FALSE
+forbid-remote-stop-server FALSE
+forbid-server-path-remote-access FALSE
+forbid-server-path-remote-change FALSE
+freeze-transaction-enable FALSE
+freeze-wait-timeout-sec 60
 ft-boolean-syntax + -><()~*:""&|
 ft-max-word-len 84
 ft-min-word-len 4
@@ -1970,7 +2353,11 @@ group-replication-consistency EVENTUAL
 gtid-executed-compression-period 0
 gtid-mode OFF
 help TRUE
+hidden-sensitive-variable FALSE
 histogram-generation-max-mem-size 20000000
+histogram-history-enabled FALSE
+histogram-history-versions-limit 5
+histogram-statistics-concurrency 10
 host-cache-size 279
 information-schema-stats-expiry 86400
 init-connect 
@@ -2008,6 +2395,7 @@ log-error-suppression-list
 log-error-verbosity 2
 log-isam myisam.log
 log-output FILE
+log-profile-in-slow-log FALSE
 log-queries-not-using-indexes FALSE
 log-raw FALSE
 log-replica-updates FALSE
@@ -2017,6 +2405,8 @@ log-slow-admin-statements FALSE
 log-slow-extra FALSE
 log-slow-replica-statements FALSE
 log-slow-slave-statements FALSE
+log-slow-verbosity 
+log-statement-of-query-event TRUE
 log-statements-unsafe-for-binlog TRUE
 log-tc tc.log
 log-tc-size #####
@@ -2052,9 +2442,14 @@ max-sort-length 1024
 max-sp-recursion-depth 0
 max-user-connections 0
 max-write-lock-count 18446744073709551615
+mc-enable FALSE
+mc-gts-check TRUE
+mc-sleep-mode FALSE
 memlock FALSE
+merge-join-buffer-size 262144
 min-examined-row-limit 0
 myisam-block-size 1024
+myisam-conversion-innodb OFF
 myisam-data-pointer-size 6
 myisam-max-sort-file-size 9223372036853727232
 myisam-mmap-size 18446744073709551615
@@ -2070,6 +2465,7 @@ net-write-timeout 60
 new FALSE
 new-connection-action-when-resource-group-overrun move-to-default
 no-dd-upgrade FALSE
+num-seq-threads 4
 offline-mode FALSE
 old FALSE
 old-alter-table FALSE
@@ -2110,6 +2506,8 @@ performance-schema-digests-size -1
 performance-schema-error-size ####
 performance-schema-events-stages-history-long-size -1
 performance-schema-events-stages-history-size -1
+performance-schema-events-statements-histogram-base-factor 2
+performance-schema-events-statements-histogram-bucket-number 32
 performance-schema-events-statements-history-long-size -1
 performance-schema-events-statements-history-size -1
 performance-schema-events-transactions-history-long-size -1
@@ -2138,7 +2536,7 @@ performance-schema-max-socket-classes 10
 performance-schema-max-socket-instances -1
 performance-schema-max-sql-text-length 1024
 performance-schema-max-stage-classes 175
-performance-schema-max-statement-classes 222
+performance-schema-max-statement-classes 242
 performance-schema-max-statement-stack 10
 performance-schema-max-table-handles -1
 performance-schema-max-table-instances -1
@@ -2157,6 +2555,7 @@ port ####
 port-open-timeout 0
 preload-buffer-size 32768
 print-identified-with-as-hex FALSE
+print-proxy-info-for-processlist FALSE
 profiling-history-size 15
 protocol-compression-algorithms zlib,zstd,uncompressed
 proxy-protocol-networks 
@@ -2167,8 +2566,14 @@ range-optimizer-max-mem-size 8388608
 read-buffer-size 131072
 read-only FALSE
 read-rnd-buffer-size 262144
+recycle-bin-drop-if-exceed-limit FALSE
+recycle-bin-enabled FALSE
+recycle-bin-max-size 18446744073709551615
+recycle-bin-startup-mode NON
 regexp-stack-limit 8000000
 regexp-time-limit 32
+reject-rw-mysql-user-sys-users FALSE
+reject-table-no-pk FALSE
 relay-log relaylog
 relay-log-index relaylog.index
 relay-log-info-file relay-log.info
@@ -2212,6 +2617,9 @@ secondary-engine-cost-threshold 100000
 select-into-buffer-size 131072
 select-into-disk-sync FALSE
 select-into-disk-sync-delay 0
+select-update-enable-semi-read FALSE
+seq-currval-before-first-nextval-return-error FALSE
+sequence-same-nextval-in-query FALSE
 server-id 1
 server-id-bits 32
 session-track-gtids OFF
@@ -2271,9 +2679,15 @@ table-encryption-privilege-check FALSE
 table-open-cache-instances 16
 tablespace-definition-cache 256
 tc-heuristic-recover OFF
+tdsql-allow-access-internal-table FALSE
+tdsql-buffer-pool-optimize-pct 1
+tdsql-compat-oracle-mode FALSE
+tdsql-forbid-write FALSE
+tdsql-hide-partitions 
 temptable-max-mmap 1073741824
 temptable-max-ram 1073741824
 temptable-use-mmap TRUE
+tencent-myisam-conversion-innodb OFF
 tencent-reserved-connection 20
 tencent-root-cnf (No default value)
 tencent-root-connected 0
@@ -2293,6 +2707,7 @@ thread-pool-size ####
 thread-pool-stall-limit 500
 thread-stack 1048576
 threadpool-workaround-epoll-bug FALSE
+threshold-of-interesting-order-for-merge-join 10
 tls-ciphersuites (No default value)
 tmp-table-size 16777216
 transaction-alloc-block-size 8192
@@ -2300,11 +2715,17 @@ transaction-isolation REPEATABLE-READ
 transaction-prealloc-size 4096
 transaction-read-only FALSE
 transaction-write-set-extraction XXHASH64
+txsql-compute-query-time-for-slow-logging 0
+txsql-disable-gtid-in-undo FALSE
+txsql-extend-slow-log-level 0
 txsql-found-rows 0
+txsql-load-data-local-strict-mode FALSE
 txsql-max-parallel-worker-threads 0
 txsql-optimizer-context-max-mem-size 8388608
 txsql-optimizer-context-prealloc-size 4096
+txsql-parallel-copy-ddl FALSE
 txsql-parallel-cost-threshold 50000
+txsql-parallel-ddl-merge-sort-k-value 2
 txsql-parallel-degree 4
 txsql-parallel-exchange-buffer-size 1048576
 txsql-parallel-execution-enabled TRUE
@@ -2313,7 +2734,17 @@ txsql-parallel-fallback-in-execution FALSE
 txsql-parallel-lob-enabled FALSE
 txsql-parallel-table-record-threshold 5000
 txsql-pread-count-enabled TRUE
+txsql-range-estimation-by-histogram FALSE
+txsql-recycle-bin-db-not-visible TRUE
+txsql-recycle-bin-drop-if-exceed-limit FALSE
+txsql-recycle-bin-enabled FALSE
+txsql-recycle-bin-max-size 18446744073709551615
+txsql-recycle-bin-retention 604800
+txsql-recycle-scheduler-interval 0
+txsql-root-user-mode TENCENT_ROOT
 txsql-row-count 0
+txsql-simplify-priv-check FALSE
+txsql-slave-wait-group-done 60
 txsql-use-db 
 updatable-views-with-limit YES
 upgrade AUTO

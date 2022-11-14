@@ -52,9 +52,6 @@
 #include "prealloced_array.h"
 #include "sql/debug_sync.h"
 #include "sql/thr_malloc.h"
-#if defined(HAVE_PX)
-#include "sql/sql_class.h"
-#endif /* defined(HAVE_PX) */
 
 extern MYSQL_PLUGIN_IMPORT CHARSET_INFO *system_charset_info;
 

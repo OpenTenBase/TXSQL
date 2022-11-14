@@ -9,7 +9,9 @@ Note	####	Storing MySQL user name or password information in the master info rep
 CALL mtr.add_suppression("Semi-sync master failed on net_flush().*");
 CALL mtr.add_suppression('Timeout waiting for reply of binlog');
 # Test forever on and off
-include/install_semisync_master.inc
+include/install_semisync_source.inc
+Warnings:
+Note	1287	'rpl_semi_sync_master' is deprecated and will be removed in a future release. Please use rpl_semi_sync_source instead
 SET GLOBAL rpl_semi_sync_master_enabled= OFF;
 SET GLOBAL rpl_semi_sync_master_wait_forever= OFF;
 SET GLOBAL rpl_semi_sync_master_enabled= OFF;
@@ -24,7 +26,9 @@ Warnings:
 Warning	168	Set wait forever is forbidden when semi-sync replication is disabled.
 # Start slave : server_2
 [connection server_2]
-include/install_semisync_slave.inc
+include/install_semisync_replica.inc
+Warnings:
+Note	1287	'rpl_semi_sync_slave' is deprecated and will be removed in a future release. Please use rpl_semi_sync_replica instead
 # Enable semisync on master
 [connection server_1]
 SET GLOBAL rpl_semi_sync_master_enabled= ON;
@@ -204,7 +208,9 @@ SET GLOBAL debug = '-d,rpl_semisync_wait_timeout';
 # Test with wait for slave count = 2
 SET GLOBAL rpl_semi_sync_master_wait_for_slave_count = 2;
 [connection server_3]
-include/install_semisync_slave.inc
+include/install_semisync_replica.inc
+Warnings:
+Note	1287	'rpl_semi_sync_slave' is deprecated and will be removed in a future release. Please use rpl_semi_sync_replica instead
 [connection server_1]
 # Test 2.1 : timeout without forever enabled
 # Let server_2 wait before sending ack
@@ -340,10 +346,10 @@ SET GLOBAL rpl_semi_sync_master_wait_forever= OFF;
 DROP TABLE t1;
 include/rpl_sync.inc
 [connection server_2]
-include/uninstall_semisync_slave.inc
+include/uninstall_semisync_replica.inc
 [connection server_3]
-include/uninstall_semisync_slave.inc
+include/uninstall_semisync_replica.inc
 [connection server_1]
 SET GLOBAL rpl_semi_sync_master_enabled= OFF;
-include/uninstall_semisync_master.inc
+include/uninstall_semisync_source.inc
 include/rpl_end.inc

@@ -897,19 +897,6 @@ bool Sql_cmd_dml::execute_inner(THD *thd) {
   }
 #endif /* defined(HAVE_PX) */
 
-  /*
-    FIXME: use cost threshold as a prerequiste rather than a postfix to avoid
-    fallback overhead for small statements. However, it requires that parallel
-    optimization is completely after sequential optimization.
-
-    TODO: The test against cost theshold is not reliable. A postfix is expected.
-   */
-  if (thd->use_px &&
-      thd->m_current_query_cost < thd->variables.txsql_parallel_cost_threshold) {
-    thd->need_fallback = true; // fall back to serial execution.
-    return false;
-  }
-
   // Perform secondary engine optimizations, if needed.
   if (optimize_secondary_engine(thd)) return true;
 
@@ -4630,13 +4617,13 @@ bool JOIN::make_tmp_tables_info() {
 #if defined(HAVE_PX)
     if (streaming_aggregation || qep_tab[curr_tmp_table].table()->group ||
         tmp_table_param.precomputed_group_by) {
-      if (change_to_use_tmp_fields(fields, thd, ref_items[REF_SLICE_TMP1],
+      if (change_to_use_tmp_fields(curr_fields, thd, ref_items[REF_SLICE_TMP1],
                                    &tmp_fields[REF_SLICE_TMP1],
                                    query_block->m_added_non_hidden_fields))
         return true;
     } else {
       if (change_to_use_tmp_fields_except_sums(
-              fields, thd, query_block, ref_items[REF_SLICE_TMP1],
+              curr_fields, thd, query_block, ref_items[REF_SLICE_TMP1],
               &tmp_fields[REF_SLICE_TMP1],
               query_block->m_added_non_hidden_fields))
         return true;
@@ -4645,12 +4632,14 @@ bool JOIN::make_tmp_tables_info() {
     if (streaming_aggregation || qep_tab[curr_tmp_table].table()->group ||
         tmp_table_param.precomputed_group_by) {
       if (change_to_use_tmp_fields(fields, thd, ref_items[REF_SLICE_TMP1],
-                                   &tmp_fields[REF_SLICE_TMP1]))
+                                   &tmp_fields[REF_SLICE_TMP1],
+                                   query_block->m_added_non_hidden_fields))
         return true;
     } else {
-      if (change_to_use_tmp_fields_except_sums(fields, thd, select_lex,
+      if (change_to_use_tmp_fields_except_sums(fields, thd, query_block,
                                                ref_items[REF_SLICE_TMP1],
-                                               &tmp_fields[REF_SLICE_TMP1]))
+                                               &tmp_fields[REF_SLICE_TMP1],
+                                               query_block->m_added_non_hidden_fields))
         return true;
     }
 #endif /* defined(HAVE_PX) */

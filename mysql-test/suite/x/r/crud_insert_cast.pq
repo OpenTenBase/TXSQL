@@ -171,11 +171,11 @@ send Mysqlx.Crud.Insert {
 Records: 6  Duplicates: 0  Warnings: 0
 RUN SELECT * FROM xtest.my_int
 value
--11
 11
 12
--12
+-11
 123
+-12
 -123
 0 rows affected
 send Mysqlx.Crud.Insert {
@@ -527,8 +527,8 @@ Records: 4  Duplicates: 0  Warnings: 0
 RUN SELECT * FROM xtest.my_float
 value
 3
-3.14
 3
+3.14
 3.14
 0 rows affected
 RUN CREATE TABLE xtest.my_char (value VARCHAR(20))
@@ -702,11 +702,11 @@ send Mysqlx.Crud.Insert {
 Records: 6  Duplicates: 0  Warnings: 0
 RUN SELECT * FROM xtest.my_char
 value
-one
 two
--20
+one
 four
 three
+-20
 40
 0 rows affected
 RUN drop schema if exists xtest

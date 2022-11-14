@@ -7,19 +7,19 @@ test.t1	analyze	status	OK
 #TEST THE CHECKSUM OF PARALLEL CREATE INDEX
 CREATE TEMPORARY TABLE t1_temp_on like t1;
 CREATE TEMPORARY TABLE t1_temp_off like t1;
-SET SESSION innodb_parallel_ddl=ON;
+SET SESSION innodb_txsql_parallel_ddl=ON;
 ALTER TABLE t1 ADD INDEX k_c2_on(c2);
 INSERT INTO t1_temp_on SELECT * from t1 force index(k_c2_on);
 drop table t1_temp_on;
 ALTER TABLE t1 DROP INDEX k_c2_on;
-SET SESSION innodb_parallel_ddl=OFF;
+SET SESSION innodb_txsql_parallel_ddl=OFF;
 ALTER TABLE t1 ADD INDEX k_c2_off(c2);
 INSERT INTO t1_temp_off SELECT * from t1 force index(k_c2_off);
 
 
 #TEST SCAN_THREAD=1 AND DDL_THREAD>1
 CREATE TEMPORARY TABLE t1_temp_on like t1;
-SET SESSION innodb_parallel_ddl=ON;
+SET SESSION innodb_txsql_parallel_ddl=ON;
 SET SESSION innodb_parallel_read_threads=1;
 ALTER TABLE t1 ADD INDEX k_c2_on(c2);
 Warnings:
@@ -45,8 +45,8 @@ test.t1	analyze	status	OK
 
 
 #TEST ADD PRIMARY KEY
-SET SESSION innodb_parallel_ddl=ON;
-SET SESSION innodb_ddl_threads=4;
+SET SESSION innodb_txsql_parallel_ddl=ON;
+SET SESSION innodb_txsql_ddl_threads=4;
 SET SESSION innodb_parallel_read_threads=4;
 ALTER TABLE t1 drop primary key, add primary key(c3);
 select count(*) from t1;
@@ -57,8 +57,8 @@ DROP TABLE t1;
 
 
 #TEST PARATITION RANGE TABLE
-SET SESSION innodb_parallel_ddl=ON;
-SET SESSION innodb_ddl_threads=4;
+SET SESSION innodb_txsql_parallel_ddl=ON;
+SET SESSION innodb_txsql_ddl_threads=4;
 SET SESSION innodb_parallel_read_threads=4;
 CREATE TABLE t1
 (a INT PRIMARY KEY, b int, c char(127), d char(127)) ENGINE=InnoDB
@@ -76,7 +76,7 @@ DROP TABLE t1_temp;
 
 
 #TEST OPTIMIZE TABLE
-SET SESSION innodb_parallel_ddl=ON;
+SET SESSION innodb_txsql_parallel_ddl=ON;
 ALTER TABLE t1 ADD INDEX k_b(b);
 DELETE FROM t1 where a % 2 = 0;
 ANALYZE TABLE t1;
@@ -96,7 +96,7 @@ Table	Op	Msg_type	Msg_text
 test.t2	analyze	status	OK
 CREATE TEMPORARY TABLE t2_temp_on  like t2;
 CREATE TEMPORARY TABLE t2_temp_off like t2;
-SET SESSION innodb_parallel_ddl=ON;
+SET SESSION innodb_txsql_parallel_ddl=ON;
 ALTER TABLE t2 ADD INDEX k_c2_on(c2), ADD INDEX k_c3_on(c3);
 SHOW CREATE TABLE t2;
 Table	Create Table
@@ -111,7 +111,7 @@ t2	CREATE TABLE `t2` (
 INSERT INTO t2_temp_on SELECT * from t2 force index(k_c2_on);
 drop table t2_temp_on;
 ALTER TABLE t2 DROP INDEX k_c2_on, DROP INDEX k_c3_on;
-SET SESSION innodb_parallel_ddl=OFF;
+SET SESSION innodb_txsql_parallel_ddl=OFF;
 ALTER TABLE t2 ADD INDEX k_c2_off(c2), ADD INDEX k_c3_off(c3);
 SHOW CREATE TABLE t2;
 Table	Create Table
@@ -143,7 +143,7 @@ UNIQUE KEY `name` (`name`)
 Warnings:
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 INSERT INTO help_topic1 SELECT * FROM mysql.help_topic;
-SET SESSION innodb_parallel_ddl=ON;
+SET SESSION innodb_txsql_parallel_ddl=ON;
 ALTER TABLE help_topic1 ENGINE=InnoDB;
 DROP TABLE help_topic1;
 
@@ -153,80 +153,128 @@ CREATE TABLE t1 (id int PRIMARY KEY, val1 int, val2 char(127), val3 char(127)) E
 ANALYZE TABLE t1;
 Table	Op	Msg_type	Msg_text
 test.t1	analyze	status	OK
-SET SESSION innodb_parallel_ddl=ON;
+SET SESSION innodb_txsql_parallel_ddl=ON;
 SET SESSION innodb_parallel_read_threads=4;
-SET SESSION innodb_ddl_threads=1;
+SET SESSION innodb_txsql_ddl_threads=1;
 ALTER TABLE t1 ADD INDEX k_val1(val1);
 ALTER TABLE t1 DROP INDEX k_val1;
 SET SESSION innodb_parallel_read_threads=1;
-SET SESSION innodb_ddl_threads=4;
+SET SESSION innodb_txsql_ddl_threads=4;
 ALTER TABLE t1 ADD INDEX k_val1(val1);
 ALTER TABLE t1 DROP INDEX k_val1;
 
 
-#TEST SCAN_THREAD AND DDL_THREAD from 1 to 16
-SET SESSION innodb_ddl_threads=1;
+#TEST SCAN_THREAD AND DDL_THREAD from 1 to 12
+SET SESSION innodb_txsql_ddl_threads=1;
 SET SESSION innodb_parallel_read_threads=1;
-ALTER TABLE t1 ADD INDEX k_val1(val1), add unique index k_val2(val2);
-ALTER TABLE t1 DROP INDEX k_val1, DROP INDEX k_val2;
-SET SESSION innodb_ddl_threads=2;
+ALTER TABLE t1 ADD INDEX k_val1(val1);
+ALTER TABLE t1 DROP INDEX k_val1;
+SET SESSION innodb_txsql_ddl_threads=2;
 SET SESSION innodb_parallel_read_threads=2;
-ALTER TABLE t1 ADD INDEX k_val1(val1), add unique index k_val2(val2);
-ALTER TABLE t1 DROP INDEX k_val1, DROP INDEX k_val2;
-SET SESSION innodb_ddl_threads=3;
+ALTER TABLE t1 ADD INDEX k_val1(val1);
+ALTER TABLE t1 DROP INDEX k_val1;
+SET SESSION innodb_txsql_ddl_threads=3;
 SET SESSION innodb_parallel_read_threads=3;
-ALTER TABLE t1 ADD INDEX k_val1(val1), add unique index k_val2(val2);
-ALTER TABLE t1 DROP INDEX k_val1, DROP INDEX k_val2;
-SET SESSION innodb_ddl_threads=4;
+ALTER TABLE t1 ADD INDEX k_val1(val1);
+ALTER TABLE t1 DROP INDEX k_val1;
+SET SESSION innodb_txsql_ddl_threads=4;
+SET SESSION innodb_parallel_read_threads=4;
+ALTER TABLE t1 ADD INDEX k_val1(val1);
+ALTER TABLE t1 DROP INDEX k_val1;
+SET SESSION innodb_txsql_ddl_threads=5;
+SET SESSION innodb_parallel_read_threads=5;
+ALTER TABLE t1 ADD INDEX k_val1(val1);
+ALTER TABLE t1 DROP INDEX k_val1;
+SET SESSION innodb_txsql_ddl_threads=6;
+SET SESSION innodb_parallel_read_threads=6;
+ALTER TABLE t1 ADD INDEX k_val1(val1);
+ALTER TABLE t1 DROP INDEX k_val1;
+SET SESSION innodb_txsql_ddl_threads=7;
+SET SESSION innodb_parallel_read_threads=7;
+ALTER TABLE t1 ADD INDEX k_val1(val1);
+ALTER TABLE t1 DROP INDEX k_val1;
+SET SESSION innodb_txsql_ddl_threads=8;
+SET SESSION innodb_parallel_read_threads=8;
+ALTER TABLE t1 ADD INDEX k_val1(val1);
+ALTER TABLE t1 DROP INDEX k_val1;
+SET SESSION innodb_txsql_ddl_threads=9;
+SET SESSION innodb_parallel_read_threads=9;
+ALTER TABLE t1 ADD INDEX k_val1(val1);
+ALTER TABLE t1 DROP INDEX k_val1;
+SET SESSION innodb_txsql_ddl_threads=10;
+SET SESSION innodb_parallel_read_threads=10;
+ALTER TABLE t1 ADD INDEX k_val1(val1);
+ALTER TABLE t1 DROP INDEX k_val1;
+SET SESSION innodb_txsql_ddl_threads=11;
+SET SESSION innodb_parallel_read_threads=11;
+ALTER TABLE t1 ADD INDEX k_val1(val1);
+ALTER TABLE t1 DROP INDEX k_val1;
+SET SESSION innodb_txsql_ddl_threads=12;
+SET SESSION innodb_parallel_read_threads=12;
+ALTER TABLE t1 ADD INDEX k_val1(val1);
+ALTER TABLE t1 DROP INDEX k_val1;
+
+
+#TEST SCAN_THREAD AND DDL_THREAD from 1 to 16 with k-ways merge sort
+select @@global.txsql_parallel_ddl_merge_sort_k_value;
+ERROR HY000: Unknown system variable 'txsql_parallel_ddl_merge_sort_k_value'
+# restart:--tencent-root-cnf=tmy.conf
+select @@global.txsql_parallel_ddl_merge_sort_k_value;
+@@global.txsql_parallel_ddl_merge_sort_k_value
+2
+SET @old_k_value= @@global.txsql_parallel_ddl_merge_sort_k_value;
+SET SESSION innodb_txsql_parallel_ddl=ON;
+set @@global.txsql_parallel_ddl_merge_sort_k_value = 64;
+SET SESSION innodb_txsql_ddl_threads=4;
 SET SESSION innodb_parallel_read_threads=4;
 ALTER TABLE t1 ADD INDEX k_val1(val1), add unique index k_val2(val2);
 ALTER TABLE t1 DROP INDEX k_val1, DROP INDEX k_val2;
-SET SESSION innodb_ddl_threads=5;
+set @@global.txsql_parallel_ddl_merge_sort_k_value = 31;;
+SET SESSION innodb_txsql_ddl_threads=5;
 SET SESSION innodb_parallel_read_threads=5;
 ALTER TABLE t1 ADD INDEX k_val1(val1), add unique index k_val2(val2);
 ALTER TABLE t1 DROP INDEX k_val1, DROP INDEX k_val2;
-SET SESSION innodb_ddl_threads=6;
+set @@global.txsql_parallel_ddl_merge_sort_k_value = 31;;
+SET SESSION innodb_txsql_ddl_threads=6;
 SET SESSION innodb_parallel_read_threads=6;
 ALTER TABLE t1 ADD INDEX k_val1(val1), add unique index k_val2(val2);
 ALTER TABLE t1 DROP INDEX k_val1, DROP INDEX k_val2;
-SET SESSION innodb_ddl_threads=7;
+set @@global.txsql_parallel_ddl_merge_sort_k_value = 31;;
+SET SESSION innodb_txsql_ddl_threads=7;
 SET SESSION innodb_parallel_read_threads=7;
 ALTER TABLE t1 ADD INDEX k_val1(val1), add unique index k_val2(val2);
 ALTER TABLE t1 DROP INDEX k_val1, DROP INDEX k_val2;
-SET SESSION innodb_ddl_threads=8;
+set @@global.txsql_parallel_ddl_merge_sort_k_value = 31;;
+SET SESSION innodb_txsql_ddl_threads=8;
 SET SESSION innodb_parallel_read_threads=8;
 ALTER TABLE t1 ADD INDEX k_val1(val1), add unique index k_val2(val2);
 ALTER TABLE t1 DROP INDEX k_val1, DROP INDEX k_val2;
-SET SESSION innodb_ddl_threads=9;
-SET SESSION innodb_parallel_read_threads=9;
+set @@global.txsql_parallel_ddl_merge_sort_k_value = 31;;
+set @@global.txsql_parallel_ddl_merge_sort_k_value = 8;
+SET SESSION innodb_txsql_ddl_threads=4;
+SET SESSION innodb_parallel_read_threads=4;
 ALTER TABLE t1 ADD INDEX k_val1(val1), add unique index k_val2(val2);
 ALTER TABLE t1 DROP INDEX k_val1, DROP INDEX k_val2;
-SET SESSION innodb_ddl_threads=10;
-SET SESSION innodb_parallel_read_threads=10;
+set @@global.txsql_parallel_ddl_merge_sort_k_value = 5;;
+SET SESSION innodb_txsql_ddl_threads=5;
+SET SESSION innodb_parallel_read_threads=5;
 ALTER TABLE t1 ADD INDEX k_val1(val1), add unique index k_val2(val2);
 ALTER TABLE t1 DROP INDEX k_val1, DROP INDEX k_val2;
-SET SESSION innodb_ddl_threads=11;
-SET SESSION innodb_parallel_read_threads=11;
+set @@global.txsql_parallel_ddl_merge_sort_k_value = 5;;
+SET SESSION innodb_txsql_ddl_threads=6;
+SET SESSION innodb_parallel_read_threads=6;
 ALTER TABLE t1 ADD INDEX k_val1(val1), add unique index k_val2(val2);
 ALTER TABLE t1 DROP INDEX k_val1, DROP INDEX k_val2;
-SET SESSION innodb_ddl_threads=12;
-SET SESSION innodb_parallel_read_threads=12;
+set @@global.txsql_parallel_ddl_merge_sort_k_value = 5;;
+SET SESSION innodb_txsql_ddl_threads=7;
+SET SESSION innodb_parallel_read_threads=7;
 ALTER TABLE t1 ADD INDEX k_val1(val1), add unique index k_val2(val2);
 ALTER TABLE t1 DROP INDEX k_val1, DROP INDEX k_val2;
-SET SESSION innodb_ddl_threads=13;
-SET SESSION innodb_parallel_read_threads=13;
+set @@global.txsql_parallel_ddl_merge_sort_k_value = 5;;
+SET SESSION innodb_txsql_ddl_threads=8;
+SET SESSION innodb_parallel_read_threads=8;
 ALTER TABLE t1 ADD INDEX k_val1(val1), add unique index k_val2(val2);
 ALTER TABLE t1 DROP INDEX k_val1, DROP INDEX k_val2;
-SET SESSION innodb_ddl_threads=14;
-SET SESSION innodb_parallel_read_threads=14;
-ALTER TABLE t1 ADD INDEX k_val1(val1), add unique index k_val2(val2);
-ALTER TABLE t1 DROP INDEX k_val1, DROP INDEX k_val2;
-SET SESSION innodb_ddl_threads=15;
-SET SESSION innodb_parallel_read_threads=15;
-ALTER TABLE t1 ADD INDEX k_val1(val1), add unique index k_val2(val2);
-ALTER TABLE t1 DROP INDEX k_val1, DROP INDEX k_val2;
-SET SESSION innodb_ddl_threads=16;
-SET SESSION innodb_parallel_read_threads=16;
-ALTER TABLE t1 ADD INDEX k_val1(val1), add unique index k_val2(val2);
-ALTER TABLE t1 DROP INDEX k_val1, DROP INDEX k_val2;
+set @@global.txsql_parallel_ddl_merge_sort_k_value = 5;;
+SET @@global.txsql_parallel_ddl_merge_sort_k_value= @old_k_value;
 DROP TABLE t1;

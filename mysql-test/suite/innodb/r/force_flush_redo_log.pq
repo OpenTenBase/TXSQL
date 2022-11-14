@@ -1,0 +1,12 @@
+###connet to server
+###generate redo log
+create database tdb1;
+use tdb1;
+create table tlsn1(f1 int, f2 varchar(1000));
+insert into tlsn1 values (1, lpad('', 900, 'a'));
+###push checkpoint forward
+set global innodb_async_checkpoint_now=true;
+set global innodb_async_checkpoint_now=true;
+ERROR HY000: Incorrect arguments to SET
+###clean up
+drop database tdb1;

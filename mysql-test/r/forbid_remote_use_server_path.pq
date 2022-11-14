@@ -1,0 +1,43 @@
+create user superuser_tmp;
+grant all on *.* to 'superuser_tmp'@'%';
+set global forbid_server_path_remote_change=ON;
+set global general_log_file='abc.log';
+ERROR HY000: Operation only allowed for clients connected via local unix socket when corresponding 'forbid_server_path_remote_change' variable is ON.
+set global slow_query_log_file='abc.log';
+ERROR HY000: Operation only allowed for clients connected via local unix socket when corresponding 'forbid_server_path_remote_change' variable is ON.
+drop table if exists t1, t2;
+create table t1 (a date, b date, c date not null, d date);
+set global forbid_server_path_remote_access=false;
+load data infile '../../std_data/loaddata1.dat' ignore into table t1 fields terminated by ',';
+Warnings:
+Warning	1265	Data truncated for column 'a' at row 1
+Warning	1265	Data truncated for column 'c' at row 1
+Warning	1265	Data truncated for column 'd' at row 1
+Warning	1264	Out of range value for column 'a' at row 2
+Warning	1264	Out of range value for column 'b' at row 2
+Warning	1264	Out of range value for column 'c' at row 2
+Warning	1265	Data truncated for column 'd' at row 2
+Warning	4096	Delimiter ' ' in position 0 in datetime value ' 20030303' at row 3 is superfluous and is deprecated. Please remove.
+select* into outfile 't1.out.txt' from t1;
+select 'abc' into dumpfile 'abc.out.txt';
+select load_file('./abc.out.txt');
+load_file('./abc.out.txt')
+NULL
+set global forbid_server_path_remote_access=true;
+load data infile '../../std_data/loaddata1.dat' into table t1 fields terminated by ',' IGNORE 2 LINES;
+ERROR HY000: Operation only allowed for clients connected via local unix socket when corresponding 'forbid_server_path_remote_access' variable is ON.
+SELECT * from t1;
+a	b	c	d
+0000-00-00	0000-00-00	0000-00-00	0000-00-00
+0000-00-00	NULL	0000-00-00	0000-00-00
+2003-03-03	2003-03-03	2003-03-03	NULL
+select* into outfile 't1.out.txt' from t1;
+ERROR HY000: Operation only allowed for clients connected via local unix socket when corresponding 'forbid_server_path_remote_access' variable is ON.
+select 'abc' into dumpfile 'abc.out.txt';
+ERROR HY000: Operation only allowed for clients connected via local unix socket when corresponding 'forbid_server_path_remote_access' variable is ON.
+select load_file('abc.out.txt');
+ERROR HY000: Operation only allowed for clients connected via local unix socket when corresponding 'forbid_server_path_remote_access' variable is ON.
+set global forbid_server_path_remote_access = false;
+set global forbid_server_path_remote_change = false;
+drop user superuser_tmp;
+drop table t1;

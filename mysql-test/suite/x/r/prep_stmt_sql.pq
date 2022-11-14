@@ -99,9 +99,9 @@ Stmt 4: Execute (one param)
 1 rows affected
 Verify [Status variable "Mysqlx_prep_execute" needs to have a value of 7]
 phrase
+Bob has a dog
 Alice has a cat
 Christina has a hamster
-Bob has a dog
 0 rows affected
 
 Stmt 4: Deallocate
@@ -122,8 +122,8 @@ Rows matched: 1  Changed: 1  Warnings: 0
 Verify [Status variable "Mysqlx_prep_execute" needs to have a value of 8]
 phrase
 David has a parot
-Christina has a hamster
 Bob has a dog
+Christina has a hamster
 0 rows affected
 
 Stmt 5: Deallocate

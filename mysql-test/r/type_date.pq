@@ -515,13 +515,11 @@ SELECT * FROM t1 WHERE LAST_DAY('0000-00-00 00:00:00') IS NULL;
 a
 1
 Warning	1292	Incorrect datetime value: '0000-00-00 00:00:00'
-Warning	1292	Incorrect datetime value: '0000-00-00 00:00:00'
 Warnings:
 SELECT * FROM t1 WHERE
 LAST_DAY((SELECT b FROM t2 WHERE b = '0000-00-00 00:00:00')) IS NULL;
 a
 1
-Warning	1292	Incorrect datetime value: '0000-00-00 00:00:00'
 Warning	1292	Incorrect datetime value: '0000-00-00 00:00:00'
 Warnings:
 DROP TABLE t1,t2;

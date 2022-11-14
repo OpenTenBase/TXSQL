@@ -106,13 +106,13 @@ Note	MY-012204	InnoDB
 Note	MY-012208	InnoDB
 Note	MY-012955	InnoDB
 Note	MY-012957	InnoDB
-Note	MY-011951	InnoDB
 Note	MY-013532	InnoDB
 Note	MY-013532	InnoDB
 Note	MY-013566	InnoDB
 Note	MY-013565	InnoDB
 Note	MY-013532	InnoDB
 Note	MY-013532	InnoDB
+Note	MY-011825	InnoDB
 Note	MY-013086	InnoDB
 Note	MY-013083	InnoDB
 Note	MY-012532	InnoDB
@@ -148,6 +148,7 @@ Note	MY-010253	Server
 Note	MY-010264	Server
 Note	MY-010251	Server
 Note	MY-011025	Repl
+System	MY-040016	Server
 
 # Don't show NOTEs:
 SELECT prio,error_code,subsystem,data
@@ -163,6 +164,7 @@ ORDER BY logged;
 prio	error_code	subsystem	data
 System	MY-013576	InnoDB	InnoDB initialization has started.
 System	MY-013577	InnoDB	InnoDB initialization has ended.
+System	MY-040016	Server	TXSQL: txsql_recycle_scheduler_interval = 0, recycle_bin_purge_scheduler is disabled.
 
 # FR-1.4.1 Show the log-error-verbosity applies
 # We passed --log-error-verbosity=3 at start-up. Show that we have Notes.

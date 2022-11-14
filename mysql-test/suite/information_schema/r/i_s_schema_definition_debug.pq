@@ -103,8 +103,8 @@ CREATE TABLE test.I_S_view_names (name VARCHAR(64) PRIMARY KEY);
 ########################################################################
 # The number of I_S system views must be as expected.
 ########################################################################
-include/assert.inc [There are 44 system views.]
-include/assert.inc [There are 44 I_S system views in total.]
+include/assert.inc [There are 45 system views.]
+include/assert.inc [There are 45 I_S system views in total.]
 ########################################################################
 # No unexpected I_S tables must be present.
 ########################################################################
@@ -574,6 +574,28 @@ INSERT INTO I_S_check_table(t) VALUES ("CREATE OR REPLACE DEFINER=`mysql.infosch
   AND NOT fld.hidden
   AND tbl.se_private_id IS NOT NULL
   AND tbl.engine='INNODB'
+");
+CREATE OR REPLACE DEFINER=`mysql.infoschema`@`localhost` VIEW information_schema.INNODB_INSTANT_MODIFIED_COLS AS SELECT 
+  CONVERT(GET_DD_COLUMN_PRIVATE_DATA(se_private_data, 'table_id'),char(100) character set utf8mb4) AS TABLE_ID,
+  name AS NAME,
+  ordinal_position AS POS,
+  CONVERT(GET_DD_COLUMN_PRIVATE_DATA(se_private_data, 'version'),char(100) character set utf8mb4) AS VERSION,
+  CONVERT(GET_DD_COLUMN_PRIVATE_DATA(se_private_data, 'mtype'),char(100) character set utf8mb4) AS MTYPE,
+  CONVERT(GET_DD_COLUMN_PRIVATE_DATA(se_private_data, 'prtype'),char(100) character set utf8mb4) AS PRTYPE,
+  CONVERT(GET_DD_COLUMN_PRIVATE_DATA(se_private_data, 'len'),char(100) character set utf8mb4) AS LEN FROM 
+  mysql.columns WHERE 
+  instr(se_private_data, 'modified_version') <> 0
+
+INSERT INTO I_S_check_table(t) VALUES ("CREATE OR REPLACE DEFINER=`mysql.infoschema`@`localhost` VIEW information_schema.INNODB_INSTANT_MODIFIED_COLS AS SELECT 
+  CONVERT(GET_DD_COLUMN_PRIVATE_DATA(se_private_data, 'table_id'),char(100) character set utf8mb4) AS TABLE_ID,
+  name AS NAME,
+  ordinal_position AS POS,
+  CONVERT(GET_DD_COLUMN_PRIVATE_DATA(se_private_data, 'version'),char(100) character set utf8mb4) AS VERSION,
+  CONVERT(GET_DD_COLUMN_PRIVATE_DATA(se_private_data, 'mtype'),char(100) character set utf8mb4) AS MTYPE,
+  CONVERT(GET_DD_COLUMN_PRIVATE_DATA(se_private_data, 'prtype'),char(100) character set utf8mb4) AS PRTYPE,
+  CONVERT(GET_DD_COLUMN_PRIVATE_DATA(se_private_data, 'len'),char(100) character set utf8mb4) AS LEN FROM 
+  mysql.columns WHERE 
+  instr(se_private_data, 'modified_version') <> 0
 ");
 CREATE OR REPLACE DEFINER=`mysql.infoschema`@`localhost` VIEW information_schema.INNODB_TABLESPACES_BRIEF AS SELECT 
   GET_DD_TABLESPACE_PRIVATE_DATA(ts.se_private_data, 'id') AS SPACE,

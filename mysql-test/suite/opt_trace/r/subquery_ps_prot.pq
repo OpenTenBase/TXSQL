@@ -142,7 +142,6 @@ SELECT (SELECT a FROM t1 WHERE t1.a=t2.a), a FROM t2	{
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -318,7 +317,6 @@ SELECT (SELECT a FROM t1 WHERE t1.a=t2.a), a FROM t2	{
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -448,7 +446,6 @@ t1.a= (SELECT a FROM t2 LIMIT 1)	{
         } /* empty_result */
       } /* join_optimization */
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -548,7 +545,6 @@ WHERE NOT EXISTS
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -646,7 +642,6 @@ SELECT 1 FROM DUAL WHERE NOT EXISTS (SELECT DISTINCT(a) FROM t2 GROUP BY a ORDER
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -977,7 +972,6 @@ field4,field5,field6	{
         } /* empty_result */
       } /* join_optimization */
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -1139,13 +1133,14 @@ table2.`col_int_nokey` <> any ( select 5 from t2 ) ) and table1.`pk` in
                       {
                         "index": "PRIMARY",
                         "ranges": [
-                          "18 <= pk <= 18",
-                          "192 <= pk <= 192"
+                          "pk = 18",
+                          "pk = 192"
                         ] /* ranges */,
                         "index_dives_for_eq_ranges": true,
                         "rowid_ordered": false,
                         "using_mrr": false,
                         "index_only": false,
+                        "in_memory": -1,
                         "rows": 2,
                         "cost": 1.21,
                         "chosen": true
@@ -1162,8 +1157,8 @@ table2.`col_int_nokey` <> any ( select 5 from t2 ) ) and table1.`pk` in
                       "index": "PRIMARY",
                       "rows": 2,
                       "ranges": [
-                        "18 <= pk <= 18",
-                        "192 <= pk <= 192"
+                        "pk = 18",
+                        "pk = 192"
                       ] /* ranges */
                     } /* range_access_plan */,
                     "rows_for_plan": 2,
@@ -1532,7 +1527,6 @@ table2.`col_int_nokey` <> any ( select 5 from t2 ) ) and table1.`pk` in
         } /* empty_result */
       } /* join_optimization */
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,
@@ -2522,7 +2516,6 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	t1	NULL	index	NULL	b_c_a	413	NULL	1	100.00	Parallel scan (1 workers); Using where; Using index
 1	SIMPLE	<sender1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Send to (<receiver1>)
 1	SIMPLE	<receiver1>	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Receive from (<sender1>)
-1	SIMPLE	t3	NULL	index	b_c_a	b_c_a	413	NULL	1	100.00	Using where; Using index; LooseScan
 1	SIMPLE	t2	NULL	ref	b_c_a	b_c_a	403	test.t3.b	1	100.00	Using where; Using index
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t2`.`a` AS `a`,`test`.`t2`.`b` AS `b`,`test`.`t2`.`c` AS `c` from `test`.`t1` left join (`test`.`t1` `t2` semi join (`test`.`t1` `t3`)) on(((`test`.`t2`.`b` = `test`.`t3`.`b`) and (`test`.`t3`.`a` = `test`.`t1`.`a`) and (`test`.`t2`.`a` = `test`.`t1`.`a`))) where (`test`.`t1`.`a` < 5)
@@ -2844,14 +2837,14 @@ TRACE
                       "access_type": "ref",
                       "index": "<auto_key0>",
                       "rows": 1,
-                      "cost": 0.35,
+                      "cost": 0.6,
                       "chosen": true
                     },
                     {
                       "access_type": "ref",
                       "index": "<auto_key1>",
                       "rows": 1,
-                      "cost": 0.35,
+                      "cost": 0.6,
                       "chosen": false
                     },
                     {
@@ -2865,7 +2858,7 @@ TRACE
                 } /* best_access_path */,
                 "condition_filtering_pct": 100,
                 "rows_for_plan": 1,
-                "cost_for_plan": 0.35,
+                "cost_for_plan": 0.6,
                 "rest_of_plan": [
                   {
                     "plan_prefix": [
@@ -2878,14 +2871,14 @@ TRACE
                           "access_type": "ref",
                           "index": "<auto_key0>",
                           "rows": 1,
-                          "cost": 0.35,
+                          "cost": 0.6,
                           "chosen": true
                         },
                         {
                           "access_type": "ref",
                           "index": "<auto_key1>",
                           "rows": 1,
-                          "cost": 0.35,
+                          "cost": 0.6,
                           "chosen": false
                         },
                         {
@@ -2899,7 +2892,7 @@ TRACE
                     } /* best_access_path */,
                     "condition_filtering_pct": 100,
                     "rows_for_plan": 1,
-                    "cost_for_plan": 0.7,
+                    "cost_for_plan": 1.2,
                     "chosen": true
                   }
                 ] /* rest_of_plan */
@@ -2914,14 +2907,14 @@ TRACE
                       "access_type": "ref",
                       "index": "<auto_key0>",
                       "rows": 1,
-                      "cost": 0.35,
+                      "cost": 0.6,
                       "chosen": true
                     },
                     {
                       "access_type": "ref",
                       "index": "<auto_key1>",
                       "rows": 1,
-                      "cost": 0.35,
+                      "cost": 0.6,
                       "chosen": false
                     },
                     {
@@ -2935,7 +2928,7 @@ TRACE
                 } /* best_access_path */,
                 "condition_filtering_pct": 100,
                 "rows_for_plan": 1,
-                "cost_for_plan": 0.35,
+                "cost_for_plan": 0.6,
                 "pruned_by_heuristic": true
               }
             ] /* considered_execution_plans */
@@ -2984,7 +2977,6 @@ TRACE
         ] /* steps */
       } /* join_optimization */
     },
-    "...",
     {
       "join_execution": {
         "select#": 1,

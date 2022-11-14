@@ -3955,6 +3955,7 @@ string PrintAccessPath(const AccessPath &path, const JoinHypergraph &graph,
     case AccessPath::UPDATE_ROWS:
       str += "UPDATE_ROWS";
       break;
+#if defined(HAVE_PX)
     case AccessPath::PX_RECEIVE:
       str += "PX_RECEIVE";
       break;
@@ -3964,6 +3965,7 @@ string PrintAccessPath(const AccessPath &path, const JoinHypergraph &graph,
     case AccessPath::PX_RECEIVER_MERGE:
       str += "PX_RECEIVER_MERGE";
       break;
+#endif /* defined(HAVE_PX) */
   }
 
   str += StringPrintf(", cost=%.1f, init_cost=%.1f", path.cost, path.init_cost);

@@ -2486,6 +2486,7 @@ Variable_name	Value
 # Status of "equivalent" SELECT query execution:
 Variable_name	Value
 Handler_read_key	2
+Sort_scan	1
 # This line exists only to help --skip_if_hypergraph diffing.
 # Status of testing query execution:
 Variable_name	Value

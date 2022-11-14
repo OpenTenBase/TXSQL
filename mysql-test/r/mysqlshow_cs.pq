@@ -81,7 +81,13 @@ Database: information_schema
 +---------------------------------------+
 | ADMINISTRABLE_ROLE_AUTHORIZATIONS     |
 | APPLICABLE_ROLES                      |
+| CDB_AUTO_STATS_NODE_STATUS            |
+| CDB_AUTO_STATS_TASK_STATUS            |
+| CDB_OUTLINE_INFO                      |
+| CDB_PLAN_CACHE_STAT                   |
 | CDB_SLAVE_THREAD_STATUS               |
+| CDB_SQL_FILTER_INFO                   |
+| CDB_SQL_STATISTICS                    |
 | CHARACTER_SETS                        |
 | CHECK_CONSTRAINTS                     |
 | COLLATIONS                            |
@@ -115,7 +121,9 @@ Database: information_schema
 | INNODB_FT_DELETED                     |
 | INNODB_FT_INDEX_CACHE                 |
 | INNODB_FT_INDEX_TABLE                 |
+| INNODB_HOT_ROW_UPDATE_STATS           |
 | INNODB_INDEXES                        |
+| INNODB_INSTANT_MODIFIED_COLS          |
 | INNODB_METRICS                        |
 | INNODB_SESSION_TEMP_TABLESPACES       |
 | INNODB_TABLES                         |
@@ -154,6 +162,7 @@ Database: information_schema
 | TABLE_CONSTRAINTS_EXTENSIONS          |
 | TABLE_PRIVILEGES                      |
 | TRIGGERS                              |
+| TXSQL_DEADLOCK_HISTORY                |
 | USER_ATTRIBUTES                       |
 | USER_PRIVILEGES                       |
 | VIEWS                                 |
@@ -166,7 +175,13 @@ Database: INFORMATION_SCHEMA
 +---------------------------------------+
 | ADMINISTRABLE_ROLE_AUTHORIZATIONS     |
 | APPLICABLE_ROLES                      |
+| CDB_AUTO_STATS_NODE_STATUS            |
+| CDB_AUTO_STATS_TASK_STATUS            |
+| CDB_OUTLINE_INFO                      |
+| CDB_PLAN_CACHE_STAT                   |
 | CDB_SLAVE_THREAD_STATUS               |
+| CDB_SQL_FILTER_INFO                   |
+| CDB_SQL_STATISTICS                    |
 | CHARACTER_SETS                        |
 | CHECK_CONSTRAINTS                     |
 | COLLATIONS                            |
@@ -200,7 +215,9 @@ Database: INFORMATION_SCHEMA
 | INNODB_FT_DELETED                     |
 | INNODB_FT_INDEX_CACHE                 |
 | INNODB_FT_INDEX_TABLE                 |
+| INNODB_HOT_ROW_UPDATE_STATS           |
 | INNODB_INDEXES                        |
+| INNODB_INSTANT_MODIFIED_COLS          |
 | INNODB_METRICS                        |
 | INNODB_SESSION_TEMP_TABLESPACES       |
 | INNODB_TABLES                         |
@@ -239,6 +256,7 @@ Database: INFORMATION_SCHEMA
 | TABLE_CONSTRAINTS_EXTENSIONS          |
 | TABLE_PRIVILEGES                      |
 | TRIGGERS                              |
+| TXSQL_DEADLOCK_HISTORY                |
 | USER_ATTRIBUTES                       |
 | USER_PRIVILEGES                       |
 | VIEWS                                 |

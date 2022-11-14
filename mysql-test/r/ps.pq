@@ -129,7 +129,6 @@ Warning	1287	FOUND_ROWS() is deprecated and will be removed in a future release.
 select SQL_CALC_FOUND_ROWS * from t1;
 id
 Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
-Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
 Warnings:
 execute stmt1;
 FOUND_ROWS()
@@ -138,7 +137,6 @@ insert into t1 values (1);
 select SQL_CALC_FOUND_ROWS * from t1;
 id
 1
-Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
 Warning	1287	SQL_CALC_FOUND_ROWS is deprecated and will be removed in a future release. Consider using two separate queries instead.
 Warnings:
 execute stmt1;
@@ -1432,8 +1430,8 @@ deallocate prepare stmt;
 select * from t1 order by 1+1;
 a	b
 2	8
-3	7
 1	9
+3	7
 drop table t1;
 create table t1 (a int) engine=myisam;
 create table t2 like t1;
@@ -3959,10 +3957,10 @@ SELECT f2, f3, f4, f5, f6, f7 FROM client_test_db.bug19894382;
 # in values inserted for time, timestamp and datetime type columns.
 SELECT * FROM bug19894382 ORDER BY f2;
 f1	f2	f3	f4	f5	f6	f7
-slave	07:30:30	2015-04-24 13:30:30	2015-04-24 07:30:30	07:30:30.005	2015-04-24 13:30:30.005	2015-04-24 07:30:30.005
 master	07:30:30	2015-04-24 13:30:30	2015-04-24 07:30:30	07:30:30.005	2015-04-24 13:30:30.005	2015-04-24 07:30:30.005
-slave	07:30:31	2015-04-24 13:30:31	2015-04-24 07:30:31	07:30:30.502	2015-04-24 13:30:30.502	2015-04-24 07:30:30.502
+slave	07:30:30	2015-04-24 13:30:30	2015-04-24 07:30:30	07:30:30.005	2015-04-24 13:30:30.005	2015-04-24 07:30:30.005
 master	07:30:31	2015-04-24 13:30:31	2015-04-24 07:30:31	07:30:30.502	2015-04-24 13:30:30.502	2015-04-24 07:30:30.502
+slave	07:30:31	2015-04-24 13:30:31	2015-04-24 07:30:31	07:30:30.502	2015-04-24 13:30:30.502	2015-04-24 07:30:30.502
 # Cleanup
 DROP TABLE bug19894382;
 # Test parameter string longer than 65k

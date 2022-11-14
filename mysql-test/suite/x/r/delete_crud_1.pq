@@ -56,15 +56,15 @@ Records: 10  Duplicates: 0  Warnings: 0
 RUN SELECT * FROM dbmysqlxplugintest.ExtraCategoryInfo
 ExtraCategoryInfoID	CategoryID	MainParentCategoryName
 1	1	People
-4	3	House
-7	2	House
-10	2	House
-3	2	House
-6	2	People
-9	1	People
 2	2	People
+4	3	House
 8	3	House
+9	1	People
+7	2	House
+6	2	People
+3	2	House
 5	1	People
+10	2	House
 0 rows affected
 Delete with In, && operators
 send Mysqlx.Crud.Delete {
@@ -130,15 +130,15 @@ send Mysqlx.Crud.Delete {
 1 rows affected
 RUN SELECT * FROM dbmysqlxplugintest.ExtraCategoryInfo
 ExtraCategoryInfoID	CategoryID	MainParentCategoryName
-1	1	People
 2	2	People
-7	2	House
-9	1	People
 6	2	People
-4	3	House
-8	3	House
-10	2	House
 5	1	People
+1	1	People
+8	3	House
+4	3	House
+7	2	House
+10	2	House
+9	1	People
 0 rows affected
 RUN START TRANSACTION
 
@@ -176,28 +176,28 @@ send Mysqlx.Crud.Delete {
 RUN SELECT * FROM dbmysqlxplugintest.ExtraCategoryInfo
 ExtraCategoryInfoID	CategoryID	MainParentCategoryName
 4	3	House
-5	1	People
-2	2	People
 7	2	House
+5	1	People
 10	2	House
+2	2	People
+8	3	House
 6	2	People
 9	1	People
-8	3	House
 0 rows affected
 RUN ROLLBACK
 
 0 rows affected
 RUN SELECT * FROM dbmysqlxplugintest.ExtraCategoryInfo
 ExtraCategoryInfoID	CategoryID	MainParentCategoryName
+2	2	People
+4	3	House
 1	1	People
+6	2	People
+8	3	House
 5	1	People
 9	1	People
-6	2	People
-10	2	House
-2	2	People
-8	3	House
-4	3	House
 7	2	House
+10	2	House
 0 rows affected
 RUN START TRANSACTION
 
@@ -237,14 +237,14 @@ RUN COMMIT
 0 rows affected
 RUN SELECT * FROM dbmysqlxplugintest.ExtraCategoryInfo
 ExtraCategoryInfoID	CategoryID	MainParentCategoryName
-5	1	People
 2	2	People
-6	2	People
-4	3	House
 8	3	House
-9	1	People
-7	2	House
+5	1	People
 10	2	House
+6	2	People
+9	1	People
+4	3	House
+7	2	House
 0 rows affected
 Mysqlx.Ok {
   msg: "bye!"
@@ -255,14 +255,14 @@ RUN USE dbmysqlxplugintest
 0 rows affected
 RUN SELECT * FROM dbmysqlxplugintest.ExtraCategoryInfo
 ExtraCategoryInfoID	CategoryID	MainParentCategoryName
-4	3	House
-7	2	House
-5	1	People
-8	3	House
 2	2	People
+5	1	People
 9	1	People
 6	2	People
 10	2	House
+4	3	House
+8	3	House
+7	2	House
 0 rows affected
 Use delete with limit and order parameters
 send Mysqlx.Crud.Delete {
@@ -286,14 +286,14 @@ Mysqlx.Error {
 
 RUN SELECT * FROM dbmysqlxplugintest.ExtraCategoryInfo
 ExtraCategoryInfoID	CategoryID	MainParentCategoryName
-2	2	People
-7	2	House
-4	3	House
-5	1	People
-8	3	House
 6	2	People
+7	2	House
+2	2	People
 9	1	People
+5	1	People
 10	2	House
+4	3	House
+8	3	House
 0 rows affected
 Use delete with limit 0 and order parameters
 send Mysqlx.Crud.Delete {
@@ -319,14 +319,14 @@ RUN USE dbmysqlxplugintest
 0 rows affected
 RUN SELECT * FROM dbmysqlxplugintest.ExtraCategoryInfo
 ExtraCategoryInfoID	CategoryID	MainParentCategoryName
-5	1	People
-2	2	People
-9	1	People
-6	2	People
-8	3	House
 4	3	House
-10	2	House
+5	1	People
+6	2	People
+9	1	People
+2	2	People
 7	2	House
+8	3	House
+10	2	House
 0 rows affected
 Use delete with limit and order parameters
 send Mysqlx.Crud.Delete {
@@ -363,11 +363,11 @@ send Mysqlx.Crud.Delete {
 RUN SELECT * FROM dbmysqlxplugintest.ExtraCategoryInfo
 ExtraCategoryInfoID	CategoryID	MainParentCategoryName
 2	2	People
-7	2	House
+6	2	People
 9	1	People
 4	3	House
 10	2	House
-6	2	People
+7	2	House
 5	1	People
 0 rows affected
 Mysqlx.Ok {

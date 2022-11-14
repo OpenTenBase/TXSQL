@@ -102,10 +102,6 @@ yyyy	c4
 SELECT * FROM t4 WHERE yyyy = 'test';
 yyyy	c4
 Warning	1292	Truncated incorrect DOUBLE value: 'test'
-Warning	1292	Truncated incorrect DOUBLE value: 'test'
-Warning	1292	Truncated incorrect DOUBLE value: 'test'
-Warning	1292	Truncated incorrect DOUBLE value: 'test'
-Warning	1292	Truncated incorrect DOUBLE value: 'test'
 Warnings:
 SELECT * FROM t4 WHERE yyyy = '1999';
 yyyy	c4

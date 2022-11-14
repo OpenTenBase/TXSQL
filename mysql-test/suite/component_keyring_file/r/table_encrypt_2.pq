@@ -116,7 +116,7 @@ CREATE TABLE `t1` (
   PRIMARY KEY (`c1`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ENCRYPTION='Y';
 /*!40101 SET character_set_client = @saved_cs_client */;
-INSERT INTO `t1` VALUES (0,'abc'),(3,NULL),(2,NULL),(1,'xyz');
+INSERT INTO `t1` VALUES (2,NULL),(3,NULL),(1,'xyz'),(0,'abc');
 # Redirecting mysqlpump output to MYSQL_TMP_DIR/mysqlpump_encrypt.sql
 DROP DATABASE tde_db;
 Pattern "ALTER INSTANCE ROTATE INNODB MASTER KEY" found

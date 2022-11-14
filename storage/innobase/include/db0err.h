@@ -230,7 +230,7 @@ enum dberr_t {
   /* The following are parallel execution error codes. */
 
   /* The record is over the end of PX_Ctx. */
-  DB_END_OF_PX_CTX = 7000,
+  DB_END_OF_PX_CTX = 7000
 #endif /* defined(HAVE_PX) */
 };
 #endif

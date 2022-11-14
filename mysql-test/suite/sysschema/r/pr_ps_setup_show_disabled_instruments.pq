@@ -20,6 +20,7 @@ stage/innodb/clone (page copy)	YES
 stage/innodb/clone (redo copy)	YES
 statement/com/Binlog Dump	YES
 statement/com/Binlog Dump GTID	YES
+statement/com/Bufferpool Transmit	YES
 statement/com/Change user	YES
 statement/com/Close stmt	YES
 statement/com/Connect	YES

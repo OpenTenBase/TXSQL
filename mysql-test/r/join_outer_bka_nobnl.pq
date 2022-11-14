@@ -2360,13 +2360,13 @@ SELECT * FROM t1 LEFT JOIN t2 ON t1.a=t2.a WHERE t2.a IS NULL;
 a	a
 SHOW STATUS LIKE 'HANDLER_READ%';
 Variable_name	Value
-Handler_read_first	1
-Handler_read_key	1
+Handler_read_first	3
+Handler_read_key	3
 Handler_read_last	0
 Handler_read_next	0
 Handler_read_prev	0
 Handler_read_rnd	0
-Handler_read_rnd_next	0
+Handler_read_rnd_next	6
 DROP TABLE t1,t2;
 #
 # Bug#13464334 SAME QUERY PRODUCES DIFFERENT RESULTS WHEN USED WITH AND
@@ -2634,7 +2634,7 @@ INSERT INTO a(id) VALUES (1);
 SELECT *
 FROM a LEFT JOIN vmerge AS v ON a.id = v.id;
 id	id	b_id
-1	1	NULL
+1	NULL	NULL
 SELECT *
 FROM a LEFT JOIN vmat AS v ON a.id = v.id;
 id	id	b_id
@@ -2642,7 +2642,7 @@ id	id	b_id
 SELECT *
 FROM a LEFT JOIN (SELECT 1 AS one, id FROM b) AS v ON a.id = v.id;
 id	one	id
-1	1	NULL
+1	NULL	NULL
 SELECT *
 FROM a LEFT JOIN (SELECT DISTINCT 1 AS one, id FROM b) AS v ON a.id = v.id;
 id	one	id
@@ -2653,15 +2653,15 @@ UNION DISTINCT
 SELECT *
 FROM a LEFT JOIN vmerge AS v ON a.id = v.id;
 id	id	b_id
-1	1	NULL
+1	NULL	NULL
 SELECT *
 FROM a LEFT JOIN vmerge AS v ON a.id = v.id
 UNION ALL
 SELECT *
 FROM a LEFT JOIN vmerge AS v ON a.id = v.id;
 id	id	b_id
-1	1	NULL
-1	1	NULL
+1	NULL	NULL
+1	NULL	NULL
 DROP VIEW vmerge, vmat;
 DROP TABLE a, b;
 # Bug#15936817 Table left join view, unmatched rows problem where
@@ -3323,11 +3323,11 @@ LEFT JOIN (SELECT t2.t1_a, 'red' AS st_value
 FROM t2) AS subq
 ON subq.t1_a = t1.a;
 a	st_value
-1	red
-15	red
-2	red
-24	red
-5	red
+1	NULL
+15	NULL
+2	NULL
+24	NULL
+5	NULL
 SELECT t1.a, subq.st_value
 FROM t1
 LEFT JOIN (SELECT t2.t1_a, 'red' AS st_value
@@ -3434,7 +3434,7 @@ Handler_read_last	0
 Handler_read_next	0
 Handler_read_prev	0
 Handler_read_rnd	0
-Handler_read_rnd_next	50
+Handler_read_rnd_next	55
 Handler_rollback	0
 Handler_savepoint	0
 Handler_savepoint_rollback	0
@@ -3466,7 +3466,7 @@ Handler_read_last	0
 Handler_read_next	0
 Handler_read_prev	0
 Handler_read_rnd	0
-Handler_read_rnd_next	45
+Handler_read_rnd_next	50
 Handler_rollback	0
 Handler_savepoint	0
 Handler_savepoint_rollback	0
@@ -3490,13 +3490,13 @@ Handler_discover	0
 Handler_external_lock	8
 Handler_mrr_init	0
 Handler_prepare	0
-Handler_read_first	1
-Handler_read_key	1
+Handler_read_first	13
+Handler_read_key	13
 Handler_read_last	0
 Handler_read_next	0
 Handler_read_prev	0
 Handler_read_rnd	0
-Handler_read_rnd_next	0
+Handler_read_rnd_next	65
 Handler_rollback	0
 Handler_savepoint	0
 Handler_savepoint_rollback	0

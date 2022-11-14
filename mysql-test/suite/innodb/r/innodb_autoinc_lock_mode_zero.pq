@@ -33,7 +33,7 @@ ERROR 23000: Duplicate entry 'test2' for key 't1.ggid'
 select * from t1;
 id	ggid	email	passwd
 1	this will work		
-4	test2		this will work
+3	test2		this will work
 select * from t1 where id=1;
 id	ggid	email	passwd
 1	this will work		

@@ -48,6 +48,10 @@ END WHILE;
 END$
 CALL test_system_table_alter_engine();
 @table_name
+mysql.column_statistics_history
+ERROR
+Storage engine 'MyISAM' does not support system tables. [mysql.column_statistics_history]
+@table_name
 mysql.columns_priv
 ERROR
 Storage engine 'MyISAM' does not support system tables. [mysql.columns_priv]
@@ -104,6 +108,10 @@ mysql.innodb_table_stats
 ERROR
 The used command is not allowed with this MySQL version
 @table_name
+mysql.outline
+ERROR
+Storage engine 'MyISAM' does not support system tables. [mysql.outline]
+@table_name
 mysql.password_history
 ERROR
 Storage engine 'MyISAM' does not support system tables. [mysql.password_history]
@@ -119,6 +127,10 @@ Storage engine 'MyISAM' does not support system tables. [mysql.procs_priv]
 mysql.proxies_priv
 ERROR
 Storage engine 'MyISAM' does not support system tables. [mysql.proxies_priv]
+@table_name
+mysql.recycle_bin_info
+ERROR
+Storage engine 'MyISAM' does not support system tables. [mysql.recycle_bin_info]
 @table_name
 mysql.replication_asynchronous_connection_failover
 ERROR
@@ -167,6 +179,10 @@ Storage engine 'MyISAM' does not support system tables. [mysql.slave_worker_info
 mysql.tables_priv
 ERROR
 Storage engine 'MyISAM' does not support system tables. [mysql.tables_priv]
+@table_name
+mysql.tdsql_sequences
+ERROR
+Storage engine 'MyISAM' does not support system tables. [mysql.tdsql_sequences]
 @table_name
 mysql.time_zone
 ERROR
@@ -244,6 +260,8 @@ END WHILE;
 END$
 CALL test_create_system_table();
 SEVERITY	ERRNO	MESSAGE
+Warning	1726	Storage engine 'MyISAM' does not support system tables. [mysql.column_statistics_history]
+SEVERITY	ERRNO	MESSAGE
 Warning	1726	Storage engine 'MyISAM' does not support system tables. [mysql.columns_priv]
 SEVERITY	ERRNO	MESSAGE
 Warning	1726	Storage engine 'MyISAM' does not support system tables. [mysql.component]
@@ -274,6 +292,8 @@ ERROR	3554	Access to system table 'mysql.innodb_index_stats' is rejected.
 SEVERITY	ERRNO	MESSAGE
 ERROR	3554	Access to system table 'mysql.innodb_table_stats' is rejected.
 SEVERITY	ERRNO	MESSAGE
+Warning	1726	Storage engine 'MyISAM' does not support system tables. [mysql.outline]
+SEVERITY	ERRNO	MESSAGE
 Warning	1726	Storage engine 'MyISAM' does not support system tables. [mysql.password_history]
 SEVERITY	ERRNO	MESSAGE
 Warning	1726	Storage engine 'MyISAM' does not support system tables. [mysql.plugin]
@@ -281,6 +301,8 @@ SEVERITY	ERRNO	MESSAGE
 Warning	1726	Storage engine 'MyISAM' does not support system tables. [mysql.procs_priv]
 SEVERITY	ERRNO	MESSAGE
 Warning	1726	Storage engine 'MyISAM' does not support system tables. [mysql.proxies_priv]
+SEVERITY	ERRNO	MESSAGE
+Warning	1726	Storage engine 'MyISAM' does not support system tables. [mysql.recycle_bin_info]
 SEVERITY	ERRNO	MESSAGE
 Warning	1726	Storage engine 'MyISAM' does not support system tables. [mysql.replication_asynchronous_connection_failover]
 SEVERITY	ERRNO	MESSAGE
@@ -306,6 +328,8 @@ Warning	1726	Storage engine 'MyISAM' does not support system tables. [mysql.slav
 SEVERITY	ERRNO	MESSAGE
 Warning	1726	Storage engine 'MyISAM' does not support system tables. [mysql.tables_priv]
 SEVERITY	ERRNO	MESSAGE
+Warning	1726	Storage engine 'MyISAM' does not support system tables. [mysql.tdsql_sequences]
+SEVERITY	ERRNO	MESSAGE
 Warning	1726	Storage engine 'MyISAM' does not support system tables. [mysql.time_zone]
 SEVERITY	ERRNO	MESSAGE
 Warning	1726	Storage engine 'MyISAM' does not support system tables. [mysql.time_zone_leap_second]
@@ -328,7 +352,7 @@ DROP TABLE system_tables;
 #-----------------------------------------------------------------------
 CREATE USER 'user1'@'%';
 CREATE TABLE t1 (f1 INT);
-CREATE FUNCTION sequence RETURNS INTEGER SONAME "UDF_EXAMPLE_LIB";
+CREATE FUNCTION udf_sequence RETURNS INTEGER SONAME "UDF_EXAMPLE_LIB";
 RENAME TABLE mysql.func TO mysql.func_bkp;
 CREATE TABLE mysql.func ENGINE='MyISAM' AS SELECT * FROM mysql.func_bkp;
 Warnings:
@@ -337,17 +361,17 @@ Warning	1726	Storage engine 'MyISAM' does not support system tables. [mysql.func
 # condition failure.
 CREATE FUNCTION udf_func RETURNS STRING SONAME 'udf_func.so';
 ERROR HY000: Storage engine 'MyISAM' does not support system tables. [mysql.func]
-DROP FUNCTION sequence;
+DROP FUNCTION udf_sequence;
 ERROR HY000: Storage engine 'MyISAM' does not support system tables. [mysql.func]
 ALTER TABLE mysql.func ENGINE='InnoDB',
 DROP COLUMN ret;
 CREATE FUNCTION udf_func RETURNS STRING SONAME 'udf_func.so';
 ERROR HY000: Column count of mysql.func is wrong. Expected 4, found 3. The table is probably corrupted
-DROP FUNCTION sequence;
+DROP FUNCTION udf_sequence;
 ERROR HY000: Column count of mysql.func is wrong. Expected 4, found 3. The table is probably corrupted
 DROP TABLE mysql.func;
 RENAME TABLE mysql.func_bkp TO mysql.func;
-DROP FUNCTION sequence;
+DROP FUNCTION udf_sequence;
 RENAME TABLE mysql.plugin TO mysql.plugin_bkp;
 CREATE TABLE mysql.plugin ENGINE='MyISAM' AS SELECT * FROM mysql.plugin_bkp;
 Warnings:

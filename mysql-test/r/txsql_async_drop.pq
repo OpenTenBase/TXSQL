@@ -1,8 +1,7 @@
 === check the system variabels for tencentroot only ===
 select @@innodb_async_drop_tmp_dir;
-@@innodb_async_drop_tmp_dir
-NULL
-set global innodb_async_drop_tmp_dir= @@global.tmpdir;
+ERROR HY000: Unknown system variable 'innodb_async_drop_tmp_dir'
+set global innodb_async_drop_tmp_dir= @@global.datadir;
 ERROR HY000: Unknown system variable 'innodb_async_drop_tmp_dir'
 set global innodb_table_drop_mode= 'async_drop';
 ERROR HY000: Unknown system variable 'innodb_table_drop_mode'
@@ -11,14 +10,24 @@ ERROR HY000: Unknown system variable 'innodb_async_truncate_size'
 set global innodb_async_table_size = 4096;
 ERROR HY000: Unknown system variable 'innodb_async_table_size'
 #connect user=tencentroot
+set session innodb_async_drop_tmp_dir= @@global.datadir;
+ERROR HY000: Variable 'innodb_async_drop_tmp_dir' is a GLOBAL variable and should be set with SET GLOBAL
+== now try to check table with small size ==
+set global innodb_table_drop_mode= 'rename_only';
+set global innodb_async_drop_tmp_dir= @@global.datadir;
+use test;
+create table t(a int);
+drop table t;
+here should NOT see any file
+no .ibd
+no .trh
+set global debug='+d,ib_set_big_table';
+set global debug='+d,ib_before_row_truncate_file';
+=== now try to set global innodb_table_drop_mode and innodb_async_drop_tmp_dir ===
 use test;
 create table at(a int);
-set session innodb_async_drop_tmp_dir= @@global.tmpdir;
-ERROR HY000: Variable 'innodb_async_drop_tmp_dir' is a GLOBAL variable and should be set with SET GLOBAL
-=== now try to set global innodb_table_drop_mode and innodb_async_drop_tmp_dir ===
 set global innodb_table_drop_mode= 'async_drop';
-set global innodb_async_drop_tmp_dir= @@global.tmpdir;
-set global debug='d,ib_before_row_truncate_file';
+set global innodb_async_drop_tmp_dir= @@global.datadir;
 drop table at;
 here should see trash file
 no .ibd
@@ -29,10 +38,9 @@ no .trh
 === now change the param dynamically ===
 create table bt(a int);
 insert into bt values(1),(2);
-set global debug='d,ib_before_row_truncate_file';
 drop table bt;
 get a warning while setting innodb_async_drop_tmp_dir since truncate task list isn't empty
-set global innodb_async_drop_tmp_dir= @@global.tmpdir;
+set global innodb_async_drop_tmp_dir= @@global.datadir;
 Warnings:
 Warning	200	Truncate task list not empty, task len=1.
 show warnings;
@@ -62,7 +70,6 @@ create table ct(a int);
 insert into ct values(1),(2);
 set innodb_table_drop_mode to sync_drop
 set global innodb_table_drop_mode= 'sync_drop';
-set global debug='d,ib_before_row_truncate_file';
 drop table ct;
 here should NOT see trash file
 no .ibd
@@ -74,7 +81,6 @@ set global innodb_table_drop_mode rename_only
 create table dt(a int);
 insert into dt values(1),(2);
 set global innodb_table_drop_mode= 'rename_only';
-set global debug='d,ib_before_row_truncate_file';
 drop table dt;
 here should see trash file
 no .ibd
@@ -86,7 +92,6 @@ set global innodb_table_drop_mode async_drop, the trash file left by dt table sh
 create table et(a int);
 insert into et values(1),(2);
 set global innodb_table_drop_mode= 'async_drop';
-set global debug='d,ib_before_row_truncate_file';
 drop table et;
 here should see trash file
 Found .trh
@@ -104,3 +109,5 @@ no .trh
 set global innodb_async_drop_tmp_dir= @@global.datadir;
 here should NOT see trash file
 no .trh
+set global debug='-d,ib_set_big_table';
+set global debug='-d,ib_before_row_truncate_file';

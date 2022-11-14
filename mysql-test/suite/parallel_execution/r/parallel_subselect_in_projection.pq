@@ -6,11 +6,10 @@ CREATE TABLE t (a INT);
 INSERT INTO t VALUES (0), (1), (1), (2);
 explain format=tree SELECT (SELECT SUM(t1.a) s FROM t t2 WHERE t2.a = 0 HAVING s > 3) FROM t t1;
 EXPLAIN
--> Aggregate: sum(t1.a)
+-> Aggregate: sum(t1.a)  (cost=*** rows=***)
     -> PX Receiver (slice: 0; workers: 1)
         -> PX Sender (slice: 1; workers: 4)
-            -> Aggregate: sum(t1.a)  (cost=*** rows=***)
-                -> Parallel table scan on t1  (cost=*** rows=***)
+            -> Parallel table scan on t1  (cost=*** rows=***)
 -> Select #2 (subquery in projection; dependent)
     -> Filter: (s > 3)  (cost=*** rows=***)
         -> Filter: (t2.a = 0)  (cost=*** rows=***)
@@ -23,11 +22,10 @@ SELECT (SELECT SUM(t1.a) s FROM t t2 WHERE t2.a = 0 HAVING s > 3) FROM t t1;
 4
 explain format=tree SELECT (SELECT AVG(t1.a) s FROM t t2 WHERE t2.a = 0 HAVING s > 0) FROM t t1;
 EXPLAIN
--> Aggregate: sum(t1.a), count(t1.a)
+-> Aggregate: avg(t1.a)  (cost=*** rows=***)
     -> PX Receiver (slice: 0; workers: 1)
         -> PX Sender (slice: 1; workers: 4)
-            -> Aggregate: sum(t1.a), count(t1.a)  (cost=*** rows=***)
-                -> Parallel table scan on t1  (cost=*** rows=***)
+            -> Parallel table scan on t1  (cost=*** rows=***)
 -> Select #2 (subquery in projection; dependent)
     -> Filter: (s > 0)  (cost=*** rows=***)
         -> Filter: (t2.a = 0)  (cost=*** rows=***)
@@ -40,11 +38,10 @@ SELECT (SELECT AVG(t1.a) s FROM t t2 WHERE t2.a = 0 HAVING s > 0) FROM t t1;
 1.0000
 explain format=tree SELECT (SELECT SUM(t1.a)+AVG(t1.a)+1 s FROM t t2 WHERE t2.a = 0 HAVING s > 3) FROM t t1;
 EXPLAIN
--> Aggregate: sum(t1.a), count(t1.a), sum(t1.a)
+-> Aggregate: avg(t1.a), sum(t1.a)  (cost=*** rows=***)
     -> PX Receiver (slice: 0; workers: 1)
         -> PX Sender (slice: 1; workers: 4)
-            -> Aggregate: sum(t1.a), count(t1.a), sum(t1.a)  (cost=*** rows=***)
-                -> Parallel table scan on t1  (cost=*** rows=***)
+            -> Parallel table scan on t1  (cost=*** rows=***)
 -> Select #2 (subquery in projection; dependent)
     -> Filter: (s > 3)  (cost=*** rows=***)
         -> Filter: (t2.a = 0)  (cost=*** rows=***)
@@ -58,11 +55,10 @@ SELECT (SELECT SUM(t1.a)+AVG(t1.a)+1 s FROM t t2 WHERE t2.a = 0 HAVING s > 3) FR
 6.0000
 explain format=tree SELECT (SELECT SUM(t1.a) s FROM t t2 WHERE t2.a = 0 group by t2.a HAVING s > 3) FROM t t1;
 EXPLAIN
--> Aggregate: sum(t1.a)
+-> Aggregate: sum(t1.a)  (cost=*** rows=***)
     -> PX Receiver (slice: 0; workers: 1)
         -> PX Sender (slice: 1; workers: 4)
-            -> Aggregate: sum(t1.a)  (cost=*** rows=***)
-                -> Parallel table scan on t1  (cost=*** rows=***)
+            -> Parallel table scan on t1  (cost=*** rows=***)
 -> Select #2 (subquery in projection; dependent)
     -> Filter: (s > 3)  (cost=*** rows=***)
         -> Group (no aggregates)  (cost=*** rows=***)
@@ -76,11 +72,10 @@ SELECT (SELECT SUM(t1.a) s FROM t t2 WHERE t2.a = 0 group by t2.a HAVING s > 3) 
 4
 explain format=tree SELECT (SELECT SUM(t1.a) s FROM t t2 WHERE t2.a = 0 group by t1.a HAVING s > 3) FROM t t1;
 EXPLAIN
--> Aggregate: sum(t1.a)
+-> Aggregate: sum(t1.a)  (cost=*** rows=***)
     -> PX Receiver (slice: 0; workers: 1)
         -> PX Sender (slice: 1; workers: 4)
-            -> Aggregate: sum(t1.a)  (cost=*** rows=***)
-                -> Parallel table scan on t1  (cost=*** rows=***)
+            -> Parallel table scan on t1  (cost=*** rows=***)
 -> Select #2 (subquery in projection; dependent)
     -> Filter: (s > 3)  (cost=***..3.26 rows=***)
         -> Table scan on <temporary>  (cost=***..2.51 rows=***)
@@ -96,11 +91,10 @@ SELECT (SELECT SUM(t1.a) s FROM t t2 WHERE t2.a = 0 group by t1.a HAVING s > 3) 
 4
 explain format=tree SELECT (select (SELECT SUM(t1.a) s FROM t as t2 WHERE t2.a = 0 HAVING s > 3)+1) FROM t t1;
 EXPLAIN
--> Aggregate: sum(t1.a)
+-> Aggregate: sum(t1.a)  (cost=*** rows=***)
     -> PX Receiver (slice: 0; workers: 1)
         -> PX Sender (slice: 1; workers: 4)
-            -> Aggregate: sum(t1.a)  (cost=*** rows=***)
-                -> Parallel table scan on t1  (cost=*** rows=***)
+            -> Parallel table scan on t1  (cost=*** rows=***)
 -> Select #2 (subquery in projection; dependent)
     -> Rows fetched before execution  (cost=***..0.00 rows=***)
     -> Select #3 (subquery in projection; dependent)
@@ -125,11 +119,10 @@ INSERT INTO t2 VALUES (101, 201);
 INSERT INTO t2 VALUES (103, 203);
 explain format=tree SELECT ((a1) IN (SELECT sum(a1) FROM t2 WHERE b2 > 0)) FROM t1;
 EXPLAIN
--> Aggregate: sum(t1.a1)
+-> Aggregate: sum(t1.a1)  (cost=0.65 rows=1)
     -> PX Receiver (slice: 0; workers: 1)
         -> PX Sender (slice: 1; workers: 2)
-            -> Aggregate: sum(t1.a1)  (cost=0.65 rows=1)
-                -> Parallel table scan on t1  (cost=0.45 rows=2)
+            -> Parallel table scan on t1  (cost=0.45 rows=2)
 -> Select #2 (subquery in projection; dependent)
     -> Limit: 1 row(s)  (cost=0.45 rows=1)
         -> Filter: <if>(outer_field_is_not_null, (<cache>(t1.a1) = <ref_null_helper>(sum(t1.a1))), true)  (cost=0.45 rows=1)

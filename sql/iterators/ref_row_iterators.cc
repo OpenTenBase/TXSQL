@@ -384,6 +384,7 @@ bool RefIterator<Reverse>::Init() {
 //! @cond
 template <>
 int RefIterator<false>::Read() {  // Forward read.
+#if defined(HAVE_PX)
   if (m_parallel_scan) {
     int tmp;
     while ((tmp = table()->file->ha_px_scan_next(table()->record[0], thd()->px_scan_ctx))) {
@@ -395,6 +396,7 @@ int RefIterator<false>::Read() {  // Forward read.
     }
     return 0;
   }
+#endif /* defined(HAVE_PX) */
 
   if (m_first_record_since_init) {
     m_first_record_since_init = false;
@@ -449,6 +451,7 @@ template <>
 int RefIterator<true>::Read() {  // Reverse read.
   assert(m_ref->keypart_hash == nullptr);
 
+#if defined(HAVE_PX)
   if (m_parallel_scan) {
     int tmp;
     while ((tmp = table()->file->ha_px_scan_next(table()->record[0], thd()->px_scan_ctx))) {
@@ -460,6 +463,7 @@ int RefIterator<true>::Read() {  // Reverse read.
     }
     return 0;
   }
+#endif /* defined(HAVE_PX) */
 
   if (m_first_record_since_init) {
     m_first_record_since_init = false;

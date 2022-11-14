@@ -1,0 +1,292 @@
+create table t1(a int primary key, b int, c varchar(100));
+insert into t1 values (1,2,"abc"),(2,3,"bcd"),(3,4,"cde"),(4,5,"def");
+get 4 lines
+select * from t1;
+a	b	c
+1	2	abc
+2	3	bcd
+3	4	cde
+4	5	def
+create table t2(a int primary key, b int, c varchar(100));
+insert into t2 values (1,2,"abc"),(2,3,"bcd"),(3,4,"cde"),(4,5,"def");
+get 4 lines
+select * from t2;
+a	b	c
+1	2	abc
+2	3	bcd
+3	4	cde
+4	5	def
+update t1 set b = b + 1 where a = 2 into @a,@b,@c;
+ERROR 21000: The used SELECT statements have a different number of columns
+update t1 set b = b + 1 where a = 2 txsql_returning a+1, b, c into @a,@b;
+ERROR 21000: The used SELECT statements have a different number of columns
+update t1 set b = b + 1 where a = 2 txsql_returning a+1, b, c into @a,@b,@c;
+org,a,b,c(2       3       bcd) =>  (3       4       bcd)
+select @a,@b,@c;
+@a	@b	@c
+3	4	bcd
+update t1 set b = b + 1 where a = 2 txsql_returning * into @a,@b,@c;
+select found_rows();
+found_rows()
+1
+get found_rows(),the result is 1, and (@a,@b,@c) => 2       5       bcd
+select @a,@b,@c;
+@a	@b	@c
+2	5	bcd
+update t1 set b = b + 1 txsql_returning * into @a,@b,@c;
+ERROR 42000: Result consisted of more than one row
+update multiple rows,so the sql run fail ,but found_rows()  dont' change ,so the result is 1
+select found_rows();
+found_rows()
+1
+select @a,@b,@c;
+@a	@b	@c
+1	3	abc
+begin;
+select * from t1;
+a	b	c
+1	2	abc
+2	5	bcd
+3	4	cde
+4	5	def
+update t1 set b = b + 1 where a = 2 txsql_returning * into @a,@b,@c;
+select @a,@b,@c;
+@a	@b	@c
+2	6	bcd
+select * from t1;
+a	b	c
+1	2	abc
+2	6	bcd
+3	4	cde
+4	5	def
+update t1 set b = b + 1 txsql_returning * into @a,@b,@c;
+ERROR 42000: Result consisted of more than one row
+commit;
+select * from t1;
+a	b	c
+1	2	abc
+2	6	bcd
+3	4	cde
+4	5	def
+begin;
+select * from t1;
+a	b	c
+1	2	abc
+2	6	bcd
+3	4	cde
+4	5	def
+update t1 set b = b + 1 where a = 2 txsql_returning * into @a,@b,@c;
+select @a,@b,@c;
+@a	@b	@c
+2	7	bcd
+select * from t1;
+a	b	c
+1	2	abc
+2	7	bcd
+3	4	cde
+4	5	def
+update t1 set b = b + 1 txsql_returning * into @a,@b,@c;
+ERROR 42000: Result consisted of more than one row
+rollback;
+select * from t1;
+a	b	c
+1	2	abc
+2	6	bcd
+3	4	cde
+4	5	def
+select * from t1;
+a	b	c
+1	2	abc
+2	6	bcd
+3	4	cde
+4	5	def
+select * from t2;
+a	b	c
+1	2	abc
+2	3	bcd
+3	4	cde
+4	5	def
+update t1 left join t2 on t1.a=t2.a set t1.b=t2.b*2 , t2.b = t2.b + 3 ;
+select * from t1;
+a	b	c
+1	4	abc
+2	6	bcd
+3	8	cde
+4	10	def
+select * from t2;
+a	b	c
+1	5	abc
+2	6	bcd
+3	7	cde
+4	8	def
+update t1 left join t2 on t1.a=t2.a set t1.b=t2.b*2 , t2.b = t2.b + 3  txsql_returning t1.a,t1.b,t1.c;
+ERROR HY000: Feature returning with multi table is unsupported ().
+select * from t1;
+a	b	c
+1	4	abc
+2	6	bcd
+3	8	cde
+4	10	def
+select * from t2;
+a	b	c
+1	5	abc
+2	6	bcd
+3	7	cde
+4	8	def
+drop procedure if exists test_update_returing;
+create procedure test_update_returing(
+in arg_a int,
+out err int,
+out var_a int,
+out var_b int,
+out var_c varchar(100),
+out var_b11 int
+)
+label:begin
+declare exit HANDLER FOR NOT FOUND,SQLEXCEPTION
+begin
+set err = -1;
+rollback;
+end;
+start transaction;
+set err = 0;
+update t1 set b = b + 1 where a = arg_a txsql_returning a,b,c into var_a,var_b,var_c;
+update t1 set b = b + 1 where a = arg_a txsql_returning b+10 into @tmp_b;
+select @tmp_b into var_b11;
+if err = 0 then
+commit;
+end if;
+end
+$$
+set @a = NULL;
+set @b = NULL;
+set @c = NULL;
+set @err=0;
+set @b11 = NULL;
+call test_update_returing(2,@err,@a,@b,@c,@b11);
+select @a,@b,@c,@b11;
+@a	@b	@c	@b11
+2	7	bcd	18
+select * from t1;
+a	b	c
+1	4	abc
+2	8	bcd
+3	8	cde
+4	10	def
+begin;
+select * from t1;
+a	b	c
+1	4	abc
+2	8	bcd
+3	8	cde
+4	10	def
+delete from t1 where a <= 2 txsql_returning a,b,c,a+b;
+a	b	c	a+b
+1	4	abc	5
+2	8	bcd	10
+rollback;
+set @a = NULL;
+set @b = NULL;
+set @c = NULL;
+set @d = NULL;
+begin;
+select * from t1;
+a	b	c
+1	4	abc
+2	8	bcd
+3	8	cde
+4	10	def
+delete from t1 limit 1 txsql_returning a,b,c,a+b;
+a	b	c	a+b
+1	4	abc	5
+delete from t1 limit 1 txsql_returning a,b,c,a+b into @a,@b,@c,@d;
+select @a,@b,@c,@d;
+@a	@b	@c	@d
+2	8	bcd	10
+delete from t1 txsql_returning a,b,c,a+b into @a,@b,@c,@d;
+ERROR 42000: Result consisted of more than one row
+select found_rows();
+found_rows()
+1
+rollback;
+select  @a,@b,@c,@d;
+@a	@b	@c	@d
+3	8	cde	11
+delete from t1 where a=10 txsql_returning a,b,c,a+b;
+a	b	c	a+b
+select found_rows();
+found_rows()
+0
+drop procedure if exists test_delete_returing;
+create procedure test_delete_returing(
+in arg_a int,
+out err int,
+out var_a int,
+out var_b int,
+out var_c varchar(100),
+out var_b11 int
+)
+label:begin
+declare exit HANDLER FOR NOT FOUND,SQLEXCEPTION
+begin
+set err = -1;
+rollback;
+end;
+start transaction;
+set err = 0;
+delete from t1  where a = arg_a txsql_returning a,b,c into var_a,var_b,var_c;
+delete from t1  where a = arg_a + 1 txsql_returning b+10 into @tmp_b;
+select @tmp_b into var_b11;
+if err = 0 then
+commit;
+end if;
+end
+$$
+select * from t1;
+a	b	c
+1	4	abc
+2	8	bcd
+3	8	cde
+4	10	def
+set @a = NULL;
+set @b = NULL;
+set @c = NULL;
+set @err=0;
+set @b11 = NULL;
+call test_delete_returing(2,@err,@a,@b,@c,@b11);
+select @a,@b,@c,@b11;
+@a	@b	@c	@b11
+2	8	bcd	18
+select * from t1;
+a	b	c
+1	4	abc
+4	10	def
+set @a = NULL;
+set @b = NULL;
+set @c = NULL;
+set @err=0;
+set @b11 = NULL;
+call test_delete_returing(3,@err,@a,@b,@c,@b11);
+select @a,@b,@c,@b11;
+@a	@b	@c	@b11
+NULL	NULL	NULL	NULL
+select * from t1;
+a	b	c
+1	4	abc
+4	10	def
+drop procedure test_update_returing;
+drop procedure test_delete_returing;
+drop table t1,t2;
+CREATE TABLE `t1` (
+`no_w_id` int NOT NULL,
+`no_d_id` tinyint NOT NULL,
+`no_o_id` int NOT NULL,
+PRIMARY KEY (`no_w_id`,`no_d_id`,`no_o_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin;
+insert into t1 values(1,1,1),(2,2,2),(3,3,3),(4,4,4),(5,5,5),(6,6,6);
+set @a = NULL;
+DELETE FROM t1 WHERE no_w_id = 6 AND no_d_id = 6 order by no_o_id asc limit 1 txsql_returning no_o_id into @a;
+select @a;
+@a
+6
+drop table t1;

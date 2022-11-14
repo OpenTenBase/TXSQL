@@ -2,8 +2,8 @@
 show grants;
 Grants for root@localhost
 GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, RELOAD, SHUTDOWN, PROCESS, FILE, REFERENCES, INDEX, ALTER, SHOW DATABASES, SUPER, CREATE TEMPORARY TABLES, LOCK TABLES, EXECUTE, REPLICATION SLAVE, REPLICATION CLIENT, CREATE VIEW, SHOW VIEW, CREATE ROUTINE, ALTER ROUTINE, CREATE USER, EVENT, TRIGGER, CREATE TABLESPACE, CREATE ROLE, DROP ROLE ON *.* TO `root`@`localhost` WITH GRANT OPTION
-GRANT APPLICATION_PASSWORD_ADMIN,AUDIT_ADMIN,BACKUP_ADMIN,BINLOG_ADMIN,BINLOG_ENCRYPTION_ADMIN,CLONE_ADMIN,CONNECTION_ADMIN,ENCRYPTION_KEY_ADMIN,GROUP_REPLICATION_ADMIN,INNODB_REDO_LOG_ARCHIVE,INNODB_REDO_LOG_ENABLE,PERSIST_RO_VARIABLES_ADMIN,REPLICATION_APPLIER,REPLICATION_SLAVE_ADMIN,RESOURCE_GROUP_ADMIN,RESOURCE_GROUP_USER,ROLE_ADMIN,SERVICE_CONNECTION_ADMIN,SESSION_VARIABLES_ADMIN,SET_USER_ID,SHOW_ROUTINE,SYSTEM_USER,SYSTEM_VARIABLES_ADMIN,TABLE_ENCRYPTION_ADMIN,XA_RECOVER_ADMIN ON *.* TO `root`@`localhost` WITH GRANT OPTION
-GRANT PROXY ON ''@'' TO 'root'@'localhost' WITH GRANT OPTION
+GRANT APPLICATION_PASSWORD_ADMIN,AUDIT_ABORT_EXEMPT,AUDIT_ADMIN,AUTHENTICATION_POLICY_ADMIN,BACKUP_ADMIN,BINLOG_ADMIN,BINLOG_ENCRYPTION_ADMIN,CLONE_ADMIN,CONNECTION_ADMIN,ENCRYPTION_KEY_ADMIN,FIREWALL_EXEMPT,FLUSH_OPTIMIZER_COSTS,FLUSH_STATUS,FLUSH_TABLES,FLUSH_USER_RESOURCES,GROUP_REPLICATION_ADMIN,GROUP_REPLICATION_STREAM,INNODB_REDO_LOG_ARCHIVE,INNODB_REDO_LOG_ENABLE,PASSWORDLESS_USER_ADMIN,PERSIST_RO_VARIABLES_ADMIN,READ_MASK,REPLICATION_APPLIER,REPLICATION_SLAVE_ADMIN,RESOURCE_GROUP_ADMIN,RESOURCE_GROUP_USER,ROLE_ADMIN,SENSITIVE_VARIABLES_OBSERVER,SERVICE_CONNECTION_ADMIN,SESSION_VARIABLES_ADMIN,SET_USER_ID,SHOW_ROUTINE,SYSTEM_USER,SYSTEM_VARIABLES_ADMIN,TABLE_ENCRYPTION_ADMIN,XA_RECOVER_ADMIN ON *.* TO `root`@`localhost` WITH GRANT OPTION
+GRANT PROXY ON ``@`` TO `root`@`localhost` WITH GRANT OPTION
 select user();
 user()
 tencentroot@localhost
@@ -140,8 +140,8 @@ b
 2
 show cdb_plan_cache_stat;
 sql	mode	hit
-select b from t1 where a = ?	PREPARE	0
 select b / ? from t1 where a = ?	PREPARE	7
+select b from t1 where a = ?	PREPARE	0
 set @value = 2;
 execute stmt1 using @value;
 b
@@ -156,8 +156,8 @@ b
 3
 show cdb_plan_cache_stat;
 sql	mode	hit
-select b from t1 where a = ?	PREPARE	1
 select b / ? from t1 where a = ?	PREPARE	7
+select b from t1 where a = ?	PREPARE	1
 deallocate prepare stmt1;
 prepare stmt2 from "select b + ? from t1 where a = ?";
 set @value1 = 9999;
@@ -168,8 +168,8 @@ b + ?
 show cdb_plan_cache_stat;
 sql	mode	hit
 select b + ? from t1 where a = ?	PREPARE	0
-select b from t1 where a = ?	PREPARE	1
 select b / ? from t1 where a = ?	PREPARE	7
+select b from t1 where a = ?	PREPARE	1
 set @value1 = 888;
 execute stmt2 using @value1,@value2;
 b + ?
@@ -177,8 +177,8 @@ b + ?
 show cdb_plan_cache_stat;
 sql	mode	hit
 select b + ? from t1 where a = ?	PREPARE	1
-select b from t1 where a = ?	PREPARE	1
 select b / ? from t1 where a = ?	PREPARE	7
+select b from t1 where a = ?	PREPARE	1
 set @value2 = 3;
 execute stmt2 using @value1,@value2;
 b + ?
@@ -196,8 +196,8 @@ b + ?
 show cdb_plan_cache_stat;
 sql	mode	hit
 select b + ? from t1 where a = ?	PREPARE	2
-select b from t1 where a = ?	PREPARE	1
 select b / ? from t1 where a = ?	PREPARE	7
+select b from t1 where a = ?	PREPARE	1
 deallocate prepare stmt2;
 prepare stmt3 from "select * from t2 where a = ? and b = ?";
 set @value1 = 1;
@@ -207,10 +207,10 @@ a	b	c
 1	2	3
 show cdb_plan_cache_stat;
 sql	mode	hit
-select b + ? from t1 where a = ?	PREPARE	2
 select * from t2 where a = ? and b = ?	PREPARE	0
-select b from t1 where a = ?	PREPARE	1
+select b + ? from t1 where a = ?	PREPARE	2
 select b / ? from t1 where a = ?	PREPARE	7
+select b from t1 where a = ?	PREPARE	1
 set @value1 = 4;
 set @value2 = 3;
 execute stmt3 using @value1,@value2;
@@ -218,10 +218,10 @@ a	b	c
 4	3	4
 show cdb_plan_cache_stat;
 sql	mode	hit
-select b + ? from t1 where a = ?	PREPARE	2
 select * from t2 where a = ? and b = ?	PREPARE	1
-select b from t1 where a = ?	PREPARE	1
+select b + ? from t1 where a = ?	PREPARE	2
 select b / ? from t1 where a = ?	PREPARE	7
+select b from t1 where a = ?	PREPARE	1
 set @value1 = 1;
 set @value2 = 1;
 execute stmt3 using @value1,@value2;
@@ -237,10 +237,10 @@ a	b	c
 4	3	4
 show cdb_plan_cache_stat;
 sql	mode	hit
-select b + ? from t1 where a = ?	PREPARE	2
 select * from t2 where a = ? and b = ?	PREPARE	2
-select b from t1 where a = ?	PREPARE	1
+select b + ? from t1 where a = ?	PREPARE	2
 select b / ? from t1 where a = ?	PREPARE	7
+select b from t1 where a = ?	PREPARE	1
 deallocate prepare stmt3;
 prepare stmt4 from "select a + b + ? from t3 where a = ? and c = ?";
 set @value = 1000000;
@@ -251,11 +251,11 @@ a + b + ?
 1000003
 show cdb_plan_cache_stat;
 sql	mode	hit
+select * from t2 where a = ? and b = ?	PREPARE	2
 select a + b + ? from t3 where a = ? and c = ?	PREPARE	0
+select b + ? from t1 where a = ?	PREPARE	2
 select b / ? from t1 where a = ?	PREPARE	7
 select b from t1 where a = ?	PREPARE	1
-select * from t2 where a = ? and b = ?	PREPARE	2
-select b + ? from t1 where a = ?	PREPARE	2
 set @value1 = 2;
 set @value2 = 4;
 execute stmt4 using @value,@value1,@value2;
@@ -273,11 +273,11 @@ a + b + ?
 1000005
 show cdb_plan_cache_stat;
 sql	mode	hit
+select * from t2 where a = ? and b = ?	PREPARE	2
 select a + b + ? from t3 where a = ? and c = ?	PREPARE	2
+select b + ? from t1 where a = ?	PREPARE	2
 select b / ? from t1 where a = ?	PREPARE	7
 select b from t1 where a = ?	PREPARE	1
-select * from t2 where a = ? and b = ?	PREPARE	2
-select b + ? from t1 where a = ?	PREPARE	2
 deallocate prepare stmt4;
 prepare stmt5 from "select a, b, b + c + ? from t4 where b = ? and c = ?";
 set @value = 1000;
@@ -288,12 +288,12 @@ a	b	b + c + ?
 1	2	1005
 show cdb_plan_cache_stat;
 sql	mode	hit
-select a, b, b + c + ? from t4 where b = ? and c = ?	PREPARE	0
+select * from t2 where a = ? and b = ?	PREPARE	2
 select a + b + ? from t3 where a = ? and c = ?	PREPARE	2
+select a, b, b + c + ? from t4 where b = ? and c = ?	PREPARE	0
+select b + ? from t1 where a = ?	PREPARE	2
 select b / ? from t1 where a = ?	PREPARE	7
 select b from t1 where a = ?	PREPARE	1
-select * from t2 where a = ? and b = ?	PREPARE	2
-select b + ? from t1 where a = ?	PREPARE	2
 set @value1 = 3;
 set @value2 = 4;
 execute stmt5 using @value,@value1,@value2;
@@ -311,12 +311,12 @@ a	b	b + c + ?
 2	3	1007
 show cdb_plan_cache_stat;
 sql	mode	hit
-select a, b, b + c + ? from t4 where b = ? and c = ?	PREPARE	1
+select * from t2 where a = ? and b = ?	PREPARE	2
 select a + b + ? from t3 where a = ? and c = ?	PREPARE	2
+select a, b, b + c + ? from t4 where b = ? and c = ?	PREPARE	1
+select b + ? from t1 where a = ?	PREPARE	2
 select b / ? from t1 where a = ?	PREPARE	7
 select b from t1 where a = ?	PREPARE	1
-select * from t2 where a = ? and b = ?	PREPARE	2
-select b + ? from t1 where a = ?	PREPARE	2
 deallocate prepare stmt5;
 prepare stmt6 from "select a, b, b + c + ? from t4 where b = ? + ? and c = ?";
 set @value1 = 10;
@@ -328,12 +328,12 @@ a	b	b + c + ?
 2	3	17
 show cdb_plan_cache_stat;
 sql	mode	hit
-select a, b, b + c + ? from t4 where b = ? and c = ?	PREPARE	1
+select * from t2 where a = ? and b = ?	PREPARE	2
 select a + b + ? from t3 where a = ? and c = ?	PREPARE	2
+select a, b, b + c + ? from t4 where b = ? and c = ?	PREPARE	1
+select b + ? from t1 where a = ?	PREPARE	2
 select b / ? from t1 where a = ?	PREPARE	7
 select b from t1 where a = ?	PREPARE	1
-select * from t2 where a = ? and b = ?	PREPARE	2
-select b + ? from t1 where a = ?	PREPARE	2
 set @value1 = 100;
 set @value2 = 1;
 set @value3 = 1;
@@ -343,12 +343,12 @@ a	b	b + c + ?
 1	2	105
 show cdb_plan_cache_stat;
 sql	mode	hit
-select a, b, b + c + ? from t4 where b = ? and c = ?	PREPARE	1
+select * from t2 where a = ? and b = ?	PREPARE	2
 select a + b + ? from t3 where a = ? and c = ?	PREPARE	2
+select a, b, b + c + ? from t4 where b = ? and c = ?	PREPARE	1
+select b + ? from t1 where a = ?	PREPARE	2
 select b / ? from t1 where a = ?	PREPARE	7
 select b from t1 where a = ?	PREPARE	1
-select * from t2 where a = ? and b = ?	PREPARE	2
-select b + ? from t1 where a = ?	PREPARE	2
 set @value1 = 10.09;
 set @value2 = 1;
 set @value3 = 1;
@@ -358,12 +358,12 @@ a	b	b + c + ?
 1	2	15.090000000000000000000000000000
 show cdb_plan_cache_stat;
 sql	mode	hit
-select a, b, b + c + ? from t4 where b = ? and c = ?	PREPARE	1
+select * from t2 where a = ? and b = ?	PREPARE	2
 select a + b + ? from t3 where a = ? and c = ?	PREPARE	2
+select a, b, b + c + ? from t4 where b = ? and c = ?	PREPARE	1
+select b + ? from t1 where a = ?	PREPARE	2
 select b / ? from t1 where a = ?	PREPARE	7
 select b from t1 where a = ?	PREPARE	1
-select * from t2 where a = ? and b = ?	PREPARE	2
-select b + ? from t1 where a = ?	PREPARE	2
 deallocate prepare stmt6;
 prepare stmt7 from "select a, b, b + c + ? + ? from t4 where b = ? and c = ?";
 set @value1 = 10.1e-3;
@@ -388,29 +388,27 @@ execute stmt7 using @value1,@value2,@value3,@value4;
 a	b	b + c + ? + ?
 show cdb_plan_cache_stat;
 sql	mode	hit
-select a, b, b + c + ? + ? from t4 where b = ? and c = ?	PREPARE	0
-select a, b, b + c + ? from t4 where b = ? and c = ?	PREPARE	1
+select * from t2 where a = ? and b = ?	PREPARE	2
 select a + b + ? from t3 where a = ? and c = ?	PREPARE	2
+select a, b, b + c + ? from t4 where b = ? and c = ?	PREPARE	1
+select b + ? from t1 where a = ?	PREPARE	2
 select b / ? from t1 where a = ?	PREPARE	7
 select b from t1 where a = ?	PREPARE	1
-select * from t2 where a = ? and b = ?	PREPARE	2
-select b + ? from t1 where a = ?	PREPARE	2
 set @value1 = 100.9;
 set @value2 = 1.7;
 set @value3 = 2;
 set @value4 = 3;
 execute stmt7 using @value1,@value2,@value3,@value4;
 a	b	b + c + ? + ?
-1	2	107.600000000000000000000000000000
+1	2	107.60000000000001
 show cdb_plan_cache_stat;
 sql	mode	hit
-select a, b, b + c + ? + ? from t4 where b = ? and c = ?	PREPARE	1
-select a, b, b + c + ? from t4 where b = ? and c = ?	PREPARE	1
+select * from t2 where a = ? and b = ?	PREPARE	2
 select a + b + ? from t3 where a = ? and c = ?	PREPARE	2
+select a, b, b + c + ? from t4 where b = ? and c = ?	PREPARE	1
+select b + ? from t1 where a = ?	PREPARE	2
 select b / ? from t1 where a = ?	PREPARE	7
 select b from t1 where a = ?	PREPARE	1
-select * from t2 where a = ? and b = ?	PREPARE	2
-select b + ? from t1 where a = ?	PREPARE	2
 set @value1 = 10.09;
 set @value2 = 1;
 set @value3 = null;
@@ -419,13 +417,12 @@ execute stmt7 using @value1,@value2,@value3,@value4;
 a	b	b + c + ? + ?
 show cdb_plan_cache_stat;
 sql	mode	hit
-select a, b, b + c + ? + ? from t4 where b = ? and c = ?	PREPARE	2
-select a, b, b + c + ? from t4 where b = ? and c = ?	PREPARE	1
+select * from t2 where a = ? and b = ?	PREPARE	2
 select a + b + ? from t3 where a = ? and c = ?	PREPARE	2
+select a, b, b + c + ? from t4 where b = ? and c = ?	PREPARE	1
+select b + ? from t1 where a = ?	PREPARE	2
 select b / ? from t1 where a = ?	PREPARE	7
 select b from t1 where a = ?	PREPARE	1
-select * from t2 where a = ? and b = ?	PREPARE	2
-select b + ? from t1 where a = ?	PREPARE	2
 deallocate prepare stmt7;
 prepare stmt8 from "select b from t1 where a = ?";
 set @value1 = null;
@@ -433,26 +430,24 @@ execute stmt8 using @value1;
 b
 show cdb_plan_cache_stat;
 sql	mode	hit
-select a, b, b + c + ? + ? from t4 where b = ? and c = ?	PREPARE	2
-select a, b, b + c + ? from t4 where b = ? and c = ?	PREPARE	1
+select * from t2 where a = ? and b = ?	PREPARE	2
 select a + b + ? from t3 where a = ? and c = ?	PREPARE	2
+select a, b, b + c + ? from t4 where b = ? and c = ?	PREPARE	1
+select b + ? from t1 where a = ?	PREPARE	2
 select b / ? from t1 where a = ?	PREPARE	7
 select b from t1 where a = ?	PREPARE	1
-select * from t2 where a = ? and b = ?	PREPARE	2
-select b + ? from t1 where a = ?	PREPARE	2
 set @value2 = 2;
 execute stmt8 using @value2;
 b
 3
 show cdb_plan_cache_stat;
 sql	mode	hit
-select a, b, b + c + ? + ? from t4 where b = ? and c = ?	PREPARE	2
-select a, b, b + c + ? from t4 where b = ? and c = ?	PREPARE	1
+select * from t2 where a = ? and b = ?	PREPARE	2
 select a + b + ? from t3 where a = ? and c = ?	PREPARE	2
+select a, b, b + c + ? from t4 where b = ? and c = ?	PREPARE	1
+select b + ? from t1 where a = ?	PREPARE	2
 select b / ? from t1 where a = ?	PREPARE	7
 select b from t1 where a = ?	PREPARE	1
-select * from t2 where a = ? and b = ?	PREPARE	2
-select b + ? from t1 where a = ?	PREPARE	2
 set @value3 = 3;
 execute stmt8 using @value3;
 b
@@ -462,13 +457,12 @@ execute stmt8 using @value3;
 b
 show cdb_plan_cache_stat;
 sql	mode	hit
-select a, b, b + c + ? + ? from t4 where b = ? and c = ?	PREPARE	2
-select a, b, b + c + ? from t4 where b = ? and c = ?	PREPARE	1
+select * from t2 where a = ? and b = ?	PREPARE	2
 select a + b + ? from t3 where a = ? and c = ?	PREPARE	2
+select a, b, b + c + ? from t4 where b = ? and c = ?	PREPARE	1
+select b + ? from t1 where a = ?	PREPARE	2
 select b / ? from t1 where a = ?	PREPARE	7
 select b from t1 where a = ?	PREPARE	3
-select * from t2 where a = ? and b = ?	PREPARE	2
-select b + ? from t1 where a = ?	PREPARE	2
 deallocate prepare stmt8;
 prepare stmt9 from "select * from t5 where a = ?";
 set @value1 = 1.1;
@@ -629,21 +623,20 @@ a	b	c
 show cdb_plan_cache_stat;
 sql	mode	hit
 select * from t10 where ? = b and ? = a	PREPARE	1
-select * from t10 where b = ? and a = ?	PREPARE	1
 select * from t10 where a = ? and ? = b	PREPARE	1
-select * from t9 where ? = a	PREPARE	1
 select * from t10 where a = ? and b = ?	PREPARE	1
-select * from t9 where a = ?	PREPARE	1
+select * from t10 where b = ? and a = ?	PREPARE	1
+select * from t2 where a = ? and b = ?	PREPARE	2
+select * from t5 where a = ?	PREPARE	3
 select * from t7 where a = ? and b = ?	PREPARE	1
-select b from t1 where a = ?	PREPARE	3
+select * from t8 where a = ? and b = ?	PREPARE	1
+select * from t9 where ? = a	PREPARE	1
+select * from t9 where a = ?	PREPARE	1
+select a + b + ? from t3 where a = ? and c = ?	PREPARE	2
+select a, b, b + c + ? from t4 where b = ? and c = ?	PREPARE	1
 select b + ? from t1 where a = ?	PREPARE	2
 select b / ? from t1 where a = ?	PREPARE	7
-select a + b + ? from t3 where a = ? and c = ?	PREPARE	2
-select * from t8 where a = ? and b = ?	PREPARE	1
-select a, b, b + c + ? from t4 where b = ? and c = ?	PREPARE	1
-select a, b, b + c + ? + ? from t4 where b = ? and c = ?	PREPARE	2
-select * from t5 where a = ?	PREPARE	3
-select * from t2 where a = ? and b = ?	PREPARE	2
+select b from t1 where a = ?	PREPARE	3
 select b, a from t6 where a = ?	PREPARE	1
 deallocate prepare stmt21;
 prepare stmt22 from "select * from t1 where a = ? and ?";
@@ -654,21 +647,20 @@ a	b	c
 show cdb_plan_cache_stat;
 sql	mode	hit
 select * from t10 where ? = b and ? = a	PREPARE	1
-select * from t10 where b = ? and a = ?	PREPARE	1
 select * from t10 where a = ? and ? = b	PREPARE	1
-select * from t9 where ? = a	PREPARE	1
 select * from t10 where a = ? and b = ?	PREPARE	1
-select * from t9 where a = ?	PREPARE	1
+select * from t10 where b = ? and a = ?	PREPARE	1
+select * from t2 where a = ? and b = ?	PREPARE	2
+select * from t5 where a = ?	PREPARE	3
 select * from t7 where a = ? and b = ?	PREPARE	1
-select b from t1 where a = ?	PREPARE	3
+select * from t8 where a = ? and b = ?	PREPARE	1
+select * from t9 where ? = a	PREPARE	1
+select * from t9 where a = ?	PREPARE	1
+select a + b + ? from t3 where a = ? and c = ?	PREPARE	2
+select a, b, b + c + ? from t4 where b = ? and c = ?	PREPARE	1
 select b + ? from t1 where a = ?	PREPARE	2
 select b / ? from t1 where a = ?	PREPARE	7
-select a + b + ? from t3 where a = ? and c = ?	PREPARE	2
-select * from t8 where a = ? and b = ?	PREPARE	1
-select a, b, b + c + ? from t4 where b = ? and c = ?	PREPARE	1
-select a, b, b + c + ? + ? from t4 where b = ? and c = ?	PREPARE	2
-select * from t5 where a = ?	PREPARE	3
-select * from t2 where a = ? and b = ?	PREPARE	2
+select b from t1 where a = ?	PREPARE	3
 select b, a from t6 where a = ?	PREPARE	1
 deallocate prepare stmt22;
 prepare stmt23 from "select * from t1 where a = ? and true";
@@ -679,21 +671,20 @@ a	b	c
 show cdb_plan_cache_stat;
 sql	mode	hit
 select * from t10 where ? = b and ? = a	PREPARE	1
-select * from t10 where b = ? and a = ?	PREPARE	1
 select * from t10 where a = ? and ? = b	PREPARE	1
-select * from t9 where ? = a	PREPARE	1
 select * from t10 where a = ? and b = ?	PREPARE	1
-select * from t9 where a = ?	PREPARE	1
+select * from t10 where b = ? and a = ?	PREPARE	1
+select * from t2 where a = ? and b = ?	PREPARE	2
+select * from t5 where a = ?	PREPARE	3
 select * from t7 where a = ? and b = ?	PREPARE	1
-select b from t1 where a = ?	PREPARE	3
+select * from t8 where a = ? and b = ?	PREPARE	1
+select * from t9 where ? = a	PREPARE	1
+select * from t9 where a = ?	PREPARE	1
+select a + b + ? from t3 where a = ? and c = ?	PREPARE	2
+select a, b, b + c + ? from t4 where b = ? and c = ?	PREPARE	1
 select b + ? from t1 where a = ?	PREPARE	2
 select b / ? from t1 where a = ?	PREPARE	7
-select a + b + ? from t3 where a = ? and c = ?	PREPARE	2
-select * from t8 where a = ? and b = ?	PREPARE	1
-select a, b, b + c + ? from t4 where b = ? and c = ?	PREPARE	1
-select a, b, b + c + ? + ? from t4 where b = ? and c = ?	PREPARE	2
-select * from t5 where a = ?	PREPARE	3
-select * from t2 where a = ? and b = ?	PREPARE	2
+select b from t1 where a = ?	PREPARE	3
 select b, a from t6 where a = ?	PREPARE	1
 deallocate prepare stmt23;
 prepare stmt24 from "select * from t1 where a = ? and b = ?";
@@ -705,21 +696,20 @@ a	b	c
 show cdb_plan_cache_stat;
 sql	mode	hit
 select * from t10 where ? = b and ? = a	PREPARE	1
-select * from t10 where b = ? and a = ?	PREPARE	1
 select * from t10 where a = ? and ? = b	PREPARE	1
-select * from t9 where ? = a	PREPARE	1
 select * from t10 where a = ? and b = ?	PREPARE	1
-select * from t9 where a = ?	PREPARE	1
+select * from t10 where b = ? and a = ?	PREPARE	1
+select * from t2 where a = ? and b = ?	PREPARE	2
+select * from t5 where a = ?	PREPARE	3
 select * from t7 where a = ? and b = ?	PREPARE	1
-select b from t1 where a = ?	PREPARE	3
+select * from t8 where a = ? and b = ?	PREPARE	1
+select * from t9 where ? = a	PREPARE	1
+select * from t9 where a = ?	PREPARE	1
+select a + b + ? from t3 where a = ? and c = ?	PREPARE	2
+select a, b, b + c + ? from t4 where b = ? and c = ?	PREPARE	1
 select b + ? from t1 where a = ?	PREPARE	2
 select b / ? from t1 where a = ?	PREPARE	7
-select a + b + ? from t3 where a = ? and c = ?	PREPARE	2
-select * from t8 where a = ? and b = ?	PREPARE	1
-select a, b, b + c + ? from t4 where b = ? and c = ?	PREPARE	1
-select a, b, b + c + ? + ? from t4 where b = ? and c = ?	PREPARE	2
-select * from t5 where a = ?	PREPARE	3
-select * from t2 where a = ? and b = ?	PREPARE	2
+select b from t1 where a = ?	PREPARE	3
 select b, a from t6 where a = ?	PREPARE	1
 deallocate prepare stmt24;
 prepare stmt25 from "select * from t1 where a = ? or b = ?";
@@ -733,21 +723,20 @@ a	b	c
 show cdb_plan_cache_stat;
 sql	mode	hit
 select * from t10 where ? = b and ? = a	PREPARE	1
-select * from t10 where b = ? and a = ?	PREPARE	1
 select * from t10 where a = ? and ? = b	PREPARE	1
-select * from t9 where ? = a	PREPARE	1
 select * from t10 where a = ? and b = ?	PREPARE	1
-select * from t9 where a = ?	PREPARE	1
+select * from t10 where b = ? and a = ?	PREPARE	1
+select * from t2 where a = ? and b = ?	PREPARE	2
+select * from t5 where a = ?	PREPARE	3
 select * from t7 where a = ? and b = ?	PREPARE	1
-select b from t1 where a = ?	PREPARE	3
+select * from t8 where a = ? and b = ?	PREPARE	1
+select * from t9 where ? = a	PREPARE	1
+select * from t9 where a = ?	PREPARE	1
+select a + b + ? from t3 where a = ? and c = ?	PREPARE	2
+select a, b, b + c + ? from t4 where b = ? and c = ?	PREPARE	1
 select b + ? from t1 where a = ?	PREPARE	2
 select b / ? from t1 where a = ?	PREPARE	7
-select a + b + ? from t3 where a = ? and c = ?	PREPARE	2
-select * from t8 where a = ? and b = ?	PREPARE	1
-select a, b, b + c + ? from t4 where b = ? and c = ?	PREPARE	1
-select a, b, b + c + ? + ? from t4 where b = ? and c = ?	PREPARE	2
-select * from t5 where a = ?	PREPARE	3
-select * from t2 where a = ? and b = ?	PREPARE	2
+select b from t1 where a = ?	PREPARE	3
 select b, a from t6 where a = ?	PREPARE	1
 deallocate prepare stmt25;
 prepare stmt26 from "select * from t2 where a = ? and (b = ? and c = ?)";
@@ -760,21 +749,20 @@ a	b	c
 show cdb_plan_cache_stat;
 sql	mode	hit
 select * from t10 where ? = b and ? = a	PREPARE	1
-select * from t10 where b = ? and a = ?	PREPARE	1
 select * from t10 where a = ? and ? = b	PREPARE	1
-select * from t9 where ? = a	PREPARE	1
 select * from t10 where a = ? and b = ?	PREPARE	1
-select * from t9 where a = ?	PREPARE	1
+select * from t10 where b = ? and a = ?	PREPARE	1
+select * from t2 where a = ? and b = ?	PREPARE	2
+select * from t5 where a = ?	PREPARE	3
 select * from t7 where a = ? and b = ?	PREPARE	1
-select b from t1 where a = ?	PREPARE	3
+select * from t8 where a = ? and b = ?	PREPARE	1
+select * from t9 where ? = a	PREPARE	1
+select * from t9 where a = ?	PREPARE	1
+select a + b + ? from t3 where a = ? and c = ?	PREPARE	2
+select a, b, b + c + ? from t4 where b = ? and c = ?	PREPARE	1
 select b + ? from t1 where a = ?	PREPARE	2
 select b / ? from t1 where a = ?	PREPARE	7
-select a + b + ? from t3 where a = ? and c = ?	PREPARE	2
-select * from t8 where a = ? and b = ?	PREPARE	1
-select a, b, b + c + ? from t4 where b = ? and c = ?	PREPARE	1
-select a, b, b + c + ? + ? from t4 where b = ? and c = ?	PREPARE	2
-select * from t5 where a = ?	PREPARE	3
-select * from t2 where a = ? and b = ?	PREPARE	2
+select b from t1 where a = ?	PREPARE	3
 select b, a from t6 where a = ?	PREPARE	1
 deallocate prepare stmt26;
 prepare stmt27 from "select * from t2 where a = ? and (b = ? or c = ?)";
@@ -787,21 +775,20 @@ a	b	c
 show cdb_plan_cache_stat;
 sql	mode	hit
 select * from t10 where ? = b and ? = a	PREPARE	1
-select * from t10 where b = ? and a = ?	PREPARE	1
 select * from t10 where a = ? and ? = b	PREPARE	1
-select * from t9 where ? = a	PREPARE	1
 select * from t10 where a = ? and b = ?	PREPARE	1
-select * from t9 where a = ?	PREPARE	1
+select * from t10 where b = ? and a = ?	PREPARE	1
+select * from t2 where a = ? and b = ?	PREPARE	2
+select * from t5 where a = ?	PREPARE	3
 select * from t7 where a = ? and b = ?	PREPARE	1
-select b from t1 where a = ?	PREPARE	3
+select * from t8 where a = ? and b = ?	PREPARE	1
+select * from t9 where ? = a	PREPARE	1
+select * from t9 where a = ?	PREPARE	1
+select a + b + ? from t3 where a = ? and c = ?	PREPARE	2
+select a, b, b + c + ? from t4 where b = ? and c = ?	PREPARE	1
 select b + ? from t1 where a = ?	PREPARE	2
 select b / ? from t1 where a = ?	PREPARE	7
-select a + b + ? from t3 where a = ? and c = ?	PREPARE	2
-select * from t8 where a = ? and b = ?	PREPARE	1
-select a, b, b + c + ? from t4 where b = ? and c = ?	PREPARE	1
-select a, b, b + c + ? + ? from t4 where b = ? and c = ?	PREPARE	2
-select * from t5 where a = ?	PREPARE	3
-select * from t2 where a = ? and b = ?	PREPARE	2
+select b from t1 where a = ?	PREPARE	3
 select b, a from t6 where a = ?	PREPARE	1
 deallocate prepare stmt27;
 prepare stmt28 from "select * from t2 where a = ? or (b = ?)";
@@ -814,21 +801,20 @@ a	b	c
 show cdb_plan_cache_stat;
 sql	mode	hit
 select * from t10 where ? = b and ? = a	PREPARE	1
-select * from t10 where b = ? and a = ?	PREPARE	1
 select * from t10 where a = ? and ? = b	PREPARE	1
-select * from t9 where ? = a	PREPARE	1
 select * from t10 where a = ? and b = ?	PREPARE	1
-select * from t9 where a = ?	PREPARE	1
+select * from t10 where b = ? and a = ?	PREPARE	1
+select * from t2 where a = ? and b = ?	PREPARE	2
+select * from t5 where a = ?	PREPARE	3
 select * from t7 where a = ? and b = ?	PREPARE	1
-select b from t1 where a = ?	PREPARE	3
+select * from t8 where a = ? and b = ?	PREPARE	1
+select * from t9 where ? = a	PREPARE	1
+select * from t9 where a = ?	PREPARE	1
+select a + b + ? from t3 where a = ? and c = ?	PREPARE	2
+select a, b, b + c + ? from t4 where b = ? and c = ?	PREPARE	1
 select b + ? from t1 where a = ?	PREPARE	2
 select b / ? from t1 where a = ?	PREPARE	7
-select a + b + ? from t3 where a = ? and c = ?	PREPARE	2
-select * from t8 where a = ? and b = ?	PREPARE	1
-select a, b, b + c + ? from t4 where b = ? and c = ?	PREPARE	1
-select a, b, b + c + ? + ? from t4 where b = ? and c = ?	PREPARE	2
-select * from t5 where a = ?	PREPARE	3
-select * from t2 where a = ? and b = ?	PREPARE	2
+select b from t1 where a = ?	PREPARE	3
 select b, a from t6 where a = ?	PREPARE	1
 deallocate prepare stmt28;
 drop table if exists t_o1;
@@ -848,23 +834,22 @@ execute stmt41 using @value;
 t1
 show cdb_plan_cache_stat;
 sql	mode	hit
-select * from t_o1 where t1 = ?	PREPARE	1
 select * from t10 where ? = b and ? = a	PREPARE	1
-select * from t10 where b = ? and a = ?	PREPARE	1
 select * from t10 where a = ? and ? = b	PREPARE	1
-select * from t9 where ? = a	PREPARE	1
 select * from t10 where a = ? and b = ?	PREPARE	1
-select * from t9 where a = ?	PREPARE	1
+select * from t10 where b = ? and a = ?	PREPARE	1
+select * from t2 where a = ? and b = ?	PREPARE	2
+select * from t5 where a = ?	PREPARE	3
 select * from t7 where a = ? and b = ?	PREPARE	1
-select b from t1 where a = ?	PREPARE	3
+select * from t8 where a = ? and b = ?	PREPARE	1
+select * from t9 where ? = a	PREPARE	1
+select * from t9 where a = ?	PREPARE	1
+select * from t_o1 where t1 = ?	PREPARE	1
+select a + b + ? from t3 where a = ? and c = ?	PREPARE	2
+select a, b, b + c + ? from t4 where b = ? and c = ?	PREPARE	1
 select b + ? from t1 where a = ?	PREPARE	2
 select b / ? from t1 where a = ?	PREPARE	7
-select a + b + ? from t3 where a = ? and c = ?	PREPARE	2
-select * from t8 where a = ? and b = ?	PREPARE	1
-select a, b, b + c + ? from t4 where b = ? and c = ?	PREPARE	1
-select a, b, b + c + ? + ? from t4 where b = ? and c = ?	PREPARE	2
-select * from t5 where a = ?	PREPARE	3
-select * from t2 where a = ? and b = ?	PREPARE	2
+select b from t1 where a = ?	PREPARE	3
 select b, a from t6 where a = ?	PREPARE	1
 drop table t_o1;
 show cdb_plan_cache_stat;
@@ -960,15 +945,6 @@ execute stmt65 using @val1,@val2;
 a	b	c	a	b	c
 show cdb_plan_cache_stat;
 sql	mode	hit
-prepare stmt66 from "select * from t1 tablesample (100)";
-execute stmt66;
-a	b	c
-1	2	3
-2	3	4
-3	2	3
-4	3	4
-5	2	3
-6	3	4
 show cdb_plan_cache_stat;
 sql	mode	hit
 set global cdb_plan_cache = off;
@@ -1261,23 +1237,22 @@ set global cdb_plan_cache = off;
 set global cdb_plan_cache_stats = off;
 show cdb_plan_cache_stat;
 sql	mode	hit
-select * from t_o1 where t1 = ?	PREPARE	1
 select * from t10 where ? = b and ? = a	PREPARE	1
-select * from t10 where b = ? and a = ?	PREPARE	1
 select * from t10 where a = ? and ? = b	PREPARE	1
-select * from t9 where ? = a	PREPARE	1
 select * from t10 where a = ? and b = ?	PREPARE	1
-select * from t9 where a = ?	PREPARE	1
+select * from t10 where b = ? and a = ?	PREPARE	1
+select * from t2 where a = ? and b = ?	PREPARE	2
+select * from t5 where a = ?	PREPARE	3
 select * from t7 where a = ? and b = ?	PREPARE	1
-select b from t1 where a = ?	PREPARE	3
+select * from t8 where a = ? and b = ?	PREPARE	1
+select * from t9 where ? = a	PREPARE	1
+select * from t9 where a = ?	PREPARE	1
+select * from t_o1 where t1 = ?	PREPARE	1
+select a + b + ? from t3 where a = ? and c = ?	PREPARE	2
+select a, b, b + c + ? from t4 where b = ? and c = ?	PREPARE	1
 select b + ? from t1 where a = ?	PREPARE	2
 select b / ? from t1 where a = ?	PREPARE	7
-select a + b + ? from t3 where a = ? and c = ?	PREPARE	2
-select * from t8 where a = ? and b = ?	PREPARE	1
-select a, b, b + c + ? from t4 where b = ? and c = ?	PREPARE	1
-select a, b, b + c + ? + ? from t4 where b = ? and c = ?	PREPARE	2
-select * from t5 where a = ?	PREPARE	3
-select * from t2 where a = ? and b = ?	PREPARE	2
+select b from t1 where a = ?	PREPARE	3
 select b, a from t6 where a = ?	PREPARE	1
 set global cdb_plan_cache = off;
 set global cdb_plan_cache_stats = off;
