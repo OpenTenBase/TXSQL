@@ -8038,7 +8038,7 @@ int mysqld_main(int argc, char **argv)
   }
 
   if (init_common_variables()) {
-    setup_error_log();
+    //setup_error_log(); /* Same as 5.7, make someone happy */
     unireg_abort(MYSQLD_ABORT_EXIT);  // Will do exit
   }
 
