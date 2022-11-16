@@ -156,6 +156,20 @@ static inline void trx_write_trx_id(byte *ptr, trx_id_t id);
 static inline trx_id_t trx_read_trx_id(
     const byte *ptr); /*!< in: pointer to memory from where to read */
 
+/** Checks if a rw transaction with the given id is active.
+Please note, that positive result means only that the trx was active
+at some moment during the call, but it might have already become
+TRX_STATE_COMMITTED_IN_MEMORY before the call returns to the caller, as this
+transition is protected by trx->mutex and Trx_shard's mutex, but it is
+impossible for the caller to hold any of these mutexes when calling this
+function as the function itself internally acquires Trx_shard's mutex which
+would cause recurrent mutex acquisition if caller already had the same mutex,
+or latching order violation in case of holding trx->mutex.
+@param[in]      trx_id          trx id of the transaction
+@param[in]      do_ref_count    if true then increment the trx_t::n_ref_count
+@return transaction instance if active, or NULL; */
+static inline trx_t *trx_rw_is_active(trx_id_t trx_id, bool do_ref_count);
+
 /** Persist transaction number limit below which all transaction GTIDs
 are persisted to disk table.
 @param[in]      gtid_trx_no     transaction number */
@@ -215,6 +229,10 @@ void trx_sys_after_pre_dd_shutdown_validate();
 /** Validates lists of transactions after all background threads
 of InnoDB exited during shutdown of MySQL. */
 void trx_sys_after_background_threads_shutdown_validate();
+
+/** Add the transaction to the RW transaction set.
+@param trx              transaction instance to add */
+static inline void trx_sys_rw_trx_add(trx_t *trx);
 
 #endif /* !UNIV_HOTBACKUP */
 
@@ -569,8 +587,90 @@ public:
 /** Writes the value of max_trx_id to the file based trx system header. */
 void trx_sys_write_max_trx_id(void);
 
+/** Number of shards created for transactions. */
+constexpr size_t TRX_SHARDS_N = 256;
+
+/** Computes shard number for a given trx_id.
+@param[in]  trx_id  trx_id for which shard_no should be computed
+@return the computed shard number (number in range 0..TRX_SHARDS_N-1) */
+inline size_t trx_get_shard_no(trx_id_t trx_id) {
+  ut_ad(trx_id != 0);
+  return trx_id % TRX_SHARDS_N;
+}
 
 #ifndef UNIV_HOTBACKUP
+class Trx_by_id_with_min {
+  struct Trx_track_hash {
+    size_t operator()(const trx_id_t &key) const {
+      return static_cast<size_t>(key / TRX_SHARDS_N);
+    }
+  };
+
+  using By_id = std::unordered_map<trx_id_t, trx_t *, Trx_track_hash>;
+  By_id m_by_id;
+
+  /** For observers which use Trx_shard::mutex protection: each transaction id
+  in the m_by_id is guaranteed to be at least m_min_id.
+  Writes are protected with Trx_shard::mutex.
+  Reads can be performed without any latch before accessing m_by_id,
+  but care must be taken to interpret the result -
+  @see trx_rw_is_active for details.*/
+  std::atomic<trx_id_t> m_min_id{0};
+
+ public:
+  By_id const &by_id() const { return m_by_id; }
+  trx_id_t min_id() const { return m_min_id.load(); }
+  trx_t *get(trx_id_t trx_id) const {
+    const auto it = m_by_id.find(trx_id);
+    trx_t *trx = it == m_by_id.end() ? nullptr : it->second;
+    /* We remove trx from active_rw_trxs and change state to
+    TRX_STATE_COMMITTED_IN_MEMORY in a same critical section protected by
+    Trx_shard's mutex, which we happen to hold here, so we expect the state
+    of trx to match its presence in that set */
+    ut_ad(trx == nullptr || !trx_state_eq(trx, TRX_STATE_COMMITTED_IN_MEMORY));
+    return trx;
+  }
+  void insert(trx_t &trx) {
+    const trx_id_t trx_id = trx.id;
+    ut_ad(0 == m_by_id.count(trx_id));
+    m_by_id.emplace(trx_id, &trx);
+    if (m_by_id.size() == 1 ||
+        trx_id < m_min_id.load(std::memory_order_relaxed)) {
+      m_min_id.store(trx_id, std::memory_order_release);
+    }
+  }
+  void erase(trx_id_t trx_id) {
+    ut_ad(1 == m_by_id.count(trx_id));
+    m_by_id.erase(trx_id);
+    if (m_min_id.load(std::memory_order_relaxed) == trx_id) {
+      // We want at most 1 release store, so we use a local variable for the
+      // loop.
+      trx_id_t new_min = trx_id + TRX_SHARDS_N;
+      if (!m_by_id.empty()) {
+#ifdef UNIV_DEBUG
+        // These asserts ensure while loop terminates:
+        const trx_id_t some_id = m_by_id.begin()->first;
+        ut_a(new_min <= some_id);
+        ut_a((some_id - new_min) % TRX_SHARDS_N == 0);
+#endif /* UNIV_DEBUG */
+        while (m_by_id.count(new_min) == 0) {
+          new_min += TRX_SHARDS_N;
+        }
+      }
+      m_min_id.store(new_min, std::memory_order_release);
+    }
+  }
+};
+
+/** Shard for subset of transactions. */
+struct Trx_shard {
+  /** Mapping from trx->id to trx of active rw transactions.
+  The peek() interface can only be used safely for the min_id().
+  Use latch_and_execute() interface to access other members. */
+  ut::Cacheline_padded<ut::Guarded<Trx_by_id_with_min, LATCH_ID_TRX_SYS_SHARD>>
+      active_rw_trxs;
+};
+
 
 /** The transaction system central memory data structure. */
 struct trx_sys_t {
@@ -667,6 +767,9 @@ struct trx_sys_t {
   been started in InnoDB. */
   UT_LIST_BASE_NODE_T(trx_t, mysql_trx_list) mysql_trx_list;
 
+  /** Mapping from transaction id to transaction instance. */
+  Trx_shard shards[TRX_SHARDS_N];
+
   /** Number of transactions currently in the XA PREPARED state. */
   std::atomic<ulint> n_prepared_trx; 
 
@@ -679,6 +782,19 @@ struct trx_sys_t {
   /** @} */
 
   char pad_after[ut::INNODB_CACHE_LINE_SIZE];
+
+  Trx_shard &get_shard_by_trx_id(trx_id_t trx_id) {
+    return trx_sys->shards[trx_get_shard_no(trx_id)];
+  }
+  template <typename F>
+  auto latch_and_execute_with_active_trx(trx_id_t trx_id, F &&f,
+                                         const ut::Location &loc) {
+    return get_shard_by_trx_id(trx_id).active_rw_trxs.latch_and_execute(
+        [&](Trx_by_id_with_min &trx_by_id_with_min) {
+          return std::forward<F>(f)(trx_by_id_with_min.get(trx_id));
+        },
+        loc);
+  }
 
     /* --------------------- functions ------------------------ */
 

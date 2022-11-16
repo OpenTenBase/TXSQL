@@ -2281,7 +2281,7 @@ void Purge_groups_t::distribute_if_needed() {
     if (!purged) {
       if (trx_gts == 0) {
         /* Check if trx is still active */
-        if (trx_sys->find(nullptr, last_trx_id, false) != nullptr) {
+        if (trx_rw_is_active(last_trx_id, false) != nullptr) {
           /* The transaction has added its modification to history
           list but hasn't write gts yet. */
           return nullptr;

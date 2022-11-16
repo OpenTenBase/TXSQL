@@ -499,7 +499,7 @@ static inline trx_t *row_vers_impl_x_locked_low(
     trx = caller_trx;
     trx->n_ref++;
   } else {
-    trx = trx_sys->find(caller_trx, trx_id, true);
+    trx = trx_rw_is_active(trx_id, true);
     if (trx == NULL) {
 #ifdef UNIV_DEBUG
       if (!lock_check_trx_id_sanity(trx_id, clust_rec,
@@ -1409,7 +1409,7 @@ void row_vers_build_for_semi_consistent_read(
     if (rec == version) {
       rec_trx_id = version_trx_id;
     }
-    if (!trx_sys->rw_trx_hash.find(caller_trx, version_trx_id, false)) {
+    if (!trx_rw_is_active(version_trx_id, false)) {
     committed_version_trx:
       /* We found a version that belongs to a
       committed transaction: return it. */
