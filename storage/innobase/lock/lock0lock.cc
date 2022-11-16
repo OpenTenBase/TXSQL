@@ -1095,7 +1095,7 @@ static bool lock_rec_other_trx_holds_expl(ulint precise_mode, const trx_t *trx,
   from creating any new explicit locks.
   So, all explicit locks we will see must have been created at the time when
   the transaction was not committed yet. */
-  if (trx_t *impl_trx = trx_sys->find(nullptr, trx->id, false/*do_ref*/)) {
+  if (trx_t *impl_trx = trx_rw_is_active(trx->id, false)) {
     ulint heap_no = page_rec_get_heap_no(rec);
     lock_rec_other_trx_holds_expl_callback_arg arg = {impl_trx, precise_mode, block, heap_no, false};
     TRX_HASH_ITERATE(nullptr, lock_rec_other_trx_holds_expl_callback, &arg);
@@ -5402,8 +5402,10 @@ static void rec_queue_validate_latched(const buf_block_t *block,
 
     trx_id = lock_clust_rec_some_has_impl(rec, index, offsets);
 
-    const trx_t *impl_trx = trx_sys->find(nullptr, trx_id, false/*do_ref*/);
-    if (impl_trx != nullptr) {
+    trx_sys->latch_and_execute_with_active_trx(
+    trx_id,
+    [&](const trx_t *impl_trx) {
+      if (impl_trx != nullptr) {
         ut_ad(owns_page_shard(block->get_page_id()));
         /* impl_trx cannot become TRX_STATE_COMMITTED_IN_MEMORY nor removed
         from active_rw_trxs.by_id until we release Trx_shard's mutex, which
@@ -5425,6 +5427,8 @@ static void rec_queue_validate_latched(const buf_block_t *block,
                                   impl_trx));
         }
       }
+    },
+    UT_LOCATION_HERE);
     }
 
   Lock_iter::for_each(rec_id, [&](lock_t *lock) {
@@ -5826,7 +5830,7 @@ void lock_rec_convert_impl_to_expl(trx_t *caller_trx, const buf_block_t *block, 
 
     trx_id = lock_clust_rec_some_has_impl(rec, index, offsets);
 
-    trx = trx_sys->find(nullptr, trx_id, true /*do_ref*/);
+    trx = trx_rw_is_active(trx_id, true);
   } else {
     ut_ad(!dict_index_is_online_ddl(index));
 

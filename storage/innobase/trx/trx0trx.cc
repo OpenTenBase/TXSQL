@@ -854,7 +854,7 @@ static trx_t *trx_resurrect_insert(
   trx->rsegs.m_redo.rseg = rseg;
   *trx->xid = undo->xid;
   trx->id = undo->trx_id;
-
+  trx_sys_rw_trx_add(trx);
   trx->rsegs.m_redo.insert_undo = undo;
   trx->is_recovered = true;
 
@@ -973,6 +973,7 @@ static void trx_resurrect_update(
     trx->rsegs.m_redo.rseg = rseg;
     *trx->xid = undo->xid;
     trx->id = undo->trx_id;
+    trx_sys_rw_trx_add(trx);
     trx->is_recovered = true;
   }
 
@@ -1038,8 +1039,8 @@ static void trx_resurrect(trx_rseg_t *rseg) {
   for (auto undo : rseg->update_undo_list) {
     /* Check the active_rw_trxs.by_id first. */
     bool in_hash = true;
-    trx_t *trx = trx_sys->find(nullptr /*caller_trx*/, undo->trx_id, false /*do_ref*/);
-
+    trx_t *trx = trx_sys->latch_and_execute_with_active_trx(
+        undo->trx_id, [](trx_t *trx) { return trx; }, UT_LOCATION_HERE);
     if (trx == nullptr) {
       trx = trx_allocate_for_background();
       ut_d(trx->start_file = __FILE__);
@@ -1250,6 +1251,7 @@ void trx_assign_rseg_temp(trx_t *trx) {
 
   if (trx->id == 0) {
     trx_sys->register_rw(trx);
+    trx_sys_rw_trx_add(trx);
   }
 }
 
@@ -1380,6 +1382,8 @@ static void trx_start_low(
     
     trx_sys->register_rw(trx);
 
+    trx_sys_rw_trx_add(trx);
+
   } else {
     trx->id = 0;
 
@@ -1390,7 +1394,7 @@ static void trx_start_low(
 
       if (read_write) {
         trx_sys->register_rw(trx);
-
+        trx_sys_rw_trx_add(trx);
       } 
     }
   }
@@ -1807,10 +1811,41 @@ static void trx_release_impl_and_expl_locks(trx_t *trx, bool serialised) {
     --trx_sys->n_prepared_trx;
   }
 
-  // TODO(lanzaoxu)
-  trx_mutex_enter(trx);
-  trx->state.store(TRX_STATE_COMMITTED_IN_MEMORY, std::memory_order_relaxed); 
-  trx_mutex_exit(trx);
+  auto state_transition = [&]() {
+    trx_mutex_enter(trx);
+    /* Please consider this particular point in time as the moment the trx's
+    implicit locks become released.
+    This change is protected by both Trx_shard's mutex and trx->mutex.
+    Therefore, there are two secure ways to check if the trx still can hold
+    implicit locks:
+    (1) if you only know id of the trx, then you can obtain Trx_shard's mutex
+    and check if trx is still in the Trx_shard's active_rw_trxs. This works,
+        because the removal from the active_rw_trxs is also protected by the
+        same mutex. We use this approach in lock_rec_convert_impl_to_expl() by
+        using trx_rw_is_active()
+    (2) if you have pointer to trx, and you know it is safe to access (say, you
+        hold reference to this trx which prevents it from being freed) then you
+        can obtain trx->mutex and check if trx->state is equal to
+        TRX_STATE_COMMITTED_IN_MEMORY. We use this approach in
+        lock_rec_convert_impl_to_expl_for_trx() when deciding for the final time
+        if we really want to create explicit lock on behalf of implicit lock
+        holder. */
+    trx->state.store(TRX_STATE_COMMITTED_IN_MEMORY, std::memory_order_relaxed);
+    trx_mutex_exit(trx);
+  };
+  if (trx->id > 0) {
+    trx_sys->get_shard_by_trx_id(trx->id).active_rw_trxs.latch_and_execute(
+        [&](Trx_by_id_with_min &trx_by_id_with_min) {
+          state_transition();
+          ut_d(const size_t trx_shard_no = trx_get_shard_no(trx->id));
+          ut_ad(trx_get_shard_no(trx_by_id_with_min.min_id()) == trx_shard_no);
+          trx_by_id_with_min.erase(trx->id);
+          ut_ad(trx_get_shard_no(trx_by_id_with_min.min_id()) == trx_shard_no);
+        },
+        UT_LOCATION_HERE);
+  } else {
+    state_transition();
+  }
 
   /* It is important to remove the transaction from the serialisation list
   after it is erased from the rw_trx_ids / rw_trx_list (not before!).
@@ -3372,6 +3407,8 @@ void trx_set_rw_mode(trx_t *trx) /*!< in/out: transaction that is RW */
   if (trx->view_assigned) {
     MVCC::set_view_creator_trx_id(trx->read_view, trx->id);
   }
+
+   trx_sys_rw_trx_add(trx);
 }
 
 void trx_kill_blocking(trx_t *trx) {

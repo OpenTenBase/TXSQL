@@ -588,6 +588,10 @@ void trx_sys_create(void) {
 
   trx_sys->flushed_max_trx_id_event = os_event_create();
 
+  for (auto &shard : trx_sys->shards) {
+    new (&shard) Trx_shard{};
+  }
+
   new (&trx_sys->rsegs) Rsegs();
   trx_sys->rsegs.set_empty();
 
@@ -660,6 +664,10 @@ void trx_sys_close(void) {
   ut::delete_(trx_sys->mvcc);
 
   ut_a(UT_LIST_GET_LEN(trx_sys->mysql_trx_list) == 0);
+
+  for (auto &shard : trx_sys->shards) {
+    shard.~Trx_shard();
+  }
 
   trx_sys->rw_trx_hash.destroy();
   rw_lock_free(trx_sys->lock);
