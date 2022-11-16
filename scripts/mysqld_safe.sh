@@ -137,20 +137,10 @@ log_generic () {
   echo "$msg"
   case $logging in
     init) ;;  # Just echo the message, don't save it anywhere
-    file)
-      if [ -w / -o "$USER" = "root" ]; then
-        true
-      else
-        echo "$msg" >> "$err_log"
-      fi
-      ;;
+    file) echo "$msg" >> "$err_log" ;;
     syslog) logger -t "$syslog_tag_mysqld_safe" -p "$priority" "$*" ;;
     both)
-      if [ -w / -o "$USER" = "root" ]; then
-        true
-      else
-        echo "$msg" >> "$err_log"
-      fi
+      echo "$msg" >> "$err_log"
       logger -t "$syslog_tag_mysqld_safe" -p "$priority" "$*"
       ;;
     *)
@@ -171,22 +161,13 @@ log_notice () {
 eval_log_error () {
   cmd="$1"
   case $logging in
-    file)
-      if [ -w / -o "$USER" = "root" ]; then
-        cmd="$cmd > /dev/null 2>&1"
-      else
-        cmd="$cmd >> "`shell_quote_string "$err_log"`" 2>&1"
-      fi
-      ;;
+    file) cmd="$cmd >> "`shell_quote_string "$err_log"`" 2>&1" ;;
     syslog)
       cmd="$cmd --log-syslog=1 --log-syslog-facility=$syslog_facility '--log-syslog-tag=$syslog_tag' > /dev/null 2>&1"
       ;;
     both)
-      if [ -w / -o "$USER" = "root" ]; then
-        cmd="$cmd --log-syslog=1 --log-syslog-facility=$syslog_facility '--log-syslog-tag=$syslog_tag' > /dev/null 2>&1"
-      else
-        cmd="$cmd --log-syslog=1 --log-syslog-facility=$syslog_facility '--log-syslog-tag=$syslog_tag' >> "`shell_quote_string "$err_log"`" 2>&1"
-      fi
+
+      cmd="$cmd --log-syslog=1 --log-syslog-facility=$syslog_facility '--log-syslog-tag=$syslog_tag' >> "`shell_quote_string "$err_log"`" 2>&1"
       ;;
     *)
       echo "Internal program error (non-fatal):" \
@@ -872,6 +853,12 @@ fi
 #then
 #  ulimit -n 256 > /dev/null 2>&1		# Fix for BSD and FreeBSD systems
 #fi
+
+# chown err log to $user
+if test "$USER" = "root"; then
+	umask 0137
+	set -o noclobber >> "$err_log" && chown $user "$err_log"
+fi
 
 cmd="`mysqld_ld_preload_text`$NOHUP_NICENESS"
 
