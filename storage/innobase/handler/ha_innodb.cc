@@ -1170,9 +1170,9 @@ static MYSQL_THDVAR_ULONG(ddl_threads, PLUGIN_VAR_RQCMDARG,
 /* Following three params is required by TXSQL Parallel DDL*/
 static MYSQL_THDVAR_ULONG(txsql_ddl_buffer_size, PLUGIN_VAR_RQCMDARG,
                           "Maximum size of memory to use (in bytes) for DDL.",
-                          nullptr, nullptr, 104857600, /* Default. */
-                          10485760,                     /* Minimum. */
-                          4294967295, 0);            /* Maximum. */
+                          nullptr, nullptr, 10485760,  /* Default. */
+                          1048576,                     /* Minimum. */
+                          536870912, 0);               /* Maximum. */
 
 static MYSQL_THDVAR_ULONG(txsql_ddl_threads, PLUGIN_VAR_RQCMDARG,
                           "Maximum number of threads to use for DDL.", nullptr,

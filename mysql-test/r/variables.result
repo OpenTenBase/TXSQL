@@ -247,6 +247,7 @@ net_buffer_length	1024
 net_read_timeout	300
 net_retry_count	10
 net_write_timeout	200
+set @@max_join_size=1100;
 select * from performance_schema.global_variables where variable_name like 'net_%' order by 1;
 VARIABLE_NAME	VARIABLE_VALUE
 net_buffer_length	1024
@@ -280,6 +281,7 @@ net_buffer_length	7168
 net_read_timeout	900
 net_retry_count	10
 net_write_timeout	1000
+set @@max_join_size=1000;
 set global net_buffer_length=1;
 Warnings:
 Warning	1292	Truncated incorrect net_buffer_length value: '1'
@@ -2060,6 +2062,7 @@ SET SESSION proxy_user = @@session.proxy_user;
 SET SESSION pseudo_replica_mode = @@session.pseudo_replica_mode;
 Warnings:
 Warning	1231	'pseudo_replica_mode' change was ineffective.
+SET SESSION pseudo_server_id = @@session.pseudo_server_id;
 SET SESSION pseudo_slave_mode = @@session.pseudo_slave_mode;
 Warnings:
 Warning	1287	'@@pseudo_slave_mode' is deprecated and will be removed in a future release. Please use pseudo_replica_mode instead.

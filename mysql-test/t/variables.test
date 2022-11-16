@@ -180,6 +180,7 @@ set global net_retry_count=10, session net_retry_count=10;
 set global net_buffer_length=1024, net_write_timeout=200, net_read_timeout=300;
 show global variables like 'net_%';
 --disable_warnings
+set @@max_join_size=1100;
 select * from performance_schema.global_variables where variable_name like 'net_%' order by 1;
 --enable_warnings
 show session variables like 'net_%';
@@ -190,6 +191,7 @@ set global net_buffer_length=8000, global net_read_timeout=900, net_write_timeou
 show global variables like 'net_%';
 --disable_warnings
 select * from performance_schema.global_variables where variable_name like 'net_%' order by 1;
+set @@max_join_size=1000;
 --enable_warnings
 set global net_buffer_length=1;
 show global variables like 'net_buffer_length';
