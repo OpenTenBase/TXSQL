@@ -39,10 +39,12 @@
 call mtr.add_suppression("Failed to set up SSL because of the following SSL library error");
 call mtr.add_suppression("\\[Warning\\] .*MY-\\d+.* Changing innodb_extend_and_initialize not supported on this platform.");
 call mtr.add_suppression("Failed to initialize TLS for channel: mysql_main");
-
+call mtr.add_suppression("Truncated incorrect DOUBLE value: 'ON'");
+call mtr.add_suppression("Variable 'tdsql_hide_partitions' can't be set to the value of 'NULL'.");
+call mtr.add_suppression("Currently unknown variable 'partition_table_skip_limit' was read from the persisted config file.");
 let $total_global_vars=`SELECT COUNT(*) FROM performance_schema.global_variables where variable_name NOT LIKE 'ndb_%' AND variable_name NOT LIKE 'debug_%'`;
-let $total_persistent_vars=543;
-let $total_persistent_vars_here=502;
+let $total_persistent_vars=545;
+let $total_persistent_vars_here=503;
 
 --echo ***************************************************************
 --echo * 0. Verify that variables present in performance_schema.global

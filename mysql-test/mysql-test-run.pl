@@ -271,6 +271,7 @@ our @DEFAULT_SUITES = qw(
   tdsql_hide_partitions
   tdsql
   tdsql_sequence
+  gtid_optimize
 );
 
 our $DEFAULT_SUITES = join ',', @DEFAULT_SUITES;

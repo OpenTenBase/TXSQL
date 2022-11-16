@@ -1,4 +1,4 @@
-
+call mtr.add_suppression("Detected too long lock waiting around");
 CREATE TABLE t1 (c1 char(127) PRIMARY KEY, c2 int, c3 char(127)) ENGINE=INNODB;
 let row_count=5000;
 --disable_query_log
