@@ -1,4 +1,6 @@
 --source include/have_debug.inc
+--disable_ps_protocol
+--source include/have_pq.inc
 
 --echo # Create tables ...
 --source suite/standard_benchmarks/inc/tpch_create_tables.inc
