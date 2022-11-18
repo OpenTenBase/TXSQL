@@ -33,6 +33,12 @@
 #include "sql/basic_ostream.h"
 #include "sql/sql_class.h"
 
+#ifdef CLIENT_DECRYPT
+#include "client/mysqlbinlog_keyring/mysqlbinlog_keyring.h"
+#include "my_aes.h"
+#include "my_sm4.h"
+#endif
+
 #ifdef MYSQL_SERVER
 #include "keyring_operations_helper.h"
 #include "libbinlogevents/include/byteorder.h"
@@ -1220,6 +1226,40 @@ int Rpl_encryption_header_v1::get_header_size() {
 Key_string Rpl_encryption_header_v1::decrypt_file_password() {
   DBUG_TRACE;
   Key_string file_password;
+#ifdef CLIENT_DECRYPT
+  std::string key_type = KEY_TYPE;
+
+  if (!m_key_id.empty()) {
+
+    if (g_hash_mysqlbinlog_key.count(m_key_id) == 0){
+      return file_password;
+    } else {
+      mysqlbinlog_key binlog_master_key = g_hash_mysqlbinlog_key[m_key_id];
+      key_type = binlog_master_key.key_type;
+      unsigned char buffer[Aes_ctr::PASSWORD_LENGTH];
+      /* decrypt the password according to the master key type */
+      if (key_type.compare(Rpl_encryption_header_v1::KEY_TYPE) == 0) {
+        if (my_aes_decrypt(m_encrypted_password.data(),
+                         m_encrypted_password.length(), buffer,
+                         binlog_master_key.key.get(),
+                         binlog_master_key.key_len, my_aes_256_cbc,
+                         m_iv.data(), false) != MY_AES_BAD_DATA)
+        file_password.append(buffer, Aes_ctr::PASSWORD_LENGTH);
+      } else if (key_type.compare(Rpl_encryption_header_v4::KEY_TYPE) == 0) {
+        int password_len = -1;
+        int ret = my_sm4_decrypt(const_cast<unsigned char*>(m_encrypted_password.data()),
+                           m_encrypted_password.length(), buffer, &password_len,
+                           const_cast<unsigned char*>(binlog_master_key.key.get()),
+                           const_cast<unsigned char*>(m_iv.data()), false);
+        if (0 == ret && password_len == static_cast<int>(binlog_master_key.key_len))
+          file_password.append(buffer, Sm4_ctr::PASSWORD_LENGTH);
+      } else {
+        assert(0);
+      }
+    }
+  }
+#endif
+
 #ifdef MYSQL_SERVER
   if (!m_key_id.empty()) {
     std::string key_type = KEY_TYPE;
@@ -1491,6 +1531,40 @@ int Rpl_encryption_header_v4::get_header_size() {
 Key_string Rpl_encryption_header_v4::decrypt_file_password() {
   DBUG_TRACE;
   Key_string file_password;
+#ifdef CLIENT_DECRYPT
+  std::string key_type = KEY_TYPE;
+
+  if (!m_key_id.empty()) {
+
+    if (g_hash_mysqlbinlog_key.count(m_key_id) == 0){
+      return file_password;
+    } else {
+      mysqlbinlog_key binlog_master_key = g_hash_mysqlbinlog_key[m_key_id];
+      key_type = binlog_master_key.key_type;
+      unsigned char buffer[Aes_ctr::PASSWORD_LENGTH];
+      /* decrypt the password according to the master key type */
+      if (key_type.compare(Rpl_encryption_header_v1::KEY_TYPE) == 0) {
+        if (my_aes_decrypt(m_encrypted_password.data(),
+                         m_encrypted_password.length(), buffer,
+                         binlog_master_key.key.get(),
+                         binlog_master_key.key_len, my_aes_256_cbc,
+                         m_iv.data(), false) != MY_AES_BAD_DATA)
+        file_password.append(buffer, Aes_ctr::PASSWORD_LENGTH);
+      } else if (key_type.compare(Rpl_encryption_header_v4::KEY_TYPE) == 0) {
+        int password_len = -1;
+        int ret = my_sm4_decrypt(const_cast<unsigned char*>(m_encrypted_password.data()),
+                           m_encrypted_password.length(), buffer, &password_len,
+                           const_cast<unsigned char*>(binlog_master_key.key.get()),
+                           const_cast<unsigned char*>(m_iv.data()), false);
+        if (0 == ret && password_len == static_cast<int>(binlog_master_key.key_len))
+          file_password.append(buffer, Sm4_ctr::PASSWORD_LENGTH);
+      } else {
+        assert(0);
+      }
+    }
+  }
+#endif
+
 #ifdef MYSQL_SERVER
   if (!m_key_id.empty()) {
     std::string key_type = KEY_TYPE;
