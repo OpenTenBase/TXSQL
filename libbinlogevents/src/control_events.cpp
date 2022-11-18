@@ -359,11 +359,17 @@ XA_prepare_event::XA_prepare_event(const char *buf,
     READER_TRY_CALL(memcpy<char *>, my_xid.data,
                     my_xid.gtrid_length + my_xid.bqual_length);
 
+#ifdef HAVE_TDSQL
+    /* Testcase 'binlog_gtid.binlog_gtid_binlog_recovery_errors' failed,
+    root cause: malformed binlog causes reading gts failed. We disable
+    this feature for CDB. */
     // old version doesn't have the gts
-    if (likely(header()->data_written > static_cast<size_t>(
-            MY_FIXED_SIZE + my_xid.gtrid_length + my_xid.bqual_length))) {
+    if (likely(header()->data_written >
+               static_cast<size_t>(MY_FIXED_SIZE + my_xid.gtrid_length +
+                                   my_xid.bqual_length))) {
       READER_TRY_SET(gts, read<uint64_t>);
     }
+#endif
 
   } else
     READER_THROW("Invalid XID information in XA Prepare");

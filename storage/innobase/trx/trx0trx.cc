@@ -3102,8 +3102,8 @@ static void trx_set_prepared_in_tc(trx_t *trx) {
 
   /* Add GTID to be persisted to disk table, if needed. */
   if (gtid_desc.m_is_set && opt_strict_gtid_commit) {
-    /* The gtid_persistor.add() might release and re-acquire the mutex. */
     trx_sys_mutex_enter();
+    /* The gtid_persistor.add() might release and re-acquire the mutex. */
     gtid_persistor.add(gtid_desc);
     trx_sys_mutex_exit();
   }
