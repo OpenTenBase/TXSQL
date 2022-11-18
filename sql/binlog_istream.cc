@@ -145,7 +145,7 @@ bool Basic_binlog_ifile::read_binlog_magic() {
   */
   if (memcmp(magic, Rpl_encryption_header::ENCRYPTION_MAGIC,
              Rpl_encryption_header::ENCRYPTION_MAGIC_SIZE) == 0) {
-#ifdef MYSQL_SERVER
+#if defined (MYSQL_SERVER) || defined (CLIENT_DECRYPT)
     std::unique_ptr<Binlog_encryption_istream> encryption_istream{
         new Binlog_encryption_istream()};
     if (encryption_istream->open(std::move(m_istream), m_error)) return true;

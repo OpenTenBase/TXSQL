@@ -33,6 +33,8 @@ ADD_SUBDIRECTORY(base)
 ADD_SUBDIRECTORY(dump)
 ## Subdirectory for mysql_migrate_keyring code.
 ADD_SUBDIRECTORY(migrate_keyring)
+## Subdirectory for mysqlbinlog_keyring code.
+ADD_SUBDIRECTORY( mysqlbinlog_keyring)
 
 INCLUDE_DIRECTORIES(
   ${CMAKE_CURRENT_SOURCE_DIR}/include
@@ -262,6 +264,8 @@ IF(WITH_JSON_BINLOG_LIBRARY)
   ENDIF()
 ENDIF()
 
+TARGET_LINK_LIBRARIES(mysqlbinlog mysqlbinlog_keyring ${CRYPTO_LIBRARY})
+TARGET_COMPILE_DEFINITIONS(mysqlbinlog PRIVATE CLIENT_DECRYPT)
 TARGET_COMPILE_DEFINITIONS(mysqlbinlog PRIVATE DISABLE_PSI_MUTEX)
 TARGET_INCLUDE_DIRECTORIES(mysqlbinlog PRIVATE ${CMAKE_SOURCE_DIR}/sql)
 
