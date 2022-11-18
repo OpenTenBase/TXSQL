@@ -1090,8 +1090,8 @@ The following options may be given as the first argument:
  Optimizer:
  optimizer_trace_features=option=val[,option=val...],
  where option is one of {greedy_search, range_optimizer,
- dynamic_range, repeated_subselect} and val is one of {on,
- off, default}
+ dynamic_range, repeated_subselect, statistics} and val is
+ one of {on, off, default}
  --optimizer-trace-limit=# 
  Maximum number of shown optimizer traces
  --optimizer-trace-max-mem-size=# 
@@ -1968,11 +1968,54 @@ The following options may be given as the first argument:
  --txsql-load-data-local-strict-mode 
  Whether to emit errors (or warnings) in strict mode when
  executing LOAD DATA LOCAL INFILE statement
+ --txsql-max-parallel-worker-threads[=#] 
+ Specify the maximum number of worker threads for parallel
+ execution on the server. A zero value disables parallel
+ execution for any statement.
+ --txsql-optimizer-context-max-mem-size[=#] 
+ Maximum amount of memory used by the optimizer context to
+ cache the values of table stats, index dive during
+ parallel optimization. If the value is too low to
+ complete optimization, execution in parallel will not be
+ considered for this query. A value of 0 means optimizer
+ context does not have any cap on memory.
+ --txsql-optimizer-context-prealloc-size[=#] 
+ Default buffer size of the optimizer context
  --txsql-parallel-copy-ddl 
  Enable to use parallel processing for ddl with copy
  algorithm.
+ --txsql-parallel-cost-threshold[=#] 
+ Only statements with estimated cost above the specified
+ threshold can be executed in parallel.
  --txsql-parallel-ddl-merge-sort-k-value[=#] 
  K-ways merge sort when using parallel ddl.
+ --txsql-parallel-degree[=#] 
+ Default degree of parallelism for a statement. A zero
+ value effectively disables parallel execution.
+ --txsql-parallel-exchange-buffer-size[=#] 
+ Specify the parallel exchange buffer size. There is one
+ buffer for each pair of sender and receiver thread.
+ --txsql-parallel-execution-enabled 
+ Forcibly disable parallel execution on the server, taking
+ priority over any user-visible setting. It is for the
+ cloud provider only.
+ (Defaults to on; use --skip-txsql-parallel-execution-enabled to disable.)
+ --txsql-parallel-execution-max-lob-size[=#] 
+ Specify the max lob object size.
+ --txsql-parallel-fallback-in-execution 
+ Always fallback to sequential execution in the parallel
+ execution phase. It is for testing purposes only.
+ --txsql-parallel-lob-enabled 
+ Allow parallel scan and exchange for lob type It is for
+ blob/text/json now.
+ --txsql-parallel-table-record-threshold[=#] 
+ Only tables with rows above the specified threshold can
+ be chosen as parallel tables which are partitioned across
+ parallel threads.
+ --txsql-pread-count-enabled 
+ Allow count start to use pread parallel optimization It
+ is for Unqualified count star only.
+ (Defaults to on; use --skip-txsql-pread-count-enabled to disable.)
  --txsql-range-estimation-by-histogram 
  Enable range estimation by histogram instead of index
  dive. If histogram for the first index column is missing,
@@ -2582,8 +2625,20 @@ txsql-disable-gtid-in-undo FALSE
 txsql-extend-slow-log-level 0
 txsql-found-rows 0
 txsql-load-data-local-strict-mode FALSE
+txsql-max-parallel-worker-threads 0
+txsql-optimizer-context-max-mem-size 8388608
+txsql-optimizer-context-prealloc-size 4096
 txsql-parallel-copy-ddl FALSE
+txsql-parallel-cost-threshold 50000
 txsql-parallel-ddl-merge-sort-k-value 2
+txsql-parallel-degree 4
+txsql-parallel-exchange-buffer-size 1048576
+txsql-parallel-execution-enabled TRUE
+txsql-parallel-execution-max-lob-size 65536
+txsql-parallel-fallback-in-execution FALSE
+txsql-parallel-lob-enabled FALSE
+txsql-parallel-table-record-threshold 5000
+txsql-pread-count-enabled TRUE
 txsql-range-estimation-by-histogram FALSE
 txsql-recycle-bin-db-not-visible TRUE
 txsql-recycle-bin-drop-if-exceed-limit FALSE
