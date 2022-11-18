@@ -57,7 +57,9 @@ void Clone_persist_gtid::add(const Gtid_desc &gtid_desc) {
   slowed down by the wait here. */
   if (check_max_gtid_threshold() && is_thread_active()) {
     unlock();
+    trx_sys_mutex_exit();
     wait_flush(false, false, nullptr);
+    trx_sys_mutex_enter();
     lock();
   }
 
@@ -77,7 +79,9 @@ void Clone_persist_gtid::add(const Gtid_desc &gtid_desc) {
   DBUG_EXECUTE_IF("dont_compress_gtid_table", {
     /* For predictable outcome of mtr test we flush the GTID immediately. */
     unlock();
+    trx_sys_mutex_exit();
     wait_flush(false, false, nullptr);
+    trx_sys_mutex_enter();
     lock();
   });
   unlock();
