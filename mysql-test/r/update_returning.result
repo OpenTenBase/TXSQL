@@ -350,3 +350,24 @@ ERROR HY000: The target table v2 of the UPDATE is not updatable
 DROP VIEW v2;
 DROP TABLE t1;
 DROP TABLE t2;
+CREATE TABLE table_a (id int, value int);
+CREATE TABLE table_b (id int, ta_id int, value int);
+INSERT INTO table_a VALUES (1, 10);
+INSERT INTO table_a VALUES (2, 20);
+INSERT INTO table_a VALUES (3, 30);
+INSERT INTO table_b VALUES (1, 1, 100);
+INSERT INTO table_b VALUES (2, 1, 200);
+INSERT INTO table_b VALUES (3, 2, 300);
+INSERT INTO table_b VALUES (4, 2, 400);
+CREATE VIEW v AS 
+SELECT      a.id a_id, b.id b_id, b.ta_id, a.value v1, b.value v2
+FROM        table_a a
+INNER JOIN  table_b b ON (b.ta_id = a.id);
+INSERT INTO v (a_id, v1) VALUES (3, 30) returning *;
+ERROR HY000: Feature returning with multi table is unsupported ().
+INSERT INTO v (a_id, v1) VALUES (3, 30);
+update v set a_id = 2 returning *;
+ERROR HY000: Feature returning with multi table is unsupported ().
+drop view v;
+drop table table_a;
+drop table table_b;

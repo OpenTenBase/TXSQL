@@ -1154,6 +1154,11 @@ bool Sql_cmd_insert_base::prepare_inner(THD *thd) {
   if (has_returning) {
     ulong saved_want_privilege;
     bool returning_res = false;
+    if (table_list->is_multiple_tables()) {
+      my_error(ER_FEATURE_UNSUPPORTED, MYF(0), "returning with multi table",
+               "");
+      return true;
+    }
     if (select->returning_result() == nullptr) {
       Query_result_send *qrs = new (thd->mem_root) Query_result_send;
       if (qrs == nullptr) return true;
