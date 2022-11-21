@@ -1601,6 +1601,11 @@ bool Sql_cmd_update::prepare_inner(THD *thd) {
 
   if (multitable) select->set_sj_candidates(&sj_candidates_local);
 
+  if (multitable && has_returning) {
+    my_error(ER_FEATURE_UNSUPPORTED, MYF(0), "returning with multi table", "");
+    return true;
+  }
+
   if (select->leaf_table_count >= 2 &&
       setup_natural_join_row_types(thd, select->join_list, &select->context))
     return true;
