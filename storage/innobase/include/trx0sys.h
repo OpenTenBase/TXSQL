@@ -55,6 +55,169 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "lf.h"
 #ifndef UNIV_HOTBACKUP
 
+
+// list struct used to store mysql_trx_list
+template<typename T>
+class AllTrxListTemplate {
+public:
+  struct Node {
+    Node() : m_data(nullptr), m_next(nullptr) {}
+    Node(T *t) : m_data(t), m_next(nullptr) {}
+
+    T *m_data;
+    Node *m_next;
+  };
+
+  struct Bucket {
+    std::mutex m_mutex;
+    Node m_node;
+
+    Bucket() : m_mutex(), m_node() {}
+
+    void add(T *target) {
+      m_mutex.lock();
+      if (!m_node.m_data) {
+        assert(m_node.m_next == nullptr);
+        m_node.m_data = target;
+      } else {
+        Node *nn = new Node(target);
+        nn->m_next = m_node.m_next;
+        m_node.m_next = nn;
+      }
+      m_mutex.unlock();
+    }
+
+    bool remove(T *target) {
+      m_mutex.lock();
+      Node *curr = &m_node;
+      Node *prev = nullptr;
+      while (curr) {
+        if (curr->m_data == target) {
+          if (prev == nullptr) {
+            assert(curr == &m_node);
+            m_node.m_data = nullptr;
+          } else {
+            prev->m_next = curr->m_next;
+            delete curr;
+          }
+
+          m_mutex.unlock();
+          return true;
+        }
+        prev = curr;
+        curr = curr->m_next;
+      }
+      m_mutex.unlock();
+      return false;
+    }
+
+    // return true for stop iterating
+    template<typename Functor>
+    bool foreach(Functor &f) {
+      m_mutex.lock();
+      Node *curr = &m_node;
+      while (curr) {
+        if (curr->m_data && f(curr->m_data)) {
+          m_mutex.unlock();
+          return true;
+        }
+        curr = curr->m_next;
+      }
+      m_mutex.unlock();
+      return false;
+    }
+
+  };
+
+public:
+  AllTrxListTemplate() : m_length(0), m_arr(nullptr), m_size(0) {}
+
+  void init(int64_t length) {
+    m_arr = new Bucket[length];
+    m_size = 0;
+    m_length = length;
+  }
+
+  void destroy() {
+    m_size = 0;
+    delete []m_arr;
+  }
+
+  int64_t size() const { return m_size.load(); }
+
+  void add(T *target) {
+    m_arr[target->get_hash_val() % m_length].add(target);
+    m_size.fetch_add(1);
+  }
+
+  bool remove(T *target) {
+    m_size.fetch_add(-1);
+    return m_arr[target->get_hash_val() % m_length].remove(target); 
+  } 
+
+  template<typename Functor>
+  bool foreach(Functor &f) {
+    for (int64_t i = 0; i < m_length; i++) {
+      if (m_arr[i].foreach(f)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  struct ElemGard {
+    ElemGard() : m_data(nullptr), m_mutex(nullptr), m_locked(false) {}
+    ~ElemGard() { clear(); }
+    void clear() {
+      assert(!m_data || m_mutex);
+      if (m_mutex != nullptr && m_locked) {
+        m_mutex->unlock();
+      }
+    }
+    bool is_clear() { return m_data == nullptr && m_mutex == nullptr && !m_locked; }
+    void set_data(T *data, std::mutex *mutex, bool locked) {
+      assert(data != nullptr && mutex != nullptr);
+      m_data = data;
+      m_mutex = mutex;
+      m_locked = locked;
+    }
+    T *get_data() const { return m_data; }
+
+    T *m_data;
+    std::mutex *m_mutex;
+    bool m_locked;
+  };
+
+  void get_with_guard(T *target, ElemGard &g) {
+    assert(target);
+    assert(g.is_clear());
+
+    Bucket &bucket = m_arr[target->get_hash_val() % m_length];
+
+    bucket.m_mutex.lock();
+    Node *curr = &bucket.m_node;
+    while (curr) {
+      if (curr->m_data == target) {
+        g.set_data(curr->m_data, &bucket.m_mutex, true);
+        return;
+      }
+      curr = curr->m_next;
+    }
+    bucket.m_mutex.unlock();
+    assert(g.is_clear());
+  }
+  
+private:
+  int64_t m_length;
+  Bucket *m_arr;
+  std::atomic<int64_t> m_size;
+};
+
+using AllTrxList=AllTrxListTemplate<trx_t>;
+using TrxGuard=AllTrxListTemplate<trx_t>::ElemGard;
+
+
+
 // Forward declaration
 class MVCC;
 class ReadView;
@@ -386,8 +549,10 @@ struct rw_trx_hash_element_t {
   Assigned shortly before the transaction is moved to COMMITTED_IN_MEMORY
   state. Initially set to TRX_ID_MAX. */
   std::atomic<trx_id_t> no;
-  trx_t *trx;
+  std::atomic<trx_t*> trx;
   ib_mutex_t mutex;
+
+  std::atomic<uint64_t> del_ts;
 };
 
 class rw_trx_hash_t {
@@ -438,6 +603,11 @@ private:
     elem->trx = user_trx;
     elem->id = user_trx->id;
     elem->no = TRX_ID_MAX;
+    if (srv_txsql_enable_copy_free_snapshot) {
+      elem->del_ts.store(CopyFreeSnapshot::ACTIVE);
+    } else {
+      elem->del_ts.store(CopyFreeSnapshot::DISABLE);
+    }
     user_trx->rw_trx_hash_element = elem;
   }
 
@@ -460,6 +630,9 @@ public:
   Since pins are not allowed to be transferred to another thread,
   initialisation thread calls this for recovered transactions.  */
   void put_pins(trx_t *trx);
+
+  LF_PINS *get_pins();
+  void put_pins(LF_PINS *pins);
 
   /** Find trx object in lock-free hash with given id.
 
@@ -492,6 +665,8 @@ public:
     @retval pointer to trx */
   trx_t *find(trx_t *caller_trx, trx_id_t trx_id, bool do_ref_count = false);
 
+  uint64_t get_elem_del_ts(trx_t *caller_trx, trx_id_t trx_id);
+
   /** Insert trx to lock-free hash.
   Object becomes accessible via rw_trx_hash.  */
   void insert(trx_t *trx);
@@ -501,7 +676,7 @@ public:
   by concurrent find(), which is supposed to release it immediately after
   it sees object trx is 0.  */
   void erase(trx_t *trx);
-
+  void raw_erase(rw_trx_hash_element_t*, LF_PINS*);
   /** Return the number of elements in the hash.
   The number is exact only if hash is protected against concurrent
   modifications (e.g. single threaded startup or hash is protected
@@ -765,7 +940,8 @@ struct trx_sys_t {
   recovered transactions that will not be in the mysql_trx_list.
   Additionally, mysql_trx_list may contain transactions that have not yet
   been started in InnoDB. */
-  UT_LIST_BASE_NODE_T(trx_t, mysql_trx_list) mysql_trx_list;
+  // UT_LIST_BASE_NODE_T(trx_t, mysql_trx_list) mysql_trx_list;
+  AllTrxList mysql_trx_list;
 
   /** Mapping from transaction id to transaction instance. */
   Trx_shard shards[TRX_SHARDS_N];
@@ -939,6 +1115,7 @@ struct trx_sys_t {
                     trx_id_t *max_trx_id,
                     trx_id_t *min_trx_no,
                     int64_t *hash_erase_version);
+  trx_id_t get_max_trx_id_safe();
 };
 
 

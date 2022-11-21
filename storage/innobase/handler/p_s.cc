@@ -250,7 +250,11 @@ class Innodb_data_lock_iterator : public PSI_engine_data_lock_iterator {
   bool fetch(PSI_server_data_lock_container *container,
              const char *engine_lock_id, size_t engine_lock_id_length,
              bool with_lock_data) override;
-
+  bool scanner_scan_trx(trx_t *trx,
+                        PSI_server_data_lock_container *container,
+                        bool with_lock_data,
+                        bool read_write,
+                        size_t &found);
  private:
   /** Scan a trx list.
   @param[in] container          The container to fill
@@ -259,9 +263,8 @@ class Innodb_data_lock_iterator : public PSI_engine_data_lock_iterator {
   @param[in] trx_list           The trx list to scan
   @returns The number of records found
   */
-  template <typename Trx_list>
   size_t scan_trx_list(PSI_server_data_lock_container *container, bool read_write,
-                       bool with_lock_data, Trx_list *trx_list);
+                       bool with_lock_data, AllTrxList *trx_list);
 
   /** Scan a given trx.
   Either scan all the locks for a transaction,
@@ -300,6 +303,10 @@ class Innodb_data_lock_wait_iterator
              size_t requesting_engine_lock_id_length,
              const char *blocking_engine_lock_id,
              size_t blocking_engine_lock_id_length) override;
+  bool scanner_scan_trx(trx_t *trx,
+                        PSI_server_data_lock_wait_container *container,
+                        bool read_write,
+                        size_t &found);
 
  private:
   /** Scan a given transaction list.
@@ -307,9 +314,8 @@ class Innodb_data_lock_wait_iterator
   @param[in] trx_list           The trx list to scan
   @returns the number of records found.
   */
-  template <typename Trx_list>
   size_t scan_trx_list(PSI_server_data_lock_wait_container *container, bool read_write,
-                       Trx_list *trx_list);
+                       AllTrxList *trx_list);
 
   /** Scan a given transaction.
   Either scan all the waits for a transaction,
@@ -358,29 +364,45 @@ bool discard_trx(const trx_t *trx, bool read_write) {
 @param[in] trx_list                 The transaction list
 @returns The transaction when found, or NULL
 */
-template <typename Trx_list>
-static const trx_t *fetch_trx_in_trx_list(uint64_t filter_trx_immutable_id,
-                                          bool read_write,
-                                          Trx_list *trx_list) {
+static void fetch_trx_in_trx_list(uint64_t filter_trx_immutable_id,
+                                  bool read_write,
+                                  AllTrxList *trx_list,
+                                  TrxGuard &trx_guard) {
+  struct Fetcher {
+  public:
+    Fetcher(uint64_t filter_trx_immutable_id_arg, bool read_write_arg)
+      : filter_trx_immutable_id(filter_trx_immutable_id_arg),
+        read_write(read_write_arg)
+    { target_trx = nullptr; }
+
+    bool operator()(trx_t *trx) {
+      if (discard_trx(trx, read_write)) {
+        return false;
+      }
+      if (filter_trx_immutable_id == trx_immutable_id(trx)) {
+        target_trx = trx;
+        return true;
+      }
+      return false;
+    }
+    trx_t *get_target_trx() const { return target_trx; }
+
+  private:
+    uint64_t filter_trx_immutable_id;
+    bool read_write;
+    trx_t *target_trx;
+  };
   /* It is not obvious if and why we need lock_sys exclusive access, but we do
   own exclusive latch here, so treat this assert more as a documentation */
   ut_ad(locksys::owns_exclusive_global_latch());
   ut_ad(trx_sys_mutex_own());
 
-  for (auto trx : *trx_list) {
-    if (discard_trx(trx, read_write)) {
-      continue;
-    }
-    /* Note: for read-only transactions the check above might be based on stale
-    values and does not bring any guarantee after it is finished, because state
-    of read-only transaction might be modified outside the trx_sys->mutex. */
+  Fetcher fetcher(filter_trx_immutable_id, read_write);
+  trx_list->foreach(fetcher);
 
-    if (filter_trx_immutable_id == trx_immutable_id(trx)) {
-      return trx;
-    }
+  if (fetcher.get_target_trx()) {
+    trx_list->get_with_guard(fetcher.get_target_trx(), trx_guard);
   }
-
-  return nullptr;
 }
 
 PSI_engine_data_lock_iterator *
@@ -585,7 +607,6 @@ bool Innodb_data_lock_iterator::fetch(PSI_server_data_lock_container *container,
   uint64_t trx_immutable_id;
   ulint heap_id{0};
   uint64_t lock_immutable_id;
-  const trx_t *trx;
 
   if (!container->accept_engine(g_engine, g_engine_length)) {
     return true;
@@ -601,15 +622,11 @@ bool Innodb_data_lock_iterator::fetch(PSI_server_data_lock_container *container,
   /* scan_trx() requires exclusive global latch to iterate over locks of trx */
   locksys::Global_exclusive_latch_guard guard{UT_LOCATION_HERE};
 
-  trx_sys_mutex_enter();
-
-  trx = fetch_trx_in_trx_list(trx_immutable_id, true, &trx_sys->mysql_trx_list);
-
-  if (trx != nullptr) {
-    scan_trx(container, with_lock_data, trx, true, lock_immutable_id, heap_id);
+  TrxGuard trx_guard;
+  fetch_trx_in_trx_list(trx_immutable_id, true, &trx_sys->mysql_trx_list, trx_guard);
+  if (trx_guard.get_data() != nullptr) {
+    scan_trx(container, with_lock_data, trx_guard.get_data(), true, lock_immutable_id, heap_id);
   }
-
-  trx_sys_mutex_exit();
 
   return true;
 }
@@ -620,37 +637,64 @@ needs to be populated.
 @param[in] trx_list             The trx list to scan
 @returns The number of records found
 */
-template <typename Trx_list>
-size_t Innodb_data_lock_iterator::scan_trx_list(
-    PSI_server_data_lock_container *container, bool read_write, bool with_lock_data,
-    Trx_list *trx_list) {
+bool Innodb_data_lock_iterator::scanner_scan_trx(trx_t *trx,
+    PSI_server_data_lock_container *container, bool with_lock_data,
+    bool read_write, size_t &found) {
   trx_id_t trx_id;
-  size_t found = 0;
+
+  if (discard_trx(trx, read_write)) {
+    return false;
+  }
+
+  /* Note: for read-only transactions the check above might be based on stale
+    values and does not bring any guarantee after it is finished, because state
+    of read-only transaction might be modified outside the trx_sys->mutex. */
+  trx_id = trx_get_id_for_print(trx);
+
+  if (!m_scan_state.trx_id_in_range(trx_id)) {
+    return false;
+  }
+
+  found += scan_trx(container, with_lock_data, trx, false);
+  return false;
+}
+struct InnodbDataLockIterTrxScanner {
+public:
+  InnodbDataLockIterTrxScanner(Innodb_data_lock_iterator *host_arg,
+                               PSI_server_data_lock_container *container_arg,
+                               bool with_lock_data_arg,
+                               bool read_write_arg)
+    : host(host_arg),
+      container(container_arg),
+      with_lock_data(with_lock_data_arg),
+      read_write(read_write_arg)
+  { found = 0; }
+
+  bool operator()(trx_t *trx) {
+    return host->scanner_scan_trx(trx, container, with_lock_data, read_write, found);
+  }
+  size_t get_found() { return found; }
+
+private:
+  Innodb_data_lock_iterator *host;
+  PSI_server_data_lock_container *container;
+  bool with_lock_data;
+  bool read_write;
+  size_t found;
+};
+
+size_t Innodb_data_lock_iterator::scan_trx_list(
+    PSI_server_data_lock_container *container, bool with_lock_data,
+    bool read_write, AllTrxList *trx_list) {
   /* We are about to scan over various locks of multiple transactions not
   limited to any particular shard thus we need an exclusive latch on lock_sys */
   ut_ad(locksys::owns_exclusive_global_latch());
   ut_ad(trx_sys_mutex_own());
 
-  for (auto trx : *trx_list) {
-    if (discard_trx(trx, read_write)) {
-      continue;
-    }
-    /* Note: for read-only transactions the check above might be based on stale
-    values and does not bring any guarantee after it is finished, because state
-    of read-only transaction might be modified outside the trx_sys->mutex. */
-
-    trx_id = trx_get_id_for_print(trx);
-
-    if (!m_scan_state.trx_id_in_range(trx_id)) {
-      continue;
-    }
-
-    found += scan_trx(container, with_lock_data, trx, false);
-  }
-
-  return found;
+  InnodbDataLockIterTrxScanner scanner(this, container, with_lock_data, read_write);
+  trx_list->foreach(scanner);
+  return scanner.get_found();
 }
-
 /** Scan a given trx.
 Either scan all the locks for a transaction,
 or scan only records matching a given lock.
@@ -844,7 +888,6 @@ bool Innodb_data_lock_wait_iterator::fetch(
   uint64_t blocking_trx_immutable_id;
   ulint blocking_heap_id;
   uint64_t blocking_lock_immutable_id;
-  const trx_t *trx;
 
   if (!container->accept_engine(g_engine, g_engine_length)) {
     return true;
@@ -869,17 +912,14 @@ bool Innodb_data_lock_wait_iterator::fetch(
   /* scan_trx() requires exclusive global latch to iterate over locks of trx */
   locksys::Global_exclusive_latch_guard guard{UT_LOCATION_HERE};
 
-  trx_sys_mutex_enter();
+  TrxGuard trx_guard;
+  fetch_trx_in_trx_list(requesting_trx_immutable_id, true,
+                        &trx_sys->mysql_trx_list, trx_guard);
 
-  trx = fetch_trx_in_trx_list(requesting_trx_immutable_id, true,
-                              &trx_sys->mysql_trx_list);
-
-  if (trx != nullptr) {
-    scan_trx(container, trx, true, requesting_lock_immutable_id,
+  if (trx_guard.get_data() != nullptr) {
+    scan_trx(container, trx_guard.get_data(), true, requesting_lock_immutable_id,
              blocking_lock_immutable_id);
   }
-
-  trx_sys_mutex_exit();
 
   return true;
 }
@@ -889,34 +929,53 @@ bool Innodb_data_lock_wait_iterator::fetch(
 @param[in] trx_list             The trx list to scan
 @returns the number of records found.
 */
-template <typename Trx_list>
+bool Innodb_data_lock_wait_iterator::scanner_scan_trx(
+    trx_t *trx,
+    PSI_server_data_lock_wait_container *container,
+    bool read_write,
+    size_t &found) {
+  if (discard_trx(trx, read_write)) {
+    return false;
+  }
+  trx_id_t trx_id = trx_get_id_for_print(trx);
+  if (!m_scan_state.trx_id_in_range(trx_id)) {
+    return false;
+  }
+  found += scan_trx(container, trx, false);
+  return false;
+}
+
+struct InnodbDataLockWaitIterScanner {
+  InnodbDataLockWaitIterScanner(Innodb_data_lock_wait_iterator *host_arg,
+                                PSI_server_data_lock_wait_container *container_arg,
+                                bool read_write_arg)
+    : host(host_arg),
+      container(container_arg),
+      read_write(read_write_arg),
+      found(0) {}
+
+  bool operator()(trx_t *trx) {
+    return host->scanner_scan_trx(trx, container, read_write, found);
+  }
+  size_t get_found() const { return found; }
+
+  Innodb_data_lock_wait_iterator *host;
+  PSI_server_data_lock_wait_container *container;
+  bool read_write;
+  size_t found;
+};
+
 size_t Innodb_data_lock_wait_iterator::scan_trx_list(
-    PSI_server_data_lock_wait_container *container, bool read_write, Trx_list *trx_list) {
-  trx_id_t trx_id;
-  size_t found = 0;
+    PSI_server_data_lock_wait_container *container, bool read_write, AllTrxList *trx_list) {
+
   /* We are about to scan over various locks of multiple transactions not
   limited to any particular shard thus we need an exclusive latch on lock_sys */
   ut_ad(locksys::owns_exclusive_global_latch());
   ut_ad(trx_sys_mutex_own());
 
-  for (auto trx : *trx_list) {
-    if (discard_trx(trx, read_write)) {
-      continue;
-    }
-    /* Note: for read-only transactions the check above might be based on stale
-    values and does not bring any guarantee after it is finished, because state
-    of read-only transaction might be modified outside the trx_sys->mutex. */
-
-    trx_id = trx_get_id_for_print(trx);
-
-    if (!m_scan_state.trx_id_in_range(trx_id)) {
-      continue;
-    }
-
-    found += scan_trx(container, trx, false);
-  }
-
-  return found;
+  InnodbDataLockWaitIterScanner scanner(this, container, read_write);
+  trx_list->foreach(scanner);
+  return scanner.get_found();
 }
 
 /** Scan a given transaction.

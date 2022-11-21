@@ -579,7 +579,7 @@ trx_t *trx_allocate_for_mysql(void) {
   trx_sys_mutex_enter();
 
   ut_d(trx->in_mysql_trx_list = true);
-  UT_LIST_ADD_FIRST(trx_sys->mysql_trx_list, trx);
+  trx_sys->mysql_trx_list.add(trx);
 
   trx_sys_mutex_exit();
 
@@ -689,7 +689,7 @@ inline void trx_disconnect_from_mysql(trx_t *trx, bool prepared) {
   ut_ad(trx->in_mysql_trx_list);
   ut_d(trx->in_mysql_trx_list = false);
 
-  UT_LIST_REMOVE(trx_sys->mysql_trx_list, trx);
+  trx_sys->mysql_trx_list.remove(trx);
 
   if (trx->view_assigned) {
     trx_sys->mvcc->view_close(trx);

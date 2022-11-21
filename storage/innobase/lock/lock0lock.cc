@@ -5175,11 +5175,10 @@ void lock_print_info_summary(FILE *file) {
 struct PrintNotStarted {
   PrintNotStarted(FILE *file) : m_file(file) {}
 
-  void operator()(const trx_t *trx) {
+  bool operator()(const trx_t *trx) {
     /* We require exclusive access to lock_sys */
     ut_ad(locksys::owns_exclusive_global_latch());
     ut_ad(trx->in_mysql_trx_list);
-    ut_ad(mutex_own(&trx_sys->mutex));
 
     /* See state transitions and locking rules in trx0trx.h */
 
@@ -5189,6 +5188,7 @@ struct PrintNotStarted {
       trx_print_latched(m_file, trx, 600);
     }
     trx_mutex_exit(trx);
+    return false;
   }
 
   FILE *m_file;
@@ -5314,10 +5314,8 @@ void lock_print_info_all_transactions(FILE *file) {
 
   fprintf(file, "LIST OF TRANSACTIONS FOR EACH SESSION:\n");
 
-  mutex_enter(&trx_sys->mutex);
   PrintNotStarted print_not_started(file);
-  ut_list_map(trx_sys->mysql_trx_list, print_not_started);
-  mutex_exit(&trx_sys->mutex);
+  trx_sys->mysql_trx_list.foreach(print_not_started);
   
   TRX_HASH_ITERATE(nullptr, lock_trx_print_locks_callback, file);
 }

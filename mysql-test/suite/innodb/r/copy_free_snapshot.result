@@ -1,0 +1,56 @@
+SHOW VARIABLES LIKE '%copy_free%';
+Variable_name	Value
+innodb_txsql_copy_free_snapshot_rw_hash_size_threshold	4096
+innodb_txsql_copy_free_snapshot_update_min_interval_us	500
+innodb_txsql_enable_copy_free_snapshot	ON
+CREATE TABLE t1 (c1 INT PRIMARY KEY, c2 INT) ENGINE=INNODB;
+INSERT INTO t1 VALUE (1, 1);
+INSERT INTO t1 VALUE (2, 2);
+INSERT INTO t1 VALUE (3, 3);
+INSERT INTO t1 VALUE (4, 4);
+INSERT INTO t1 VALUE (5, 5);
+INSERT INTO t1 VALUE (6, 6);
+SELECT * FROM t1;
+c1	c2
+1	1
+2	2
+3	3
+4	4
+5	5
+6	6
+SET GLOBAL TRANSACTION_ISOLATION="REPEATABLE-READ";
+BEGIN;
+UPDATE t1 SET c2 = c2 + 10 WHERE c1 = 1;
+UPDATE t1 SET c2 = c2 + 10 WHERE c1 = 2;
+BEGIN;
+UPDATE t1 SET c2 = c2 + 10 WHERE c1 = 3;
+UPDATE t1 SET c2 = c2 + 10 WHERE c1 = 4;
+BEGIN;
+SELECT * FROM t1;
+c1	c2
+1	1
+2	2
+3	3
+4	4
+5	5
+6	6
+SELECT * FROM t1;
+c1	c2
+1	1
+2	2
+3	3
+4	4
+5	5
+6	6
+COMMIT;
+COMMIT;
+COMMIT;
+SELECT * FROM t1;
+c1	c2
+1	11
+2	12
+3	13
+4	14
+5	5
+6	6
+DROP TABLE t1;

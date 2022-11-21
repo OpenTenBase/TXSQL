@@ -432,9 +432,9 @@ static void trx_sysf_create(mtr_t *mtr) /*!< in: mtr */
 [[maybe_unused]] static bool trx_sys_calc_undo_rows_callback(rw_trx_hash_element_t *element,
                                             uint64_t* undo_rows) {
   // called during recovery, mutex is not necessary
-  if (element->trx &&
-      trx_state_eq(element->trx, TRX_STATE_ACTIVE)) {
-    *undo_rows += element->trx->undo_no;
+  if (element->trx.load() &&
+      trx_state_eq(element->trx.load(), TRX_STATE_ACTIVE)) {
+    *undo_rows += element->trx.load()->undo_no;
   }
   return false;
 }
@@ -529,6 +529,7 @@ purge_pq_t *trx_sys_init_at_db_start(purge_pq_t **pre_purge_queue_ptr) {
   //                                  2 * trx_sys_get_trx_id_write_margin());
   trx_sys->init_max_trx_id(new_max_trx_id);
 
+
 #ifdef UNIV_DEBUG
   /* max_trx_id is the next transaction ID to assign. Initialize maximum
   transaction number to one less if all transactions are already purged. */
@@ -545,6 +546,10 @@ purge_pq_t *trx_sys_init_at_db_start(purge_pq_t **pre_purge_queue_ptr) {
   trx_dummy_sess = sess_open();
 
   trx_lists_init_at_db_start();
+
+  if (srv_txsql_enable_copy_free_snapshot) {
+    CopyFreeSnapshot::get_instance().init();
+  }
 
   rows_to_undo = trx_sys_calc_undo_rows();
 
@@ -572,7 +577,7 @@ void trx_sys_create(void) {
 
   mutex_create(LATCH_ID_TRX_SYS, &trx_sys->mutex);
 
-  UT_LIST_INIT(trx_sys->mysql_trx_list);
+  trx_sys->mysql_trx_list.init(4096);
 
   trx_sys->mvcc = ut::new_withkey<MVCC>(UT_NEW_THIS_FILE_PSI_KEY);
   
@@ -633,6 +638,10 @@ void trx_sys_close(void) {
     return;
   }
 
+  if (srv_txsql_enable_copy_free_snapshot) {
+    CopyFreeSnapshot::get_instance().destroy();
+  }
+
   ulint size = trx_sys->mvcc->size();
 
   if (size > 0) {
@@ -663,7 +672,7 @@ void trx_sys_close(void) {
 
   ut::delete_(trx_sys->mvcc);
 
-  ut_a(UT_LIST_GET_LEN(trx_sys->mysql_trx_list) == 0);
+  ut_a(trx_sys->mysql_trx_list.size() == 0);
 
   for (auto &shard : trx_sys->shards) {
     shard.~Trx_shard();
@@ -674,6 +683,7 @@ void trx_sys_close(void) {
   ut::free(trx_sys->lock);
 
   os_event_destroy(trx_sys->flushed_max_trx_id_event);
+  trx_sys->mysql_trx_list.destroy();
 
   /* We used placement new to create this mutex. Call the destructor. */
   mutex_free(&trx_sys->mutex);
@@ -693,25 +703,32 @@ void trx_sys_before_pre_dd_shutdown_validate() {
   trx_allocate_for_background. This function does not add the trx to the
   mysql_trx_list so we don't have to add logic to skip these at shutdown.
   */
-  trx_sys_mutex_enter();
-  for (auto trx : trx_sys->mysql_trx_list) {
-    /** Skip purge thread trx, it will be cleared after purge sys shutdown */
-    if (trx->purge_sys_trx) {
-      continue;
+  struct Validator {
+    bool operator()(trx_t *trx) {
+      if (trx->purge_sys_trx) {
+        return false;
+      }
+      ut_a(trx->state.load(std::memory_order_relaxed) == TRX_STATE_NOT_STARTED);
+      return false;
     }
-    ut_a(trx->state.load(std::memory_order_relaxed) == TRX_STATE_NOT_STARTED);
-  }
-  trx_sys_mutex_exit();
+  };
+
+  Validator v;
+  trx_sys->mysql_trx_list.foreach(v);
 }
 
 void trx_sys_after_pre_dd_shutdown_validate() {
-  trx_sys_mutex_enter();
+
+  struct Validator {
+    bool operator()(trx_t *trx) {
+      ut_a(trx->state.load(std::memory_order_relaxed) == TRX_STATE_NOT_STARTED);
+      return false;
+    }
+  };
   /** At this point we check the mysql_trx_list again, now we don't expect purge
   thread transactions in the list */
-  for (auto trx : trx_sys->mysql_trx_list) {
-    ut_a(trx->state.load(std::memory_order_relaxed) == TRX_STATE_NOT_STARTED);
-  }
-  trx_sys_mutex_exit();
+  Validator v;
+  trx_sys->mysql_trx_list.foreach(v);
 
   /* We assert that all transactions are rolled back if
   [1] Not force recovery mode.
@@ -730,14 +747,18 @@ void trx_sys_after_pre_dd_shutdown_validate() {
     ut_a(active_recovered_trxs == 0);
   }
 
-  ut_a(trx_sys->rw_trx_hash.size() == 
-      trx_sys->n_prepared_trx + active_recovered_trxs);
+  if (srv_txsql_enable_copy_free_snapshot) {
+    uint64_t remain = CopyFreeSnapshot::get_instance().get_remain_trx_count();
+    ut_a(remain == trx_sys->n_prepared_trx + active_recovered_trxs);
+  } else {
+    ut_a(trx_sys->rw_trx_hash.size() == trx_sys->n_prepared_trx + active_recovered_trxs);
+  }
 }
 
 void trx_sys_after_background_threads_shutdown_validate() {
   trx_sys_after_pre_dd_shutdown_validate();
 
-  ut_a(UT_LIST_GET_LEN(trx_sys->mysql_trx_list) == 0);
+  ut_a(trx_sys->mysql_trx_list.size() == 0);
 }
 
 static bool trx_sys_recovered_active_trxs_count_callback(

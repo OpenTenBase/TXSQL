@@ -16,7 +16,7 @@ void rw_trx_hash_t::init() {
                 rw_trx_hash_elem_constructor,
                 rw_trx_hash_elem_destructor,
                 rw_trx_hash_elem_initializer);
-  const int RW_TRX_HASH_SIZE = 256;
+  const int RW_TRX_HASH_SIZE = 512; // hash array size
   hash.max_size = RW_TRX_HASH_SIZE;
 }
 
@@ -38,6 +38,14 @@ void rw_trx_hash_t::put_pins(trx_t* trx) {
     lf_hash_put_pins(trx->rw_trx_hash_pins);
     trx->rw_trx_hash_pins = NULL;
   }
+}
+
+LF_PINS* rw_trx_hash_t::get_pins() {
+  return lf_hash_get_pins(&hash);
+}
+
+void rw_trx_hash_t::put_pins(LF_PINS *pins) {
+  lf_hash_put_pins(pins);
 }
 
 trx_t* rw_trx_hash_t::find(trx_t *caller_trx, trx_id_t trx_id, bool do_ref_count) {
@@ -78,20 +86,71 @@ trx_t* rw_trx_hash_t::find(trx_t *caller_trx, trx_id_t trx_id, bool do_ref_count
   return (trx);
 }
 
+uint64_t rw_trx_hash_t::get_elem_del_ts(trx_t *caller_trx, trx_id_t trx_id) {
+  ut_ad(srv_txsql_enable_copy_free_snapshot);
+
+  uint64_t res_del_ts = CopyFreeSnapshot::VALID_BASE_TS;
+  LF_PINS *pins = caller_trx ? get_pins(caller_trx) : lf_hash_get_pins(&hash);
+  ut_ad(pins);
+
+  void *elem_addr = lf_hash_search(&hash, pins, reinterpret_cast<const void*>(&trx_id), sizeof(trx_id_t));
+  if (elem_addr) {
+    rw_trx_hash_element_t *element= reinterpret_cast<rw_trx_hash_element_t*>(elem_addr);
+    res_del_ts = element->del_ts.load(std::memory_order_acquire);
+    // after lf_hash_search(actually my_lsearch),
+    // pin[2] is used to pin object just found
+    lf_hash_search_unpin(pins);
+  }
+
+  if (!caller_trx) {
+    lf_hash_put_pins(pins);
+  }
+  return res_del_ts;
+}
+
 void rw_trx_hash_t::insert(trx_t* trx) {
   int res = lf_hash_insert(&hash, get_pins(trx), reinterpret_cast<void*>(trx));
   ut_a(res == 0);
 }
 
 void rw_trx_hash_t::erase(trx_t* trx) {
-  mutex_enter(&trx->rw_trx_hash_element->mutex);
-  trx->rw_trx_hash_element->trx = 0;
-  mutex_exit(&trx->rw_trx_hash_element->mutex);
+  if (srv_txsql_enable_copy_free_snapshot) {
+    mutex_enter(&trx->rw_trx_hash_element->mutex);
+    trx->rw_trx_hash_element->trx.store(nullptr);
+    mutex_exit(&trx->rw_trx_hash_element->mutex);
 
-  int res = lf_hash_delete(&hash, get_pins(trx),
-                           reinterpret_cast<const void*>(&trx->id),
-                           sizeof(trx_id_t));
-  ut_a(res == 0);
+    trx->rw_trx_hash_element->del_ts.store(CopyFreeSnapshot::DELETING);
+    trx->rw_trx_hash_element->del_ts.store(CopyFreeSnapshot::get_instance().get_clock());
+  } else {
+    mutex_enter(&trx->rw_trx_hash_element->mutex);
+    trx->rw_trx_hash_element->trx.store(nullptr);
+    mutex_exit(&trx->rw_trx_hash_element->mutex);
+
+    int res = lf_hash_delete(&hash, get_pins(trx),
+                             reinterpret_cast<const void*>(&trx->id),
+                             sizeof(trx_id_t));
+    ut_a(res == 0);
+  }
+}
+
+void rw_trx_hash_t::raw_erase(rw_trx_hash_element_t *elem, LF_PINS *pins) {
+  assert(elem);
+  trx_id_t id = elem->id;
+
+#ifdef UNIV_DEBUG
+  // assert exist
+  void *e = lf_hash_search(&hash, pins, reinterpret_cast<const void*>(&id), sizeof(id));
+  /*
+   * the caller CopyFreeSnapshot::do_purge_hash first scan rw_trx_hash
+   * to get all to-purge elements, it will collect an element more than
+   * one time since no lock hold during iterating.
+   * It mean may invoke raw_erase with the * same elem object, the search 
+   * result object here then may be null.
+   */
+  assert(e == elem || e == nullptr);
+#endif
+
+  lf_hash_delete(&hash, pins, reinterpret_cast<const void*>(&id), sizeof(id));
 }
 
 int rw_trx_hash_t::iterate(trx_t *caller_trx,
@@ -145,7 +204,7 @@ bool get_min_trx_id_callback(rw_trx_hash_element_t *element,
   if (element->id < *id) {
     mutex_enter(&element->mutex);
     /* We don't care about read-only transactions here. */
-    if (element->trx && element->trx->rsegs.m_redo.rseg) {
+    if (element->trx && element->trx.load()->rsegs.m_redo.rseg) {
       *id = element->id;
     }
     mutex_exit(&element->mutex);
@@ -287,6 +346,29 @@ void trx_sys_t::snapshot_ids(trx_t *caller_trx,
   *min_trx_no = arg.m_no;
 }
 
+trx_id_t trx_sys_t::get_max_trx_id_safe() {
+  trx_id_t max_id = 0;
+  uint32_t max_count = SNAPSHOT_SPIN_LOOP;
+  while ((max_id = get_rw_trx_hash_version()) != get_max_trx_id()) {
+    /* For background purge thread which has caller_trx = nullptr, we
+    always let it spins. */
+    if (max_count == 0) {
+      rw_lock_x_lock(lock, UT_LOCATION_HERE);
+      max_id = get_rw_trx_hash_version(); 
+      rw_lock_x_unlock(lock);
+      break;
+    }
+    max_count--;
+    PAUSE();
+  }
+
+  // after waiting for (hash_version != max_trx_id),
+  // trx_id which less than max_trx_id must have been put into lf_hash
+  // already (trx_id also may be removed since the trx commit done).
+  // That mean all active trx less than max_trx_id is in lf_hash.
+
+  return max_id;
+}
 trx_id_t trx_sys_get_max_trx_id() {
   return (trx_sys->get_max_trx_id());
 }

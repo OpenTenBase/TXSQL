@@ -2145,39 +2145,38 @@ withdraw_retry:
     }
 
     {
+      struct LockWaitPrinter {
+      public:
+        LockWaitPrinter(std::chrono::system_clock::time_point w)
+          : withdraw_start_time(w),
+            found(false) {}
+        bool operator()(trx_t *trx) {
+          const auto trx_start = trx->start_time.load(std::memory_order_relaxed);
+          if (trx->state != TRX_STATE_NOT_STARTED && trx->mysql_thd != nullptr &&
+              withdraw_start_time > trx_start) {
+            if (!found) {
+              ib::warn(ER_IB_MSG_61) << "The following trx might hold"
+                                         " the blocks in buffer pool to"
+                                         " be withdrawn. Buffer pool"
+                                         " resizing can complete only"
+                                         " after all the transactions"
+                                         " below release the blocks.";
+              found = true;
+            }
+
+            lock_trx_print_wait_and_mvcc_state(stderr, trx);
+          }
+          return false;
+        }
+      private:
+        std::chrono::system_clock::time_point withdraw_start_time;
+        bool found;
+      };
+
       /* lock_trx_print_wait_and_mvcc_state() requires exclusive global latch */
       locksys::Global_exclusive_latch_guard guard{UT_LOCATION_HERE};
-      trx_sys_mutex_enter();
-      bool found = false;
-      for (auto trx : trx_sys->mysql_trx_list) {
-        /* Note that trx->state might be changed from TRX_STATE_NOT_STARTED to
-        TRX_STATE_ACTIVE without usage of trx_sys->mutex when the transaction
-        is read-only (look inside trx_start_low() for details).
-
-        These loads below might be inconsistent for read-only transactions,
-        because state and start_time for such transactions are saved using
-        the std::memory_order_relaxed, not to risk performance regression
-        on ARM (and this code here is the only victim of the issue, so seems
-        it is a minor issue with potentially incorrect warning message).
-
-        TODO: check performance gain from this micro-optimization */
-        const auto trx_state = trx->state.load(std::memory_order_relaxed);
-        const auto trx_start = trx->start_time.load(std::memory_order_relaxed);
-        if (trx_state != TRX_STATE_NOT_STARTED && trx->mysql_thd != nullptr &&
-            trx_start != std::chrono::system_clock::time_point{} &&
-            withdraw_start_time > trx_start) {
-          if (!found) {
-            ib::warn(ER_IB_MSG_61)
-                << "The following trx might hold the blocks in buffer pool to "
-                   "be withdrawn. Buffer pool resizing can complete only after "
-                   "all the transactions below release the blocks.";
-            found = true;
-          }
-
-          lock_trx_print_wait_and_mvcc_state(stderr, trx);
-        }
-      }
-      trx_sys_mutex_exit();
+      LockWaitPrinter lock_wait_printer(withdraw_start_time);
+      trx_sys->mysql_trx_list.foreach(lock_wait_printer);
     }
 
     withdraw_start_time = std::chrono::system_clock::now();

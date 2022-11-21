@@ -760,7 +760,7 @@ void trx_rollback_or_clean_recovered(
     trx_list.pop_back();
     trx_rollback_or_clean_resurrected(trx, all);
   }
-
+  CopyFreeSnapshot::get_instance().get_remain_trx_count();
 
   if (all) {
     ib::info(ER_IB_MSG_TRX_RECOVERY_ROLLBACK_COMPLETED);

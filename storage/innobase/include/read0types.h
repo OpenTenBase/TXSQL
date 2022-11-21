@@ -35,17 +35,94 @@ this program; if not, write to the Free Software Foundation, Inc.,
 
 #include <algorithm>
 #include "dict0mem.h"
-
+#include <emmintrin.h> // for _mm_pause
 #include "trx0types.h"
 #include "trx0tlog.h"
 
+inline void PAUSE() {
+  _mm_pause();
+  /*
+   or use the one of the two following instead.
+     -  std::this_thread::yield();
+     -  __asm__ volatile("pause");
+  */
+}
+
+class trx_t;
+class rw_trx_hash_element_t;
+
 // Friend declaration
 class MVCC;
+class OldestViewGetter;
 
 /** View is not visible to purge thread. */
 #define READ_VIEW_STATE_CLOSED 0
 /** View is visible to purge thread. */
 #define READ_VIEW_STATE_OPEN 1
+
+class CopyFreeSnapshot {
+public:
+  // if a ReadView del_ts is DISABLE, it use copy active rw trx list.
+  static const uint64_t DISABLE = 1;
+  static const uint64_t ACTIVE = 2;
+  static const uint64_t DELETING = 3;
+  // a valid del_ts start from DEL_TS_VALID_BASE
+  static const uint64_t VALID_BASE_TS = 1000;
+
+public:
+  struct GetMinArg {
+    trx_id_t up_limit_id;
+    trx_id_t low_limit_no;
+    uint64_t min_view_ts;
+  };
+
+  struct PurgeArg {
+    static const int64_t MAX_SIZE = 512 * 1024;
+    uint64_t min_view_ts;
+    rw_trx_hash_element_t** to_purge;
+    int64_t to_purge_count;
+  };
+
+public:
+  CopyFreeSnapshot() {
+    m_clock.store(VALID_BASE_TS);
+    m_min_view_ts = VALID_BASE_TS;
+  }
+  static CopyFreeSnapshot &get_instance() {
+    // (gdb) p *(CopyFreeSnapshot*)&('CopyFreeSnapshot::get_instance()::g_cfs')
+    static CopyFreeSnapshot g_cfs;
+    return g_cfs;
+  }
+  uint64_t get_clock() {
+    return m_clock.fetch_add(1, std::memory_order_relaxed);
+  }
+  void init();
+  void destroy();
+  void update_min_view_ts(uint64_t t) { m_min_view_ts.store(t); }
+  uint64_t get_min_view_ts() const { return m_min_view_ts.load(); }
+  void update_min_routine();
+  void convert_snapshot_and_purge_hash_routine();
+  trx_id_t get_up_limit_id() { return m_up_limit_id.load(); }
+  trx_id_t get_low_limit_no() { return m_low_limit_no.load(); }
+  void set_up_limit_id(trx_id_t id) { m_up_limit_id.store(id); }
+  void set_low_limit_no(trx_id_t id) { return m_low_limit_no.store(id); }
+  uint64_t get_remain_trx_count();
+  static bool is_valid_timestamp(uint64_t ts) { return ts >= VALID_BASE_TS; }
+  
+private:
+  void convert_snapshots();
+  bool do_update_min();
+  bool do_purge_hash(PurgeArg &arg);
+
+private:
+  std::atomic<uint64_t> m_clock;
+  std::atomic<uint64_t> m_min_view_ts;
+  std::atomic<trx_id_t> m_up_limit_id;
+  std::atomic<trx_id_t> m_low_limit_no;
+  std::thread m_update_min_thread;
+  std::thread m_convert_purge_thread;
+  std::atomic<bool> m_routine_running;
+};
 
 /** Read view lists the trx ids of those transactions for which a consistent
 read should not see the modifications to the database. */
@@ -63,8 +140,9 @@ class ReadView {
   @param[in]    id      transaction id to check against the view
   @param[in]    name    table name
   @return whether the view sees the modifications of id. */
-  [[nodiscard]] bool changes_visible(trx_id_t id,
-                                     const table_name_t &name) const;
+  bool changes_visible_new(trx_id_t id, const table_name_t &name) const;
+  bool changes_visible_old(trx_id_t id, const table_name_t &name) const;
+  bool changes_visible(trx_id_t id, const table_name_t &name) const;
 
   /**
   @param id             transaction to check
@@ -155,10 +233,13 @@ uint32_t get_state() const {
   }
 
   inline void take_snapshot(trx_t *trx);
+  inline void take_snapshot_copy_free(trx_t *trx, bool force_copy);
 
   bool try_use_cached_view();
 
   void try_install_cached_view() const;
+
+  void convert_to_copy();
 
   /**
   Write the limits to the file.
@@ -195,11 +276,12 @@ uint32_t get_state() const {
   /**
   @return the low limit no */
   trx_id_t low_limit_no() const { return (m_low_limit_no); }
+  void set_low_limit_no(trx_id_t id) { m_low_limit_no = id; }
 
   /**
   @return the low limit id */
   trx_id_t low_limit_id() const { return (m_low_limit_id.load()); }
-
+  void set_up_limit_id(trx_id_t id) { m_up_limit_id = id; }
   trx_id_t up_limit_id() const { return (m_up_limit_id); }
 
   int64_t get_hash_erase_version() const { return m_hash_erase_version.load(std::memory_order_relaxed); }
@@ -225,7 +307,7 @@ uint32_t get_state() const {
   /** Take a snapshot of current transaction state
   @param[in] trx  transaction object
   @param[in] add_list true if the read view needs adding to list */
-  void snapshot(trx_t *trx);
+  void snapshot(trx_t *trx, bool force_copy);
 
   /** Clone from another read view */
   void clone(ReadView *other);
@@ -256,12 +338,14 @@ uint32_t get_state() const {
     // ut_ad(m_creator_trx_id == 0);
     m_creator_trx_id = id;
   }
+  uint64_t get_view_ts() { return m_view_ts; }
 
   void copy_trx_ids(trx_ids_t &ids) {
     ids = m_ids;
   }
 
   friend class MVCC;
+  friend class CopyFreeOldestViewGetter;
 
  private:
   // Disable copying
@@ -315,7 +399,8 @@ uint32_t get_state() const {
   variable INNODB_PURGE_VIEW_TRX_ID_AGE. */
   trx_id_t m_view_low_limit_no;
 #endif /* UNIV_DEBUG */
-
+  std::atomic<uint64_t> m_view_ts;
+  trx_t *m_trx;
 };
 
 #endif
