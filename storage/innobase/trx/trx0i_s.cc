@@ -850,17 +850,15 @@ static void trx_i_s_cache_clear(
 @param[in,out]  cache       the cache
 @param[in]      trx_list    the list to scan
 */
-static void fetch_data_into_cache_low(trx_i_s_cache_t *cache) {
-  /* We are going to iterate over many different shards of lock_sys so we need
-  exclusive access */
-  ut_ad(locksys::owns_exclusive_global_latch());
-
+static bool fetch_data_into_cache_low_at_trx(
+    trx_i_s_cache_t *cache, trx_t *trx)
+{ 
   /* Iterate over the transaction list and add each one
   to innodb_trx's cache. We also add all locks that are relevant
   to each transaction into innodb_locks' and innodb_lock_waits'
   caches. */
 
-  for (auto trx : trx_sys->mysql_trx_list) {
+
     i_s_trx_row_t *trx_row;
     i_s_locks_row_t *requested_lock_row;
 
@@ -889,13 +887,13 @@ static void fetch_data_into_cache_low(trx_i_s_cache_t *cache) {
     if (!trx_was_started(trx) ||
         (trx->id != 0 && !trx->read_only)) {
       trx_mutex_exit(trx);
-      continue;
+      return false;
     }
 
     if (!add_trx_relevant_locks_to_cache(cache, trx, &requested_lock_row)) {
       cache->is_truncated = true;
       trx_mutex_exit(trx);
-      return;
+      return true;
     }
 
     trx_row = reinterpret_cast<i_s_trx_row_t *>(
@@ -905,7 +903,7 @@ static void fetch_data_into_cache_low(trx_i_s_cache_t *cache) {
     if (trx_row == nullptr) {
       cache->is_truncated = true;
       trx_mutex_exit(trx);
-      return;
+      return true;
     }
 
     if (!fill_trx_row(trx_row, trx, requested_lock_row, cache)) {
@@ -913,11 +911,11 @@ static void fetch_data_into_cache_low(trx_i_s_cache_t *cache) {
       --cache->innodb_trx.rows_used;
       cache->is_truncated = true;
       trx_mutex_exit(trx);
-      return;
+      return true;
     }
 
     trx_mutex_exit(trx);
-  }
+    return false;
 }
 
 static bool fetch_rw_data_into_cache_callback(
@@ -968,8 +966,30 @@ static bool fetch_rw_data_into_cache_callback(
   }
 
   mutex_exit(&element->mutex);
-
   return (false);
+}
+
+static void fetch_data_into_cache_low(
+    trx_i_s_cache_t *cache)  /*!< in/out: cache */
+{
+  /* We are going to iterate over many different shards of lock_sys so we need
+  exclusive access */
+  ut_ad(locksys::owns_exclusive_global_latch());
+
+  /* Iterate over the transaction list and add each one
+  to innodb_trx's cache. We also add all locks that are relevant
+  to each transaction into innodb_locks' and innodb_lock_waits'
+  caches. */
+
+  struct Fetcher {
+    Fetcher(trx_i_s_cache_t *cache_arg) : cache(cache_arg) {}
+    bool operator()(trx_t *trx) { return fetch_data_into_cache_low_at_trx(cache, trx); }
+
+    trx_i_s_cache_t *cache;
+  };
+
+  Fetcher fetcher(cache);
+  trx_sys->mysql_trx_list.foreach(fetcher);
 }
 
 /** Fetches the data needed to fill the 3 INFORMATION SCHEMA tables into the

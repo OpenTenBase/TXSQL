@@ -1,0 +1,1 @@
+--innodb_txsql_enable_copy_free_snapshot=1

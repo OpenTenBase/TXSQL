@@ -23438,6 +23438,26 @@ static MYSQL_SYSVAR_BOOL(
     "if supported",
     nullptr, nullptr, false);
 
+static MYSQL_SYSVAR_BOOL(
+    txsql_enable_copy_free_snapshot, srv_txsql_enable_copy_free_snapshot,
+    PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+    "enable copy free snapshot",
+    nullptr, nullptr, false);
+
+static MYSQL_SYSVAR_LONGLONG(
+    txsql_copy_free_snapshot_rw_hash_size_threshold,
+    srv_txsql_copy_free_snapshot_rw_hash_size_threshold,
+    PLUGIN_VAR_RQCMDARG,
+    "when rw trx hash size is larger then this value, trigger convert snasphot",
+    nullptr, nullptr, 4096, 256, 10240, 1);
+
+static MYSQL_SYSVAR_LONGLONG(
+    txsql_copy_free_snapshot_update_min_interval_us,
+    srv_txsql_copy_free_snapshot_update_min_interval_us,
+    PLUGIN_VAR_RQCMDARG,
+    "interval to update min limit of trx id set",
+    nullptr, nullptr, 500, 50, 50000, 1);
+
 static MYSQL_SYSVAR_DOUBLE(
     segment_reserve_factor, fseg_reserve_pct, PLUGIN_VAR_OPCMDARG,
     "The segment_reserve_factor is the ratio x/y expressed in percentage,"
@@ -24922,6 +24942,9 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(txsql_ddl_buffer_size),
     MYSQL_SYSVAR(txsql_ddl_threads),
     MYSQL_SYSVAR(txsql_parallel_ddl),
+    MYSQL_SYSVAR(txsql_enable_copy_free_snapshot),
+    MYSQL_SYSVAR(txsql_copy_free_snapshot_rw_hash_size_threshold),
+    MYSQL_SYSVAR(txsql_copy_free_snapshot_update_min_interval_us),
     MYSQL_SYSVAR(data_file_path),
     MYSQL_SYSVAR(temp_data_file_path),
     MYSQL_SYSVAR(data_home_dir),

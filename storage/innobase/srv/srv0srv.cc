@@ -430,6 +430,9 @@ with mutex_enter(), which will wait until it gets the mutex. */
 
 /** Dedicated server setting */
 bool srv_dedicated_server = true;
+bool srv_txsql_enable_copy_free_snapshot = false;
+longlong srv_txsql_copy_free_snapshot_rw_hash_size_threshold = 8000;
+longlong srv_txsql_copy_free_snapshot_update_min_interval_us = 100;
 /** Requested size in bytes */
 ulint srv_buf_pool_size = ULINT_MAX;
 /** Minimum pool size in bytes */
@@ -3590,7 +3593,7 @@ void Backquery_manager::add_view(time_t t) {
   HistoryReadView hr;
   hr.view =
       ut::new_withkey<ReadView>(ut::make_psi_memory_key(mem_key_backquery));
-  hr.view->snapshot(nullptr);
+  hr.view->snapshot(nullptr, /* force_copy = */ true);
   auto ret =
       history_readviews.insert(std::pair<time_t, HistoryReadView>(t, hr));
   if (ret.second == false) {

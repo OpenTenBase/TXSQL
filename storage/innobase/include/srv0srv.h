@@ -612,6 +612,9 @@ extern bool srv_load_corrupted;
 
 /** Dedicated server setting */
 extern bool srv_dedicated_server;
+extern bool srv_txsql_enable_copy_free_snapshot;
+extern longlong srv_txsql_copy_free_snapshot_rw_hash_size_threshold;
+extern longlong srv_txsql_copy_free_snapshot_update_min_interval_us;
 /** Requested size in bytes */
 extern ulint srv_buf_pool_size;
 /** Minimum pool size in bytes */

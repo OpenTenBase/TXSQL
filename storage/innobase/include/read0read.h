@@ -68,6 +68,8 @@ class MVCC {
   purge the delete marked record or not.
   @param view           Preallocated view, owned by the caller */
   void clone_oldest_view(ReadView *view, bool fast = false);
+  void clone_oldest_view_old(ReadView *view, bool fast = false);
+  void clone_oldest_view_new(ReadView *view);
 
   void persist_snapshot(ReadView *view);
 

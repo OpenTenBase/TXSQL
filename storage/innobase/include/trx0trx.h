@@ -1204,6 +1204,10 @@ struct trx_t {
   @return true iff in this transaction's isolation level locks on records which
                do not match the WHERE clause are released */
   bool releases_non_matching_rows() const { return skip_gap_locks(); }
+  
+  inline uint64_t get_hash_val() const {
+    return (reinterpret_cast<uint64_t>(this)) >> 4;
+  }
 };
 
 #ifndef UNIV_HOTBACKUP
