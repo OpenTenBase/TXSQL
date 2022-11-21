@@ -77,6 +77,10 @@ struct CHARSET_INFO;
 enum class enum_row_image_type;
 class Basic_ostream;
 
+#ifdef CLIENT_DECRYPT
+extern char *opt_encrypt_key_file;
+#endif
+
 #ifdef MYSQL_SERVER
 #include <stdio.h>
 

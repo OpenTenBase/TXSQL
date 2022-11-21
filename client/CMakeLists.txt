@@ -34,7 +34,7 @@ ADD_SUBDIRECTORY(dump)
 ## Subdirectory for mysql_migrate_keyring code.
 ADD_SUBDIRECTORY(migrate_keyring)
 ## Subdirectory for mysqlbinlog_keyring code.
-ADD_SUBDIRECTORY( mysqlbinlog_keyring)
+ADD_SUBDIRECTORY(mysqlbinlog_keyring)
 
 INCLUDE_DIRECTORIES(
   ${CMAKE_CURRENT_SOURCE_DIR}/include
