@@ -260,6 +260,15 @@ static TYPELIB keyring_kms_scheme_typelib = {
     kms_scheme_type::KMS_SCHEME_UNDEFINE, "keyring_kms_scheme_typelib",
     kering_kms_scheme_type_names, NULL};
 
+int set_stsclient_profile(StsClient &sts_client) {
+  HttpProfile tmp_http_profile = sts_client.GetClientProfile().GetHttpProfile();
+  tmp_http_profile.SetProtocol(HttpProfile::Scheme::HTTP);
+  ClientProfile tmp_client_profile = sts_client.GetClientProfile();
+  tmp_client_profile.SetHttpProfile(tmp_http_profile);
+  sts_client.SetClientProfile(tmp_client_profile);
+  return 0;
+}
+
 int kms_get_session_token(string& session_token,
                           string& secret_id,
                           string& secret_key) {
@@ -288,6 +297,10 @@ int kms_get_session_token(string& session_token,
   assume_req.SetDurationSeconds(kms_duration_seconds);
   StsClient sts_client = StsClient(cred, kms_config.region);
   sts_client.SetEndPoint(kms_config.cam_point);
+
+  if (keyring_kms_scheme == kms_scheme_type::KMS_SCHEME_HTTP) {
+    set_stsclient_profile(sts_client);
+  }
 
   auto outcome = sts_client.AssumeRole(assume_req);
   if (!outcome.IsSuccess()) {
