@@ -285,6 +285,12 @@ class mem_root_unordered_map
                            Mem_root_allocator<std::pair<const Key, Value>>>(
             /*bucket_count=*/10, hash, KeyEqual(),
             Mem_root_allocator<std::pair<const Key, Value>>(mem_root)) {}
+
+  explicit mem_root_unordered_map(MEM_ROOT *mem_root, size_t bucket)
+      : std::unordered_map<Key, Value, Hash, KeyEqual,
+                           Mem_root_allocator<std::pair<const Key, Value>>>(
+            /*bucket_count=*/bucket, Hash(), KeyEqual(),
+            Mem_root_allocator<std::pair<const Key, Value>>(mem_root)) {}
 };
 
 /**
