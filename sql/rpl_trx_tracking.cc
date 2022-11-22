@@ -290,13 +290,27 @@ void Writeset_trx_dependency_tracker::get_dependency(THD *thd,
 
   if (exceeds_capacity || !can_use_writesets) {
     m_writeset_history_start = sequence_number;
-    m_writeset_history.clear();
+
+    /*
+       When binlog format is statement, avoid to clear m_writeset_history.
+       Since m_writeset_history.clear will memset the bucket, which is slow.
+     */
+    if (m_writeset_history.size() > 0) {
+      m_writeset_history.clear();
+      // When clean all nodes, we should clear the memory
+      writeset_history_mem_root.ClearForReuse();
+    }
   }
 }
 
 void Writeset_trx_dependency_tracker::rotate(int64 start) {
   m_writeset_history_start = start;
-  m_writeset_history.clear();
+
+  if (m_writeset_history.size() > 0) {
+    m_writeset_history.clear();
+    // When clean all nodes, we should clear the memory
+    writeset_history_mem_root.ClearForReuse();
+  }
 }
 
 /**

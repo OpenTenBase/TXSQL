@@ -660,6 +660,7 @@ SET(SQL_SHARED_SOURCES
   thr_malloc.cc
   time_zone_common.cc
   transaction.cc
+  buffer.cpp
   threadpool_common.cc
   transaction_info.cc
   trigger.cc
