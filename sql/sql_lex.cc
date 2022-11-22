@@ -3813,6 +3813,7 @@ LEX::LEX()
       type(0),
       option_type(OPT_DEFAULT),
       drop_temporary(false),
+      parallel(false),
       sphead(nullptr),
       // Initialize here to avoid uninitialized variable warnings.
       contains_plaintext_password(false),
