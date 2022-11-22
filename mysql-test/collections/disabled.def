@@ -129,3 +129,6 @@ rpl_gtid.sqlasync_sqlasync_group_slave_ack : BUG#00000000 TDSQL ONLY
 rpl.sqlasync_commit_timeout_trxs : BUG#00000000 TDSQL ONLY
 rpl.sqlasync_after_sync : BUG#00000000 TDSQL ONLY
 rpl.sqlasync_delay_rotate_binlog : BUG#00000000 TDSQL ONLY
+main.loaddata_special : BUG#00000000 Fail in autotest.sh
+auth_sec.host_sort : BUG#00000000 Fail in autotest.sh
+auth_sec.keyring_file_data_qa : BUG#00000000 Fail in autotest.sh

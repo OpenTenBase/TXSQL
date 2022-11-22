@@ -9017,4 +9017,14 @@ static Sys_var_bool Sys_g_txsql_slave_io_optimaze_write(
     CMD_LINE(OPT_ARG), DEFAULT(false));
 #endif
 
+#ifdef HAVE_TDSQL
+bool have_tdsql = true;
+#else
+bool have_tdsql = false;
+#endif
+
+static Sys_var_bool Sys_have_tdsql(
+    "have_tdsql", "Whether the server was compiled with TDSQL support.",
+    READ_ONLY GLOBAL_VAR(have_tdsql), NO_CMD_LINE, DEFAULT(have_tdsql),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL), ON_UPDATE(NULL));
 /* Changes from txsql end. */
