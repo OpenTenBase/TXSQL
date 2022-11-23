@@ -1110,11 +1110,23 @@ static inline Instant_Type innobase_support_instant(
       /* Not supported yet in INPLACE. So not supporting here as well. */
       break;
     case INSTANT_OPERATION::INSTANT_DROP:
+      /* Disable INSTANT DROP unless explicitly requested. So ALGORITHM=DEFAULT
+      will use INPLACE/COPY */
+      if (ha_alter_info->alter_info->requested_algorithm ==
+          Alter_info::ALTER_TABLE_ALGORITHM_DEFAULT) {
+        break;
+      }
       if (!check_v_col_in_order(old_table, altered_table, ha_alter_info)) {
         break;
       }
       [[fallthrough]];
     case INSTANT_OPERATION::INSTANT_ADD:
+      /* Disable INSTANT ADD unless explicitly requested. So ALGORITHM=DEFAULT
+      will use INPLACE/COPY */
+      if (ha_alter_info->alter_info->requested_algorithm ==
+          Alter_info::ALTER_TABLE_ALGORITHM_DEFAULT) {
+        break;
+      }
       /* If it's an ADD COLUMN without changing existing stored column orders
       (change trailing virtual column orders is fine, especially for supporting
       adding stored columns to a table with functional indexes), or including
@@ -1124,6 +1136,12 @@ static inline Instant_Type innobase_support_instant(
       }
       break;
     case INSTANT_OPERATION::INSTANT_MODIFY:
+      /* Disable INSTANT MODIFY unless explicitly requested. So ALGORITHM=DEFAULT
+      will use INPLACE/COPY */
+      if (ha_alter_info->alter_info->requested_algorithm ==
+          Alter_info::ALTER_TABLE_ALGORITHM_DEFAULT) {
+        break;
+      }
       if (!cdb_instant_modify_column_enabled) {
         return (Instant_Type::INSTANT_IMPOSSIBLE);
       }
