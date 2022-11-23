@@ -1056,7 +1056,9 @@ void Gtid_state::update_gtids_impl_own_gtid(THD *thd, bool is_commit) {
   }
 
   if (is_commit) {
-    assert(!executed_gtids.contains_gtid(thd->owned_gtid));
+    if (!cdb_optimize_gtid_lock) {
+      assert(!executed_gtids.contains_gtid(thd->owned_gtid));
+    }
     DBUG_EXECUTE_IF(
         "rpl_gtid_update_on_commit_simulate_out_of_memory",
         DBUG_SET("+d,rpl_gtid_get_free_interval_simulate_out_of_memory"););
