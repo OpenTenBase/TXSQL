@@ -8,9 +8,10 @@ INSERT INTO test.t VALUES (1);
 SHOW VARIABLES LIKE '%gtid%';
 Variable_name	Value
 binlog_gtid_simple_recovery	ON
+cdb_more_gtid_feature_supported	OFF
 enforce_gtid_consistency	ON
 gtid_executed	master_uuid:1-2
-gtid_executed_compression_period	1000
+gtid_executed_compression_period	0
 gtid_mode	ON
 gtid_next	AUTOMATIC
 gtid_owned	
@@ -21,16 +22,19 @@ session_track_gtids	OFF
 SHOW VARIABLES LIKE '%gtid%';
 Variable_name	Value
 binlog_gtid_simple_recovery	ON
+cdb_more_gtid_feature_supported	OFF
 cdb_optimize_gtid_lock	ON
 enforce_gtid_consistency	ON
 gtid_executed	master_uuid:1-2
-gtid_executed_compression_period	1000
+gtid_executed_compression_period	0
 gtid_mode	ON
 gtid_next	AUTOMATIC
 gtid_owned	
 gtid_purged	
 gtid_undeleted	
+innodb_strict_gtid_commit	ON
 session_track_gtids	OFF
+txsql_disable_gtid_in_undo	OFF
 SELECT * FROM test.t;
 id
 1
@@ -108,9 +112,10 @@ set global binlog_order_commits=0;
 SHOW VARIABLES LIKE '%gtid%';
 Variable_name	Value
 binlog_gtid_simple_recovery	ON
+cdb_more_gtid_feature_supported	OFF
 enforce_gtid_consistency	ON
 gtid_executed	master_uuid:1-1085
-gtid_executed_compression_period	1000
+gtid_executed_compression_period	0
 gtid_mode	ON
 gtid_next	AUTOMATIC
 gtid_owned	
@@ -121,9 +126,10 @@ session_track_gtids	OFF
 SHOW VARIABLES LIKE '%gtid%';
 Variable_name	Value
 binlog_gtid_simple_recovery	ON
+cdb_more_gtid_feature_supported	OFF
 enforce_gtid_consistency	ON
 gtid_executed	master_uuid:1-1085
-gtid_executed_compression_period	1000
+gtid_executed_compression_period	0
 gtid_mode	ON
 gtid_next	AUTOMATIC
 gtid_owned	
