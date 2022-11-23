@@ -115,7 +115,7 @@ set transaction_isolation = @saved_transaction_isolation;
 
 # test alter table
 echo test alter table;
-alter table t1 add column c2 int;
+alter table t1 add column c2 int, ALGORITHM=instant;
 select * from t1;
 eval select * from t1 as of timestamp '$time1';
 sleep 2;
