@@ -5,36 +5,7 @@ include/master-slave.inc
 USE test;
 CREATE TABLE t(id int) engine=innodb;
 INSERT INTO test.t VALUES (1);
-SHOW VARIABLES LIKE '%gtid%';
-Variable_name	Value
-binlog_gtid_simple_recovery	ON
-cdb_more_gtid_feature_supported	OFF
-enforce_gtid_consistency	ON
-gtid_executed	master_uuid:1-2
-gtid_executed_compression_period	0
-gtid_mode	ON
-gtid_next	AUTOMATIC
-gtid_owned	
-gtid_purged	
-gtid_undeleted	
-session_track_gtids	OFF
 [slave]
-SHOW VARIABLES LIKE '%gtid%';
-Variable_name	Value
-binlog_gtid_simple_recovery	ON
-cdb_more_gtid_feature_supported	OFF
-cdb_optimize_gtid_lock	ON
-enforce_gtid_consistency	ON
-gtid_executed	master_uuid:1-2
-gtid_executed_compression_period	0
-gtid_mode	ON
-gtid_next	AUTOMATIC
-gtid_owned	
-gtid_purged	
-gtid_undeleted	
-innodb_strict_gtid_commit	ON
-session_track_gtids	OFF
-txsql_disable_gtid_in_undo	OFF
 SELECT * FROM test.t;
 id
 1
@@ -97,6 +68,23 @@ show master status;
 File	Position	Binlog_Do_DB	Binlog_Ignore_DB	Executed_Gtid_Set
 #	#	#		master_uuid:1-1005
 ==== Case5 ====
+select @@gtid_executed,@@gtid_owned,@@gtid_undeleted;
+@@gtid_executed	@@gtid_owned	@@gtid_undeleted
+master_uuid:1-1005		
+show master status;
+File	Position	Binlog_Do_DB	Binlog_Ignore_DB	Executed_Gtid_Set
+#	#	#		master_uuid:1-1005
+# Adding debug point 'handle_gtid_on_finish_rollback' to @@GLOBAL.debug
+# exec 20 times 'insert into...'
+# gtid_undeleted and Executed_Gtid_Set should not be modified because all trx rollback.
+select @@gtid_executed,@@gtid_owned,@@gtid_undeleted;
+@@gtid_executed	@@gtid_owned	@@gtid_undeleted
+master_uuid:1-1005		
+show master status;
+File	Position	Binlog_Do_DB	Binlog_Ignore_DB	Executed_Gtid_Set
+#	#	#		master_uuid:1-1005
+# Removing debug point 'handle_gtid_on_finish_rollback' from @@GLOBAL.debug
+==== Case6 ====
 # Adding debug point 'stop_cleanup_owned_gtids' to @@GLOBAL.debug
 select @@binlog_order_commits;
 @@binlog_order_commits
@@ -109,33 +97,7 @@ set global binlog_order_commits=1;
 # exec 20 times 'insert into...'
 set global binlog_order_commits=0;
 # exec 20 times 'insert into...'
-SHOW VARIABLES LIKE '%gtid%';
-Variable_name	Value
-binlog_gtid_simple_recovery	ON
-cdb_more_gtid_feature_supported	OFF
-enforce_gtid_consistency	ON
-gtid_executed	master_uuid:1-1085
-gtid_executed_compression_period	0
-gtid_mode	ON
-gtid_next	AUTOMATIC
-gtid_owned	
-gtid_purged	
-gtid_undeleted	master_uuid:1005:1026-1045:1066-1085
-session_track_gtids	OFF
 # Removing debug point 'stop_cleanup_owned_gtids' from @@GLOBAL.debug
-SHOW VARIABLES LIKE '%gtid%';
-Variable_name	Value
-binlog_gtid_simple_recovery	ON
-cdb_more_gtid_feature_supported	OFF
-enforce_gtid_consistency	ON
-gtid_executed	master_uuid:1-1085
-gtid_executed_compression_period	0
-gtid_mode	ON
-gtid_next	AUTOMATIC
-gtid_owned	
-gtid_purged	
-gtid_undeleted	
-session_track_gtids	OFF
 -------------cleanup
 [master]
 DROP TABLE t;

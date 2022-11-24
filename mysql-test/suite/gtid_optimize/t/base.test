@@ -18,14 +18,10 @@ SLEEP 1;
 #
 #  @@gtid_undeleted should be null by master thread after 2 seconds.
 # 
---replace_result $master_uuid master_uuid
-SHOW VARIABLES LIKE '%gtid%';
 
 connect (slave_tencent,127.0.0.1,tencentroot,,test,$SLAVE_MYPORT);
 --echo [slave]
 connection slave_tencent;
---replace_result $master_uuid master_uuid
-SHOW VARIABLES LIKE '%gtid%';
 SELECT * FROM test.t;
 
 #------------------------------------------------------------------------------
@@ -113,6 +109,7 @@ select @@gtid_executed,@@gtid_owned,@@gtid_undeleted;
 --replace_column 1 # 2 # 3 #
 --replace_result $master_uuid master_uuid
 show master status;
+
 SET debug_sync = "now SIGNAL continue";
 
 connection master;
@@ -125,9 +122,45 @@ select @@gtid_executed,@@gtid_owned,@@gtid_undeleted;
 show master status;
 
 #------------------------------------------------------------------------------
-# case5: check @@binlog_order_commits modified.
+# case5: check rollback.
 #------------------------------------------------------------------------------
 --echo ==== Case5 ====
+sleep 1;
+connection master;
+--replace_result $master_uuid master_uuid
+select @@gtid_executed,@@gtid_owned,@@gtid_undeleted;
+--replace_column 1 # 2 # 3 #
+--replace_result $master_uuid master_uuid
+show master status;
+
+--let $debug_point= handle_gtid_on_finish_rollback
+--source include/add_debug_point.inc
+
+--echo # exec 20 times 'insert into...'
+--disable_query_log
+let $count=20;
+while ($count)
+{
+ INSERT INTO test.t VALUES(3);
+ dec $count;
+}
+--enable_query_log
+
+--echo # gtid_undeleted and Executed_Gtid_Set should not be modified because all trx rollback.
+
+--replace_result $master_uuid master_uuid
+select @@gtid_executed,@@gtid_owned,@@gtid_undeleted;
+--replace_column 1 # 2 # 3 #
+--replace_result $master_uuid master_uuid
+show master status;
+
+--let $debug_point= handle_gtid_on_finish_rollback
+--source include/remove_debug_point.inc
+
+#------------------------------------------------------------------------------
+# case6: check @@binlog_order_commits modified.
+#------------------------------------------------------------------------------
+--echo ==== Case6 ====
 --let $debug_point= stop_cleanup_owned_gtids
 --source include/add_debug_point.inc
 
@@ -176,15 +209,9 @@ while ($count)
 }
 --enable_query_log
 
---replace_result $master_uuid master_uuid
-SHOW VARIABLES LIKE '%gtid%';
-
 --let $debug_point= stop_cleanup_owned_gtids
 --source include/remove_debug_point.inc
 sleep 1;
-
---replace_result $master_uuid master_uuid
-SHOW VARIABLES LIKE '%gtid%';
 
 #------------------------------------------------------------------------------
 # cleanup environment.

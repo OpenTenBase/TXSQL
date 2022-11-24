@@ -105,7 +105,11 @@ void Owned_gtids::remove_gtid_interval(rpl_sidno sidno, rpl_gno gno_start, rpl_g
   malloc_unordered_multimap<rpl_gno, unique_ptr_my_free<Node>> *hash =
       get_hash(sidno);
   for (auto gno = gno_start; gno <= gno_end; gno++){
-    hash->erase(gno);
+    auto it_range = hash->equal_range(gno);
+    for (auto it = it_range.first; it != it_range.second; ++it) {
+        hash->erase(it);
+        break;
+    }
   }
 }
 

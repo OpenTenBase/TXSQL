@@ -347,7 +347,8 @@ The following options may be given as the first argument:
  performance when prefetching a large number of records on
  an index. 0 means turn off the limit.
  --cdb-more-gtid-feature-supported 
- Gtid supported in trans and nontrans mode!
+ Gtid supported in trans and nontrans mode! Can not be
+ used when cdb_optimize_gtid_lock is ON.
  --cdb-opt-outline-enabled 
  outline switch
  --cdb-optimize-gtid-lock 
