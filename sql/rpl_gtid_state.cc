@@ -284,22 +284,23 @@ void Gtid_state::update_gtids_impl(THD *thd, bool is_commit) {
   DEBUG_SYNC(thd, "update_gtid_state_after_global_sid_lock");
   bool gtid_threshold_breach = (thd->owned_gtid.gno > GNO_WARNING_THRESHOLD);
 
-  if (cdb_optimize_gtid_lock) {
-    handle_gtid_on_finish(thd, is_commit);
-  } else {
-    if (thd->owned_gtid.sidno == THD::OWNED_SIDNO_GTID_SET) {
-      update_gtids_impl_own_gtid_set(thd, is_commit);
-    } else if (thd->owned_gtid.sidno > 0) {
+  if (thd->owned_gtid.sidno == THD::OWNED_SIDNO_GTID_SET) {
+    update_gtids_impl_own_gtid_set(thd, is_commit);
+  } else if (thd->owned_gtid.sidno > 0) {
+    if (cdb_optimize_gtid_lock) {
+      handle_gtid_on_finish(thd, is_commit);
+    } else {
       rpl_sidno sidno = thd->owned_gtid.sidno;
       update_gtids_impl_lock_sidno(sidno);
       update_gtids_impl_own_gtid(thd, is_commit);
       update_gtids_impl_broadcast_and_unlock_sidno(sidno);
-    } else if (thd->owned_gtid.sidno == THD::OWNED_SIDNO_ANONYMOUS) {
-      update_gtids_impl_own_anonymous(thd, &more_trx_with_same_gtid_next);
-    } else {
-      update_gtids_impl_own_nothing(thd);
     }
+  } else if (thd->owned_gtid.sidno == THD::OWNED_SIDNO_ANONYMOUS) {
+    update_gtids_impl_own_anonymous(thd, &more_trx_with_same_gtid_next);
+  } else {
+    update_gtids_impl_own_nothing(thd);
   }
+
   global_sid_lock->unlock();
 
   update_gtids_impl_end(thd, more_trx_with_same_gtid_next);
@@ -438,7 +439,10 @@ bool Gtid_state::wait_for_gtid_set(THD *thd, Gtid_set *wait_for, double timeout,
           /* actual_executed_gtids = executed_gtids - owned_gtids + undeleted_gtids. */
           actual_executed_gtids.add_gtid_set(&executed_gtids);
           owned_gtids.weed_out_gtids(actual_executed_gtids);
+          
+          lock_sidno_undeleted(sidno);
           actual_executed_gtids.add_gtid_set(&undeleted_gtids);
+          unlock_sidno_undeleted(sidno);
 
           todo.remove_intervals_for_sidno(&actual_executed_gtids, sidno);
         } else {
@@ -603,7 +607,11 @@ enum_return_status Gtid_state::generate_automatic_gtid(
     if (automatic_gtid.gno == -1 || acquire_ownership(thd, automatic_gtid))
       ret = RETURN_STATUS_REPORTED_ERROR;
 
-    if (ret == RETURN_STATUS_OK && cdb_optimize_gtid_lock) {
+    /* 
+      Add GTID into executed_gtids.
+      Gtid lock optimize do not handle OWNED_SIDNO_GTID_SET and OWNED_SIDNO_ANONYMOUS. 
+    */
+    if (ret == RETURN_STATUS_OK && cdb_optimize_gtid_lock && automatic_gtid.sidno > 0) {
       executed_gtids._add_gtid(automatic_gtid);
     }
 
@@ -856,6 +864,8 @@ void Gtid_state::handle_gtid_on_finish(THD *thd, bool is_commit) {
   assert(cdb_optimize_gtid_lock);
 
   rpl_sidno sidno = thd->owned_gtid.sidno;
+  DBUG_EXECUTE_IF("handle_gtid_on_finish_rollback", {is_commit=false;});
+
   if (is_commit) {
     lock_sidno_undeleted(sidno);
     assert(!undeleted_gtids.contains_gtid(thd->owned_gtid));
@@ -901,8 +911,12 @@ void Gtid_state::handle_gtid_on_finish(THD *thd, bool is_commit) {
 
 void Gtid_state::cleanup_owned_gtids() {
   DBUG_TRACE;
+
+#ifndef DBUG_OFF
   DBUG_PRINT("info", ("calling cleanup_owned_gtids to remove "
                         "GTIDs from Owned_gtids"));
+#endif
+
   std::list<Gtid_interval> gtid_intervals;
   std::list<Gtid_interval>::iterator iter;
   DBUG_EXECUTE_IF("stop_cleanup_owned_gtids", {return ;});
@@ -912,6 +926,7 @@ void Gtid_state::cleanup_owned_gtids() {
     global_sid_lock->unlock();
     return;
   }
+
   undeleted_gtids.get_gtid_intervals(&gtid_intervals);
 
   bool has_locked_sidno = false;

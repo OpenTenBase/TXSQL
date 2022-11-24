@@ -1224,7 +1224,9 @@ class binlog_cache_mngr {
 
   bool all_finalized() const {
     return (stmt_cache.is_finalized() && trx_cache.is_finalized() &&
-            cdb_more_gtid_feature_supported && _gtid_consistency_mode &&
+            cdb_more_gtid_feature_supported &&
+            !cdb_optimize_gtid_lock &&
+            _gtid_consistency_mode &&
             global_gtid_mode.get());
   }
 

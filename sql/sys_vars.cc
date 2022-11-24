@@ -8680,7 +8680,8 @@ static Sys_var_charptr Sys_tdsql_sub_version(
 
 static Sys_var_bool Sys_cdb_more_gtid_feature_supported(
     "cdb_more_gtid_feature_supported",
-    "Gtid supported in trans and nontrans mode!",
+    "Gtid supported in trans and nontrans mode! "
+    "Can not be used when cdb_optimize_gtid_lock is ON.",
     GLOBAL_VAR(cdb_more_gtid_feature_supported), CMD_LINE(OPT_ARG),
     DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr),
     ON_UPDATE(nullptr));
