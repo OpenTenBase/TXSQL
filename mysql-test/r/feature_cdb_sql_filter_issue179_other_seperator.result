@@ -281,5 +281,6 @@ SELECT	1	0	2	1	#	#	False	value3	SELECT~-1~2~value3
 SELECT	2	0	1	2	#	#	False	value1~value2	SELECT~-1~1~value1~value2
 SELECT	3	0	-1	2	#	#	False	value2~value3	SELECT~-1~-1~value2~value3
 set global cdb_sql_filter = 'reset_all';
+set global cdb_sql_filter = "";
 drop table test;
 drop user 'xx'@'%';
