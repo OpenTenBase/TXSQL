@@ -456,7 +456,7 @@ bool Cdb_Sql_Filter_Manager::handle_add_rule(char *rule, bool pre_check) {
 }
 
 bool Cdb_Sql_Filter_Manager::handle_rule(char *rule, bool pre_check) {
-  if (rule == NULL || strlen(rule) == 0) {
+  if (rule == NULL) {
     errmsg = "Error syntax";
     return true;
   }
@@ -464,7 +464,7 @@ bool Cdb_Sql_Filter_Manager::handle_rule(char *rule, bool pre_check) {
     return handle_add_rule(rule + 1, pre_check);
   else if (rule[0] == '-')
     return handle_delete_rule(rule + 1, pre_check);
-  else if (strcmp(rule, "reset_all") != 0) {
+  else if (strlen(rule) != 0 && strcmp(rule, "reset_all") != 0) {
     errmsg = "Error syntax";
     return true;
   } else if (pre_check) {

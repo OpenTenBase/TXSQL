@@ -18,8 +18,6 @@ Variable_name	Value
 cdb_sql_filter	+SELECT,1,1,value
 set global cdb_sql_filter = null;
 ERROR HY000: SET cdb_sql_filter failed, bacause Error syntax.
-set global cdb_sql_filter = "";
-ERROR HY000: SET cdb_sql_filter failed, bacause Error syntax.
 set global cdb_sql_filter = "+SELECT,1,";
 ERROR HY000: SET cdb_sql_filter failed, bacause concurrence should be an non-zero integer or -1.
 set global cdb_sql_filter = "+SELECT,1,";
@@ -307,6 +305,7 @@ type	item_id	currenct_conn	max_conn	rejected_sql_count	created_time	expire_time	
 SELECT	1	0	2	1	#	#	False	value3	SELECT,-1,2,value3
 SELECT	2	0	1	2	#	#	False	value1,value2	SELECT,-1,1,value1,value2
 SELECT	3	0	-1	2	#	#	False	value2,value3	SELECT,-1,-1,value2,value3
+set global cdb_sql_filter = "";
 drop table test;
 drop table t2;
 drop user 'xx'@'%';

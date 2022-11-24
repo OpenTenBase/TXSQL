@@ -351,7 +351,7 @@ connection conn_xx2;
 connection conn_tencent;
 show cdb_sql_filters;
 set global cdb_sql_filter = 'reset_all';
-
+set global cdb_sql_filter = "";
 connection default;
 drop table test;
 drop user 'xx'@'%';

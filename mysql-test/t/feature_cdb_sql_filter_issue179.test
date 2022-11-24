@@ -12,8 +12,6 @@ show variables like 'cdb_sql_filter';
 --error ER_CDB_SQL_FILTER_WRONG_VALUE
 set global cdb_sql_filter = null;
 --error ER_CDB_SQL_FILTER_WRONG_VALUE
-set global cdb_sql_filter = "";
---error ER_CDB_SQL_FILTER_WRONG_VALUE
 set global cdb_sql_filter = "+SELECT,1,";
 --error ER_CDB_SQL_FILTER_WRONG_VALUE
 set global cdb_sql_filter = "+SELECT,1,";
@@ -384,7 +382,7 @@ connection conn_xx2;
 --replace_column 6 # 7 #
 connection conn_tencent;
 show cdb_sql_filters;
-
+set global cdb_sql_filter = "";
 connection default;
 drop table test;
 drop table t2;

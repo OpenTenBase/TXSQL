@@ -72,3 +72,4 @@ log-error-verbosity=3
 innodb_fast_ahi_cleanup_for_drop_table=1
 innodb_fast_ahi_cleanup_num_entries_thres=0
 
+loose-innodb-i-s-cache-min-idle-us=0
