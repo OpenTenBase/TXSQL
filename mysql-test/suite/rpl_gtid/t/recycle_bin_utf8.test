@@ -10,7 +10,7 @@
 call mtr.add_suppression("access __txsql_recycle_bin__ fail, the query string is");
 
 # set variables in master
-connect (con_tencentroot_master, 127.0.0.1, tencentroot, '', '', $MASTER_MYPORT);
+connect (con_tencentroot_master, localhost, tencentroot,,,,$MASTER_MYSOCK);
 --let $cdb_recycle_bin_enabled_default= `select @@cdb_recycle_bin_enabled`
 --let $event_scheduler_default = `select @@event_scheduler`
 --echo # open recycle bin on master
@@ -23,7 +23,7 @@ show variables like 'event_scheduler';
 set names utf8;
 
 # set variables in slave
-connect (con_tencentroot_slave, 127.0.0.1, tencentroot, '', '', $SLAVE_MYPORT);
+connect (con_tencentroot_slave, localhost, tencentroot,,,,$SLAVE_MYSOCK);
 --echo # open recycle bin on slave
 set global cdb_recycle_bin_enabled = on;
 
