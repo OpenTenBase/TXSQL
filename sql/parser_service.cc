@@ -174,6 +174,7 @@ void *parser_service_start_routine(void *arg) {
     Global_THD_manager *thd_manager = Global_THD_manager::get_instance();
     thd->thread_stack = reinterpret_cast<char *>(&thd);
     thd->set_new_thread_id();
+    thd->in_implict_commit = true;
     mysql_thread_set_psi_id(thd->thread_id());
     thd->store_globals();
     thd->set_time();
@@ -189,6 +190,7 @@ void *parser_service_start_routine(void *arg) {
     thd->release_resources();
     thd->restore_globals();
     thd_manager->remove_thd(thd);
+    thd->in_implict_commit = false;
 
     LEX *lex = thd->lex;
     delete thd;

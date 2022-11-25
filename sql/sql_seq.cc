@@ -366,6 +366,8 @@ static void *sql_work(void*param0) {
   thd->variables.option_bits &= ~OPTION_BEGIN;
   thd->server_status |= SERVER_STATUS_AUTOCOMMIT;
   thd->variables.binlog_format = BINLOG_FORMAT_ROW;
+  /* avoid delaying commit with after_sync */
+  thd->in_implict_commit = true;
 
   while (!param->exit) {
     Parser_state parser_state;
@@ -570,6 +572,7 @@ task_done:
       thd->mem_root->Clear();
   }
 
+  thd->in_implict_commit = false;
   thd->system_thread = SYSTEM_THREAD_BACKGROUND;// restore the value for destroy_thd() to work correctly.
   destroy_thd(thd);
   my_thread_end();

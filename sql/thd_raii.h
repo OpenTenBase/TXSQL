@@ -75,10 +75,10 @@ class Disable_autocommit_guard {
         time when we enable auto-commit mode back OR there must be a
         transactional DDL being executed.
       */
-      assert(((m_thd->lex->sql_command == SQLCOM_CREATE_TABLE &&
+      assert((((m_thd->lex->sql_command == SQLCOM_CREATE_TABLE &&
                m_thd->lex->create_info->m_transactional_ddl) ||
               (m_thd->get_transaction()->is_empty(Transaction_ctx::STMT) &&
-               m_thd->get_transaction()->is_empty(Transaction_ctx::SESSION))));
+               m_thd->get_transaction()->is_empty(Transaction_ctx::SESSION)))) || m_thd->m_delay_commit);
       m_thd->variables.option_bits = m_save_option_bits;
     }
   }

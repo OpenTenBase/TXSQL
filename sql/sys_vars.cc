@@ -8937,3 +8937,84 @@ static Sys_var_bool Sys_txsql_pread_count_enabled(
     HINT_UPDATEABLE SESSION_VAR(txsql_pread_count_enabled),
     CMD_LINE(OPT_ARG), DEFAULT(true),
     NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(nullptr));
+
+#ifdef HAVE_TDSQL
+static Sys_var_bool Sys_g_sqlAsyn(
+    "sqlasyn",
+    "sql thread async,turn on perfomance semisync, speed up cpu parellelism",
+    GLOBAL_VAR(g_sqlAsyn),
+    CMD_LINE(OPT_ARG), DEFAULT(false));
+static Sys_var_bool Sys_g_sqlAsyncAfterSync(
+    "sqlasync_after_sync",
+    "If true, the async process will commit transaction for each thd",
+    GLOBAL_VAR(g_sqlAsyncAfterSync), CMD_LINE(OPT_ARG), DEFAULT(false));
+static Sys_var_uint Sys_g_sqlAsynTimeout(
+    "sqlasyntimeout",
+    "sql thread async, speed up cpu parellel, timeout",
+    GLOBAL_VAR(g_sqlAsynTimeout), CMD_LINE(OPT_ARG),
+    VALID_RANGE(1, UINT_MAX), DEFAULT(30), BLOCK_SIZE(1));
+static Sys_var_uint Sys_g_sqlAsynWarnTimeout(
+    "sqlasynwarntimeout",
+    "sql thread async, speed up cpu parellelism, sqlasynwarntimeout",
+    GLOBAL_VAR(g_sqlAsynWarnTimeout), CMD_LINE(OPT_ARG),
+    VALID_RANGE(1, UINT_MAX), DEFAULT(3), BLOCK_SIZE(1));
+static bool fix_ack_slave_count(sys_var *, THD *, enum_var_type) {
+  if (g_thdBottomHalf) {
+    g_thdBottomHalf->ack_container.resize();
+  }
+  return false;
+}
+static Sys_var_uint Sys_g_sqlAsync_n_slaves(
+    "sqlasync_wait_n_slaves",
+    "commit transaction after receiving ack from at least this many slaves",
+    GLOBAL_VAR(g_sqlAsyncNSlaves), CMD_LINE(OPT_ARG),
+    VALID_RANGE(1, UINT_MAX), DEFAULT(1), BLOCK_SIZE(1),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL),
+    ON_UPDATE(fix_ack_slave_count));
+static Sys_var_ulong Sys_relay_log_sync_threshold(
+    "relay_log_sync_threshold",
+    "Number of bytes to accumulate before fsync'ing relay log and sending an ack to master.",
+    GLOBAL_VAR(g_relaylog_sync_threshold), CMD_LINE(OPT_ARG),
+    VALID_RANGE(0, ULONG_MAX), DEFAULT(134217728), BLOCK_SIZE(1));
+static Sys_var_ulong Sys_relay_log_sync_timeout(
+    "relay_log_sync_timeout",
+    "If this many micro-seconds has passed since last time slave IO thread "
+    "fsync&ack relay log, IO thread will fsync&ack relay log anyway "
+    "regardless of relay_log_sync_threshold. This timeout should be shorter "
+    "than sqlasyntimeout, otherwise clients will get ER_RBTIMEOUT errors when"
+    " committing a transaction, and then get disconnected.",
+    GLOBAL_VAR(g_relaylog_fsync_ack_timeout), CMD_LINE(OPT_ARG),
+    VALID_RANGE(0, ULONG_MAX), DEFAULT(200), BLOCK_SIZE(1));
+static Sys_var_ulong Sys_relay_log_sync_txn_count(
+    "relay_log_sync_txn_count",
+    "If IO thread has received binlogs of this many transactions since last time "
+    "it fsync&ack relay log, it will fsync&ack relay log anyway "
+    "regardless of other limits.",
+    GLOBAL_VAR(g_relaylog_fsync_txn_count), CMD_LINE(OPT_ARG),
+    VALID_RANGE(0, ULONG_MAX), DEFAULT(5), BLOCK_SIZE(1));
+static Sys_var_bool Sys_reliable_relaylog(
+    "tdsql_relay_log_opt",
+    "Always sync relaylog at end of trx to make relaylog reliable.",
+    GLOBAL_VAR(g_reliable_relaylog), CMD_LINE(OPT_ARG),
+    DEFAULT(true), NO_MUTEX_GUARD, NOT_IN_BINLOG);
+static Sys_var_bool Sys_tdsql_allow_async(
+    "tdsql_allow_async",
+    "When no slave ack, allow master to do asynchronous replication.",
+    GLOBAL_VAR(tdsql_allow_async),
+    CMD_LINE(OPT_ARG), DEFAULT(false));
+
+static Sys_var_bool Sys_sqlasyn_group_slave_ack(
+    "sqlasync_group_slave_ack",
+    "the slave node use group ack(merge fsync), It ensures data persistence and reduces IO ",
+    GLOBAL_VAR(sqlasync_group_slave_ack),
+    CMD_LINE(OPT_ARG), DEFAULT(true));
+
+extern bool txsql_slave_io_optimaze_write;
+static Sys_var_bool Sys_g_txsql_slave_io_optimaze_write(
+    "txsql_slave_io_optimaze_write",
+    "optimize slave io thread to reduce write",
+    GLOBAL_VAR(txsql_slave_io_optimaze_write),
+    CMD_LINE(OPT_ARG), DEFAULT(false));
+#endif
+
+/* Changes from txsql end. */

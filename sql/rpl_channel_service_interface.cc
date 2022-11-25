@@ -897,7 +897,9 @@ int channel_queue_packet(const char *channel, const char *buf,
   }
   channel_map.unlock();
 
-  result = queue_event(mi, buf, event_len, false /*flush_master_info*/);
+  bool needAck = false;
+  bool synced = false;
+  result = queue_event(mi, buf, event_len, false /*flush_master_info*/, needAck, synced, false);
 
   return result;
 }

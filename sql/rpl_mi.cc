@@ -228,7 +228,7 @@ Master_info::Master_info(
   server_extn.m_before_header = nullptr;
   server_extn.m_after_header = nullptr;
   server_extn.compress_ctx.algorithm = MYSQL_UNCOMPRESSED;
-  gtid_monitoring_info = new Gtid_monitoring_info(&data_lock);
+  gtid_monitoring_info = new Gtid_monitoring_info(NULL);//when support slave ack group,we use it owns atomic lock
 
   mysql_mutex_init(*key_info_rotate_lock, &this->rotate_lock,
                    MY_MUTEX_INIT_FAST);
@@ -252,6 +252,15 @@ Master_info::Master_info(
 #else
   mysql_mutex_init(nullptr, &transmit_lock, MY_MUTEX_INIT_FAST);
 #endif
+
+  memset(&m_masterAddr,0,sizeof(m_masterAddr));
+  m_masterHostFd = -1;
+  accu_bytes_relaylog = 0;
+  txns_since_last_relaylog_sync = 0;
+  when_last_fsync_ack = 0;
+  need_fsync_ack = false;
+  num_acks_sent = 0;
+  m_lastGtidIsDdl = false;
 }
 
 Master_info::~Master_info() {
@@ -264,6 +273,10 @@ Master_info::~Master_info() {
   this->clear_rotate_requests();
   mysql_mutex_destroy(&rotate_lock);
   mysql_cond_destroy(&rotate_cond);
+
+  if (m_masterHostFd != -1) {
+    close(m_masterHostFd);
+  }
 
   delete m_channel_lock;
   delete ignore_server_ids;
@@ -334,6 +347,126 @@ bool Master_info::is_rotate_requested() {
 bool Master_info::shall_ignore_server_id(ulong s_id) {
   return std::binary_search(ignore_server_ids->dynamic_ids.begin(),
                             ignore_server_ids->dynamic_ids.end(), s_id);
+}
+
+void Master_info::sendAnsToMaster(BinlogPosAns &ans) {
+  int master_udp_sock= m_masterHostFd;
+  if(-1 == master_udp_sock) {
+    memset (&m_masterAddr,0 , sizeof(m_masterAddr));
+    m_masterAddr.sin_family = AF_INET;
+    m_masterAddr.sin_addr.s_addr = inet_addr(host);
+    m_masterAddr.sin_port = htons(port);
+
+    master_udp_sock= m_masterHostFd = socket(AF_INET, SOCK_DGRAM , 0);
+    if(m_masterHostFd < 0) {
+      sql_print_error("socket  error:%d,%s",errno,strerror(errno));
+      return ;
+    }
+  }
+
+  socklen_t socklen = sizeof(struct sockaddr_in);
+  struct sockaddr * addr = (struct sockaddr *) &m_masterAddr;
+
+  int slen = sendto(master_udp_sock, &ans, ans.getLen(), MSG_DONTWAIT, addr, socklen);
+  if(slen != ans.getLen()) {
+    sql_print_error("Master_info::sendAnsToMaster [%s,%llu] send to %s:%d ,len:%d,error:%d,%s",
+                    ans.getFileName(),ans.log_pos,host,port,slen,errno,strerror(errno));
+  }
+}
+
+void Master_info::update_sync_ack_status(bool synced) {
+  mysql_mutex_assert_owner(&data_lock);
+  if (!synced) {
+    need_fsync_ack= true;
+    num_acks_sent = 0;
+    txns_since_last_relaylog_sync++;
+    assert(accu_bytes_relaylog > 0);
+  } else {
+    num_acks_sent = 1;// 1st time
+    need_fsync_ack= false;
+    accu_bytes_relaylog = 0;
+    when_last_fsync_ack = my_microsecond_getsystime();
+    txns_since_last_relaylog_sync = 0;
+    sqlasyn_slave_relaylog_syncs++;
+  }
+}
+
+void Master_info::sync_relaylog_send_ack() {
+  // Only do so when tdsql strong-consistency enabled.
+  if (!g_sqlAsyn || host[0] == '\0' || master_log_name[0] == '\0')
+    return;
+
+  /*
+    tdsql:
+    We accumulate multiple fsync&ack into one to enhance performance,
+    but in order to avoid clients getting ER_RBTIMEOUT because no slave
+    acks, we have to send ack before that, so user needs to set proper configs,
+    including setting relay_log_sync_timeout < sqlasyntimeout.
+  */
+
+  // Can be called by both the IO thread and the forceSignalTimer thread.
+  bool send_it = false;
+  BinlogPosAns ans;
+
+  if (need_fsync_ack && g_reliable_relaylog) {
+    mysql_mutex_lock(rli->relay_log.get_log_lock());
+    mysql_mutex_lock(&data_lock);
+    rli->relay_log.flush_and_sync(true/* force sync it */);
+    mysql_mutex_unlock(rli->relay_log.get_log_lock());
+    send_it= true;
+    ans.setFileName(master_log_name, strlen(master_log_name));
+    ans.log_pos = master_log_pos;
+    ans.set_server_id(server_id);
+    update_sync_ack_status(true);
+    mysql_mutex_unlock(&data_lock);
+  } else if (num_acks_sent < 3) {
+    mysql_mutex_lock(&data_lock);
+    /*
+       Send the same ack at most 3 times, because we are sending it using
+       UDP, it's likely for packet loss, although not so likely.
+       Actually the 3 acks may NOT always be the same, although they are ack'ing the
+       receipt of the same txn. This is NOT  a problem for the master's bottom
+       half mechanism so far.
+
+       The 3 acks may differ because we can receive more
+       events during the 3 sends, but we definitely have not received an entire
+       txn, otherwise 'need_fsync_ack' would be true.
+
+       DDL stmts are not ack'ed in queue_event because we only do so at
+       XID/QUERY(COMMIT) events, and DDL stmts have a starting Gtid_event but not
+       an ending XID/QUERY(COMMIT) event. So we must always send acks in the background
+       thread too.
+    */
+    send_it= true;
+    ans.setFileName(master_log_name,strlen(master_log_name));
+    ans.log_pos = master_log_pos;
+    ans.set_server_id(server_id);
+    num_acks_sent++;
+    mysql_mutex_unlock(&data_lock);
+  }
+
+  if (send_it) {
+    ans.computeLen();
+    sendAnsToMaster(ans);
+  }
+}
+
+void sync_relaylog_ack_all_masters() {
+  if (sqlasync_group_slave_ack) {//group ack mode,don't call again
+    return ;
+  }
+
+  channel_map.rdlock();
+
+  for (mi_map::iterator i= channel_map.begin(); i != channel_map.end(); ++i) {
+    if (i->second != 0) {
+      i->second->sync_relaylog_send_ack();
+      break;
+    }
+  }
+
+  channel_map.unlock();
+  return;
 }
 
 void Master_info::init_master_log_pos() {

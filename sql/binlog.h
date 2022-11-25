@@ -252,6 +252,11 @@ class MYSQL_BIN_LOG : public TC_LOG {
    */
   void inc_prep_xids(THD *thd);
 
+  int32 get_prep_xids() { return m_atomic_prep_xids; }
+
+  inline uint get_sync_period() { return *sync_period_ptr; }
+
+ public:
   /**
     Decrement the prepared XID counter.
 
@@ -259,11 +264,6 @@ class MYSQL_BIN_LOG : public TC_LOG {
    */
   void dec_prep_xids(THD *thd);
 
-  int32 get_prep_xids() { return m_atomic_prep_xids; }
-
-  inline uint get_sync_period() { return *sync_period_ptr; }
-
- public:
   /*
     This is used to start writing to a new log file. The difference from
     new_file() is locking. new_file_without_locking() does not acquire
@@ -766,7 +766,7 @@ class MYSQL_BIN_LOG : public TC_LOG {
   void stop_union_events(THD *thd);
   bool is_query_in_union(THD *thd, query_id_t query_id_param);
 
-  bool write_buffer(const char *buf, uint len, Master_info *mi);
+  bool write_buffer(const char *buf, uint len, Master_info *mi, bool need_write, bool sync_rl, bool group_slave_ack = false);
   bool write_event(Log_event *ev, Master_info *mi);
 
   /**
@@ -786,8 +786,9 @@ class MYSQL_BIN_LOG : public TC_LOG {
   */
   int write_xa_to_cache(THD *thd);
 
- private:
-  bool after_write_to_relay_log(Master_info *mi);
+  bool after_write_to_relay_log(Master_info *mi, bool sync_rl= false, bool group_slave_ack = false);
+  bool update_retrieved_gtid_set(Master_info *mi);//just used to update Retrieved_Gtid_Set
+
 
  public:
   void make_log_name(char *buf, const char *log_ident);
@@ -811,6 +812,7 @@ class MYSQL_BIN_LOG : public TC_LOG {
    */
   void auto_purge_at_server_startup();
   int rotate_and_purge(THD *thd, bool force_rotate);
+  void rotate_after_commit(THD *thd);
 
   bool flush();
   /**
@@ -877,6 +879,7 @@ class MYSQL_BIN_LOG : public TC_LOG {
   inline mysql_mutex_t *get_commit_lock() { return &LOCK_commit; }
   inline mysql_cond_t *get_log_cond() { return &update_cond; }
   inline Binlog_ofile *get_binlog_file() { return m_binlog_file; }
+  my_off_t get_binlog_file_position() ;
 
   inline void lock_index() { mysql_mutex_lock(&LOCK_index); }
   inline void unlock_index() { mysql_mutex_unlock(&LOCK_index); }

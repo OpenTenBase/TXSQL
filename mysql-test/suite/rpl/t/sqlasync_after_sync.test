@@ -1,0 +1,441 @@
+## Test Strong consistency by asynchronous ACK
+-- source include/have_binlog_format_row.inc
+-- source include/master-slave.inc
+
+--connection master
+CALL mtr.add_suppression("aborting in bottom half answering thread");
+--connection master
+set global sqlasyn = 1;
+set global sqlasync_after_sync = 1;
+--connection slave
+set global sqlasyn = 1;
+set global sqlasync_after_sync = 1;
+# create database for testing
+--connection master
+create database kz;
+use kz;
+create table t(a int primary key, b int);
+
+# Testing timeout
+--connection master
+set global sqlasyntimeout = 1;
+#stop slave
+--connection slave
+--source include/stop_slave.inc
+
+--echo 
+--echo case 1: normal after sync mode don't commit if no one acked to
+--connection master
+--send insert into t values (1,1);
+--connection master1
+use kz;
+--echo -------- before time out
+select * from t;
+--connection master
+--error ER_XA_RBTIMEOUT
+--reap
+--connection master1
+use kz;
+--echo -------- after time out
+select * from t;
+commit tdsql_timeout_trxs;
+--echo -------- after commit
+select * from t;
+--connection slave
+--source include/start_slave.inc
+--connection master1
+--source include/sync_slave_sql_with_master.inc
+--connection slave
+use kz;
+--echo ------- after replicate to slave
+select * from t;
+let $rpl_connection_name= master;
+--source include/rpl_connection.inc
+--enable_reconnect
+--echo ------- after reconect to master
+select * from t;
+
+--echo
+--echo case 2: ddls don't support after_sync mode
+--connection slave
+--source include/stop_slave.inc
+--echo -----create database
+--connection master
+--error ER_XA_RBTIMEOUT
+create database kz1;
+--connection master1
+--echo ---------- after timeout
+show databases like 'kz1';
+commit tdsql_timeout_trxs;
+--echo ---------- after commit
+show databases like 'kz1';
+let $rpl_connection_name= master;
+--source include/rpl_connection.inc
+--enable_reconnect
+--echo ------- after reconect to master
+show databases like 'kz1';
+--connection slave
+--source include/start_slave.inc
+--connection master1
+--source include/sync_slave_sql_with_master.inc
+--connection slave
+--echo ------- after replicate to slave
+show databases like 'kz1';
+
+--connection slave
+--source include/stop_slave.inc
+--echo ------create table
+--connection master
+--error ER_XA_RBTIMEOUT
+create table kz1(id int primary key);
+--connection master1
+--echo ---------- after timeout
+show tables like 'kz1';
+commit tdsql_timeout_trxs;
+--echo ---------- after commit
+show tables like 'kz1';
+let $rpl_connection_name= master;
+--source include/rpl_connection.inc
+--enable_reconnect
+--echo ------- after reconect to master
+show tables like 'kz1';
+--connection slave
+--source include/start_slave.inc
+--connection master1
+--source include/sync_slave_sql_with_master.inc
+--connection slave
+--echo ------- after replicate to slave
+show tables like 'kz1';
+
+--connection slave
+--source include/stop_slave.inc
+--echo ------alter table downgrade to after commit
+--connection master
+--error ER_XA_RBTIMEOUT
+alter table kz1 add column c int;
+--connection master1
+--echo ---------- after timeout
+show create table kz1;
+commit tdsql_timeout_trxs;
+--echo ---------- after commit
+show create table kz1;
+let $rpl_connection_name= master;
+--source include/rpl_connection.inc
+--enable_reconnect
+--echo ------- after reconect to master
+show create table kz1;
+--connection slave
+--source include/start_slave.inc
+--connection master1
+--source include/sync_slave_sql_with_master.inc
+--connection slave
+--echo ------- after replicate to slave
+show create table kz1;
+
+--connection slave
+--source include/stop_slave.inc
+--echo ------drop table
+--connection master
+--error ER_XA_RBTIMEOUT
+drop table kz1;
+--connection master1
+--echo ---------- after timeout
+show tables like 'kz1';
+commit tdsql_timeout_trxs;
+--echo ---------- after commit
+show tables like 'kz1';
+let $rpl_connection_name= master;
+--source include/rpl_connection.inc
+--enable_reconnect
+--echo ------- after reconect to master
+show tables like 'kz1';
+--connection slave
+--source include/start_slave.inc
+--connection master1
+--source include/sync_slave_sql_with_master.inc
+--connection slave
+--echo ------- after replicate to slave
+show tables like 'kz1';
+
+--connection slave
+--source include/stop_slave.inc
+--echo -----drop database
+--connection master
+--error ER_XA_RBTIMEOUT
+drop database kz1;
+--connection master1
+--echo ---------- after timeout
+show databases like 'kz1';
+commit tdsql_timeout_trxs;
+--echo ---------- after commit
+show databases like 'kz1';
+let $rpl_connection_name= master;
+--source include/rpl_connection.inc
+--enable_reconnect
+--echo ------- after reconect to master
+show databases like 'kz1';
+--connection slave
+--source include/start_slave.inc
+--connection master1
+--source include/sync_slave_sql_with_master.inc
+--connection slave
+--echo ------- after replicate to slave
+show databases like 'kz1';
+
+--echo
+--echo 3. multi statements
+--echo ---- 1. support normal case
+--connection slave
+--source include/stop_slave.inc
+--echo ------create table
+--connection master
+use kz;
+delimiter |;
+--error ER_XA_RBTIMEOUT
+insert into t values(2,2);insert into t values(3,3)|
+delimiter ;|
+--connection master1
+--echo ---------- after timeout
+select * from t;
+commit tdsql_timeout_trxs;
+--echo ---------- after commit
+select * from t;
+let $rpl_connection_name= master;
+--source include/rpl_connection.inc
+--enable_reconnect
+--source include/wait_until_connected_again.inc
+--echo ------- after reconect to master
+select * from t;
+--connection slave
+--source include/start_slave.inc
+--connection master1
+--source include/sync_slave_sql_with_master.inc
+--connection slave
+--echo ------- after replicate to slave
+select * from t;
+
+--echo
+--echo 3.1 multi statements error happen
+--connection slave
+--source include/stop_slave.inc
+--echo ------ dup key error
+--connection master
+use kz;
+delimiter |;
+--error ER_DUP_ENTRY 
+insert into t values(20,20);insert into t values(20,20)|
+delimiter ;|
+--connection master1
+--echo ---------- after timeout
+select * from t;
+commit tdsql_timeout_trxs;
+--echo ---------- after commit
+select * from t;
+let $rpl_connection_name= master;
+--source include/rpl_connection.inc
+--enable_reconnect
+--source include/wait_until_connected_again.inc
+--echo ------- after reconect to master
+select * from t;
+--connection slave
+--source include/start_slave.inc
+--connection master1
+--source include/sync_slave_sql_with_master.inc
+--connection slave
+--echo ------- after replicate to slave
+select * from t;
+
+--echo
+--echo ---- 4. multi query downgrade to after commit
+--connection slave
+--source include/stop_slave.inc
+--connection master
+use kz;
+delimiter |;
+--error ER_XA_RBTIMEOUT
+insert into t values(4,4);create table kz1(id int primary key);insert into t values(5,5);drop table kz1|
+delimiter ;|
+let $rpl_connection_name= master;
+--source include/rpl_connection.inc
+--enable_reconnect
+--source include/wait_until_connected_again.inc
+delimiter |;
+--error ER_XA_RBTIMEOUT
+insert into t values(6,6);begin;insert into t values(7,7);commit;insert into t values(8,8)|
+delimiter ;|
+let $rpl_connection_name= master;
+--source include/rpl_connection.inc
+--enable_reconnect
+--source include/wait_until_connected_again.inc
+delimiter |;
+--error ER_XA_RBTIMEOUT
+insert into t values(9,9);set autocommit=0;insert into t values(10,10); set autocommit=1; insert into t values(11,11)|
+delimiter ;|
+let $rpl_connection_name= master;
+--source include/rpl_connection.inc
+--enable_reconnect
+--source include/wait_until_connected_again.inc
+delimiter |;
+--error ER_XA_RBTIMEOUT
+insert into t values(12,12);xa start '1'; insert into t values(13,13); xa end '1'; xa prepare '1'; xa commit '1'; insert into t values(14,14)|
+delimiter ;|
+let $rpl_connection_name= master;
+--source include/rpl_connection.inc
+--enable_reconnect
+--source include/wait_until_connected_again.inc
+delimiter |;
+--error ER_XA_RBTIMEOUT
+insert into t values(15,15);set autocommit=0; insert into t values(16,16); rollback; set autocommit=1|
+delimiter ;|
+--connection master1
+--echo ---------- after timeout
+select * from t;
+commit tdsql_timeout_trxs;
+--echo ---------- after commit
+select * from t;
+let $rpl_connection_name= master;
+--source include/rpl_connection.inc
+--enable_reconnect
+--source include/wait_until_connected_again.inc
+--echo ------- after reconect to master
+select * from t;
+--connection slave
+--source include/start_slave.inc
+--connection master1
+--source include/sync_slave_sql_with_master.inc
+--connection slave
+--echo ------- after replicate to slave
+select * from t;
+
+--echo
+--echo ---- 5. transaction in cross two multi_query
+--connection slave
+--source include/stop_slave.inc
+--connection master
+use kz;
+delimiter |;
+--error ER_XA_RBTIMEOUT
+insert into t values(16,16); begin; insert into t values(17,17)|
+delimiter ;|
+--connection master1
+--echo check data only 16 insert
+select * from t;
+let $rpl_connection_name= master;
+--source include/rpl_connection.inc
+--enable_reconnect
+--source include/wait_until_connected_again.inc
+delimiter |;
+--error ER_XA_RBTIMEOUT
+insert into t values(18,18);commit|
+delimiter ;|
+--connection master1
+--echo ---------- after timeout
+select * from t;
+commit tdsql_timeout_trxs;
+--echo ---------- after commit
+select * from t;
+let $rpl_connection_name= master;
+--source include/rpl_connection.inc
+--enable_reconnect
+--source include/wait_until_connected_again.inc
+--echo ------- after reconect to master
+select * from t;
+--connection slave
+--source include/start_slave.inc
+--connection master1
+--source include/sync_slave_sql_with_master.inc
+--connection slave
+--echo ------- after replicate to slave
+select * from t;
+
+--echo
+--echo ---- 6. downgrade to after commit if commit in procedure
+--connection slave
+--source include/stop_slave.inc
+--connection master
+use kz;
+delimiter |;
+--error ER_XA_RBTIMEOUT
+create procedure after_sync_func()
+    modifies sql data
+    begin
+        delete from t;
+        START TRANSACTION;
+        insert into t values(19,19);
+        commit;
+    end|
+delimiter ;|
+let $rpl_connection_name= master;
+--source include/rpl_connection.inc
+--enable_reconnect
+--source include/wait_until_connected_again.inc
+--error ER_XA_RBTIMEOUT
+call after_sync_func();
+--connection master1
+--echo ---------- after timeout
+select * from t;
+commit tdsql_timeout_trxs;
+--echo ---------- after commit
+select * from t;
+let $rpl_connection_name= master;
+--source include/rpl_connection.inc
+--enable_reconnect
+--source include/wait_until_connected_again.inc
+--echo ------- after reconect to master
+select * from t;
+--connection slave
+--source include/start_slave.inc
+--connection master1
+--source include/sync_slave_sql_with_master.inc
+--connection slave
+--echo ------- after replicate to slave
+select * from t;
+
+#simulate network error
+--source include/stop_slave.inc
+
+--echo 
+--echo simulate network error 
+--connection master
+set global debug='+d,simulate_thd_network_error';
+--send insert into t values (21,21);
+--connection master1
+use kz;
+--echo -------- before time out
+select * from t;
+--connection master
+--error ER_XA_RBTIMEOUT
+--reap
+--connection master1
+use kz;
+--echo -------- after time out
+select * from t;
+commit tdsql_timeout_trxs;
+--echo -------- after commit
+select * from t;
+--connection slave
+--source include/start_slave.inc
+--connection master1
+--source include/sync_slave_sql_with_master.inc
+--connection slave
+use kz;
+--echo ------- after replicate to slave
+select * from t;
+let $rpl_connection_name= master;
+--source include/rpl_connection.inc
+--enable_reconnect
+--echo ------- after reconect to master
+select * from t;
+
+#cleanup
+--connection master
+set global sqlasyn = 0;
+set global sqlasync_after_sync = 0;
+set global sqlasyntimeout = 30;
+drop database kz;
+--source include/sync_slave_sql_with_master.inc
+set global sqlasyn = 0;
+set global sqlasync_after_sync = 0;
+
+--connection master
+--source include/rpl_end.inc

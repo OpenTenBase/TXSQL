@@ -165,6 +165,10 @@ class Rpl_applier_reader {
 #ifndef NDEBUG
   void debug_print_next_event_positions();
 #endif
+
+  void truncate_relaylog(const char * log_file_name, my_off_t pos);
+
+  static uint64_t read_next_relay_log_num;//we can truncate relay log when the variable = 0
 };
 
 #endif  // RPL_APPLIER_READER_INCLUDED

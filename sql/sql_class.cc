@@ -141,6 +141,16 @@ char empty_c_string[1] = {0}; /* used for not defined db */
 const char *const THD::DEFAULT_WHERE = "field list";
 extern PSI_stage_info stage_waiting_for_disk_space;
 
+bool operator ==(const Thd_Trans_binlog_info & lft,
+                 const Thd_Trans_binlog_info & rht) {
+  return ((lft.file_no() == rht.file_no()) &&
+          (lft.pos() == rht.pos()));
+}
+
+bool operator <(const Thd_Trans_binlog_info & lft, const Thd_Trans_binlog_info & rht) {
+  return lft.less(rht);
+}
+
 #ifndef NDEBUG
 /**
    For debug purpose only. Used for
@@ -658,6 +668,7 @@ THD::THD(bool enable_plugins)
       copy_status_var_ptr(nullptr),
       initial_status_var(nullptr),
       status_var_aggregated(false),
+      use_extra_status_var(false),
       m_connection_attributes(),
       m_current_query_cost(0),
       m_current_query_partial_plans(0),
@@ -868,6 +879,12 @@ THD::THD(bool enable_plugins)
 
   m_token_array = nullptr;
   is_legal_column_encrypt_read = true;
+  m_asyncAns = false;
+  m_delay_commit = false;
+  m_delay_rotate = false;
+  m_sql_asyn_deal_stage = WAIT_ACK_STAGE;
+  m_long_service = false;
+  in_multi_query = false;
 
   if (max_digest_length > 0) {
     m_token_array = (unsigned char *)my_malloc(PSI_INSTRUMENT_ME,
@@ -895,6 +912,8 @@ THD::THD(bool enable_plugins)
   ending_internal_txn = false;
   stored_seq_cache_version = 0;
   skip_priv_checking = false;
+
+  in_implict_commit = false;
   /**
     Changes from txsql end.
   */
@@ -1196,6 +1215,7 @@ void THD::init(void) {
     ALTER USER statements.
   */
   m_disable_password_validation = false;
+  m_asyncAns = false;
 }
 
 void THD::init_query_mem_roots() {
@@ -3816,4 +3836,30 @@ bool is_tdsql_gts_valid(THD *thd) {
   }
   return true;
 }
+
+/**
+  not all trx can be delay committed 
+*/
+bool THD::can_delay_commit() const {
+  if (g_sqlAsyn && g_sqlAsyncAfterSync &&   
+      system_thread == NON_SYSTEM_THREAD &&
+      !get_transaction()->has_modified_non_trans_table(Transaction_ctx::SESSION) &&
+      !in_implict_commit &&
+      // not in procedure or function
+      !(lex->m_sql_cmd != nullptr && lex->m_sql_cmd->is_part_of_sp()) &&
+      // not support almost ddls except normal db and table operation
+      (lex->sphead == nullptr) &&
+      (sp_runtime_ctx == nullptr) &&
+      (lex->m_sql_cmd == nullptr || lex->m_sql_cmd->is_regular()) &&
+      (rli_fake == nullptr) &&
+      // not support all ddls
+      !(sql_command_flags[lex->sql_command] & (CF_DISALLOW_IN_RO_TRANS | CF_AUTO_COMMIT_TRANS)) && 
+      // not support in multi_query
+      (!in_multi_query)) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
 /* Changes from TXSQL end. */

@@ -300,6 +300,8 @@ int threadpool_process_request(THD *thd) {
 
   thread_attach(thd);
 
+  thd->m_asyncAns = false;
+
   if (thd->killed == THD::KILL_CONNECTION) {
     /*
       killed flag was set by timeout handler
@@ -322,6 +324,7 @@ int threadpool_process_request(THD *thd) {
   for (;;) {
     Vio *vio;
     thd_set_net_read_write(thd, 0);
+    thd->m_asyncAns = false;
 
     if ((retval = do_command(thd)) != 0) goto end;
 
@@ -329,6 +332,14 @@ int threadpool_process_request(THD *thd) {
       retval = 1;
       goto end;
     }
+
+    /*
+       In async mode, bottom half isn't done yet, can't handle next cmd if any
+       This check has to be done after thd_is_connection_alive() check above
+       otherwise in tdsql strong consistency mode, if the 'commit' command execution was killed in
+       upper half, then we must quit here.
+    */
+    if(thd->m_asyncAns) goto end;
 
     vio = thd->get_protocol_classic()->get_vio();
     if (!vio->has_data(vio)) {
@@ -345,7 +356,7 @@ int threadpool_process_request(THD *thd) {
   }
 
 end:
-  if (!retval && !thd->m_server_idle) {
+  if (!retval && !thd->m_server_idle && !thd->m_asyncAns) {
     MYSQL_SOCKET_SET_STATE(thd->get_protocol_classic()->get_vio()->mysql_socket,
                            PSI_SOCKET_STATE_IDLE);
     MYSQL_START_IDLE_WAIT(thd->m_idle_psi, &thd->m_idle_state);

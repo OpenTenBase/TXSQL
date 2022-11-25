@@ -216,6 +216,78 @@ extern char empty_c_string[1];
 /* Changes from txsql begin. */
 extern unsigned long cdb_kill_idle_trans_timeout;
 /* Changes from txsql end. */
+
+class Thd_Trans_binlog_info {
+public:
+Thd_Trans_binlog_info():m_file_no(0), m_pos(0) {}
+
+  void reset() {
+    m_file_no = 0;
+    m_pos = 0;
+  }
+  
+  inline uint64_t file_no() const { return (m_file_no); }
+
+  inline my_off_t pos() const { return (m_pos); }
+  
+  uint64_t get_file_no(const char *filename) {
+    const char *ptr = strrchr(filename, '.');
+    if (ptr == nullptr) {
+      return (0);
+    } else {
+      return (atoi(ptr + 1));
+    }
+  }
+
+  void set(const char *file,my_off_t pos) {
+    if (file != nullptr) {
+      m_file_no = get_file_no(file);
+      m_pos = pos;
+    }
+  }
+
+  void set(uint64_t file_no, my_off_t pos) {
+    m_file_no = file_no;
+    m_pos = pos;
+  }
+
+  bool less (const Thd_Trans_binlog_info& other_pos) const {
+    if (m_file_no == other_pos.file_no()) {
+      return (m_pos < other_pos.pos());
+    } else {
+      return (m_file_no < other_pos.file_no());
+    }
+  }
+
+  bool less(const char * file, my_off_t pos) {
+    uint64_t rhtNo = get_file_no(file);
+    if (m_file_no == rhtNo) {
+      return (m_pos < pos);
+    } else {
+      return (m_file_no < rhtNo);
+    }
+  }
+
+  /* cause compile error "implicitly-declared ‘constexpr Thd_Trans_binlog_info::Thd_Trans_binlog_info(const Thd_Trans_binlog_info&)’ is deprecated"
+     and deleted in later commit b4ae5ff770da37a73c506406d980a641071e61f9.
+     I'm not sure what will happen next, so keep this.
+  void operator = (const Thd_Trans_binlog_info & lft) {
+    m_file_no = lft.file_no();
+    m_pos = lft.pos();
+  }
+  */
+  inline bool is_valid() const {
+    return m_file_no > 0;
+  }
+
+  friend bool operator ==(const Thd_Trans_binlog_info & lft, const Thd_Trans_binlog_info & rht);
+  friend bool operator <(const Thd_Trans_binlog_info & lft, const Thd_Trans_binlog_info & rht);
+
+private:
+  uint64_t  m_file_no;
+  my_off_t  m_pos;
+};
+
 /*
   We preallocate data for several storage engine plugins.
   so: innodb + bdb + ndb + binlog + myisam + myisammrg + archive +
@@ -1036,6 +1108,14 @@ class THD_seq {
 };
 /* Changes from txsql end. */
 
+struct consistency_ack_finish_struct
+{
+  bool cur_audit_switch;
+  clockid_t clock_id;
+  struct timespec time_start;
+};
+typedef struct consistency_ack_finish_struct consistency_ack_finish_t;
+
 /**
   @class THD
   For each client connection we create a separate thread with THD serving as
@@ -1310,12 +1390,14 @@ class THD : public MDL_context_owner,
   struct rand_struct rand;              // used for authentication
   struct System_variables variables;    // Changeable local variables
   struct System_status_var status_var;  // Per thread statistic vars
+  struct System_status_var extra_status_var;
   struct System_status_var
       *copy_status_var_ptr;  // A copy of the statistic vars asof the start of
                              // the query
   struct System_status_var *initial_status_var; /* used by show status */
   // has status_var already been added to global_status_var?
   bool status_var_aggregated;
+  bool use_extra_status_var;
 
   /**
     Session's connection attributes for the connected client
@@ -1381,7 +1463,7 @@ class THD : public MDL_context_owner,
   void reset_copy_status_var() {
     if (copy_status_var_ptr) {
       /* Reset for values at start of next statement */
-      *copy_status_var_ptr = status_var;
+      extra_status_var = status_var;
     }
   }
 
@@ -2081,11 +2163,78 @@ private:
   const char *m_trans_log_file;
   char *m_trans_fixed_log_file;
   my_off_t m_trans_end_pos;
+
+  /*
+     TDSQL
+     Binlog commit position of current session's last txn. it's updated at the
+     end of the commit procedure but before strong consistent wait, and updated
+     earlier than m_ack_binlog_pos.
+  */
+  Thd_Trans_binlog_info m_new_binlog_pos;
+  
+  /*
+    TDSQL
+    This session's lastest binlog position that should be ack'ed by slave,
+    and it's also the binlog pos this session's current txn commit should wait
+    for slave ack.
+
+    When deciding whether to do strong consistency wait, m_ack_binlog_pos is
+    used as the old binlog position, and m_new_binlog_pos is used as the new
+    binlog position. The old binlog pos is updated to new right before the wait.
+
+    This field and some other data member of THD is also used by the async
+    bottom half threads, but since we've made sure a THD is only used by one
+    thread, we don't need to sync access to any such data member.
+  */
+  Thd_Trans_binlog_info m_ack_binlog_pos;
+
   /**@}*/
   // NOTE: Ideally those two should be in Protocol,
   // but currently its design doesn't allow that.
   String packet;  // dynamic buffer for network I/O
  public:
+
+  const Thd_Trans_binlog_info ack_binlog_pos() const {
+    return m_ack_binlog_pos;
+  }
+
+  const Thd_Trans_binlog_info new_binlog_pos() const {
+    return m_new_binlog_pos;
+  }
+
+  bool binlog_has_grown() const {
+    return !(m_ack_binlog_pos == m_new_binlog_pos);
+  }
+
+  void update_old_binlog_pos() {
+    m_ack_binlog_pos = m_new_binlog_pos;
+  }
+
+  /**
+    TDSQL Whether this session/connection is waiting for its bottom half work
+    to be performed
+  */
+  enum sql_asyn_deal_stage {
+    WAIT_ACK_STAGE,
+    WAIT_TIMEOUT
+  };
+  bool m_asyncAns;
+
+  bool m_delay_commit;
+
+  /* delay rotate binlog if commit delayed */
+  bool m_delay_rotate;
+
+  bool in_implict_commit;
+
+  sql_asyn_deal_stage m_sql_asyn_deal_stage;
+
+  /* The statement has multiple queries divided by semicolon(;) */
+  bool in_multi_query;
+
+  /** True if it's a long-time connection such as binlog dump. */
+  bool m_long_service;
+
   void set_skip_readonly_check() { skip_readonly_check = true; }
 
   bool is_cmd_skip_readonly() const { return skip_readonly_check; }
@@ -2793,6 +2942,11 @@ private:
     }
 
     m_trans_end_pos = pos;
+
+    if (file) {
+      m_new_binlog_pos.set(m_trans_fixed_log_file, m_trans_end_pos);
+    }
+
     DBUG_PRINT("return",
                ("m_trans_log_file: %s, m_trans_fixed_log_file: %s, "
                 "m_trans_end_pos: %llu",
@@ -4880,6 +5034,8 @@ private:
   /** the number of elements in parameters */
   unsigned long bind_parameter_values_count;
 
+  /** commit can by delay or not under after sync mode */
+  bool can_delay_commit() const;
  public:
   /**
     Copy session properties that affect table access
@@ -5054,6 +5210,9 @@ private:
   thread apply the event,will copy the variable from log event
  */
   bool rollback_injected_by_coord = false;
+
+public:
+  consistency_ack_finish_t ack_finish;
 };
 
 /**

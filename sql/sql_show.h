@@ -556,6 +556,15 @@ class Sql_cmd_show_replicas : public Sql_cmd_show_noplan {
   bool execute_inner(THD *thd) override;
 };
 
+/// Represents SHOW SLAVE ACK statement.
+
+class Sql_cmd_show_replicas_ack : public Sql_cmd_show_noplan {
+public:
+Sql_cmd_show_replicas_ack() : Sql_cmd_show_noplan(SQLCOM_SHOW_SLAVE_ACK) {}
+  bool check_privileges(THD *thd) override;
+  bool execute_inner(THD *thd) override;
+};
+
 /// Represents SHOW REPLICA STATUS statement.
 
 class Sql_cmd_show_replica_status : public Sql_cmd_show_noplan {

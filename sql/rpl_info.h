@@ -126,6 +126,9 @@ class Rpl_info : public Slave_reporting_capability {
   uint get_internal_id() const { return internal_id; }
 
   char *get_channel() const { return const_cast<char *>(channel); }
+  bool channel_is_empty () const {
+    return channel[0] == '\0';
+  }
 
   /**
     To search in the slave repositories, each slave info object

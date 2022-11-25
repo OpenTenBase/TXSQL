@@ -219,6 +219,7 @@ enum enum_sql_command {
   SQLCOM_RESTORE_FROM_RECYCLE_BIN,
   SQLCOM_CLEAR_FROM_RECYCLE_BIN,
   SQLCOM_SHOW_RECYCLE_BIN,
+  SQLCOM_SHOW_SLAVE_ACK,
   /* This should be the last !!! */
   SQLCOM_END
 };

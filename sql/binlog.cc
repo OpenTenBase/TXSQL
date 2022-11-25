@@ -134,6 +134,9 @@
 #include "thr_lock.h"
 #include "sql/opt_statistics.h"
 
+extern bool txsql_slave_io_optimaze_write;
+extern ulonglong sqlasync_group_slave_relay_fsync ;
+
 class Item;
 
 using binary_log::checksum_crc32;
@@ -557,6 +560,10 @@ class MYSQL_BIN_LOG::Binlog_ofile : public Basic_ostream {
   my_off_t position() { return m_position; }
   bool is_empty() { return position() == 0; }
   bool is_open() { return m_pipeline_head != nullptr; }
+  virtual File get_fd () override {
+    return m_pipeline_head->get_fd();
+  }
+
   /**
     Returns the encrypted header size of the binary log file.
 
@@ -6820,11 +6827,16 @@ end:
   @retval false success
   @retval true error
 */
-bool MYSQL_BIN_LOG::after_write_to_relay_log(Master_info *mi) {
+bool MYSQL_BIN_LOG::after_write_to_relay_log(Master_info *mi, bool sync_rl, bool group_slave_ack) {
   DBUG_TRACE;
   DBUG_PRINT("info", ("max_size: %lu", max_size));
 
   // Check pre-conditions
+  if(group_slave_ack) {//group ack mode,we don't own lock
+    mysql_mutex_assert_not_owner(&LOCK_log);
+    mysql_mutex_lock(&LOCK_log);
+  }
+
   mysql_mutex_assert_owner(&LOCK_log);
   assert(is_relay_log);
 
@@ -6833,6 +6845,9 @@ bool MYSQL_BIN_LOG::after_write_to_relay_log(Master_info *mi) {
     only if the trx parser is not inside a transaction.
   */
   bool can_rotate = mi->transaction_parser.is_not_inside_transaction();
+  if (group_slave_ack) {
+    can_rotate = false;
+  }
 
 #ifndef NDEBUG
   if (m_binlog_file->get_real_file_size() >
@@ -6844,7 +6859,15 @@ bool MYSQL_BIN_LOG::after_write_to_relay_log(Master_info *mi) {
 #endif
 
   // Flush and sync
-  bool error = flush_and_sync(false);
+  File fd  = -1;
+  bool error = false;
+  if (group_slave_ack) {//just flush , delay group fsync
+    error = flush();
+    fd = m_binlog_file->get_fd();
+  } else {
+    error = flush_and_sync(g_reliable_relaylog && sync_rl);
+  }
+
   if (error) {
     mi->report(ERROR_LEVEL, ER_SLAVE_RELAY_LOG_WRITE_FAILURE,
                ER_THD(current_thd, ER_SLAVE_RELAY_LOG_WRITE_FAILURE),
@@ -6913,7 +6936,46 @@ bool MYSQL_BIN_LOG::after_write_to_relay_log(Master_info *mi) {
   harvest_bytes_written(mi->rli, true /*need_log_space_lock=true*/);
   unlock_binlog_end_pos();
 
+  if (group_slave_ack) {
+    mysql_mutex_unlock(&LOCK_log);
+    //fsync is slow,don't need lock
+    if( fd >= 0 ) {
+      if( !mysql_file_sync(fd, MYF(MY_WME)) ){
+        sqlasync_group_slave_relay_fsync++;
+      }
+    }
+  }
+
   return error;
+}
+
+bool MYSQL_BIN_LOG::update_retrieved_gtid_set(Master_info *mi) {//just used to update Retrieved_Gtid_Set
+  assert(is_relay_log);
+  bool is_not_inside_transaction = mi->transaction_parser.is_not_inside_transaction();
+  if(!is_not_inside_transaction) {
+    return true;
+  }
+  //is_not_inside_transaction is true,so we have finished the gtid
+  /*
+    If the last event of the transaction has been flushed, we can add
+    the GTID (if it is not empty) to the logged set, or else it will
+    not be available in the Previous GTIDs of the next relay log file
+    if we are going to rotate the relay log.
+  */
+  const Gtid *last_gtid_queued = mi->get_queueing_trx_gtid();
+  if (!last_gtid_queued->is_empty()) {
+    mi->rli->get_sid_lock()->rdlock();
+    DBUG_SIGNAL_WAIT_FOR(current_thd, "updating_received_transaction_set",
+                         "reached_updating_received_transaction_set",
+                         "continue_updating_received_transaction_set");
+    mi->rli->add_logged_gtid(last_gtid_queued->sidno,
+                             last_gtid_queued->gno);
+    mi->rli->get_sid_lock()->unlock();
+  }
+  if (mi->is_queueing_trx()) {
+    mi->finished_queueing();
+  }
+  return true;
 }
 
 bool MYSQL_BIN_LOG::write_event(Log_event *ev, Master_info *mi) {
@@ -6929,7 +6991,7 @@ bool MYSQL_BIN_LOG::write_event(Log_event *ev, Master_info *mi) {
   bool error = false;
   if (!binary_event_serialize(ev, m_binlog_file)) {
     bytes_written += ev->common_header->data_written;
-    error = after_write_to_relay_log(mi);
+    error = after_write_to_relay_log(mi, false);
   } else {
     mi->report(ERROR_LEVEL, ER_SLAVE_RELAY_LOG_WRITE_FAILURE,
                ER_THD(current_thd, ER_SLAVE_RELAY_LOG_WRITE_FAILURE),
@@ -6941,7 +7003,7 @@ bool MYSQL_BIN_LOG::write_event(Log_event *ev, Master_info *mi) {
   return error;
 }
 
-bool MYSQL_BIN_LOG::write_buffer(const char *buf, uint len, Master_info *mi) {
+bool MYSQL_BIN_LOG::write_buffer(const char *buf, uint len, Master_info *mi, bool need_write, bool sync_rl, bool group_slave_ack) {
   DBUG_TRACE;
 
   // check preconditions
@@ -6952,7 +7014,13 @@ bool MYSQL_BIN_LOG::write_buffer(const char *buf, uint len, Master_info *mi) {
   bool error = false;
   if (m_binlog_file->write(pointer_cast<const uchar *>(buf), len) == 0) {
     bytes_written += len;
-    error = after_write_to_relay_log(mi);
+    if(!group_slave_ack) { //if group_slave_ack is true,we just write relay log to memory
+      if((!txsql_slave_io_optimaze_write) || need_write || sync_rl) {
+        error = after_write_to_relay_log(mi, sync_rl, group_slave_ack);
+      }
+    } else { //update Retrieved_Gtid_Set,authough relay log does't writed to disk,it is safe to update Retrieved_Gtid_Set ahead of time
+      update_retrieved_gtid_set(mi);
+    }
   } else {
     mi->report(ERROR_LEVEL, ER_SLAVE_RELAY_LOG_WRITE_FAILURE,
                ER_THD(current_thd, ER_SLAVE_RELAY_LOG_WRITE_FAILURE),
@@ -7370,6 +7438,15 @@ end:
   mysql_mutex_unlock(&mysql_bin_log.LOCK_commit);
 
   return error;
+}
+
+my_off_t MYSQL_BIN_LOG::get_binlog_file_position() {
+  if(m_binlog_file) {
+    return m_binlog_file->position();
+  } else {
+    return 0;
+  }
+
 }
 
 /**
@@ -8399,6 +8476,7 @@ TC_LOG::enum_result MYSQL_BIN_LOG::commit(THD *thd, bool all) {
       (void)RUN_HOOK(transaction, after_commit, (thd, all));
     }
   } else if (!skip_commit) {
+    assert(!thd->m_delay_commit);
     if (trx_coordinator::commit_in_engines(thd, all))
       return RESULT_INCONSISTENT;
   }
@@ -8461,6 +8539,11 @@ void MYSQL_BIN_LOG::init_thd_variables(THD *thd, bool all, bool skip_commit) {
   thd->durability_property = HA_IGNORE_DURABILITY;
   thd->get_transaction()->m_flags.real_commit = all;
   thd->get_transaction()->m_flags.xid_written = false;
+  assert(!thd->m_delay_commit);
+  if (!skip_commit && thd->can_delay_commit()) {
+    thd->m_delay_commit = true;
+    skip_commit = true;
+  }
   thd->get_transaction()->m_flags.commit_low = !skip_commit;
   thd->get_transaction()->m_flags.run_hooks = !skip_commit;
   thd->get_transaction()->m_flags.committed = false;
@@ -8475,6 +8558,9 @@ void MYSQL_BIN_LOG::init_thd_variables(THD *thd, bool all, bool skip_commit) {
   */
   thd->get_transaction()->m_flags.ready_preempt = false;
 #endif
+  if (thd->is_commit_in_middle_of_statement) {
+    thd->m_delay_commit = false;
+  }
 }
 
 THD *MYSQL_BIN_LOG::fetch_and_process_flush_stage_queue(
@@ -8957,6 +9043,28 @@ void MYSQL_BIN_LOG::handle_binlog_flush_or_sync_error(THD *thd,
   }
 }
 
+void MYSQL_BIN_LOG::rotate_after_commit(THD *thd) {
+  /*
+    Do not force the rotate as several consecutive groups may
+    request unnecessary rotations.
+    NOTE: Run purge_logs wo/ holding LOCK_log because it does not
+    need the mutex. Otherwise causes various deadlocks.
+  */
+  DEBUG_SYNC(thd, "ready_to_do_rotation");
+  bool check_purge = false;
+  mysql_mutex_lock(&LOCK_log);
+  /*
+    If rotate fails then depends on binlog_error_action variable
+    appropriate action will be taken inside rotate call.
+  */
+  int error = rotate(false, &check_purge);
+  mysql_mutex_unlock(&LOCK_log);
+  if (error)
+    thd->commit_error = THD::CE_COMMIT_ERROR;
+  else if (check_purge)
+    auto_purge();
+}
+
 int MYSQL_BIN_LOG::ordered_commit(THD *thd, bool all, bool skip_commit) {
   DBUG_TRACE;
   int flush_error = 0, sync_error = 0;
@@ -9204,28 +9312,11 @@ commit_stage:
   if (DBUG_EVALUATE_IF("force_rotate", 1, 0) ||
       (do_rotate && thd->commit_error == THD::CE_NONE &&
        !is_rotating_caused_by_incident)) {
-    /*
-      Do not force the rotate as several consecutive groups may
-      request unnecessary rotations.
-
-      NOTE: Run purge_logs wo/ holding LOCK_log because it does not
-      need the mutex. Otherwise causes various deadlocks.
-    */
-
-    DEBUG_SYNC(thd, "ready_to_do_rotation");
-    bool check_purge = false;
-    mysql_mutex_lock(&LOCK_log);
-    /*
-      If rotate fails then depends on binlog_error_action variable
-      appropriate action will be taken inside rotate call.
-    */
-    int error = rotate(false, &check_purge);
-    mysql_mutex_unlock(&LOCK_log);
-
-    if (error)
-      thd->commit_error = THD::CE_COMMIT_ERROR;
-    else if (check_purge)
-      auto_purge();
+    if (!thd->m_delay_commit) {
+      rotate_after_commit(thd);
+    } else {
+      thd->m_delay_rotate = true;
+    }
   }
   /*
     flush or sync errors are handled above (using binlog_error_action).

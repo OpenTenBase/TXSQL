@@ -1,0 +1,114 @@
+## Test Strong consistency by asynchronous ACK
+
+-- source include/master-slave.inc
+
+--connection master
+CALL mtr.add_suppression("aborting in bottom half answering thread");
+select @@sqlasyn;
+select @@thread_handling;
+
+--connection slave
+select @@sqlasyn;
+select @@thread_handling;
+
+--connection master
+set global sqlasyn = 1;
+
+--connection slave
+set global sqlasyn = 1;
+
+# create database for testing
+--connection master
+create database sb1;
+use sb1;
+create table t1(a int primary key, b int);
+
+# Testing timeout
+--connection master
+set global sqlasyntimeout = 1;
+set global sqlasynwarntimeout = 120;
+
+#stop slave
+--connection slave
+--source include/stop_slave.inc
+
+--connection master
+--error ER_XA_RBTIMEOUT
+insert into t1 values (1,2);
+
+# lose connection, reconnect to master
+let $rpl_connection_name= master;
+--source include/rpl_connection.inc
+--enable_reconnect
+select * from t1;
+
+# Test timeout if setting after_sync
+--connection master
+set global sqlasync_after_sync = 1;
+--error ER_XA_RBTIMEOUT
+insert into t1 values (2,3);
+
+# lose connection, reconnect to master
+let $rpl_connection_name= master;
+--source include/rpl_connection.inc
+--enable_reconnect
+select * from t1;
+
+# Check visibility when client is waiting for ack
+--connection master
+set global sqlasyntimeout = 3000;
+--send insert into t1 values (3,4);
+
+--connection master1
+use sb1;
+select * from t1;
+
+--connection slave
+--source include/start_slave.inc
+
+--connection master1
+--source include/sync_slave_sql_with_master.inc
+
+--connection master
+--reap
+
+--connection slave
+use sb1;
+select * from t1;
+
+--connection master
+select * from t1;
+
+# After_sync doesn't take care of ddl, let's cover the case
+alter table t1 add column c int;
+update t1 set c = 10;
+--source include/sync_slave_sql_with_master.inc
+select * from t1;
+
+# show status 
+--connection master
+--replace_column 2 #
+show status like 'sqlasyn_%';
+--connection slave
+--replace_column 1 # 2 # 3 # 4 #
+show slave ack;
+--replace_column 2 #
+show status like 'sqlasyn_%';
+
+#revert timeout configuration
+--connection master
+set global sqlasyntimeout = 30;
+set global sqlasynwarntimeout = 3;
+#set global sqlasync_after_sync = 0;
+
+#cleanup
+--connection master
+set global sqlasyn = 0;
+set global sqlasync_after_sync = 0;
+drop database sb1;
+--source include/sync_slave_sql_with_master.inc
+set global sqlasyn = 0;
+set global sqlasync_after_sync = 0;
+
+--connection master
+--source include/rpl_end.inc

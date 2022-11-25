@@ -658,6 +658,14 @@ bool Sql_cmd_show_replicas::execute_inner(THD *thd) {
   return show_replicas(thd);
 }
 
+bool Sql_cmd_show_replicas_ack::check_privileges(THD *thd) {
+  return check_global_access(thd, REPL_SLAVE_ACL);
+}
+
+bool Sql_cmd_show_replicas_ack::execute_inner(THD *thd) {
+  return show_slave_ack(thd);
+}
+
 bool Sql_cmd_show_replica_status::check_privileges(THD *thd) {
   return check_global_access(thd, SUPER_ACL | REPL_CLIENT_ACL);
 }
@@ -2891,7 +2899,7 @@ class thread_info_compare {
 
 static const char *thread_state_info(THD *invoking_thd, THD *inspected_thd) {
   DBUG_TRACE;
-  if (inspected_thd->get_protocol()->get_rw_status()) {
+  if ((!inspected_thd->m_asyncAns) && inspected_thd->get_protocol()->get_rw_status()) {
     if (inspected_thd->get_protocol()->get_rw_status() == 2)
       return "Sending to client";
     if (inspected_thd->get_command() == COM_SLEEP) return "";

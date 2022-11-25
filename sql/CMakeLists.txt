@@ -668,6 +668,8 @@ SET(SQL_SHARED_SOURCES
   trigger_chain.cc
   tztime.cc
   uniques.cc
+  thd_bottom_half.cc
+  udpsvr.cc
   xa.cc
   xa/recovery.cc
   xa/sql_xa_second_phase.cc
@@ -1112,6 +1114,7 @@ SET (SLAVE_SOURCE
   rpl_rli.cc
   rpl_rli_pdb.cc
   rpl_replica.cc
+  rpl_slave_ack_thread.cc
   rpl_replica_commit_order_manager.cc
   rpl_replica_until_options.cc
   rpl_sys_key_access.cc

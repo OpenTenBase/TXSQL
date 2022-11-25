@@ -519,6 +519,7 @@ void LEX::reset() {
   outline_info_str.length = 0;
   handle_outline_type = 0;
   recycle_bin_op = RB_NO_OP;
+  commit_tdsql_timeout_trxs = false;
 }
 
 /**
@@ -3821,6 +3822,7 @@ LEX::LEX()
       is_lex_started(false),
       in_update_value_clause(false),
       will_contextualize(true),
+      commit_tdsql_timeout_trxs(false),
       wait_time(ULONG_MAX),
       restore_table(nullptr),
       restore_time(0),
