@@ -1,0 +1,10 @@
+--thread-handling=pool-of-threads
+--gtid-mode=1
+--sqlasyn=1
+--sqlasyntimeout=3
+--sqlasync_group_slave_ack=1
+--binlog-transaction-dependency-tracking=WRITESET
+--transaction_write_set_extraction=XXHASH64
+--binlog_format=row
+--slave_parallel_workers=2
+--txsql_slave_io_optimaze_write=1

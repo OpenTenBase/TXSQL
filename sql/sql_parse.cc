@@ -20,6 +20,7 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
 
+#include "sql/conn_handler/connection_handler_manager.h"
 #include "sql/sql_parse.h"
 
 #include <algorithm>
@@ -70,6 +71,8 @@
 #include "mysql/psi/mysql_rwlock.h"
 #include "mysql/psi/mysql_statement.h"
 #include "mysql/service_mysql_alloc.h"
+#include "mysql/psi/mysql_idle.h"
+#include "mysql/psi/mysql_socket.h"
 #include "mysql/udf_registration_types.h"
 #include "mysql_version.h"
 #include "mysqld_error.h"
@@ -175,6 +178,7 @@
 #include "sql/transaction.h"  // trans_rollback_implicit
 #include "sql/transaction_info.h"
 #include "sql_string.h"
+#include "sql/thd_bottom_half.h"
 #include "template_utils.h"
 #include "thr_lock.h"
 #include "violite.h"
@@ -219,6 +223,8 @@ class Abstract_table;
 }  // namespace dd
 
 using std::max;
+ulonglong sqlasync_delay_commit = 0;
+ulonglong sqlasync_uncommitted_timeout_trxs = 0;
 
 /**
   @defgroup Runtime_Environment Runtime Environment
@@ -821,6 +827,7 @@ void init_sql_command_flags() {
       CF_STATUS_COMMAND | CF_HAS_RESULT_SET | CF_REEXECUTION_FRAGILE;
   sql_command_flags[SQLCOM_SHOW_BINLOGS] = CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_SLAVE_HOSTS] = CF_STATUS_COMMAND;
+  sql_command_flags[SQLCOM_SHOW_SLAVE_ACK] = CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_BINLOG_EVENTS] = CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_STORAGE_ENGINES] = CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_PRIVILEGES] = CF_STATUS_COMMAND;
@@ -1200,6 +1207,7 @@ void init_sql_command_flags() {
   sql_command_flags[SQLCOM_HA_CLOSE] |= CF_ALLOW_PROTOCOL_PLUGIN;
   sql_command_flags[SQLCOM_HA_READ] |= CF_ALLOW_PROTOCOL_PLUGIN;
   sql_command_flags[SQLCOM_SHOW_SLAVE_HOSTS] |= CF_ALLOW_PROTOCOL_PLUGIN;
+  sql_command_flags[SQLCOM_SHOW_SLAVE_ACK] |= CF_ALLOW_PROTOCOL_PLUGIN;
   sql_command_flags[SQLCOM_DELETE_MULTI] |= CF_ALLOW_PROTOCOL_PLUGIN;
   sql_command_flags[SQLCOM_UPDATE_MULTI] |= CF_ALLOW_PROTOCOL_PLUGIN;
   sql_command_flags[SQLCOM_SHOW_BINLOG_EVENTS] |= CF_ALLOW_PROTOCOL_PLUGIN;
@@ -1457,10 +1465,12 @@ void execute_init_command(THD *thd, LEX_STRING *init_command,
   thd->get_stmt_da()->reset_diagnostics_area();
 
   /* For per-query performance counters with log_slow_statement */
-  struct System_status_var query_start_status;
   thd->clear_copy_status_var();
   if (opt_log_slow_extra) {
-    thd->copy_status_var(&query_start_status);
+    thd->copy_status_var(&thd->extra_status_var);
+    thd->use_extra_status_var = true;
+  } else {
+    thd->use_extra_status_var = false;
   }
 
   THD_STAGE_INFO(thd, stage_execution_of_init_command);
@@ -1582,10 +1592,12 @@ bool do_command(THD *thd) {
   DEBUG_SYNC(thd, "before_do_command_net_read");
 
   /* For per-query performance counters with log_slow_statement */
-  struct System_status_var query_start_status;
   thd->clear_copy_status_var();
   if (opt_log_slow_extra) {
-    thd->copy_status_var(&query_start_status);
+    thd->copy_status_var(&thd->extra_status_var);
+    thd->use_extra_status_var = true;
+  } else {
+    thd->use_extra_status_var = false;
   }
 
   rc = thd->m_mem_cnt.reset();
@@ -1665,8 +1677,8 @@ bool do_command(THD *thd) {
 
 out:
   /* The statement instrumentation must be closed in all cases. */
-  assert(thd->m_digest == nullptr);
-  assert(thd->m_statement_psi == nullptr);
+  assert(thd->m_digest == nullptr || thd->m_asyncAns);
+  assert(thd->m_statement_psi == nullptr || thd->m_asyncAns);
   return return_value;
 }
 
@@ -1899,6 +1911,129 @@ static void copy_bind_parameter_values(THD *thd, PS_PARAM *parameters,
       par->value = reinterpret_cast<unsigned char *>(newd);
     }
   }
+}
+
+
+/* Commit transaction if needed. */
+void delay_commit_trx(THD *thd) {
+  THD_event_functions *old_scheduler = thd->scheduler;
+  thd->scheduler = nullptr; // can't call threadpool scheduler
+  Transaction_ctx *trn_ctx = thd->get_transaction();
+  trn_ctx->m_flags.commit_low = true;
+
+  /* Engine may get commit here if it's autocommit */
+  close_thread_tables(thd);
+
+  /* Reset the stmt scope. */
+  ha_commit_low(thd, false, false);
+
+  /* Commit the engine if needed. */
+  ha_commit_low(thd, true, false);
+
+  if (trn_ctx->m_flags.xid_written) {
+    mysql_bin_log.dec_prep_xids(thd);
+  }
+
+  thd->m_delay_commit = false;
+  /* Reset some variables by invoking this function */
+  trans_commit_implicit(thd);
+  /* Release mdl lock */
+  thd->mdl_context.release_transactional_locks();
+  sqlasync_delay_commit++;
+  /* rotate binlog after commit */
+  if (thd->m_delay_rotate) {
+    thd->m_delay_rotate = false;
+    mysql_bin_log.rotate_after_commit(thd);
+  }
+  thd->scheduler = old_scheduler; // recover the threadpool scheduler
+}
+
+bool do_finish_command(enum enum_server_command command, THD *thd, Sql_cmd_clone *clone_cmd, bool error) {
+  Global_THD_manager *thd_manager = Global_THD_manager::get_instance();
+  thd->send_statement_status();
+
+  /* After sending response, switch to clone protocol */
+  if (clone_cmd != nullptr) {
+    assert(command == COM_CLONE);
+    error = clone_cmd->execute_server(thd);
+  }
+
+  if (command == COM_SUBSCRIBE_GROUP_REPLICATION_STREAM && !error) {
+    call_gr_incoming_connection_cb(
+        thd, thd->active_vio->mysql_socket.fd,
+        thd->active_vio->ssl_arg ? static_cast<SSL *>(thd->active_vio->ssl_arg)
+                                 : nullptr);
+  }
+
+  thd->rpl_thd_ctx.session_gtids_ctx().notify_after_response_packet(thd);
+
+  update_thread_stats(CPU_TIME_END);
+
+  if (!thd->is_error() && !thd->killed)
+    mysql_audit_notify(thd, AUDIT_EVENT(MYSQL_AUDIT_GENERAL_RESULT), 0, nullptr,
+                       0);
+
+  const std::string &cn = Command_names::str_global(command);
+  mysql_audit_notify(
+      thd, AUDIT_EVENT(MYSQL_AUDIT_GENERAL_STATUS),
+      thd->get_stmt_da()->is_error() ? thd->get_stmt_da()->mysql_errno() : 0,
+      cn.c_str(), cn.length());
+
+  /* command_end is informational only. The plugin cannot abort
+     execution of the command at this point. */
+  mysql_audit_notify(thd, AUDIT_EVENT(MYSQL_AUDIT_COMMAND_END), command,
+                     cn.c_str());
+
+  log_slow_statement(thd);
+
+  THD_STAGE_INFO(thd, stage_cleaning_up);
+
+  thd->reset_query();
+  thd->set_command(COM_SLEEP);
+  thd->set_proc_info(nullptr);
+  thd->lex->sql_command = SQLCOM_END;
+
+  /* Performance Schema Interface instrumentation, end */
+  MYSQL_END_STATEMENT(thd->m_statement_psi, thd->get_stmt_da());
+  thd->m_statement_psi = nullptr;
+  thd->m_digest = nullptr;
+  thd->reset_query_for_display();
+
+  /* Prevent rewritten query from getting "stuck" in SHOW PROCESSLIST. */
+  thd->reset_rewritten_query();
+
+  thd_manager->dec_thread_running();
+
+  /* Freeing the memroot will leave the THD::work_part_info invalid. */
+  thd->work_part_info = nullptr;
+
+  /*
+    If we've allocated a lot of memory (compared to the default preallocation
+    size = 8192; note that we don't actually preallocate anymore), free
+    it so that one big query won't cause us to hold on to a lot of RAM forever.
+    If not, keep the last block so that the next query will hopefully be able to
+    run without allocating memory from the OS.
+
+    The factor 5 is pretty much arbitrary, but ends up allowing three
+    allocations (1 + 1.5 + 1.5²) under the current allocation policy.
+  */
+  constexpr size_t kPreallocSz = 40960;
+  if (thd->mem_root->allocated_size() < kPreallocSz)
+    thd->mem_root->ClearForReuse();
+  else
+    thd->mem_root->Clear();
+
+    /* SHOW PROFILE instrumentation, end */
+#if defined(ENABLED_PROFILING)
+  thd->profiling->finish_current_query();
+#endif
+
+  return error;
+}
+
+bool finish_command(enum enum_server_command command, THD *thd, Sql_cmd_clone *clone_cmd, bool error) {
+  if (thd->m_delay_commit) delay_commit_trx(thd);
+  return do_finish_command(command, thd, clone_cmd, error);
 }
 
 /**
@@ -2515,20 +2650,26 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
       error = true;                          // End server
       break;
     case COM_BINLOG_DUMP_GTID:
+      thd->m_long_service = true;
+      thd_wait_begin(thd,0);//tdsql
       // TODO: access of protocol_classic should be removed
       tp_change_active_thread(thd, command, false/*inc*/);
       error = com_binlog_dump_gtid(
           thd, (char *)thd->get_protocol_classic()->get_raw_packet(),
           thd->get_protocol_classic()->get_packet_length());
       tp_change_active_thread(thd, command, true/*inc*/);
+      thd_wait_end(thd);
       break;
     case COM_BINLOG_DUMP:
+      thd->m_long_service = true;
+      thd_wait_begin(thd,0);//tdsql
       // TODO: access of protocol_classic should be removed
       tp_change_active_thread(thd, command, false/*inc*/);
       error = com_binlog_dump(
           thd, (char *)thd->get_protocol_classic()->get_raw_packet(),
           thd->get_protocol_classic()->get_packet_length());
       tp_change_active_thread(thd, command, true/*inc*/);
+      thd_wait_end(thd);
       break;
     case COM_BP_TRANSMIT: {
       char filename[FN_REFLEN] = "";
@@ -2783,13 +2924,15 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
 
 done:
   assert(thd->open_tables == nullptr ||
-         (thd->locked_tables_mode == LTM_LOCK_TABLES));
+         (thd->locked_tables_mode == LTM_LOCK_TABLES) || thd->m_delay_commit);
 
   /* Release backquery info after each statement. */
   if (unlikely(thd->has_backquery())) ha_end_backquery(thd);
   /* Finalize server status flags after executing a command. */
   thd->update_slow_query_status();
   if (thd->killed) thd->send_kill_message();
+
+#ifndef HAVE_TDSQL
   thd->send_statement_status();
 
   /* After sending response, switch to clone protocol */
@@ -2896,6 +3039,44 @@ done:
 #endif
 
   return error;
+#else
+  if (!g_sqlAsyn ||
+      !g_thdBottomHalf ||
+      thd->is_admin_connection() || clone_cmd != nullptr ||
+      Connection_handler_manager::thread_handling != Connection_handler_manager::SCHEDULER_THREAD_POOL) {
+    /* Always update binlog pos to latest value, because we may change g_sqlAsyn
+    on fly, and if we enable the option, but the binlog pos is a stale value,
+    then the statement will always wait for ack from slave no matter if it changed
+    anything. */
+    if (g_thdBottomHalf) {
+      thd->update_old_binlog_pos();
+    }
+    return (finish_command(command, thd, clone_cmd, error));
+  }
+
+  if (!error &&
+      (thd->lex->sql_command != SQLCOM_XA_COMMIT) &&
+      (thd->lex->sql_command != SQLCOM_XA_ROLLBACK) &&
+      thd->binlog_has_grown()) {
+    thd->m_asyncAns = true;
+    thd->update_old_binlog_pos();
+
+    bool haveGetAns = false;
+    if (false == g_thdBottomHalf->saveThd(command, thd, error, haveGetAns)) {
+      /* Have been answered */
+      thd->m_asyncAns = false;
+      return (finish_command(command, thd, nullptr, error));
+    } else {
+      return 0;  
+    }
+  } else {
+    if ((thd->lex->sql_command == SQLCOM_XA_COMMIT) ||
+        (thd->lex->sql_command == SQLCOM_XA_ROLLBACK)) {
+      thd->update_old_binlog_pos();
+    }
+  }
+  return finish_command(command, thd, nullptr, error);
+#endif
 }
 
 /**
@@ -3814,6 +3995,8 @@ int mysql_execute_command(THD *thd, bool first_level) {
         goto error;
       }
       /* PURGE MASTER LOGS TO 'file' */
+      thd->m_long_service = true;
+      thd_wait_begin(thd, 0);//tdsql
       tp_change_active_thread(thd, lex->sql_command, false/*inc*/);
       if (lex->type == 1) {
         ha_purge_tlog();
@@ -3823,7 +4006,7 @@ int mysql_execute_command(THD *thd, bool first_level) {
         res = purge_source_logs_to_file(thd, lex->to_log);
       }
       tp_change_active_thread(thd, lex->sql_command, true/*inc*/);
-
+      thd_wait_end(thd);
       break;
     }
     case SQLCOM_PURGE_BEFORE: {
@@ -3850,9 +4033,12 @@ int mysql_execute_command(THD *thd, bool first_level) {
       time_t purge_time = static_cast<time_t>(it->val_int());
       if (thd->is_error()) goto error;
 
+      thd->m_long_service = true;
+      thd_wait_begin(thd, 0);//tdsql
       tp_change_active_thread(thd, lex->sql_command, false/*inc*/);
       res = purge_source_logs_before_date(thd, purge_time);
       tp_change_active_thread(thd, lex->sql_command, true/*inc*/);
+      thd_wait_end(thd);
 
       break;
     }
@@ -4741,6 +4927,35 @@ int mysql_execute_command(THD *thd, bool first_level) {
       my_ok(thd);
       break;
     case SQLCOM_COMMIT: {
+#ifdef HAVE_TDSQL
+      if (!lex->commit_tdsql_timeout_trxs) {
+        bool tx_chain =
+            (lex->tx_chain == TVL_YES ||
+            (thd->variables.completion_type == 1 && lex->tx_chain != TVL_NO));
+        bool tx_release =
+            (lex->tx_release == TVL_YES ||
+            (thd->variables.completion_type == 2 && lex->tx_release != TVL_NO));
+        thd->in_implict_commit = tx_chain;
+        if (trans_commit(thd)) {
+          thd->in_implict_commit = false; 
+          goto error;
+        }
+        thd->in_implict_commit = false;
+        thd->mdl_context.release_transactional_locks();
+        /* Begin transaction with the same isolation level. */
+        if (tx_chain) {
+      if (trans_begin(thd)) goto error;
+    } else {
+      /* Reset the isolation level and access mode if no chaining
+       * transaction.*/
+      trans_reset_one_shot_chistics(thd);
+    }
+        /* Disconnect the current client connection. */
+        if (tx_release) thd->killed = THD::KILL_CONNECTION;
+    } else {
+      g_thdBottomHalf->commit_timeout_trxs();
+    }
+#else
       assert(thd->lock == nullptr ||
              thd->locked_tables_mode == LTM_LOCK_TABLES);
       bool tx_chain =
@@ -4761,6 +4976,7 @@ int mysql_execute_command(THD *thd, bool first_level) {
       }
       /* Disconnect the current client connection. */
       if (tx_release) thd->killed = THD::KILL_CONNECTION;
+#endif
       my_ok(thd);
       break;
     }
@@ -5164,6 +5380,7 @@ int mysql_execute_command(THD *thd, bool first_level) {
     case SQLCOM_SHOW_PROFILES:
     case SQLCOM_SHOW_RELAYLOG_EVENTS:
     case SQLCOM_SHOW_SLAVE_HOSTS:
+    case SQLCOM_SHOW_SLAVE_ACK:
     case SQLCOM_SHOW_SLAVE_STAT:
     case SQLCOM_SHOW_STATUS:
     case SQLCOM_SHOW_STORAGE_ENGINES:
@@ -5562,7 +5779,9 @@ finish:
 
   /* Free tables */
   THD_STAGE_INFO(thd, stage_closing_tables);
-  close_thread_tables(thd);
+  if (!thd->m_delay_commit) {
+    close_thread_tables(thd);
+  }
 
   // Rollback any item transformations made during optimization and execution
   thd->rollback_item_tree_changes();
@@ -5580,6 +5799,8 @@ finish:
     */
     trans_rollback_implicit(thd);
     thd->mdl_context.release_transactional_locks();
+  } else if (thd->m_delay_commit) {
+    /* do nothing */
   } else if (stmt_causes_implicit_commit(thd, CF_IMPLICIT_COMMIT_END)) {
     /* No transaction control allowed in sub-statements. */
     assert(!thd->in_sub_stmt);
@@ -5960,6 +6181,11 @@ void dispatch_sql_command(THD *thd, Parser_state *parser_state,
     // set found_simicolon is true when found semicolon in multi statement.
     if (found_semicolon) lex->pass_px_check = false;
 #endif /* defined(HAVE_PX) */
+
+    if (found_semicolon) {
+      thd->in_multi_query = true;
+    }
+
   }
 
   if (thd->variables.cdb_opt_outline_enabled && !err) 

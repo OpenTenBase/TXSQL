@@ -526,8 +526,8 @@ const Gtid *Gtid_monitoring_info::get_processing_trx_gtid() {
   /*
     This function is only called by relay log recovery/queuing.
   */
-  assert(atomic_mutex != nullptr);
-  mysql_mutex_assert_owner(atomic_mutex);
+  //assert(atomic_mutex != nullptr);
+  //mysql_mutex_assert_owner(atomic_mutex);
   return &processing_trx->gtid;
 }
 

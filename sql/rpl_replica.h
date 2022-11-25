@@ -552,7 +552,8 @@ typedef enum {
   QUEUE_EVENT_ERROR_FLUSHING_INFO
 } QUEUE_EVENT_RESULT;
 QUEUE_EVENT_RESULT queue_event(Master_info *mi, const char *buf,
-                               ulong event_len, bool flush_mi = true);
+                               ulong event_len, bool flush_mi,
+                               bool& needAck, bool &rl_synced, bool local_sqlasync_group_slave_ack);
 
 int heartbeat_queue_event(bool is_valid, Master_info *&mi,
                           std::string binlog_name, uint64_t position,
@@ -624,6 +625,10 @@ bool sql_slave_killed(THD *thd, Relay_log_info *rli);
 bool is_network_error(uint errorno);
 
 int init_replica_thread(THD *thd, SLAVE_THD_TYPE thd_type);
+
+extern ulonglong sqlasyn_sendto_master;
+extern ulonglong sqlasyn_slave_relaylog_syncs;
+extern ulonglong sqlasyn_slave_recv_txns;
 
 /**
   @} (end of group Replication)

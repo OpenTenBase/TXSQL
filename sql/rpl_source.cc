@@ -76,6 +76,7 @@
 #include "sql_string.h"
 #include "thr_mutex.h"
 #include "typelib.h"
+#include "sql/thd_bottom_half.h"
 
 int max_binlog_dump_events = 0;  // unlimited
 bool opt_sporadic_binlog_dump_fail = false;
@@ -240,6 +241,44 @@ void report_slave_role(THD *thd, ulong role) {
     }
     mysql_mutex_unlock(&LOCK_replica_list);
   }
+}
+
+bool show_slave_ack(THD *thd) {
+  mem_root_deque<Item *> field_list(thd->mem_root);
+  Protocol *protocol = thd->get_protocol();
+
+  field_list.push_back(new Item_return_int("Server_id", 10, MYSQL_TYPE_LONG));
+  field_list.push_back(new Item_return_int("File_Num", MY_INT32_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG));
+  field_list.push_back(new Item_return_int("Pos", MY_INT32_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG));
+  field_list.push_back(new Item_return_int("Timestamp", MY_INT32_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG));
+  if (thd->send_result_metadata(field_list,
+                                Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF))
+    return true;
+
+  if (!g_thdBottomHalf) {
+    my_eof(thd);
+    return false;
+  }
+
+  /* Copy acked values. */
+  std::vector<AckInfo> infos;
+
+  g_thdBottomHalf->ack_container.copy(infos);
+
+  for (auto info : infos) {
+    protocol->start_row();
+    protocol->store((uint32)(info.server_id));
+    protocol->store((ulonglong)(info.ack_pos.file_no()));
+    protocol->store((ulonglong)(info.ack_pos.pos()));
+    protocol->store((ulonglong)(info.ack_time));
+
+    if (protocol->end_row()) {
+      return true;
+    }
+  }
+
+  my_eof(thd);
+  return false;
 }
 
 /**
@@ -1259,6 +1298,10 @@ bool reset_master(THD *thd, bool unlock_global_read_lock) {
     global_sid_lock->wrlock();
     ret = (gtid_state->clear(thd) != 0);
     global_sid_lock->unlock();
+  }
+
+  if (!ret && g_thdBottomHalf != nullptr) {
+    g_thdBottomHalf->reset_answer();
   }
 
 end:

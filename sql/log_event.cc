@@ -4232,6 +4232,10 @@ Query_log_event::Query_log_event(THD *thd_arg, const char *query_arg,
   slave_proxy_id = thd_arg->variables.pseudo_thread_id;
   common_header->set_is_valid(query != nullptr);
 
+  if (sql_command_flags[thd_arg->lex->sql_command] &
+      (CF_DISALLOW_IN_RO_TRANS | CF_AUTO_COMMIT_TRANS)) {
+    header()->flags |= LOG_EVENT_DDL_F;
+  }
   /*
   exec_time calculation has changed to use the same method that is used
   to fill out "thd_arg->start_time"
@@ -13504,6 +13508,12 @@ Gtid_log_event::Gtid_log_event(THD *thd_arg, bool using_trans,
                             : Log_event::EVENT_STMT_CACHE,
                 Log_event::EVENT_NORMAL_LOGGING, header(), footer()) {
   DBUG_TRACE;
+
+  if (sql_command_flags[thd_arg->lex->sql_command] &
+      (CF_DISALLOW_IN_RO_TRANS | CF_AUTO_COMMIT_TRANS)){
+    header()->flags|= LOG_EVENT_DDL_F;//it is ddl tdsql
+  }
+
   if (thd->owned_gtid.sidno > 0) {
     spec.set(thd->owned_gtid);
     sid = thd->owned_sid;

@@ -4255,6 +4255,7 @@ struct LEX : public Query_tables_list {
   */
   bool will_contextualize;
 
+  bool commit_tdsql_timeout_trxs;
   /**
     For ALTER TABLE ... WAIT[n]|NO_WAIT. Default value
     is ULONG_MAX, 0<=n<=LONG_TIMEOUT, 0 means NO_WAIT;

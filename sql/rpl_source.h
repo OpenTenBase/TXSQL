@@ -60,6 +60,7 @@ void unregister_replica(THD *thd, bool only_mine, bool need_lock_slave_list);
 void report_slave_role(THD *thd, ulong role);
 bool show_replicas(THD *thd);
 bool refresh_auto_stats_node(bool need_lock_slave_list);
+bool show_slave_ack(THD *thd);
 String *get_replica_uuid(THD *thd, String *value);
 bool show_master_status(THD *thd);
 bool show_binlogs(THD *thd);

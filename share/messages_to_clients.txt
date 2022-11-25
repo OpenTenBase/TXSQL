@@ -9980,6 +9980,10 @@ ER_RECYCLE_BIN_FAIL_OF_CONSTRAINT
 
 ER_REYCLE_BIN_INVALID_TIME
   eng "Invalid timestamp, please check the parameters of the timestamp"
+
+ER_SYNC_TIMEOUT
+  eng "The transaction is in doubt. Please check whether the transaction has been committed."
+
 ################################################################################
 # them for other error messages.
 ################################################################################

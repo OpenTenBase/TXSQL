@@ -2555,6 +2555,13 @@ Sql_cmd *PT_show_replicas::make_cmd(THD *thd) {
   return &m_sql_cmd;
 }
 
+Sql_cmd *PT_show_replicas_ack::make_cmd(THD *thd) {
+  LEX *lex = thd->lex;
+  lex->sql_command = m_sql_command;
+
+  return &m_sql_cmd;
+}
+
 Sql_cmd *PT_show_replica_status::make_cmd(THD *thd) {
   LEX *lex = thd->lex;
   lex->sql_command = m_sql_command;

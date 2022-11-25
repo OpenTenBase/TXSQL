@@ -1,0 +1,2 @@
+--thread-handling=pool-of-threads
+--binlog-format=row

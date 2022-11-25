@@ -323,6 +323,7 @@ int ignored_error_code(int err_code);
 */
 #define LOG_EVENT_MTS_ISOLATE_F 0x200
 
+#define LOG_EVENT_DDL_F 0x8000
 /** @}*/
 
 /**

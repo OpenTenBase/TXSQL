@@ -1006,5 +1006,22 @@ extern bool txsql_parallel_copy_ddl;
 extern bool opt_drop_if_exceed_recycle_limit;
 extern ulonglong g_recycle_bin_max_size;
 extern bool cdb_optimize_gtid_lock;
+
+/** tdsql: Variables to control strong consistency behavior */
+extern bool g_sqlAsyn;
+extern bool g_sqlAsyncAfterSync;
+extern bool g_reliable_relaylog;
+extern bool tdsql_allow_async;
+extern bool sqlasync_group_slave_ack;
+extern ulong g_relaylog_sync_threshold;
+extern ulong g_relaylog_fsync_ack_timeout;
+extern ulong g_relaylog_fsync_txn_count;
+extern uint g_sqlAsynTimeout;
+extern uint g_sqlAsynWarnTimeout;
+extern uint g_sqlAsyncNSlaves;
+
+class CThdBottomHalf;
+extern CThdBottomHalf *g_thdBottomHalf;
+
 /* Changes from txsql end. */
 #endif /* MYSQLD_INCLUDED */

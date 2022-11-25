@@ -687,7 +687,7 @@ void warn_about_deprecated_binary(THD *thd)
 %token  DELETE_SYM 385                    /* SQL-2003-R */
 %token  DESC 386                          /* SQL-2003-N */
 %token  DESCRIBE 387                      /* SQL-2003-R */
-%token  OBSOLETE_TOKEN_388 388            /* was: DES_KEY_FILE */
+%token  TDSQL_TIMEOUT_TRXS_SYM 388            /* TDSQL */
 %token  DETERMINISTIC_SYM 389             /* SQL-2003-R */
 %token<lexer.keyword> DIAGNOSTICS_SYM 390       /* SQL-2003-N */
 %token<lexer.keyword> DIRECTORY_SYM 391
@@ -1418,6 +1418,8 @@ void warn_about_deprecated_binary(THD *thd)
 %token<lexer.keyword> RECYCLE_BIN_SYM 1301
 %token<lexer.keyword> RECYCLE_NAME_SYM 1302
 %token<lexer.keyword> PARALLEL 1303                        /* MYSQL */
+%token<lexer.keyword> ACK_SYM  1304                     /* TDSQL */
+
 /* Changes from txsql end. */
 
 /*
@@ -14473,6 +14475,10 @@ show_replicas_stmt:
           {
             $$ = NEW_PTN PT_show_replicas(@$);
           }
+        | SHOW SLAVE ACK_SYM
+        {
+          $$ = NEW_PTN PT_show_replicas_ack(@$);
+        }
         ;
 
 show_binlog_events_stmt:
@@ -16463,6 +16469,7 @@ ident_keywords_unambiguous:
         | TDSQL_INCREMENT_SYM
         | TDSQL_ORDER_SYM
         | TDSQL_SEQUENCE_SYM
+        | TDSQL_TIMEOUT_TRXS_SYM
         | TEMPORARY
         | TEMPTABLE_SYM
         | TEXT_SYM
@@ -18259,6 +18266,12 @@ commit:
             lex->tx_chain= $3;
             lex->tx_release= $4;
           }
+        | COMMIT_SYM TDSQL_TIMEOUT_TRXS_SYM
+        {
+          LEX *lex=Lex;
+          lex->sql_command= SQLCOM_COMMIT;
+          lex->commit_tdsql_timeout_trxs = true;
+        }
         ;
 
 rollback:

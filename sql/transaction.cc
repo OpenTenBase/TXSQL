@@ -147,7 +147,9 @@ bool trans_begin(THD *thd, uint flags) {
     thd->server_status &=
         ~(SERVER_STATUS_IN_TRANS | SERVER_STATUS_IN_TRANS_READONLY);
     DBUG_PRINT("info", ("clearing SERVER_STATUS_IN_TRANS"));
+    thd->in_implict_commit = true;
     res = ha_commit_trans(thd, true);
+    thd->in_implict_commit = false;
   }
 
   thd->variables.option_bits &= ~OPTION_BEGIN;
@@ -339,6 +341,9 @@ bool trans_commit_implicit(THD *thd, bool ignore_global_read_lock) {
          !thd->in_sub_stmt &&
          !thd->get_transaction()->xid_state()->check_in_xa(false));
 
+  /* For implict committing, we shouldn't delay transaction commit in
+     after_sync mode. So here we set the flag to avoid the case  */
+  thd->in_implict_commit = true;
   if (thd->in_multi_stmt_transaction_mode() ||
       (thd->variables.option_bits & OPTION_TABLE_LOCK)) {
     /* Safety if one did "drop table" on locked tables */
@@ -350,6 +355,7 @@ bool trans_commit_implicit(THD *thd, bool ignore_global_read_lock) {
     res = ha_commit_trans(thd, true, ignore_global_read_lock);
   } else if (tc_log)
     res = tc_log->commit(thd, true);
+  thd->in_implict_commit = false;
 
   if (res == false)
     if (thd->rpl_thd_ctx.session_gtids_ctx().notify_after_transaction_commit(

@@ -31,6 +31,8 @@
 #include "sql/sql_connect.h"
 #include "sql/sql_plist.h"
 #include "sql/threadpool.h"
+#include "sql/rpl_mi.h"
+#include "sql/sql_parse.h" // finish_command
 #include "violite.h"
 #ifdef __linux__
 #include <sys/epoll.h>
@@ -47,6 +49,8 @@ typedef port_event_t native_event;
 #endif
 
 #include "sql/conn_handler/connection_handler_impl.h"
+#include "intervalcheck.h"
+#include "sql/thd_bottom_half.h"
 
 #include "sql/thread_cached_tlog.h"
 /** Maximum number of native events a listener can read in one go */
@@ -73,11 +77,13 @@ static bool threadpool_started = false;
 */
 
 #ifdef HAVE_PSI_INTERFACE
+static  PSI_mutex_key key_lockWithSqlAsyn;
 static PSI_mutex_key key_group_mutex;
 static PSI_mutex_key key_timer_mutex;
 static PSI_mutex_info mutex_list[] = {
     {&key_group_mutex, "group_mutex", 0, 0, PSI_DOCUMENT_ME},
-    {&key_timer_mutex, "timer_mutex", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME}};
+    {&key_timer_mutex, "timer_mutex", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
+    {&key_lockWithSqlAsyn, "m_lockWithSqlAsyn", 0, 0, PSI_DOCUMENT_ME}};
 
 static PSI_cond_key key_worker_cond;
 static PSI_cond_key key_timer_cond;
@@ -129,6 +135,11 @@ struct connection_t {
 #ifdef HAVE_TDSQL
   int recursion_tp_wait_beginNum;
 #endif /* HAVE_TDSQL */
+
+  // if true, the connection must be aborted by the answering thread, because it
+  // s already dispatched to T and can not be aborted by the worker thread anymore.
+  bool ans_should_abort;
+  mysql_mutex_t m_lockWithSqlAsyn;
 };
 
 typedef I_P_List<connection_t,
@@ -257,11 +268,13 @@ struct pool_timer_t {
   std::atomic<uint64> next_timeout_check;
   int tick_interval;
   bool shutdown;
+  pthread_t timer_hdl;
   bool exit;
 };
 
 static pool_timer_t pool_timer;
 
+static CMSecIntervalCheck pool_timer_intervalCheck(0 , 195);
 static void queue_put(thread_group_t *thread_group, connection_t *connection);
 static int wake_thread(thread_group_t *thread_group) noexcept;
 static void handle_event(connection_t *connection);
@@ -271,7 +284,7 @@ static int create_worker(thread_group_t *thread_group,
                          bool admin_connection = false) noexcept;
 static void *worker_main(void *param);
 static void check_stall(thread_group_t *thread_group);
-static void connection_abort(connection_t *connection);
+void connection_abort(connection_t *connection);
 static void set_next_timeout_check(uint64 abstime);
 static void print_pool_blocked_message(bool) noexcept;
 
@@ -695,7 +708,7 @@ static void *timer_thread(void *param) noexcept {
       mysql_mutex_unlock(&timer->mutex);
       break;
     }
-    if (err == ETIMEDOUT) {
+    if (err == ETIMEDOUT || pool_timer_intervalCheck.check()) {
       timer->current_microtime.store(my_microsecond_getsystime(),
                                      std::memory_order_relaxed);
 
@@ -715,6 +728,81 @@ static void *timer_thread(void *param) noexcept {
   mysql_mutex_destroy(&timer->mutex);
   my_thread_end();
   timer->exit = true;
+  return NULL;
+}
+
+/**
+  Use a dedicated thread to wake up the pool-timer thread periodically.
+  Doing it this way rater than simply calling pthread_cond_timedwait
+  can survive from manually setting system time while the server is running ---
+  As code in timer_thread() shows, the pool timer always waits via
+  mysql_cond_timedwait for a fixed time point and no one
+  ever signal it via mysql_cond_signal during normal runs --- it's only signaled
+  if the thread pool stall limit is modified, and thus we can't simply do
+  sleep(secs) in the timer thread since it has to be signaled sometimes although
+  not often.
+
+  So if system time is set to a earlier
+  point when the timer is waiting, then the timer thread will be waiting for a
+  much longer time until the system time arrives to the point that it was told
+  to wait for.
+*/
+static void *forceSignalTimer(void *param) {
+  my_thread_init();
+
+  pool_timer_t* timer = (pool_timer_t *) param;
+  
+  /* sum of micro-secs passed away since last wakeup. */
+  ulong sum_us = 0;
+
+  for(;;) {
+    if (timer->shutdown) {
+      break;
+    }
+
+    /* we have to always send ack to master here in case the ack wasn't sent earlier. */
+    if (g_reliable_relaylog) {
+      /*
+         Sleep at least 1 second to avoid frequently waking up the timer thread.
+         Don't sleep too long in case the worker threads are not waken up in
+         time. It's no harm to resume the timeout thread in such frequency.
+      */
+      uint slsecs = pool_timer_intervalCheck.getInterval() / 1000;
+      if (slsecs < 1)
+        slsecs = 1;
+      if (slsecs > 10)
+        slsecs = 10;
+
+      ulong us_sleep = g_relaylog_fsync_ack_timeout;
+
+      if (!g_sqlAsyn) {
+        sleep(slsecs);// the interval should go with stall-limit.
+      } else if (mysqld_server_started) {
+        if (us_sleep / 1000000 > slsecs)
+          us_sleep = slsecs * 1000000;
+        else if (us_sleep < 100000)
+          us_sleep = 100000;
+        usleep(us_sleep);
+        sum_us += us_sleep;
+        sync_relaylog_ack_all_masters();
+        if (timer->shutdown)
+          break;
+      }
+
+      if (timer->shutdown)
+        break;
+      if (!g_sqlAsyn || ((sum_us + us_sleep) / 1000000 >= slsecs)) {
+        sum_us = 0;
+        mysql_cond_signal(&(pool_timer.cond)); //FIXME
+      }
+    } else {
+      sleep(1);
+      mysql_cond_signal(&(pool_timer.cond));
+    }
+  }
+
+  my_thread_end();
+
   return NULL;
 }
 
@@ -849,6 +937,11 @@ static bool start_timer(pool_timer_t *timer) noexcept {
   timer->shutdown = false;
   if (mysql_thread_create(key_timer_thread, &thread_id, NULL, timer_thread, timer))
     return true;
+
+  pthread_t tmp;
+  pthread_create(&tmp,NULL,forceSignalTimer,timer);
+  timer->timer_hdl = tmp;
+
   return false;
 }
 
@@ -868,6 +961,8 @@ static void stop_timer(pool_timer_t *timer) noexcept {
     usleep(timer->tick_interval * 1000ULL / 5);
   }
 #endif
+
+  pthread_join(timer->timer_hdl, NULL);
 
   return;
 }
@@ -1646,6 +1741,9 @@ static connection_t *alloc_connection(THD *thd) noexcept {
 #ifdef HAVE_TDSQL
   connection->recursion_tp_wait_beginNum = 0;
 #endif /* HAVE_TDSQL */
+    connection->ans_should_abort= false;
+    mysql_mutex_init(key_lockWithSqlAsyn , &connection->m_lockWithSqlAsyn ,
+                     MY_MUTEX_INIT_FAST);
   }
   return connection;
 }
@@ -1707,7 +1805,7 @@ bool Thread_pool_connection_handler::add_connection(
   Terminate connection.
 */
 
-static void connection_abort(connection_t *connection) {
+void connection_abort(connection_t *connection) {
   DBUG_TRACE;
   thread_group_t *group = connection->thread_group;
 
@@ -1716,6 +1814,7 @@ static void connection_abort(connection_t *connection) {
   mysql_mutex_lock(&group->mutex);
   group->connection_count--;
   mysql_mutex_unlock(&group->mutex);
+  mysql_mutex_destroy(&connection->m_lockWithSqlAsyn);
 
   my_free(connection);
   return;
@@ -1948,6 +2047,11 @@ static void handle_event(connection_t *connection) {
 
   set_max_req_inq_wait_time(connection);
 
+
+  // Make sure the connection->thd isn't used by the answering thread before we
+  // finish using it here.
+  mysql_mutex_lock(&connection->m_lockWithSqlAsyn);
+
   if (!connection->logged_in) {
     err = threadpool_add_connection(connection->thd);
     connection->logged_in = true;
@@ -2011,6 +2115,7 @@ io:
               ->migrate(thd)) {
         threadpool_remove_connection_except_psi(thd);
       }
+      mysql_mutex_unlock(&connection->m_lockWithSqlAsyn);
       return;
     } else if (Connection_handler_manager::thread_handling_switch_mode ==
                Connection_handler_manager::SHARP_SWITCH_MODE) {
@@ -2019,11 +2124,55 @@ io:
     }
   }
 
-  set_wait_timeout(connection);
-  err = start_io(connection);
+  if (false == connection->thd->m_asyncAns) {
+    /*
+       The connection's request has just been processed, so now we need to set
+       the timeout value for it so that if no reqs come from it or not processed in
+       time, the connection can be killed. This is called concurrently.
+    */
+    set_wait_timeout(connection);
+
+    /*
+       Rebind the connection's socket to epoll's FDs. The THDs waiting to be
+       execute its bottom-half work can not be bound now, they will be bound
+       after its bottom half work is performed.
+    */
+    err = start_io(connection);
+  }
 
 end:
-  if (err) connection_abort(connection);
+  assert(connection->ans_should_abort == false);
+  if (err) {
+    bool thd_removed= false;
+    enum enum_server_command command= COM_END;
+    if (connection->thd->m_asyncAns) {
+      /*
+         The thd at this point may have been dispatched to an answering thread T by
+         the bottom half udp svr thread, but T can't have started using it since we
+         have the lock connection->m_lockWithSqlAsyn.
+         If !thd_removed, the connection has already been dispatched to an
+         answering thread T, and T should abort the connection instead of doing its
+         bottom half work.
+      */
+      if (!connection->thd->m_asyncAns || thd_removed) {
+        if (thd_removed && connection->thd->m_delay_commit) {
+          sql_print_error("commit the delay commit connection before connection_abort");
+          CThdKey key(command, connection->thd, false);
+          CThdBottomHalfAnsThread::deal_answered_thd(key, true);
+        } else {
+          connection_abort(connection);
+        }
+      }
+    }
+
+    mysql_mutex_unlock(&connection->m_lockWithSqlAsyn);
+
+    // Otherwise the answering thread owns the connection and should abort it.
+    if (!connection->thd->m_asyncAns || thd_removed)
+      connection_abort(connection);
+  } else {
+    mysql_mutex_unlock(&connection->m_lockWithSqlAsyn);
+  }
   return;
 }
 
@@ -2095,6 +2244,15 @@ bool tp_init() {
 #endif
 
   pool_timer.tick_interval = threadpool_stall_limit;
+
+  // The forceSignalTimer() thread will signal the timer thread 5 milliseconds
+  // ahead so that the timer thread can wake up in time.
+  uint inteverl = threadpool_stall_limit;
+  if(inteverl > 5){
+    inteverl -= 5;
+  }
+  pool_timer_intervalCheck.setInterval(inteverl);
+
   pool_timer.exit = false;
   if (start_timer(&pool_timer)) {
     sql_print_error("failed to start threadpool timer thread");
@@ -2177,6 +2335,13 @@ void tp_set_threadpool_stall_limit(uint limit) noexcept {
   if (!threadpool_started) return;
   mysql_mutex_lock(&(pool_timer.mutex));
   pool_timer.tick_interval = limit;
+
+  uint inteverl = limit;
+  if(inteverl > 5) {
+    inteverl -= 5;
+  }
+  pool_timer_intervalCheck.setInterval(inteverl);
+
   mysql_mutex_unlock(&(pool_timer.mutex));
   mysql_cond_signal(&(pool_timer.cond));
 }
@@ -2360,4 +2525,51 @@ bool show_threadpool_status(THD *thd) {
 
   my_eof(thd);
   return false;
+}
+
+int detach_io(THD *thd) {
+  connection_t *connection = (connection_t *) thd->event_scheduler.data;
+  if (connection) {
+    Vio *vio = connection->thd->get_protocol_classic()->get_vio();
+    int fd = mysql_socket_getfd(vio->mysql_socket);
+
+    thread_group_t *group = &all_groups[connection->thd->thread_id() % group_count];
+
+    if (connection->bound_to_poll_descriptor) {
+      io_poll_disassociate_fd (group->pollfd, fd);
+      connection->bound_to_poll_descriptor = false;
+    }
+  }
+
+  return 0;
+}
+
+bool bindThdToEvent(THD *thd) {
+  int err = 0;
+
+  connection_t * connection = (connection_t*) (thd->event_scheduler.data);
+
+  if (connection) {
+    set_wait_timeout(connection);
+    /**
+      Because we set EPOLLONESHOT to the epoll flags, we need to call
+     start_io after processing every event to rebind the socket to
+     epoll.
+    */
+    err= start_io(connection);
+  }
+
+  return (0 == err);
+}
+
+void lock_conn_sqlasync(connection_t *connection) {
+  mysql_mutex_lock(&connection->m_lockWithSqlAsyn);
+}
+
+void unlock_conn_sqlasync(connection_t *connection) {
+  mysql_mutex_unlock(&connection->m_lockWithSqlAsyn);
+}
+
+bool connection_should_abort(connection_t *connection) {
+  return connection->ans_should_abort;
 }

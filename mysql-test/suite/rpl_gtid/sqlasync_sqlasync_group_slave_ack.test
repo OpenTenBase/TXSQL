@@ -1,0 +1,209 @@
+--source include/not_group_replication_plugin.inc
+--source include/have_debug.inc
+--source include/master-slave.inc
+
+#select @@global.gtid_mode;
+set global gtid_mode = 'off_permissive';
+set global gtid_mode = 'on_permissive';
+set global gtid_mode = 'ON';
+set gtid_next='automatic';
+
+call mtr.add_suppression("Error reading relay log event for channel '': binlog truncated in the middle of event; consider out of disk space");
+call mtr.add_suppression("Relay log read failure: Could not parse relay log event entry. The possible reasons are *");
+call mtr.add_suppression("Error reading GTIDs from relaylog *");
+call mtr.add_suppression("GTID_LOG_EVENT or ANONYMOUS_GTID_LOG_EVENT is not expected in an event stream in the middle of a DML *");
+call mtr.add_suppression("An unexpected event sequence was detected by the IO thread while queuing the event received from master *");
+CALL mtr.add_suppression("aborting in bottom half answering thread, reason");
+CALL mtr.add_suppression("rpl_slave_ack_thread::flush_and_ack get error,so we should stop io thread");
+CALL mtr.add_suppression("may be Failed to flush master info");
+
+--connection master
+
+select @@sqlasyn;
+select @@thread_handling;
+select @@sqlasync_group_slave_ack;
+
+--connection slave
+select @@sqlasyn;
+select @@thread_handling;
+select @@sqlasync_group_slave_ack;
+
+
+# create database for testing
+--connection master
+create table t1(a int primary key, b int);
+
+#insert 2 rows
+insert into t1 values (0,0);
+insert into t1 values (1,1);
+
+--echo "the master node get 2 rows"
+select *from t1;
+
+--source include/sync_slave_sql_with_master.inc
+
+#verify the slave have synced all records(2 rows)
+--connection slave
+--echo "the slave node get 2 rows"
+select *from t1;
+
+
+--connection slave
+#now the rpl_slave_ack_thread sql thread can't get newst info from next second lines,and the master will get XA_RBTIMEOUT
+set global debug='+d,rpl_slave_ack_thread_sleep'; 
+
+
+--connection master
+select *from t1;
+--error ER_XA_RBTIMEOUT
+insert into t1 values (2,2); #the slave can't read this line
+
+# lose connection, reconnect to master
+let $rpl_connection_name= master;
+--source include/rpl_connection.inc
+--enable_reconnect
+--error ER_XA_RBTIMEOUT
+insert into t1 values (3,3); #the slave can't read this line
+
+# lose connection, reconnect to master
+let $rpl_connection_name= master;
+--source include/rpl_connection.inc
+--enable_reconnect
+--error ER_XA_RBTIMEOUT
+insert into t1 values (4,4); #the slave can't read this line
+
+# lose connection, reconnect to master
+let $rpl_connection_name= master;
+--source include/rpl_connection.inc
+--enable_reconnect
+#the master will get 5 rows
+--echo "although sqlasyn timeout,but the master node can read 5 rows"
+select *from t1;
+--source include/sync_slave_io_with_master.inc
+
+--sleep 3 #make sure the slave sql thread have read all relay log
+
+--connection slave
+#the slave will just get 2 rows(because the group ack thread don't write&flush newst records)
+--echo "because the slave node set rpl_slave_ack_thread_sleep,so the slave node just can read 2 rows"
+select *from t1;
+set global debug='+d,rpl_slave_ack_thread_run';
+
+--connection master
+--source include/sync_slave_sql_with_master.inc
+
+
+#the slave will just get 5 rows(because the group ack thread is working)
+--connection slave
+--echo "after the slave node set rpl_slave_ack_thread_run, the slave node just can read 5 rows"
+select *from t1;
+
+
+--echo "begin test slave stop slave"
+
+--connection slave
+#now the rpl_slave_ack_thread sql thread can't get newst info from next second lines,and the master will get XA_RBTIMEOUT
+set global debug='+d,rpl_slave_ack_thread_sleep'; 
+
+--connection master
+--echo "now the master has 5 rows"
+select *from t1;
+--error ER_XA_RBTIMEOUT
+insert into t1 values (5,5);
+let $rpl_connection_name= master;
+--source include/rpl_connection.inc
+--enable_reconnect
+--echo "now the master has 6 rows"
+select *from t1;
+#select @@global.gtid_executed;
+
+--connection slave
+#the slave will just get 5 rows(because the group ack thread don't write&flush newst records)
+--echo "because the slave node set rpl_slave_ack_thread_sleep,so the slave node just can read 5 rows"
+select *from t1;
+
+
+--connection slave 
+--echo "restart slave"
+--source include/kill_and_restart_mysqld.inc
+--let $rpl_server_number= 2
+--source include/rpl_reconnect.inc
+start slave;
+
+
+--connection master
+--source include/sync_slave_sql_with_master.inc
+
+--connection slave
+--echo "after restart slave,so the slave node just can read 6 rows"
+select *from t1;
+#show slave status ;
+
+
+--echo "end test slave restart"
+
+#test rpl_slave_ack_thread_flush_and_ack_fail
+--connection master
+insert into t1 values (6,6);
+--echo "the master node get 7 rows"
+select *from t1;
+--source include/sync_slave_sql_with_master.inc
+
+--connection slave
+--echo "the slave node just can read 7 rows"
+select *from t1;
+set global debug='+d,rpl_slave_ack_thread_flush_and_ack_fail'; #now the io thread will stop
+
+
+--connection master
+insert into t1 values (7,7); #success
+insert into t1 values (8,8); #success
+--echo "the master node get 9 rows"
+select *from t1;
+
+#now rpl_slave_ack_thread_flush_and_ack_fail will stop io thread,wo the sqlasyn will timeout
+--error ER_XA_RBTIMEOUT
+insert into t1 values (9,9); 
+let $rpl_connection_name= master;
+--source include/rpl_connection.inc
+--enable_reconnect
+--echo "the master node get 10 rows"
+select *from t1;
+
+--connection slave
+let $last_io_error= query_get_value(SHOW SLAVE STATUS, Last_IO_Error, 1);
+let $assert_text= when set rpl_slave_ack_thread_flush_and_ack_fail,the io thread should stop;
+let $assert_cond= "$last_io_error" = "Fatal error: global_slave_ack_thread->is_fail_when_check(),may be Failed to flush master info";
+source include/assert.inc;
+--echo "the slave node get 9 rows,and the io thread stoped"
+select *from t1;
+start slave io_thread;
+
+--connection master
+insert into t1 values (10,10); 
+--source include/sync_slave_sql_with_master.inc
+
+--connection slave
+--echo "after start io thread,the slave node get 11 rows"
+select *from t1;
+
+
+# show status 
+#--connection master
+#--replace_column 2 #
+#show status like 'sqlasyn_%';
+#--connection slave
+#--replace_column 2 #
+#show status like 'sqlasyn_%';
+
+
+#cleanup
+--connection master
+drop table t1;
+--source include/sync_slave_sql_with_master.inc
+
+
+--connection master
+--source include/rpl_end.inc
+set global gtid_mode = 'on_permissive';
+set global gtid_mode = 'OFF_PERMISSIVE';

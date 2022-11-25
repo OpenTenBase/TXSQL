@@ -986,6 +986,7 @@ MySQL clients support the protocol:
 #include "my_md5.h"
 #include <set>
 #include "cdb_sql_filter.h"
+#include "sql/thd_bottom_half.h"
 
 using std::max;
 using std::min;
@@ -996,6 +997,7 @@ using std::vector;
 #include "sql/threadpool.h"
 #include <set>
 #include "sql/protocol_classic.h"
+#include "sql/rpl_slave_ack_thread.h"
 
 char *mysqld_admin_port_init_tool = nullptr;
 char *mysqld_admin_port_init_tool_md5 = nullptr;
@@ -1250,6 +1252,9 @@ ulong log_error_verbosity = 3;  // have a non-zero value during early start-up
 bool opt_keyring_migration_to_component = false;
 bool opt_persist_sensitive_variables_in_plaintext{true};
 char *opt_cdb_column_encryption_whitelist = NULL;
+
+extern ulonglong sqlasync_group_slave_relay_fsync;
+extern ulonglong sqlasync_group_slave_push_to_queue_fail;
 
 ulong opt_myisam_conversion_innodb;
 ulong opt_tencent_myisam_conversion_innodb;
@@ -1817,6 +1822,34 @@ typedef ib_counter_t<std::atomic<int64>, 128, default_indexer_t, int64>
 atomic_int64_t total_server_memory_used;
 atomic_int64_t total_innodb_memory_used;
 atomic_int64_t total_pfs_memory_used;
+
+/** tdsql: Variables to control strong consistency behavior */
+bool g_sqlAsyn = false;
+bool g_sqlAsyncAfterSync = false;
+bool g_reliable_relaylog = true;
+bool tdsql_allow_async = false;
+bool sqlasync_group_slave_ack = true;
+ulong g_relaylog_sync_threshold;
+ulong g_relaylog_fsync_ack_timeout;
+ulong g_relaylog_fsync_txn_count;
+uint g_sqlAsynTimeout;
+uint g_sqlAsynWarnTimeout;
+CThdBottomHalf *g_thdBottomHalf = nullptr;
+uint g_sqlAsyncNSlaves = 1;
+
+rpl_slave_ack_thread * global_slave_ack_thread = NULL;
+
+void clean_txsql_thread_resouce() {
+  if(global_slave_ack_thread) {
+    delete global_slave_ack_thread;
+    global_slave_ack_thread = NULL;
+  }
+  if (g_thdBottomHalf) {//run this,all thd have been destored,so we can safely delete g_thdBottomHalf
+    delete g_thdBottomHalf;
+    g_thdBottomHalf = nullptr;
+  }
+}
+
 /* Changes from txsql end. */
 
 namespace {
@@ -2651,6 +2684,7 @@ static void unireg_abort(int exit_code) {
   clean_up(!is_help_or_validate_option() && !daemon_launcher_quiet &&
            (exit_code || !opt_initialize)); /* purecov: inspected */
   DBUG_PRINT("quit", ("done with cleanup in unireg_abort"));
+  clean_txsql_thread_resouce();
   mysqld_exit(exit_code);
 }
 
@@ -3398,6 +3432,16 @@ static bool network_init(void) {
     if (report_port == 0) report_port = mysqld_port;
 
     if (!opt_disable_networking) assert(report_port != 0);
+
+    if (Connection_handler_manager::thread_handling
+        == Connection_handler_manager::SCHEDULER_THREAD_POOL) {
+      g_thdBottomHalf = new CThdBottomHalf(my_bind_addr_str, mysqld_port, threadpool_size);
+      if (!g_thdBottomHalf->init()) {
+        sql_print_error("CThdBottomHalf listen(%s : %d) on UDP failed with error %s",
+                        my_bind_addr_str, mysqld_port,g_thdBottomHalf->getErrMsg());
+        return true;
+      }
+    }
   }
 #ifdef _WIN32
   // Create named pipe
@@ -3949,6 +3993,10 @@ void my_message_sql(uint error, const char *str, myf MyFlags) {
     /* At least, prevent new abuse ... */
     assert(strncmp(str, "MyISAM table", 12) == 0);
     error = ER_UNKNOWN_ERROR;
+  } else if (error == ER_SYNC_TIMEOUT ) {
+    /* TDSQL: In order to maintain compatibility, the error 
+       code must be the same as ER_XA_RBTIMEOUT. */
+    error = ER_XA_RBTIMEOUT;
   }
 
   /* Caller wishes to inform client, and one is attached. */
@@ -4572,6 +4620,10 @@ SHOW_VAR com_status_vars[] = {
     {"show_replica_status",
      (char *)offsetof(System_status_var,
                       com_stat[(uint)SQLCOM_SHOW_SLAVE_STAT]),
+     SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
+    {"show_slave_ack",
+     (char *)offsetof(System_status_var,
+                      com_stat[(uint)SQLCOM_SHOW_SLAVE_ACK]),
      SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
     {"show_slave_status",
      (char *)offsetof(System_status_var,
@@ -8793,6 +8845,13 @@ int mysqld_main(int argc, char **argv)
     seq_cache_lock.destroy();
   }
 
+  if(global_slave_ack_thread) {
+    global_slave_ack_thread->stop();
+  }
+  if (g_thdBottomHalf) {
+    g_thdBottomHalf->stop_all();
+  }
+
 #ifdef HAVE_PSI_THREAD_INTERFACE
   /*
     Disable the main thread instrumentation,
@@ -8817,6 +8876,7 @@ int mysqld_main(int argc, char **argv)
     LogErr(WARNING_LEVEL, ER_CANT_JOIN_SHUTDOWN_THREAD, "signal_", ret);
 #endif  // _WIN32
 
+  clean_txsql_thread_resouce();
   clean_up(true);
   mysqld_exit(signal_hand_thr_exit_code);
 }
@@ -10584,6 +10644,23 @@ SHOW_VAR status_vars[] = {
      SHOW_SCOPE_GLOBAL},
     {"recycle_bin_size", (char *)&show_recycle_bin_size,
      SHOW_FUNC, SHOW_SCOPE_GLOBAL},
+    //master
+#ifdef HAVE_TDSQL
+    {"sqlasyn_get_slave_ans", (char*) &sqlasyn_get_slave_ans, SHOW_LONGLONG, SHOW_SCOPE_GLOBAL},
+    {"sqlasyn_get_slave_ans_skip", (char*) &sqlasyn_get_slave_ans_skip, SHOW_LONGLONG, SHOW_SCOPE_GLOBAL},
+    {"sqlasyn_deal_trx_by_ans", (char*) &sqlasyn_deal_trx_by_ans, SHOW_LONGLONG, SHOW_SCOPE_GLOBAL},
+    {"sqlasyn_deal_trx_by_fast_ans", (char*) &sqlasyn_deal_trx_by_fast_ans, SHOW_LONGLONG, SHOW_SCOPE_GLOBAL},
+    {"sqlasyn_exceed_warn_num", (char*) &sqlasyn_exceed_warn_num, SHOW_LONGLONG, SHOW_SCOPE_GLOBAL},
+    {"sqlasyn_timeout_num", (char*) &sqlasyn_timeout_num, SHOW_LONGLONG, SHOW_SCOPE_GLOBAL},
+    {"sqlasync_delay_commit", (char*) &sqlasync_delay_commit, SHOW_LONGLONG, SHOW_SCOPE_GLOBAL},
+    {"sqlasync_uncommitted_timeout_trxs", (char*) &sqlasync_uncommitted_timeout_trxs, SHOW_LONGLONG, SHOW_SCOPE_GLOBAL},
+    //slave
+    {"sqlasyn_acks_to_master", (char*) &sqlasyn_sendto_master, SHOW_LONGLONG, SHOW_SCOPE_GLOBAL},
+    {"sqlasyn_slave_recv_txns", (char*) &sqlasyn_slave_recv_txns, SHOW_LONGLONG, SHOW_SCOPE_GLOBAL},
+    {"sqlasyn_slave_relaylog_syncs", (char*) &sqlasyn_slave_relaylog_syncs, SHOW_LONGLONG, SHOW_SCOPE_GLOBAL},
+    {"sqlasync_group_slave_relay_fsync", (char*) &sqlasync_group_slave_relay_fsync, SHOW_LONGLONG, SHOW_SCOPE_GLOBAL},
+    {"sqlasync_group_slave_push_to_queue_fail", (char*) &sqlasync_group_slave_push_to_queue_fail, SHOW_LONGLONG, SHOW_SCOPE_GLOBAL},
+#endif
     {NullS, NullS, SHOW_LONG, SHOW_SCOPE_ALL}};
 
 void add_terminator(vector<my_option> *options) {

@@ -20,6 +20,10 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
 
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
 #include "sql/rpl_applier_reader.h"
 #include "include/mutex_lock.h"
 #include "mysql/components/services/log_builtins.h"
@@ -257,7 +261,16 @@ Log_event *Rpl_applier_reader::read_next_event(
 
   if (m_relaylog_file_reader.get_error_type() == Binlog_read_error::READ_EOF &&
       !m_reading_active_log) {
-    if (!move_to_next_log()) return read_next_event(apply_unit, unmatch_event_info);
+    if (!move_to_next_log()) {
+      ++ read_next_relay_log_num;
+      return read_next_event(apply_unit, unmatch_event_info);
+    }
+  } else if (!read_next_relay_log_num && !m_reading_active_log) { //we can truncate the relay log,when the relay log is the first and is not active
+    truncate_relaylog(m_linfo.log_file_name,m_rli->get_event_start_pos());
+  } else {
+    sql_print_information("read_next_relay_log_num:%lu,m_reading_active_log:%d,so can't call truncate_relaylog,current relay log:%s",
+                          read_next_relay_log_num,m_reading_active_log,m_linfo.log_file_name);
+
   }
 
   LogErr(ERROR_LEVEL, ER_RPL_SLAVE_ERROR_READING_RELAY_LOG_EVENTS,
@@ -590,3 +603,38 @@ void Rpl_applier_reader::reset_seconds_behind_master() {
   if (!m_rli->is_parallel_exec() || m_rli->gaq->empty())
     m_rli->last_master_timestamp = 0;
 }
+uint64_t Rpl_applier_reader::read_next_relay_log_num = 0;
+
+void Rpl_applier_reader::truncate_relaylog(const char * log_file_name, my_off_t pos) {
+
+  sql_print_information("Rpl_applier_reader::truncate_relaylog readying truncate file to %s:%lu", log_file_name, (unsigned long)pos);
+
+  struct stat current_stat;
+  bzero(&current_stat,sizeof(current_stat));
+  ::stat(log_file_name, &current_stat);
+  if(current_stat.st_size <= (off_t)pos) {
+    sql_print_information("Rpl_applier_reader::truncate_relaylog readying truncate file to %s:%lu,but the file size is %lu,is too small ,so can't truncate",
+                          log_file_name, (unsigned long)pos, (unsigned long)current_stat.st_size);
+    return ;
+  }
+
+  char bak_file_name[1024] = {0};
+  snprintf(bak_file_name, sizeof(bak_file_name), "%s.bak", log_file_name);
+
+  if( 0 != my_copy(log_file_name, bak_file_name, MYF(MY_HOLD_ORIGINAL_MODES|MY_COPYTIME)) ) {
+    sql_print_information("Rpl_applier_reader::truncate_relaylog readying truncate file to %s:%lu,but my_copy fail", log_file_name, (unsigned long)pos);
+    return ;
+  }
+
+  if (truncate(log_file_name,pos) != 0) {
+    sql_print_information("Rpl_applier_reader::truncate_relaylog readying truncate file to %s:%lu,truncate fail:%d,%s",
+                          log_file_name, (unsigned long)pos, errno, strerror(errno));
+    return ;
+  }
+
+  sql_print_information("Rpl_applier_reader::truncate_relaylog truncate file to %s:%lu success,good luck", log_file_name, (unsigned long)pos);
+
+  return ;
+
+}
+
