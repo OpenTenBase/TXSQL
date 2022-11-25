@@ -1,3 +1,4 @@
+--source include/have_txsql.inc
 --echo #
 --echo # Test recycle bin compatibility after upgrading from 8022
 --echo #
