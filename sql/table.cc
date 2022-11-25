@@ -3311,6 +3311,13 @@ int closefrm(TABLE *table, bool free_share) {
     /* Allocated through table->mem_root, freed below */
     free_items(table->part_info->item_list);
     table->part_info->item_list = nullptr;
+    {
+      /* Release the memory not alloc in mem_root of TABLE.
+      Fix from ragnarkong.
+      */
+      std::vector<int> tmp_vec;
+      tmp_vec.swap(table->part_info->m_pNoVec);
+    }
     table->part_info = nullptr;
   }
   if (free_share) {
