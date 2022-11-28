@@ -1,0 +1,15 @@
+create table t1(c1 int primary key, c2 int);
+insert into t1 values(1,1);
+
+--let restart_parameters="restart: --innodb_quickly_stoped=on"
+--source include/restart_mysqld.inc
+
+begin;
+insert into t1 values(2,2);
+
+--let restart_parameters="restart: --innodb_quickly_stoped=off"
+--source include/restart_mysqld.inc
+
+select * from t1;
+
+drop table t1;

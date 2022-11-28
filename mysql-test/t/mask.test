@@ -57,6 +57,22 @@ select a from t3;
 select a + 1 from t3;
 
 connection default;
+alter table t2 alter column b set mask(1-2);
+
+connection con2;
+select * from t2;
+update t2 set b='2' where a=1;
+
+
+connection default;
+alter table t2 alter column a set mask(1-2);
+select * from t2;
+
+connection con2;
+select * from t2;
+
+
+connection default;
 disconnect con2;
 
 drop user sb;
