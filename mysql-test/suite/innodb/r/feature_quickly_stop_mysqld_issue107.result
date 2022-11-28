@@ -1,0 +1,10 @@
+create table t1(c1 int primary key, c2 int);
+insert into t1 values(1,1);
+# restart: --innodb_quickly_stoped=on
+begin;
+insert into t1 values(2,2);
+# restart: --innodb_quickly_stoped=off
+select * from t1;
+c1	c2
+1	1
+drop table t1;

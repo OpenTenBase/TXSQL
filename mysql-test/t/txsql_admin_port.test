@@ -1,0 +1,39 @@
+
+call mtr.add_suppression("TXSQL: Prevent ordinary users from logging in to admin port");
+call mtr.add_suppression("Failed to set up SSL because");
+call mtr.add_suppression("Failed to initialize TLS for channel: mysql_admin");
+
+CREATE USER 'user1'@'localhost';
+grant all privileges on *.* to 'user1'@'localhost';
+
+let $ADMIN_ADDRESS =  `SELECT @@global.admin_address`;
+let $ADMIN_PORT =  `SELECT @@global.admin_port`;
+
+--connect(tencentroot,localhost,tencentroot)
+
+--connection tencentroot
+let $cdb_admin_port_allow_for_normal_user_old =  `SELECT @@global.cdb_admin_port_allow_for_normal_user`;
+set global cdb_admin_port_allow_for_normal_user=on;
+
+
+connect(con_admin,$ADMIN_ADDRESS,user1,,test,$ADMIN_PORT);
+disconnect con_admin;
+
+connect(con_normal,$ADMIN_ADDRESS,user1,,test,$MASTER_MYPORT);
+disconnect con_normal;
+
+
+--connection tencentroot
+set global cdb_admin_port_allow_for_normal_user=off;
+--error ER_LOGIN_FROM_ADMIN_PORT_NOT_ALLOWED
+connect(con_admin,$ADMIN_ADDRESS,user1,,test,$ADMIN_PORT);
+
+connect(con_normal,$ADMIN_ADDRESS,user1,,test,$MASTER_MYPORT);
+disconnect con_normal;
+
+
+--connection tencentroot
+eval set global cdb_admin_port_allow_for_normal_user=$cdb_admin_port_allow_for_normal_user_old;
+
+
+drop user 'user1'@'localhost';

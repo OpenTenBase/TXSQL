@@ -113,6 +113,24 @@ a + 1
 1
 1
 1
+alter table t2 alter column b set mask(1-2);
+select * from t2;
+a	b
+1	**.1
+2	**.1
+11	**13.2
+update t2 set b='2' where a=1;
+alter table t2 alter column a set mask(1-2);
+select * from t2;
+a	b
+1	2
+2	**.1
+11	**13.2
+select * from t2;
+a	b
+0	*
+0	**.1
+0	**13.2
 drop user sb;
 drop table t1;
 drop table t2;
