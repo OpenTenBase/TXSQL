@@ -4217,6 +4217,8 @@ extern LEX_CSTRING RLI_INFO_NAME;
 extern LEX_CSTRING MI_INFO_NAME;
 extern LEX_CSTRING WORKER_INFO_NAME;
 
+extern LEX_CSTRING RESOURCE_GROUP_EXTRA_SCHEMA_NAME;
+
 inline bool is_infoschema_db(const char *name, size_t len) {
   return (
       INFORMATION_SCHEMA_NAME.length == len &&

@@ -432,6 +432,12 @@ extern ulonglong sqlasync_uncommitted_timeout_trxs;
 */
 #define CF_ALLOW_ACCESS_CDB_RECYCLE_BIN_SCHEMA (1U << 22)
 
+/**
+  Identifies statements and commands that are allowd to access
+  resource_group_extra schema tables
+*/
+#define CF_ALLOW_ACCESS_RESOURCE_GROUP_EXTRA_SCHEMA (1U << 24)
+
 /* Bits in server_command_flags */
 
 /**
