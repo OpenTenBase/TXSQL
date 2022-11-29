@@ -1940,12 +1940,9 @@ static void set_wait_timeout(connection_t *c) noexcept {
     one tick interval.
   */
 
-  /* !!!FIXME: change variables.net_wait_timeout to get_wait_timeout in "kill
-  idle transaction timeout" feature. */
   c->abs_wait_timeout =
       pool_timer.current_microtime.load(std::memory_order_relaxed) +
-      1000LL * pool_timer.tick_interval +
-      1000000LL * c->thd->variables.net_wait_timeout;
+      1000LL * pool_timer.tick_interval + 1000000LL * c->thd->get_wait_timeout();
 
   set_next_timeout_check(c->abs_wait_timeout);
   return;

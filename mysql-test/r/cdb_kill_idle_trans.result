@@ -64,6 +64,27 @@ a
 SELECT * FROM t1;
 ERROR HY000: The client was disconnected by the server because of inactivity. See wait_timeout and interactive_timeout for configuring this behavior.
 # connection default
+#
+# Test that feature works in threadpool
+#
+set global thread_handling=2;
+# Take row locks in connection conn1
+BEGIN;
+SELECT * FROM t1 FOR UPDATE;
+a
+4
+4
+# Take row locks in connection default
+UPDATE t1 SET a=4;
+SELECT * FROM t1;
+a
+4
+4
+# Show that connection conn1 has been killed
+SELECT * FROM t1;
+ERROR HY000: The client was disconnected by the server because of inactivity. See wait_timeout and interactive_timeout for configuring this behavior.
+# connection default
 # Cleanup
 DROP TABLE t1;
+set global thread_handling=0;
 SET GLOBAL cdb_kill_idle_trans_timeout= saved_cdb_kill_idle_trans_timeout;

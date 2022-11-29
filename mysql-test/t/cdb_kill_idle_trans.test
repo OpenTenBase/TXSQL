@@ -95,8 +95,37 @@ SELECT * FROM t1;
 --disconnect conn1
 --connection default
 
+--echo #
+--echo # Test that feature works in threadpool
+--echo #
+
+set global thread_handling=2;
+--echo # Take row locks in connection conn1
+--connect (conn1,localhost,root,,)
+--connection conn1
+
+BEGIN;
+SELECT * FROM t1 FOR UPDATE;
+
+--echo # Take row locks in connection default
+--connection default
+sleep 1.5;
+UPDATE t1 SET a=4;
+SELECT * FROM t1;
+
+--echo # Show that connection conn1 has been killed
+--connection conn1
+--error ER_CLIENT_INTERACTION_TIMEOUT
+SELECT * FROM t1;
+
+--echo # connection default
+--disconnect conn1
+--connection default
+
 --echo # Cleanup
 DROP TABLE t1;
+set global thread_handling=0;
+
 --replace_result $saved_cdb_kill_idle_trans_timeout saved_cdb_kill_idle_trans_timeout
 eval SET GLOBAL cdb_kill_idle_trans_timeout= $saved_cdb_kill_idle_trans_timeout;
 --source include/wait_until_count_sessions.inc
