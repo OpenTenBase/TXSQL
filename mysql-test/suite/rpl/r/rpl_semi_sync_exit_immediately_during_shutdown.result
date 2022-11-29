@@ -56,6 +56,7 @@ a
 # get the times of retry
 DATE_TIME [Note] [MY-040009] [Repl] received ack or shutdown, retry to check binlog file and postion
 DATE_TIME [Note] [MY-040009] [Repl] received ack or shutdown, retry to check binlog file and postion
+DATE_TIME [Note] [MY-040009] [Repl] received ack or shutdown, retry to check binlog file and postion
 [connection master]
 select * from t1;
 a
