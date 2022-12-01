@@ -1317,6 +1317,7 @@ void THD::cleanup_connection(void) {
   user_vars.clear();
   sp_cache_clear(&sp_proc_cache);
   sp_cache_clear(&sp_func_cache);
+  mdl_blocked = false;
 
   clear_error();
   // clear the warnings

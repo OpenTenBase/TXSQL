@@ -62,6 +62,9 @@
 #include "sql/table.h"        // TABLE
 #include "sql/transaction.h"  // trans_commit_stmt()
 #include "sql/transaction_info.h"
+#include "sql/log.h"  // sql_print_information
+#include "sql/protocol.h"
+#include "sql/protocol_classic.h"
 #include "sql_string.h"
 #include "thr_lock.h"
 
@@ -731,6 +734,8 @@ void Sql_cmd_truncate_table::truncate_temporary(THD *thd,
 bool Sql_cmd_truncate_table::execute(THD *thd) {
   DBUG_TRACE;
 
+  NONBLOCK_DDL_INIT(retry_truncate_table);
+
   TABLE_LIST *first_table = thd->lex->query_block->table_list.first;
   if (check_one_table_access(thd, DROP_ACL, first_table)) return true;
 
@@ -738,6 +743,8 @@ bool Sql_cmd_truncate_table::execute(THD *thd) {
     truncate_temporary(thd, first_table);
   else
     truncate_base(thd, first_table);
+
+  NONBLOCK_DDL_RETRY(true, retry_truncate_table);
 
   if (!m_error) my_ok(thd);
 

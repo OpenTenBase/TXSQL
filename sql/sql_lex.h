@@ -1017,6 +1017,11 @@ class Query_expression {
     assert(!is_prepared());
     prepared = true;
   }
+
+  void set_prepared(bool value) {
+    prepared = value;
+  }
+
   void set_optimized() {
     assert(is_prepared() && !is_optimized());
     optimized = true;

@@ -1878,6 +1878,16 @@ The following options may be given as the first argument:
  Specify the maximum number of worker threads for parallel
  execution on the server. A zero value disables parallel
  execution for any statement.
+ --txsql-mts-checkpoint-timeout[=#] 
+ Timeout in seconds to wait for mts workers when deadlock
+ happened
+ --txsql-nonblock-ddl 
+ Enable to use non-blocking ddl to prevent blocking of
+ DML.
+ --txsql-nonblock-ddl-retry-interval[=#] 
+ Retry interval when failed to acquire MDL locks of DDL.
+ --txsql-nonblock-ddl-retry-times[=#] 
+ Retry times when failed to acquire MDL locks of DDL.
  --txsql-optimize-ps-priv-check 
  This option is deprecated. Use txsql_simplify_priv_check
  instead.
@@ -2503,6 +2513,10 @@ txsql-extend-slow-log-level 0
 txsql-gb18030-charset-standard 2005
 txsql-load-data-local-strict-mode FALSE
 txsql-max-parallel-worker-threads 0
+txsql-mts-checkpoint-timeout 3
+txsql-nonblock-ddl FALSE
+txsql-nonblock-ddl-retry-interval 2
+txsql-nonblock-ddl-retry-times 1
 txsql-optimize-ps-priv-check FALSE
 txsql-optimizer-context-max-mem-size 8388608
 txsql-optimizer-context-prealloc-size 4096

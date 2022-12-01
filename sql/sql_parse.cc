@@ -3423,7 +3423,11 @@ static bool lock_tables_open_and_lock_tables(THD *thd, TABLE_LIST *tables) {
 
   thd->in_lock_tables = true;
 
+  ulong retry_times = 0;
+
 retry:
+
+  retry_times++;
 
   if (open_tables(thd, &tables, &counter, 0, &lock_tables_prelocking_strategy))
     goto err;
@@ -3491,6 +3495,9 @@ retry:
   return false;
 
 err:
+
+  NONBLOCK_DDL_RETRY(false, retry);
+
   thd->in_lock_tables = false;
 
   trans_rollback_stmt(thd);
@@ -4370,6 +4377,10 @@ int mysql_execute_command(THD *thd, bool first_level) {
       break;
     }
     case SQLCOM_RENAME_TABLE: {
+      bool result;
+
+      NONBLOCK_DDL_INIT(retry_rename_table);
+
       assert(first_table == all_tables && first_table != nullptr);
       TABLE_LIST *table;
       for (table = first_table; table; table = table->next_local->next_local) {
@@ -4400,7 +4411,12 @@ int mysql_execute_command(THD *thd, bool first_level) {
           goto error;
       }
 
-      if (mysql_rename_tables(thd, first_table)) goto error;
+      result = mysql_rename_tables(thd, first_table);
+
+      NONBLOCK_DDL_RETRY(true, retry_rename_table);
+
+      if (result) goto error;
+
       break;
     }
     case SQLCOM_CHECKSUM: {
@@ -4432,6 +4448,9 @@ int mysql_execute_command(THD *thd, bool first_level) {
       break;
     }
     case SQLCOM_DROP_TABLE: {
+
+      NONBLOCK_DDL_INIT(retry_drop_table);
+
       assert(first_table == all_tables && first_table != nullptr);
       if (!lex->drop_temporary) {
         if (check_table_access(thd, DROP_ACL, all_tables, false, UINT_MAX,
@@ -4441,6 +4460,9 @@ int mysql_execute_command(THD *thd, bool first_level) {
       /* DDL and binlog write order are protected by metadata locks. */
       res = mysql_rm_table(thd, first_table, lex->drop_if_exists,
                            lex->drop_temporary);
+
+      NONBLOCK_DDL_RETRY(false, retry_drop_table);
+
       /* when dropping temporary tables if @@session_track_state_change is ON
          then send the boolean tracker in the OK packet */
       if (!res && lex->drop_temporary) {
@@ -4620,15 +4642,24 @@ int mysql_execute_command(THD *thd, bool first_level) {
       break;
     }
     case SQLCOM_DROP_DB: {
+
+      NONBLOCK_DDL_INIT(retry_drop_db);
+
       if (check_and_convert_db_name(&lex->name, false) != Ident_name_check::OK)
         break;
       if (check_access(thd, DROP_ACL, lex->name.str, nullptr, nullptr, true,
                        false))
         break;
       res = mysql_rm_db(thd, to_lex_cstring(lex->name), lex->drop_if_exists);
+
+      NONBLOCK_DDL_RETRY(true, retry_drop_db);
+
       break;
     }
     case SQLCOM_ALTER_DB: {
+
+      NONBLOCK_DDL_INIT(retry_alter_db);
+
       if (check_and_convert_db_name(&lex->name, false) != Ident_name_check::OK)
         break;
       if (check_access(thd, ALTER_ACL, lex->name.str, nullptr, nullptr, true,
@@ -4641,6 +4672,9 @@ int mysql_execute_command(THD *thd, bool first_level) {
       */
       HA_CREATE_INFO create_info(*lex->create_info);
       res = mysql_alter_db(thd, lex->name.str, &create_info);
+
+      NONBLOCK_DDL_RETRY(true, retry_alter_db);
+
       break;
     }
     case SQLCOM_CREATE_EVENT:

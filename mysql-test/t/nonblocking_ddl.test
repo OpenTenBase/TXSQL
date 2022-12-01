@@ -1,0 +1,678 @@
+CREATE TABLE `t1` (
+  `id` int NOT NULL,
+  `val` int DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB;
+
+INSERT INTO t1 VALUES(1, 10), (2, 20);
+
+CREATE TABLE t0 LIKE t1;
+
+INSERT INTO t0 SELECT * FROM t1;
+
+SET @old_txsql_nonblock_ddl = @@global.txsql_nonblock_ddl;
+
+
+SET global txsql_nonblock_ddl = ON;
+
+--connect(conddl, localhost, root,,)
+--connect(condml1, localhost, root,,)
+--connect(condml2, localhost, root,,)
+
+### 1. test alter table `command`
+#### 1.1 tablespace operation
+#####################################################
+--connection condml1
+BEGIN;
+select * from t1;
+
+--connection conddl
+set session txsql_nonblock_ddl_retry_times = 100;
+--send ALTER TABLE t1 ENCRYPTION='Y', ALGORITHM=COPY;
+--sleep 2
+
+--connection condml2
+update t1 set val = val + 1;
+select * from t1;
+
+--connection condml1
+COMMIT;
+
+--connection conddl
+reap;
+
+--connection condml1
+BEGIN;
+select * from t1;
+
+--connection conddl
+set session txsql_nonblock_ddl_retry_times = 1;
+--ERROR ER_LOCK_WAIT_TIMEOUT
+ALTER TABLE t1 ENCRYPTION='Y', ALGORITHM=COPY;
+
+#####################################################
+
+#### 1.2 table operation
+##### 1.2.1 drop table
+set session txsql_nonblock_ddl_retry_times = 100;
+--send DROP TABLE t1;
+--sleep 2
+
+--connection condml2
+update t1 set val = val + 1;
+select * from t1;
+
+--connection condml1
+COMMIT;
+
+--connection conddl
+reap;
+
+CREATE TABLE `t1` (
+  `id` int NOT NULL,
+  `val` int DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB;
+
+INSERT INTO t1 VALUES(1, 10), (2, 20);
+
+--connection condml1
+BEGIN;
+select * from t1;
+
+--connection conddl
+set session txsql_nonblock_ddl_retry_times = 1;
+--ERROR ER_LOCK_WAIT_TIMEOUT
+DROP TABLE t1;
+
+#####################################################
+
+#### 1.2.2 rename table
+set session txsql_nonblock_ddl_retry_times = 100;
+--send RENAME TABLE t1 to t11;
+--sleep 2
+
+--connection condml2
+update t1 set val = val + 1;
+select * from t1;
+
+--connection condml1
+COMMIT;
+
+--connection conddl
+reap;
+RENAME TABLE t11 to t1;
+
+--connection condml1
+BEGIN;
+select * from t1;
+
+--connection conddl
+set session txsql_nonblock_ddl_retry_times = 1;
+--ERROR ER_LOCK_WAIT_TIMEOUT
+RENAME TABLE t1 to t11;
+
+set session txsql_nonblock_ddl_retry_times = 100;
+--send rename table t1 to t2, t0 to t3;
+--sleep 2
+
+--connection condml2
+update t1 set val = val + 1;
+select * from t1;
+update t0 set val = val + 1;
+select * from t0;
+
+--connection condml1
+COMMIT;
+
+--connection conddl
+reap;
+rename table t2 to t1, t3 to t0;
+
+--connection condml1
+BEGIN;
+select * from t1;
+
+--connection conddl
+set session txsql_nonblock_ddl_retry_times = 1;
+--ERROR ER_LOCK_WAIT_TIMEOUT
+RENAME TABLE t1 to t2, t0 to t3;
+
+#####################################################
+
+#### 1.2.3 optimize table
+set session txsql_nonblock_ddl_retry_times = 100;
+--send OPTIMIZE TABLE t1;
+--sleep 2
+
+--connection condml2
+update t1 set val = val + 1;
+select * from t1;
+
+--connection condml1
+COMMIT;
+
+--connection conddl
+reap;
+
+--connection condml1
+BEGIN;
+select * from t1;
+
+--connection conddl
+set session txsql_nonblock_ddl_retry_times = 1;
+OPTIMIZE TABLE t1;
+
+set session txsql_nonblock_ddl_retry_times = 100;
+--send OPTIMIZE TABLE t1, t0;
+--sleep 2
+
+--connection condml2
+update t1 set val = val + 1;
+select * from t1;
+update t0 set val = val + 1;
+select * from t0;
+
+--connection condml1
+COMMIT;
+
+--connection conddl
+reap;
+
+--connection condml1
+BEGIN;
+select * from t1;
+
+--connection conddl
+set session txsql_nonblock_ddl_retry_times = 1;
+optimize table t1, t0;
+
+#####################################################
+#### 1.3 column operation
+
+
+#####################################################
+#### 1.4 index operation
+##### 1.4.1 add index
+--connection conddl
+set session txsql_nonblock_ddl_retry_times = 100;
+--send create index idx on t1 (val);
+--sleep 2
+
+--connection condml2
+update t1 set val = val + 1;
+select * from t1;
+
+--connection condml1
+COMMIT;
+
+--connection conddl
+reap;
+drop index idx on t1;
+
+--connection condml1
+BEGIN;
+select * from t1;
+
+--connection conddl
+set session txsql_nonblock_ddl_retry_times = 1;
+--ERROR ER_LOCK_WAIT_TIMEOUT
+create index idx on t1 (val);
+
+#####################################################
+##### 1.4.2 drop index
+--connection condml1
+COMMIT;
+
+--connection conddl
+create index idx on t1 (val);
+
+--connection condml1
+BEGIN;
+select * from t1;
+
+--connection conddl
+set session txsql_nonblock_ddl_retry_times = 100;
+--send drop index idx on t1;
+--sleep 2
+
+--connection condml2
+update t1 set val = val + 1;
+select * from t1;
+
+--connection condml1
+COMMIT;
+
+--connection conddl
+reap;
+create index idx on t1 (val);
+
+--connection condml1
+BEGIN;
+select * from t1;
+
+--connection conddl
+set session txsql_nonblock_ddl_retry_times = 1;
+--ERROR ER_LOCK_WAIT_TIMEOUT
+drop index idx on t1;
+
+#####################################################
+
+##### 1.4.3 multiple tables index operations
+set session txsql_nonblock_ddl_retry_times = 1;
+--ERROR ER_LOCK_WAIT_TIMEOUT
+alter table t1 drop primary key, add index idx_1(val);
+
+set session txsql_nonblock_ddl_retry_times = 100;
+--send alter table t1 drop primary key, add index idx_1(val);
+--sleep 2
+
+--connection condml2
+update t1 set val = val + 1;
+select * from t1;
+
+--connection condml1
+COMMIT;
+
+--connection conddl
+reap;
+
+--connection condml1
+begin;
+select * from t1;
+
+--connection conddl
+--send alter table t1 add primary key(id), drop index idx_1;
+
+--connection condml1
+COMMIT;
+
+--connection conddl
+reap;
+show create table t1;
+
+#### 1.5 test different algorithms
+
+--connection condml1
+begin;
+select * from t1;
+
+--connection conddl
+set session txsql_nonblock_ddl_retry_times = 1;
+# instant ddl
+--ERROR ER_LOCK_WAIT_TIMEOUT
+alter table t1 add column val2 char(10);
+
+set session txsql_nonblock_ddl_retry_times = 100;
+--send alter table t1 add column val2 char(10);
+--sleep 2
+
+--connection condml2
+update t1 set val = val + 1;
+select * from t1;
+
+--connection condml1
+COMMIT;
+
+--connection conddl
+reap;
+
+insert into t1 values(3,3,'3');
+
+--connection condml1
+begin;
+select * from t1;
+
+--connection conddl
+set session txsql_nonblock_ddl_retry_times = 1;
+--ERROR ER_LOCK_WAIT_TIMEOUT
+alter table t1 change column val2 val2 int;
+
+set session txsql_nonblock_ddl_retry_times = 100;
+--send alter table t1 change column val2 val2 int;
+--sleep 2
+
+--connection condml2
+update t1 set val = val + 1;
+select * from t1;
+
+--connection condml1
+COMMIT;
+
+--connection conddl
+reap;
+show create table t1;
+
+--connection condml1
+begin;
+update t1 set val = val + 1 where id = 1;
+
+--connection conddl
+set session txsql_nonblock_ddl_retry_times = 1;
+--ERROR ER_LOCK_WAIT_TIMEOUT
+alter table t1 add index idx2(val2);
+
+--ERROR ER_LOCK_WAIT_TIMEOUT
+alter table t1 add index idx2(val2), algorithm = copy;
+
+set session txsql_nonblock_ddl_retry_times = 100;
+--send alter table t1 add index idx2(val2);
+--sleep 2
+
+--connection condml2
+select * from t1;
+update t1 set val = val + 1 where id = 2;
+
+--connection condml1
+COMMIT;
+
+--connection conddl
+reap;
+alter table t1 drop index idx2;
+
+--connection condml1
+begin;
+update t1 set val = val + 1 where id = 1;
+
+--connection conddl
+--send alter table t1 add index idx2(val2), algorithm = copy;
+
+--connection condml1
+COMMIT;
+
+--connection conddl
+reap;
+show create table t1;
+
+#### 1.6 repair table
+--connection condml1
+begin;
+update t1 set val = val + 1 where id = 1;
+
+--connection conddl
+set session txsql_nonblock_ddl_retry_times = 1;
+repair table t1;
+
+set session txsql_nonblock_ddl_retry_times = 100;
+--send repair table t1;
+--sleep 2
+
+--connection condml2
+update t1 set val = val + 1 where id = 2;
+select * from t1;
+
+--connection condml1
+COMMIT;
+
+--connection conddl
+reap;
+
+#### 1.7 truncate table
+--connection condml1
+begin;
+update t1 set val = val + 1 where id = 1;
+
+--connection conddl
+set session txsql_nonblock_ddl_retry_times = 1;
+--ERROR ER_LOCK_WAIT_TIMEOUT
+truncate table t1;
+
+set session txsql_nonblock_ddl_retry_times = 100;
+--send truncate table t1;
+--sleep 2
+
+--connection condml2
+select * from t1;
+update t1 set val = val + 1 where id = 2;
+
+--connection condml1
+COMMIT;
+
+--connection conddl
+reap;
+select * from t1;
+insert into t1 values(1,1,1), (2,2,2), (3,3,3);
+
+### 2. test lock table
+--connection condml1
+begin;
+select * from t1;
+
+--connection conddl
+set session txsql_nonblock_ddl_retry_times = 1;
+--ERROR ER_LOCK_WAIT_TIMEOUT
+lock table t1 write, t0 read;
+
+set session txsql_nonblock_ddl_retry_times = 100;
+--send lock table t1 write, t0 read;
+--sleep 2
+
+--connection condml2
+update t0 set val = val + 1 where id = 2;
+update t1 set val = val + 1 where id = 2;
+
+--connection condml1
+COMMIT;
+
+--connection conddl
+reap;
+unlock tables;
+
+### 4. test MDL deadlock
+#### In the following case, when txsql_nonblock_ddl is turned off,
+#### deadlock will happen. If txsql_nonblock_ddl is turned on, deadlock
+#### will not happen.
+
+--connection condml1
+begin;
+update t1 set val = val + 1;
+
+--connection conddl
+set session txsql_nonblock_ddl_retry_times = 1;
+--ERROR ER_LOCK_WAIT_TIMEOUT
+drop table t1, t0;
+
+set session txsql_nonblock_ddl_retry_times = 100;
+--send drop table t1, t0;
+
+--connection condml1
+update t0 set val = val + 1;
+
+commit;
+
+--connection conddl
+reap;
+
+### 5. test database ddl operations
+create database tttt;
+use tttt;
+
+CREATE TABLE `t1` (
+  `id` int NOT NULL,
+  `val` int DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB;
+
+INSERT INTO t1 VALUES(1, 10), (2, 20);
+
+--connection condml1
+use tttt;
+begin;
+select * from t1;
+
+--connection conddl
+set session txsql_nonblock_ddl_retry_times = 1;
+--ERROR ER_LOCK_WAIT_TIMEOUT
+ALTER DATABASE tttt COLLATE cp866_general_ci;
+
+set session txsql_nonblock_ddl_retry_times = 100;
+--send ALTER DATABASE tttt COLLATE cp866_general_ci;
+--sleep 2
+
+--connection condml2
+use tttt;
+update t1 set val = val + 1;
+select * from t1;
+
+--connection condml1
+commit;
+
+--connection conddl
+reap;
+
+--connection condml1
+use tttt;
+begin;
+select * from t1;
+
+--connection conddl
+set session txsql_nonblock_ddl_retry_times = 1;
+--ERROR ER_LOCK_WAIT_TIMEOUT
+drop database tttt;
+
+set session txsql_nonblock_ddl_retry_times = 100;
+--send drop database tttt;
+--sleep 2
+
+--connection condml2
+use tttt;
+update t1 set val = val + 1;
+select * from t1;
+
+--connection condml1
+commit;
+
+--connection conddl
+reap;
+
+
+### 6. test a bug of copy ddl
+use test;
+
+create table table_24562(
+  section int,
+  subsection int,
+  title varchar(50));
+
+insert into table_24562 values
+(1, 0, "Introduction"),
+(1, 1, "Authors"),
+(1, 2, "Acknowledgements"),
+(2, 0, "Basics"),
+(2, 1, "Syntax"),
+(2, 2, "Client"),
+(2, 3, "Server"),
+(3, 0, "Intermediate"),
+(3, 1, "Complex queries"),
+(3, 2, "Stored Procedures"),
+(3, 3, "Stored Functions"),
+(4, 0, "Advanced"),
+(4, 1, "Replication"),
+(4, 2, "Load balancing"),
+(4, 3, "High availability"),
+(5, 0, "Conclusion");
+
+select * from table_24562;
+
+alter table table_24562 add column reviewer varchar(20),
+order by title;
+
+select * from table_24562;
+
+update table_24562 set reviewer="Me" where section=2;
+update table_24562 set reviewer="You" where section=3;
+
+alter table table_24562
+order by section ASC, subsection DESC;
+
+drop table table_24562;
+
+### test a bug of mysql_rm_table
+delimiter //;
+
+CREATE PROCEDURE test.p1(IN i INT)
+BEGIN
+  DECLARE CONTINUE HANDLER FOR sqlexception BEGIN END;
+  DROP TABLE IF EXISTS t1;
+  CREATE TABLE t1 (num INT,PRIMARY KEY(num));
+  START TRANSACTION;
+    INSERT INTO t1 VALUES(i);
+    savepoint t1_save;
+    INSERT INTO t1 VALUES (14);
+    ROLLBACK to savepoint t1_save;
+    COMMIT;
+END//
+
+delimiter ;//
+
+CALL test.p1(12);
+CALL test.p1(13);
+drop table t1;
+drop procedure test.p1;
+
+### 7. test compatibility with DDL no wait and lock_wait_timeout
+CREATE TABLE grandparent (gpf1 INT PRIMARY KEY, gpf2 INT);
+
+INSERT INTO grandparent VALUES (1,10), (2,20);
+
+CREATE TABLE parent (
+  pf1 INT PRIMARY KEY, pf2 INT, sleep_dummy INT,
+  CONSTRAINT pc1 FOREIGN KEY (pf2) REFERENCES grandparent (gpf1)
+  ON DELETE NO ACTION ON UPDATE NO ACTION);
+
+INSERT INTO parent VALUES (1,1,0), (2,2,0);
+
+CREATE TABLE child (
+  cf1 INT PRIMARY KEY, cf2 INT,
+  CONSTRAINT cc1 FOREIGN KEY (cf2) REFERENCES parent (pf1)
+  ON DELETE NO ACTION ON UPDATE NO ACTION);
+
+INSERT INTO child VALUES (1,1), (2,2);
+
+--connect (con_A,localhost,root,,test)
+--let $conA=`SELECT CONNECTION_ID()`
+SET @@session.lock_wait_timeout= 1;
+--send UPDATE parent SET pf2= 2, sleep_dummy= SLEEP(10)
+
+--connection default
+--replace_result $conA <conA>
+--eval set @conA_id = $conA
+let $wait_condition=
+  SELECT COUNT(*) = 1
+    FROM information_schema.processlist
+    WHERE id = @conA_id AND state LIKE 'user sleep';
+--echo # Waiting for connection A to start udpate
+--source include/wait_condition.inc
+
+SET @@session.lock_wait_timeout= 1;
+set session txsql_nonblock_ddl_retry_times = 10;
+
+--echo # Updates not invoving the FK related column should succeed
+UPDATE grandparent SET gpf2= 4;
+UPDATE grandparent SET gpf2= 100 * gpf1;
+
+--echo # DDL on child will have conflicting locks.
+--error ER_LOCK_WAIT_TIMEOUT
+ALTER TABLE child ADD COLUMN (i INT);
+
+--error ER_LOCK_WAIT_TIMEOUT
+ALTER TABLE child no_wait ADD COLUMN (i INT);
+
+--error ER_LOCK_WAIT_TIMEOUT
+ALTER TABLE child wait 2 ADD COLUMN (i INT);
+
+SET @@session.lock_wait_timeout= DEFAULT;
+SET @@session.txsql_nonblock_ddl_retry_times= 5;
+
+ALTER TABLE child ADD COLUMN (i INT);
+
+--connection con_A
+--reap
+
+--connection default
+
+DROP TABLE child;
+DROP TABLE parent;
+DROP TABLE grandparent;
+
+SET global txsql_nonblock_ddl = @old_txsql_nonblock_ddl;

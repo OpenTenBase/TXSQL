@@ -89,6 +89,7 @@
 #include "sql/sql_parse.h"      // check_table_access
 #include "sql/sql_partition.h"  // set_part_state
 #include "sql/sql_table.h"      // mysql_recreate_table
+#include "sql_common.h"  // net_clear_error
 #include "sql/ssl_acceptor_context_operator.h"
 #include "sql/ssl_init_callback.h"
 #include "sql/system_variables.h"
@@ -1812,6 +1813,9 @@ error:
 }
 
 bool Sql_cmd_optimize_table::execute(THD *thd) {
+
+  NONBLOCK_DDL_INIT(retry_optimize_table);
+
   TABLE_LIST *first_table = thd->lex->query_block->get_table_list();
   bool res = true;
   DBUG_TRACE;
@@ -1835,11 +1839,16 @@ bool Sql_cmd_optimize_table::execute(THD *thd) {
   thd->lex->query_block->table_list.first = first_table;
   thd->lex->query_tables = first_table;
 
+  NONBLOCK_DDL_RETRY(true, retry_optimize_table);
+
 error:
   return res;
 }
 
 bool Sql_cmd_repair_table::execute(THD *thd) {
+
+  NONBLOCK_DDL_INIT(retry_repair_table);
+
   TABLE_LIST *first_table = thd->lex->query_block->get_table_list();
   bool res = true;
   DBUG_TRACE;
@@ -1852,6 +1861,8 @@ bool Sql_cmd_repair_table::execute(THD *thd) {
       thd, first_table, &thd->lex->check_opt, "repair", TL_WRITE, true,
       thd->lex->check_opt.sql_flags & TT_USEFRM, HA_OPEN_FOR_REPAIR,
       &prepare_for_repair, &handler::ha_repair, 0, m_alter_info, true);
+
+  NONBLOCK_DDL_RETRY(true, retry_repair_table);
 
   /* ! we write after unlocking the table */
   if (!res && !thd->lex->no_write_to_binlog) {

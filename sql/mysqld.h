@@ -83,6 +83,9 @@ extern bool admin_tool_valid;
 
 extern PSI_mutex_key key_LOCK_push_warning;
 extern PSI_mutex_key key_LOCK_internal_handler;
+extern bool txsql_nonblock_ddl;
+extern ulong txsql_nonblock_ddl_retry_times;
+extern ulong txsql_nonblock_ddl_retry_interval;
 
 class Rpl_global_filter;
 class Rpl_acf_configuration_handler;
