@@ -3627,7 +3627,9 @@ class MDL_request_cmp {
 */
 
 bool MDL_context::acquire_locks(MDL_request_list *mdl_requests,
-                                Timeout_type lock_wait_timeout) {
+                                Timeout_type lock_wait_timeout,
+                                bool without_block, // used by non-blocking DDL
+                                MDL_request &blocked_mdl_request) {
   MDL_request_list::Iterator it(*mdl_requests);
   MDL_request **p_req;
   MDL_savepoint mdl_svp = mdl_savepoint();
@@ -3653,7 +3655,15 @@ bool MDL_context::acquire_locks(MDL_request_list *mdl_requests,
 
   size_t num_acquired = 0;
   for (p_req = sort_buf.begin(); p_req != sort_buf.end(); p_req++) {
-    if (acquire_lock(*p_req, lock_wait_timeout)) goto err;
+    if (without_block) {
+      if (acquire_lock(*p_req, 0)) {
+        blocked_mdl_request = MDL_request(**p_req);
+        goto err;
+      }
+    }
+    else {
+      if (acquire_lock(*p_req, lock_wait_timeout)) goto err;
+    }
     ++num_acquired;
   }
   return false;
@@ -3735,7 +3745,9 @@ bool MDL_context::clone_tickets(const MDL_context *ticket_owner,
 
 bool MDL_context::upgrade_shared_lock(MDL_ticket *mdl_ticket,
                                       enum_mdl_type new_type,
-                                      Timeout_type lock_wait_timeout) {
+                                      Timeout_type lock_wait_timeout,
+                                      bool without_block, // used by non-blocking DDL
+                                      MDL_request &blocked_mdl_request) {
   MDL_request mdl_new_lock_request;
   MDL_savepoint mdl_svp = mdl_savepoint();
   bool is_new_ticket;
@@ -3753,7 +3765,15 @@ bool MDL_context::upgrade_shared_lock(MDL_ticket *mdl_ticket,
   MDL_REQUEST_INIT_BY_KEY(&mdl_new_lock_request, &mdl_ticket->m_lock->key,
                           new_type, MDL_TRANSACTION);
 
-  if (acquire_lock(&mdl_new_lock_request, lock_wait_timeout)) return true;
+  if (without_block) {
+    if (acquire_lock(&mdl_new_lock_request, 0)) {
+      blocked_mdl_request = MDL_request(mdl_new_lock_request);
+      return true;
+    }
+  }
+  else {
+    if (acquire_lock(&mdl_new_lock_request, lock_wait_timeout)) return true;
+  }
 
   is_new_ticket = !has_lock(mdl_svp, mdl_new_lock_request.ticket);
 

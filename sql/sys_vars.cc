@@ -7889,6 +7889,25 @@ static Sys_var_bool Sys_txsql_parallel_copy_ddl(
     DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr),
     ON_UPDATE(nullptr));
 
+static Sys_var_bool Sys_txsql_nonblock_ddl(
+    "txsql_nonblock_ddl",
+    "Enable to use non-blocking ddl to prevent blocking of DML.",
+    SESSION_VAR(txsql_nonblock_ddl), CMD_LINE(OPT_ARG),
+    DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr),
+    ON_UPDATE(nullptr));
+
+static Sys_var_ulong Sys_txsql_nonblock_ddl_retry_times(
+    "txsql_nonblock_ddl_retry_times",
+    "Retry times when failed to acquire MDL locks of DDL.",
+    SESSION_VAR(txsql_nonblock_ddl_retry_times), CMD_LINE(OPT_ARG),
+    VALID_RANGE(0, ULONG_MAX), DEFAULT(1), BLOCK_SIZE(1));
+
+static Sys_var_ulong Sys_txsql_nonblock_ddl_retry_interval(
+    "txsql_nonblock_ddl_retry_interval",
+    "Retry interval when failed to acquire MDL locks of DDL.",
+    SESSION_VAR(txsql_nonblock_ddl_retry_interval), CMD_LINE(OPT_ARG),
+    VALID_RANGE(0, ULONG_MAX), DEFAULT(2), BLOCK_SIZE(1));
+
 #ifdef HAVE_POOL_OF_THREADS
 
 static bool fix_tp_max_threads(sys_var *, THD *, enum_var_type) noexcept {

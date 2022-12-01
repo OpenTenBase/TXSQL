@@ -1165,6 +1165,8 @@ class THD : public MDL_context_owner,
  public:
   MDL_context mdl_context;
 
+  MDL_request mdl_blocked_req;
+
   /**
     MARK_COLUMNS_NONE:  Means mark_used_columns is not set and no indicator to
                         handler of fields used is set
@@ -3031,6 +3033,8 @@ private:
   };
   std::atomic<killed_state> killed;
 
+  bool mdl_blocked = false;
+
   /**
     Whether we are currently in the execution phase of an EXPLAIN ANALYZE query.
     If so, send_kill_message() won't actually set an error; we will add a
@@ -3283,6 +3287,14 @@ private:
   void cleanup_after_query();
   void store_globals();
   void restore_globals();
+
+  bool is_mdl_blocked() const {
+    return mdl_blocked;
+  }
+
+  void set_mdl_blocked(bool val) {
+    mdl_blocked = val;
+  }
 
   inline void set_active_vio(Vio *vio) {
     mysql_mutex_lock(&LOCK_thd_data);

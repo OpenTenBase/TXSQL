@@ -51,6 +51,8 @@
 #include "sql/sql_servers.h"
 #include "sql/sql_table.h"  // mysql_alter_table,
 #include "sql/table.h"
+#include "sql/protocol.h"
+#include "sql/protocol_classic.h"
 #include "template_utils.h"  // delete_container_pointers
 
 bool has_external_data_or_index_dir(partition_info &pi);
@@ -249,6 +251,9 @@ Alter_table_ctx::Alter_table_ctx(THD *thd, TABLE_LIST *table_list,
 Alter_table_ctx::~Alter_table_ctx() = default;
 
 bool Sql_cmd_alter_table::execute(THD *thd) {
+
+  NONBLOCK_DDL_INIT(retry_alter_table);
+
   /* Verify that none one of the DISCARD and IMPORT flags are set. */
   assert(!thd_tablespace_op(thd));
   DBUG_EXECUTE_IF("delay_alter_table_by_one_second", { my_sleep(1000000); });
@@ -271,7 +276,6 @@ retry_assign_storage_engine:
     @todo move these into constructor...
   */
   HA_CREATE_INFO create_info(*lex->create_info);
-  Alter_info alter_info(*m_alter_info, thd->mem_root);
 
   mysql_convert_table_myisam_to_innodb(thd,
                                        "alter table",
@@ -286,6 +290,8 @@ retry_assign_storage_engine:
   bool result;
 
   DBUG_TRACE;
+
+  Alter_info alter_info(*m_alter_info, thd->mem_root);
 
   if (thd->is_fatal_error()) /* out of memory creating a copy of alter_info */
     return true;
@@ -414,12 +420,26 @@ retry_assign_storage_engine:
     goto retry_assign_storage_engine;
   }
 
+  if (thd->variables.txsql_nonblock_ddl && thd->is_mdl_blocked()) {
+    // This is used by copy ddl, which will set unit->prepared.
+    // If we retry copy ddl, unit->prepared should be reset to false.
+    // Otherwise, there will have assertions.
+    if (thd->lex->unit->is_prepared()) thd->lex->unit->set_prepared(false);
+  }
+
+  NONBLOCK_DDL_RETRY(true, retry_alter_table);
+
   if (!thd->lex->is_ignore() && thd->is_strict_mode())
     thd->pop_internal_handler();
   return result;
 }
 
 bool Sql_cmd_discard_import_tablespace::execute(THD *thd) {
+
+  bool result;
+
+  NONBLOCK_DDL_INIT(retry_discard_import_tablespace);
+
   /* Verify that exactly one of the DISCARD and IMPORT flags are set. */
   assert((m_alter_info->flags & Alter_info::ALTER_DISCARD_TABLESPACE) ^
          (m_alter_info->flags & Alter_info::ALTER_IMPORT_TABLESPACE));
@@ -470,10 +490,20 @@ bool Sql_cmd_discard_import_tablespace::execute(THD *thd) {
   */
   thd->add_to_binlog_accessed_dbs(table_list->db);
 
-  return mysql_discard_or_import_tablespace(thd, table_list);
+  result = mysql_discard_or_import_tablespace(thd, table_list);
+
+  NONBLOCK_DDL_RETRY(true, retry_discard_import_tablespace);
+
+  return result;
+
 }
 
 bool Sql_cmd_secondary_load_unload::execute(THD *thd) {
+
+  bool result;
+
+  NONBLOCK_DDL_INIT(retry_secondary_load_unload);
+
   // One of the SECONDARY_LOAD/SECONDARY_UNLOAD flags must have been set.
   assert(((m_alter_info->flags & Alter_info::ALTER_SECONDARY_LOAD) == 0) !=
          ((m_alter_info->flags & Alter_info::ALTER_SECONDARY_UNLOAD) == 0));
@@ -491,5 +521,9 @@ bool Sql_cmd_secondary_load_unload::execute(THD *thd) {
   if (check_grant(thd, ALTER_ACL, table_list, false, UINT_MAX, false))
     return true;
 
-  return mysql_secondary_load_or_unload(thd, table_list);
+  result = mysql_secondary_load_or_unload(thd, table_list);
+
+  NONBLOCK_DDL_RETRY(true, retry_secondary_load_unload);
+
+  return result;
 }
