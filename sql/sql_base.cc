@@ -2471,9 +2471,19 @@ bool wait_while_table_is_used(THD *thd, TABLE *table,
   else
     wait_time= thd->lex->wait_time;
 
-  if (thd->mdl_context.upgrade_shared_lock(table->mdl_ticket, MDL_EXCLUSIVE,
+  if (check_if_can_use_nonblock_ddl()) {
+    if (thd->mdl_context.upgrade_shared_lock(table->mdl_ticket,
+                                      MDL_EXCLUSIVE, wait_time,
+                                      true, thd->mdl_blocked_req)) {
+      thd->set_mdl_blocked(true);
+      return true;
+    }
+  } else {
+    if (thd->mdl_context.upgrade_shared_lock(table->mdl_ticket, MDL_EXCLUSIVE,
                                            wait_time))
-    return true;
+      return true;
+  }
+
 
   tdc_remove_table(thd, TDC_RT_REMOVE_NOT_OWN, table->s->db.str,
                    table->s->table_name.str, false);
@@ -5518,9 +5528,17 @@ bool lock_table_names(THD *thd, TABLE_LIST *tables_start,
   }
 
   // Phase 3: Acquire the locks which have been requested so far.
-  if (thd->mdl_context.acquire_locks(&mdl_requests, wait_time))
-    return true;
-
+  if (check_if_can_use_nonblock_ddl()) {
+    if (thd->mdl_context.acquire_locks(
+          &mdl_requests, wait_time,
+          true, thd->mdl_blocked_req)) {
+      thd->set_mdl_blocked(true);
+      return true;
+    }
+  } else {
+    if (thd->mdl_context.acquire_locks(&mdl_requests, wait_time))
+      return true;
+  }
   /*
    Now when we have protection against concurrent change of read_only
    option we can safely re-check its value. Skip the check for

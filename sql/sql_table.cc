@@ -11557,9 +11557,18 @@ bool Sql_cmd_discard_import_tablespace::mysql_discard_or_import_tablespace(
       (thd->locked_tables_mode == LTM_LOCK_TABLES ||
        thd->locked_tables_mode == LTM_PRELOCKED_UNDER_LOCK_TABLES)) {
     mdl_ticket = table_list->table->mdl_ticket;
-    if (thd->mdl_context.upgrade_shared_lock(mdl_ticket, MDL_EXCLUSIVE,
-                                             wait_time))
-      return true;
+    if (check_if_can_use_nonblock_ddl()) {
+      if (thd->mdl_context.upgrade_shared_lock(mdl_ticket,
+                                  MDL_EXCLUSIVE, wait_time,
+                                  true, thd->mdl_blocked_req)) {
+        thd->set_mdl_blocked(true);
+        return true;
+      }
+    } else {
+      if (thd->mdl_context.upgrade_shared_lock(mdl_ticket, MDL_EXCLUSIVE,
+                                               wait_time))
+        return true;
+    }
   }
 
   /*
@@ -13165,10 +13174,18 @@ static bool collect_and_lock_fk_tables_for_complex_alter_table(
       return true;
   }
 
-  if (!mdl_requests.is_empty() &&
-      thd->mdl_context.acquire_locks(&mdl_requests, wait_time))
-    return true;
-
+  if (!mdl_requests.is_empty()) {
+    if (check_if_can_use_nonblock_ddl()) {
+      if (thd->mdl_context.acquire_locks(
+            &mdl_requests, wait_time, true, thd->mdl_blocked_req)) {
+        thd->set_mdl_blocked(true);
+        return true;
+      }
+    } else {
+      if (thd->mdl_context.acquire_locks(&mdl_requests, wait_time))
+        return true;
+    }
+  }
   return false;
 }
 
@@ -13556,10 +13573,18 @@ static bool mysql_inplace_alter_table(
       Don't mark TABLE_SHARE as old in this case, as this won't allow opening
       of table by other threads during main phase of in-place ALTER TABLE.
     */
-    if (thd->mdl_context.upgrade_shared_lock(table->mdl_ticket, MDL_EXCLUSIVE,
-                                             wait_time))
-      goto cleanup;
-
+    if (check_if_can_use_nonblock_ddl()) {
+      if (thd->mdl_context.upgrade_shared_lock(table->mdl_ticket,
+                            MDL_EXCLUSIVE, wait_time,
+                            true, thd->mdl_blocked_req)) {
+        thd->set_mdl_blocked(true);
+        goto cleanup;
+      }
+    } else {
+      if (thd->mdl_context.upgrade_shared_lock(table->mdl_ticket, MDL_EXCLUSIVE,
+                                              wait_time))
+        goto cleanup;
+    }
     tdc_remove_table(thd, TDC_RT_REMOVE_NOT_OWN_KEEP_SHARE, table->s->db.str,
                      table->s->table_name.str, false);
   }
@@ -13570,12 +13595,21 @@ static bool mysql_inplace_alter_table(
     - Or this is requested by the user
     Note that under LOCK TABLES, we will already have SHARED_NO_READ_WRITE.
   */
-  if ((inplace_supported == HA_ALTER_INPLACE_SHARED_LOCK ||
-       alter_info->requested_lock == Alter_info::ALTER_TABLE_LOCK_SHARED) &&
-      thd->mdl_context.upgrade_shared_lock(table->mdl_ticket,
+ if ((inplace_supported == HA_ALTER_INPLACE_SHARED_LOCK ||
+       alter_info->requested_lock == Alter_info::ALTER_TABLE_LOCK_SHARED)) {
+    if (check_if_can_use_nonblock_ddl()) {
+      if (thd->mdl_context.upgrade_shared_lock(table->mdl_ticket,
+                              MDL_SHARED_NO_WRITE, wait_time,
+                              true, thd->mdl_blocked_req)) {
+        thd->set_mdl_blocked(true);
+        goto cleanup;
+      }
+    } else {
+      if (thd->mdl_context.upgrade_shared_lock(table->mdl_ticket,
                                            MDL_SHARED_NO_WRITE,
-                                           wait_time)) {
-    goto cleanup;
+                                           wait_time)) 
+        goto cleanup;
+    }
   }
 
   /*
@@ -16847,9 +16881,16 @@ bool mysql_alter_table(THD *thd, const char *new_db, const char *new_name,
       */
       assert(thd->mdl_context.owns_equal_or_stronger_lock(
           MDL_key::GLOBAL, "", "", MDL_INTENTION_EXCLUSIVE));
-
-      if (thd->mdl_context.acquire_locks(&mdl_requests, wait_time))
-        return true;
+      if (check_if_can_use_nonblock_ddl()) {
+        if (thd->mdl_context.acquire_locks(&mdl_requests,
+                              wait_time, true, thd->mdl_blocked_req)) {
+          thd->set_mdl_blocked(true);
+          return true;
+        }
+      } else {
+        if (thd->mdl_context.acquire_locks(&mdl_requests, wait_time))
+          return true;
+      }
 
       DEBUG_SYNC(thd, "locked_table_name");
       /*
@@ -17802,10 +17843,20 @@ bool mysql_alter_table(THD *thd, const char *new_db, const char *new_name,
       Otherwise upgrade to SHARED_NO_WRITE.
       Note that under LOCK TABLES, we will already have SHARED_NO_READ_WRITE.
     */
-    if (alter_info->requested_lock != Alter_info::ALTER_TABLE_LOCK_EXCLUSIVE &&
-        thd->mdl_context.upgrade_shared_lock(mdl_ticket, MDL_SHARED_NO_WRITE,
-                                             wait_time))
-      goto err_new_table_cleanup;
+    if (alter_info->requested_lock != Alter_info::ALTER_TABLE_LOCK_EXCLUSIVE) {
+      if (check_if_can_use_nonblock_ddl()) {
+        if (thd->mdl_context.upgrade_shared_lock(mdl_ticket,
+                              MDL_SHARED_NO_WRITE, wait_time,
+                              true, thd->mdl_blocked_req)) {
+          thd->set_mdl_blocked(true);
+          return true;
+        }
+      } else {
+        if (thd->mdl_context.upgrade_shared_lock(mdl_ticket, MDL_SHARED_NO_WRITE,
+                                                 wait_time))
+          goto err_new_table_cleanup;
+      }
+    }
 
     DEBUG_SYNC(thd, "alter_table_copy_after_lock_upgrade");
 

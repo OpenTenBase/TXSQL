@@ -1,0 +1,506 @@
+CREATE TABLE `t1` (
+`id` int NOT NULL,
+`val` int DEFAULT NULL,
+PRIMARY KEY (`id`)
+) ENGINE=InnoDB;
+INSERT INTO t1 VALUES(1, 10), (2, 20);
+CREATE TABLE t0 LIKE t1;
+INSERT INTO t0 SELECT * FROM t1;
+SET @old_txsql_nonblock_ddl = @@global.txsql_nonblock_ddl;
+SET global txsql_nonblock_ddl = ON;
+BEGIN;
+select * from t1;
+id	val
+1	10
+2	20
+set session txsql_nonblock_ddl_retry_times = 100;
+ALTER TABLE t1 ENCRYPTION='Y', ALGORITHM=COPY;;
+update t1 set val = val + 1;
+select * from t1;
+id	val
+1	11
+2	21
+COMMIT;
+BEGIN;
+select * from t1;
+id	val
+1	11
+2	21
+set session txsql_nonblock_ddl_retry_times = 1;
+ALTER TABLE t1 ENCRYPTION='Y', ALGORITHM=COPY;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+set session txsql_nonblock_ddl_retry_times = 100;
+DROP TABLE t1;;
+update t1 set val = val + 1;
+select * from t1;
+id	val
+1	12
+2	22
+COMMIT;
+CREATE TABLE `t1` (
+`id` int NOT NULL,
+`val` int DEFAULT NULL,
+PRIMARY KEY (`id`)
+) ENGINE=InnoDB;
+INSERT INTO t1 VALUES(1, 10), (2, 20);
+BEGIN;
+select * from t1;
+id	val
+1	10
+2	20
+set session txsql_nonblock_ddl_retry_times = 1;
+DROP TABLE t1;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+set session txsql_nonblock_ddl_retry_times = 100;
+RENAME TABLE t1 to t11;;
+update t1 set val = val + 1;
+select * from t1;
+id	val
+1	11
+2	21
+COMMIT;
+RENAME TABLE t11 to t1;
+BEGIN;
+select * from t1;
+id	val
+1	11
+2	21
+set session txsql_nonblock_ddl_retry_times = 1;
+RENAME TABLE t1 to t11;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+set session txsql_nonblock_ddl_retry_times = 100;
+rename table t1 to t2, t0 to t3;;
+update t1 set val = val + 1;
+select * from t1;
+id	val
+1	12
+2	22
+update t0 set val = val + 1;
+select * from t0;
+id	val
+1	11
+2	21
+COMMIT;
+rename table t2 to t1, t3 to t0;
+BEGIN;
+select * from t1;
+id	val
+1	12
+2	22
+set session txsql_nonblock_ddl_retry_times = 1;
+RENAME TABLE t1 to t2, t0 to t3;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+set session txsql_nonblock_ddl_retry_times = 100;
+OPTIMIZE TABLE t1;;
+update t1 set val = val + 1;
+select * from t1;
+id	val
+1	13
+2	23
+COMMIT;
+Table	Op	Msg_type	Msg_text
+test.t1	optimize	note	Table does not support optimize, doing recreate + analyze instead
+test.t1	optimize	status	OK
+BEGIN;
+select * from t1;
+id	val
+1	13
+2	23
+set session txsql_nonblock_ddl_retry_times = 1;
+OPTIMIZE TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	optimize	Error	Lock wait timeout exceeded; try restarting transaction
+test.t1	optimize	status	Operation failed
+set session txsql_nonblock_ddl_retry_times = 100;
+OPTIMIZE TABLE t1, t0;;
+update t1 set val = val + 1;
+select * from t1;
+id	val
+1	14
+2	24
+update t0 set val = val + 1;
+select * from t0;
+id	val
+1	12
+2	22
+COMMIT;
+Table	Op	Msg_type	Msg_text
+test.t1	optimize	note	Table does not support optimize, doing recreate + analyze instead
+test.t1	optimize	status	OK
+test.t0	optimize	note	Table does not support optimize, doing recreate + analyze instead
+test.t0	optimize	status	OK
+BEGIN;
+select * from t1;
+id	val
+1	14
+2	24
+set session txsql_nonblock_ddl_retry_times = 1;
+optimize table t1, t0;
+Table	Op	Msg_type	Msg_text
+test.t1	optimize	Error	Lock wait timeout exceeded; try restarting transaction
+test.t1	optimize	status	Operation failed
+test.t0	optimize	note	Table does not support optimize, doing recreate + analyze instead
+test.t0	optimize	status	OK
+set session txsql_nonblock_ddl_retry_times = 100;
+create index idx on t1 (val);;
+update t1 set val = val + 1;
+select * from t1;
+id	val
+1	15
+2	25
+COMMIT;
+drop index idx on t1;
+BEGIN;
+select * from t1;
+id	val
+1	15
+2	25
+set session txsql_nonblock_ddl_retry_times = 1;
+create index idx on t1 (val);
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+COMMIT;
+create index idx on t1 (val);
+BEGIN;
+select * from t1;
+id	val
+1	15
+2	25
+set session txsql_nonblock_ddl_retry_times = 100;
+drop index idx on t1;;
+update t1 set val = val + 1;
+select * from t1;
+id	val
+1	16
+2	26
+COMMIT;
+create index idx on t1 (val);
+BEGIN;
+select * from t1;
+id	val
+1	16
+2	26
+set session txsql_nonblock_ddl_retry_times = 1;
+drop index idx on t1;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+set session txsql_nonblock_ddl_retry_times = 1;
+alter table t1 drop primary key, add index idx_1(val);
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+set session txsql_nonblock_ddl_retry_times = 100;
+alter table t1 drop primary key, add index idx_1(val);;
+update t1 set val = val + 1;
+select * from t1;
+id	val
+1	17
+2	27
+COMMIT;
+Warnings:
+Warning	1831	Duplicate index 'idx_1' defined on the table 'test.t1'. This is deprecated and will be disallowed in a future release.
+begin;
+select * from t1;
+id	val
+1	17
+2	27
+alter table t1 add primary key(id), drop index idx_1;;
+COMMIT;
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `id` int NOT NULL,
+  `val` int DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx` (`val`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+begin;
+select * from t1;
+id	val
+1	17
+2	27
+set session txsql_nonblock_ddl_retry_times = 1;
+alter table t1 add column val2 char(10);
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+set session txsql_nonblock_ddl_retry_times = 100;
+alter table t1 add column val2 char(10);;
+update t1 set val = val + 1;
+select * from t1;
+id	val
+1	18
+2	28
+COMMIT;
+insert into t1 values(3,3,'3');
+begin;
+select * from t1;
+id	val	val2
+1	18	NULL
+2	28	NULL
+3	3	3
+set session txsql_nonblock_ddl_retry_times = 1;
+alter table t1 change column val2 val2 int;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+set session txsql_nonblock_ddl_retry_times = 100;
+alter table t1 change column val2 val2 int;;
+update t1 set val = val + 1;
+select * from t1;
+id	val	val2
+1	19	NULL
+2	29	NULL
+3	4	3
+COMMIT;
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `id` int NOT NULL,
+  `val` int DEFAULT NULL,
+  `val2` int DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx` (`val`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+begin;
+update t1 set val = val + 1 where id = 1;
+set session txsql_nonblock_ddl_retry_times = 1;
+alter table t1 add index idx2(val2);
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+alter table t1 add index idx2(val2), algorithm = copy;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+set session txsql_nonblock_ddl_retry_times = 100;
+alter table t1 add index idx2(val2);;
+select * from t1;
+id	val	val2
+1	19	NULL
+2	29	NULL
+3	4	3
+update t1 set val = val + 1 where id = 2;
+COMMIT;
+alter table t1 drop index idx2;
+begin;
+update t1 set val = val + 1 where id = 1;
+alter table t1 add index idx2(val2), algorithm = copy;;
+COMMIT;
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `id` int NOT NULL,
+  `val` int DEFAULT NULL,
+  `val2` int DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx` (`val`),
+  KEY `idx2` (`val2`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+begin;
+update t1 set val = val + 1 where id = 1;
+set session txsql_nonblock_ddl_retry_times = 1;
+repair table t1;
+Table	Op	Msg_type	Msg_text
+test.t1	repair	Error	Lock wait timeout exceeded; try restarting transaction
+test.t1	repair	status	Operation failed
+set session txsql_nonblock_ddl_retry_times = 100;
+repair table t1;;
+update t1 set val = val + 1 where id = 2;
+select * from t1;
+id	val	val2
+1	21	NULL
+2	31	NULL
+3	4	3
+COMMIT;
+Table	Op	Msg_type	Msg_text
+test.t1	repair	note	The storage engine for the table doesn't support repair
+begin;
+update t1 set val = val + 1 where id = 1;
+set session txsql_nonblock_ddl_retry_times = 1;
+truncate table t1;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+set session txsql_nonblock_ddl_retry_times = 100;
+truncate table t1;;
+select * from t1;
+id	val	val2
+1	22	NULL
+2	31	NULL
+3	4	3
+update t1 set val = val + 1 where id = 2;
+COMMIT;
+select * from t1;
+id	val	val2
+insert into t1 values(1,1,1), (2,2,2), (3,3,3);
+begin;
+select * from t1;
+id	val	val2
+1	1	1
+2	2	2
+3	3	3
+set session txsql_nonblock_ddl_retry_times = 1;
+lock table t1 write, t0 read;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+set session txsql_nonblock_ddl_retry_times = 100;
+lock table t1 write, t0 read;;
+update t0 set val = val + 1 where id = 2;
+update t1 set val = val + 1 where id = 2;
+COMMIT;
+unlock tables;
+begin;
+update t1 set val = val + 1;
+set session txsql_nonblock_ddl_retry_times = 1;
+drop table t1, t0;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+set session txsql_nonblock_ddl_retry_times = 100;
+drop table t1, t0;;
+update t0 set val = val + 1;
+commit;
+create database tttt;
+use tttt;
+CREATE TABLE `t1` (
+`id` int NOT NULL,
+`val` int DEFAULT NULL,
+PRIMARY KEY (`id`)
+) ENGINE=InnoDB;
+INSERT INTO t1 VALUES(1, 10), (2, 20);
+use tttt;
+begin;
+select * from t1;
+id	val
+1	10
+2	20
+set session txsql_nonblock_ddl_retry_times = 1;
+ALTER DATABASE tttt COLLATE cp866_general_ci;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+set session txsql_nonblock_ddl_retry_times = 100;
+ALTER DATABASE tttt COLLATE cp866_general_ci;;
+use tttt;
+update t1 set val = val + 1;
+select * from t1;
+id	val
+1	11
+2	21
+commit;
+use tttt;
+begin;
+select * from t1;
+id	val
+1	11
+2	21
+set session txsql_nonblock_ddl_retry_times = 1;
+drop database tttt;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+set session txsql_nonblock_ddl_retry_times = 100;
+drop database tttt;;
+use tttt;
+update t1 set val = val + 1;
+select * from t1;
+id	val
+1	12
+2	22
+commit;
+use test;
+create table table_24562(
+section int,
+subsection int,
+title varchar(50));
+insert into table_24562 values
+(1, 0, "Introduction"),
+(1, 1, "Authors"),
+(1, 2, "Acknowledgements"),
+(2, 0, "Basics"),
+(2, 1, "Syntax"),
+(2, 2, "Client"),
+(2, 3, "Server"),
+(3, 0, "Intermediate"),
+(3, 1, "Complex queries"),
+(3, 2, "Stored Procedures"),
+(3, 3, "Stored Functions"),
+(4, 0, "Advanced"),
+(4, 1, "Replication"),
+(4, 2, "Load balancing"),
+(4, 3, "High availability"),
+(5, 0, "Conclusion");
+select * from table_24562;
+section	subsection	title
+1	0	Introduction
+1	1	Authors
+1	2	Acknowledgements
+2	0	Basics
+2	1	Syntax
+2	2	Client
+2	3	Server
+3	0	Intermediate
+3	1	Complex queries
+3	2	Stored Procedures
+3	3	Stored Functions
+4	0	Advanced
+4	1	Replication
+4	2	Load balancing
+4	3	High availability
+5	0	Conclusion
+alter table table_24562 add column reviewer varchar(20),
+order by title;
+select * from table_24562;
+section	subsection	title	reviewer
+1	2	Acknowledgements	NULL
+4	0	Advanced	NULL
+1	1	Authors	NULL
+2	0	Basics	NULL
+2	2	Client	NULL
+3	1	Complex queries	NULL
+5	0	Conclusion	NULL
+4	3	High availability	NULL
+3	0	Intermediate	NULL
+1	0	Introduction	NULL
+4	2	Load balancing	NULL
+4	1	Replication	NULL
+2	3	Server	NULL
+3	3	Stored Functions	NULL
+3	2	Stored Procedures	NULL
+2	1	Syntax	NULL
+update table_24562 set reviewer="Me" where section=2;
+update table_24562 set reviewer="You" where section=3;
+alter table table_24562
+order by section ASC, subsection DESC;
+drop table table_24562;
+CREATE PROCEDURE test.p1(IN i INT)
+BEGIN
+DECLARE CONTINUE HANDLER FOR sqlexception BEGIN END;
+DROP TABLE IF EXISTS t1;
+CREATE TABLE t1 (num INT,PRIMARY KEY(num));
+START TRANSACTION;
+INSERT INTO t1 VALUES(i);
+savepoint t1_save;
+INSERT INTO t1 VALUES (14);
+ROLLBACK to savepoint t1_save;
+COMMIT;
+END//
+CALL test.p1(12);
+CALL test.p1(13);
+drop table t1;
+drop procedure test.p1;
+CREATE TABLE grandparent (gpf1 INT PRIMARY KEY, gpf2 INT);
+INSERT INTO grandparent VALUES (1,10), (2,20);
+CREATE TABLE parent (
+pf1 INT PRIMARY KEY, pf2 INT, sleep_dummy INT,
+CONSTRAINT pc1 FOREIGN KEY (pf2) REFERENCES grandparent (gpf1)
+ON DELETE NO ACTION ON UPDATE NO ACTION);
+INSERT INTO parent VALUES (1,1,0), (2,2,0);
+CREATE TABLE child (
+cf1 INT PRIMARY KEY, cf2 INT,
+CONSTRAINT cc1 FOREIGN KEY (cf2) REFERENCES parent (pf1)
+ON DELETE NO ACTION ON UPDATE NO ACTION);
+INSERT INTO child VALUES (1,1), (2,2);
+SET @@session.lock_wait_timeout= 1;
+UPDATE parent SET pf2= 2, sleep_dummy= SLEEP(10);
+set @conA_id = <conA>;
+# Waiting for connection A to start udpate
+SET @@session.lock_wait_timeout= 1;
+set session txsql_nonblock_ddl_retry_times = 10;
+# Updates not invoving the FK related column should succeed
+UPDATE grandparent SET gpf2= 4;
+UPDATE grandparent SET gpf2= 100 * gpf1;
+# DDL on child will have conflicting locks.
+ALTER TABLE child ADD COLUMN (i INT);
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ALTER TABLE child no_wait ADD COLUMN (i INT);
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ALTER TABLE child wait 2 ADD COLUMN (i INT);
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+SET @@session.lock_wait_timeout= DEFAULT;
+SET @@session.txsql_nonblock_ddl_retry_times= 5;
+ALTER TABLE child ADD COLUMN (i INT);
+DROP TABLE child;
+DROP TABLE parent;
+DROP TABLE grandparent;
+SET global txsql_nonblock_ddl = @old_txsql_nonblock_ddl;

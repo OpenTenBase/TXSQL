@@ -517,6 +517,11 @@ struct System_variables {
     @sa Sys_txsql_parallel_copy_ddl
   */
   bool txsql_parallel_copy_ddl;
+
+  bool txsql_nonblock_ddl;
+  ulong txsql_nonblock_ddl_retry_times;
+  ulong txsql_nonblock_ddl_retry_interval; // 2s
+
   /* Changes from txsql end. */
 
   /**

@@ -58,6 +58,9 @@
 #include "sql/system_variables.h"  // system_variables
 #include "sql/table.h"             // table
 #include "sql/thd_raii.h"          // Prepared_stmt_arena_holder
+#include "sql/log.h"               // sql_print_information
+#include "sql/protocol.h"
+#include "sql/protocol_classic.h"
 #include "thr_lock.h"
 
 #ifndef NDEBUG
@@ -520,6 +523,8 @@ bool Sql_cmd_create_or_drop_index_base::execute(THD *thd) {
     table without having to do a full rebuild.
   */
 
+  NONBLOCK_DDL_INIT(retry_create_or_drop_index);
+
   LEX *const lex = thd->lex;
   Query_block *const query_block = lex->query_block;
   TABLE_LIST *const first_table = query_block->get_table_list();
@@ -551,6 +556,9 @@ bool Sql_cmd_create_or_drop_index_base::execute(THD *thd) {
   const bool res =
       mysql_alter_table(thd, first_table->db, first_table->table_name,
                         &create_info, first_table, &alter_info);
+
+  NONBLOCK_DDL_RETRY(true, retry_create_or_drop_index);
+
   /* Pop Strict_error_handler */
   if (thd->is_strict_mode()) thd->pop_internal_handler();
   return res;

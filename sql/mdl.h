@@ -57,6 +57,67 @@ struct MEM_ROOT;
 namespace mdl_unittest {
 bool test_drive_fix_pins(MDL_context *);
 }
+
+#define NONBLOCK_DDL_INIT(RETRY_POS)                                \
+  ulong retry_times = 0;                                            \
+RETRY_POS:                                                          \
+  retry_times++;                                                    \
+  MDL_savepoint mdl_savepoint = thd->mdl_context.mdl_savepoint();
+
+#define NONBLOCK_DDL_RETRY(POP_HANDLER, RETRY_POS)                                 \
+do {                                                                               \
+  if (thd->variables.txsql_nonblock_ddl && thd->is_mdl_blocked()) {                \
+      thd->set_mdl_blocked(false);                                                 \
+      Open_table_context ot_ctx(thd, 0);                                           \
+      close_thread_tables(thd);                                                    \
+      thd->mdl_context.rollback_to_savepoint(mdl_savepoint);                       \
+      static volatile int last_time{0};                                            \
+      thd->mdl_blocked_req.duration = MDL_EXPLICIT;                                \
+      while (retry_times <= thd->variables.txsql_nonblock_ddl_retry_times &&       \
+            !thd->is_killed()) {                                                   \
+        const auto current_time = std::chrono::steady_clock::now();                \
+        const auto current_time_in_sec =                                           \
+            std::chrono::duration_cast<std::chrono::seconds>(                      \
+                current_time.time_since_epoch())                                   \
+                .count();                                                          \
+        if ((thd->variables.txsql_nonblock_ddl_retry_interval + last_time)         \
+              < (ulong) current_time_in_sec) {                                     \
+          last_time = current_time_in_sec;                                         \
+          my_sleep(thd->variables.txsql_nonblock_ddl_retry_interval * 1000000);    \
+          continue;                                                                \
+        }                                                                          \
+        if (thd->mdl_context.try_acquire_lock(&thd->mdl_blocked_req)               \
+            || !thd->mdl_blocked_req.ticket) {                                     \
+          retry_times++;                                                           \
+          my_sleep(thd->variables.txsql_nonblock_ddl_retry_interval * 1000000);    \
+          sql_print_information("[TXSQL Nonblocking DDL] SQL: %s, MDL lock is still blocked, stay waiting...", \
+                                thd->query().str);                                 \
+          continue;                                                                \
+        } else {                                                                   \
+          MDL_ticket *ticket = thd->mdl_blocked_req.ticket;                        \
+          thd->mdl_context.release_lock(ticket);                                   \
+          thd->clear_error();                                                      \
+          thd->get_stmt_da()->reset_diagnostics_area();                            \
+          thd->get_stmt_da()->reset_condition_info(thd);                           \
+          auto net = thd->get_protocol_classic()->get_net();                       \
+          net_clear(net, true);                                                    \
+          net->pkt_nr++;                                                           \
+          mysql_reset_mdl_request_for_try(thd);                                    \
+          if (POP_HANDLER && thd->get_internal_handler())                          \
+            thd->pop_internal_handler();                                           \
+          sql_print_information("[TXSQL Nonblocking DDL] SQL: %s, MDL lock is avaiable, retry...", \
+                                thd->query().str);                                 \
+          goto RETRY_POS;                                                          \
+        }                                                                          \
+      }                                                                            \
+    }                                                                              \
+} while(0)
+
+#define check_if_can_use_nonblock_ddl()                                            \
+  thd->variables.txsql_nonblock_ddl &&                                             \
+        (thd->variables.txsql_nonblock_ddl_retry_times *                           \
+          thd->variables.txsql_nonblock_ddl_retry_interval) < wait_time            \
+
 /**
   @def ENTER_COND(C, M, S, O)
   Start a wait on a condition.
@@ -1407,6 +1468,8 @@ typedef I_P_List<MDL_request,
   connection has such a context.
 */
 
+static MDL_request blocked_mdl_req;
+
 class MDL_context {
  public:
   typedef I_P_List<MDL_ticket,
@@ -1422,9 +1485,13 @@ class MDL_context {
   bool try_acquire_lock(MDL_request *mdl_request);
   bool acquire_lock(MDL_request *mdl_request, Timeout_type lock_wait_timeout);
   bool acquire_locks(MDL_request_list *requests,
-                     Timeout_type lock_wait_timeout);
+                     Timeout_type lock_wait_timeout,
+                     bool without_block = false, // used by non-blocking DDL
+                     MDL_request &blocked_mdl_request = blocked_mdl_req);
   bool upgrade_shared_lock(MDL_ticket *mdl_ticket, enum_mdl_type new_type,
-                           Timeout_type lock_wait_timeout);
+                      Timeout_type lock_wait_timeout,
+                      bool without_block = false, // used by non-blocking DDL
+                      MDL_request &blocked_mdl_request = blocked_mdl_req);
 
   bool clone_ticket(MDL_request *mdl_request);
 
