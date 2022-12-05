@@ -1,0 +1,80 @@
+##################################part2##################################
+## Only tencent_root or tdsql_root can do the forbidden operations when the following switch in part1 is on.
+## Tencent_root or tdsql_root does not care about local login or tcp login.
+
+connect (con1,"127.0.0.1",root,,);
+connect (con2,localhost,root,,); 
+
+## forbid_server_path_remote_access
+use test;
+create table t1 (a date, b date, c date not null, d date);
+set global forbid_server_path_remote_access = on;
+connection con1;
+--error ER_REMOTE_OPERATION_DENIED
+load data infile '../../std_data/loaddata1.dat' into table t1 fields terminated by ',' IGNORE 2 LINES;
+connection con2;
+--error ER_REMOTE_OPERATION_DENIED
+load data infile '../../std_data/loaddata1.dat' into table t1 fields terminated by ',' IGNORE 2 LINES;
+drop table t1;
+set global forbid_server_path_remote_access = off;
+
+## forbid_server_path_remote_change
+set global forbid_server_path_remote_change = on;
+connection con1;
+--error ER_REMOTE_OPERATION_DENIED
+set global general_log_file='abc.log';
+--error ER_REMOTE_OPERATION_DENIED
+set global slow_query_log_file='abc.log';
+connection con2;
+--error ER_REMOTE_OPERATION_DENIED
+set global general_log_file='abc.log';
+--error ER_REMOTE_OPERATION_DENIED
+set global slow_query_log_file='abc.log';
+set global forbid_server_path_remote_change = off;
+
+## forbid_remote_install_plugin
+set global forbid_remote_install_plugin = on;
+connection con1;
+--error ER_REMOTE_OPERATION_DENIED
+install plugin audit_cdb soname "audit_cdb.so";
+connection con2;
+--error ER_REMOTE_OPERATION_DENIED
+install plugin audit_cdb soname "audit_cdb.so";
+set global forbid_remote_install_plugin = off;
+
+## forbid_remote_change_master
+set global forbid_remote_change_master = on;
+connection con1;
+--error ER_REMOTE_OPERATION_DENIED 
+CHANGE MASTER TO MASTER_HOST="localhost", MASTER_PORT=11 FOR CHANNEL "ch1";
+connection con2;
+--error ER_REMOTE_OPERATION_DENIED
+CHANGE MASTER TO MASTER_HOST="localhost", MASTER_PORT=11 FOR CHANNEL "ch1";
+set global forbid_remote_change_master = off;
+
+## forbid_remote_stop_server
+set global forbid_remote_stop_server = on;
+connection con1;
+--error ER_REMOTE_OPERATION_DENIED 
+shutdown;
+connection con2;
+--error ER_REMOTE_OPERATION_DENIED 
+shutdown;
+set global forbid_remote_stop_server = off;
+
+
+##################################part2##################################
+## Only local user can set sql_log_bin when forbid_remote_change_sql_log_bin is on.
+## All other users including tencent_root and tdsql_root should obey.
+
+## forbid_remote_change_sql_log_bin
+set global forbid_remote_change_sql_log_bin = on;
+connection con1;
+--error ER_REMOTE_OPERATION_DENIED
+#set session sql_log_bin = 0;
+connection con2;
+set session sql_log_bin = 0;
+set global forbid_remote_change_sql_log_bin = off;
+## cleanup
+disconnect con1;
+disconnect con2;
