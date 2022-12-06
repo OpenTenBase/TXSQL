@@ -3713,15 +3713,16 @@ static int find_uniq_filename(char *name, uint32 new_index_number,
   *end = '.';
   length = (size_t)(end - start + 1);
 
-  if ((DBUG_EVALUATE_IF(
-          "error_unique_log_filename", 1,
-          !(dir_info =
-                my_dir(buff, MYF(MY_DONT_SORT)))))) {  // This shouldn't happen
-    my_stpcpy(end, ".1");                              // use name+1
+  DBUG_EXECUTE_IF("error_unique_log_filename", {
+    my_stpcpy(end, ".1");
     return 1;
-  }
+  });
 
   if (0 == cur_max_suffix) {
+    if (!(dir_info = my_dir(buff, MYF(MY_DONT_SORT)))) {
+      my_stpcpy(end, ".1");
+      return 1;
+    }
     /* use scan dir if 0 */
     file_info = dir_info->dir_entry;
     for (i = dir_info->number_off_files; i--; file_info++) {

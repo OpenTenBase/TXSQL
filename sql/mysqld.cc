@@ -2869,6 +2869,8 @@ static void clean_up(bool print_message) {
            server_version, MYSQL_COMPILATION_COMMENT_SERVER);
   cleanup_errmsgs();
 
+  Cdb_global_prepared_statement_map::destroy_instance();
+
   sysd::notify("STATUS=Server shutdown complete");
 
   free_connection_acceptors();

@@ -51,6 +51,8 @@ struct PFS_histogram {
 
   ulonglong read_bucket(uint bucket_index) { return m_bucket[bucket_index]; }
 
+  void destroy() { m_bucket.~vector(); }
+
  private:
   std::vector<std::atomic<ulonglong>> m_bucket;
 };

@@ -72,6 +72,7 @@ public:
   }
 
   ~Seq_cache() {
+    clear();
     pthread_mutex_destroy(&mutex);
   }
 

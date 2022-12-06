@@ -137,6 +137,9 @@ int init_digest(const PFS_global_param *param) {
 
 /** Cleanup table EVENTS_STATEMENTS_SUMMARY_BY_DIGEST. */
 void cleanup_digest(void) {
+  for (size_t index = 0; index < digest_max; index++) {
+    statements_digest_stat_array[index].m_histogram.destroy();
+  }
   PFS_FREE_ARRAY(&builtin_memory_digest, digest_max,
                  sizeof(PFS_statements_digest_stat),
                  statements_digest_stat_array);

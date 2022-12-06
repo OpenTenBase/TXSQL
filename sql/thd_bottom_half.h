@@ -322,7 +322,7 @@ public:
 
     void dealBinlogPosAns(const Thd_Trans_binlog_info &ack_info);
 
-    ~CThdBottomHalf() {}
+    ~CThdBottomHalf() { if (m_ansThread != NULL) delete [] m_ansThread; }
 
     void set_thd_error_server_stop(THD *thd);
     void reset_answer();
