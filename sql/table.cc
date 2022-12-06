@@ -582,6 +582,8 @@ void TABLE_SHARE::destroy() {
   delete view_object;
   view_object = nullptr;
 
+  pke_schema_table.~basic_string();
+
 #ifdef HAVE_PSI_TABLE_INTERFACE
   PSI_TABLE_CALL(release_table_share)(m_psi);
 #endif

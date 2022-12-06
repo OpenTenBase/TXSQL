@@ -78,7 +78,7 @@ void partition_info::computePnoVec() {
   List_iterator<partition_element> part_it(partitions);
   partition_element *part = NULL;
   while ((part = (part_it++))) {
-    m_pNoVec.push_back(part->m_p_no);
+    m_pNoVec.push_back(new (*THR_MALLOC) int(part->m_p_no));
   }
 }
 

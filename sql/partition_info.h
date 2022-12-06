@@ -34,6 +34,7 @@
 #include "sql/sql_bitmap.h"       // Bitmap
 #include "sql/sql_data_change.h"  // enum_duplicates
 #include "sql/sql_list.h"
+#include "sql/mem_root_array.h"
 
 class Field;
 class Item;
@@ -255,7 +256,7 @@ class partition_info {
   List<char> part_field_list;
   List<char> subpart_field_list;
 
-  std::vector<int> m_pNoVec;
+  List<int> m_pNoVec;
   /*
     If there is no subpartitioning, use only this func to get partition ids.
 
@@ -463,7 +464,7 @@ class partition_info {
     if(unlikely(index < 0 || ((size_t)index) >= m_pNoVec.size())){
       return -1;
     }
-    return m_pNoVec[index];
+    return *m_pNoVec[index];
   }
 
   /* Only the number of partitions defined (uses default names and options). */
@@ -547,6 +548,7 @@ class partition_info {
     temp_partitions.clear();
     part_field_list.clear();
     subpart_field_list.clear();
+    m_pNoVec.clear();
   }
 
   partition_info *get_clone(THD *thd, bool reset = false);

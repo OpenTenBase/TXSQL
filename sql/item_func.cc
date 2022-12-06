@@ -1538,7 +1538,7 @@ longlong Item_func_murmurHashCodeAndMod::val_int()
   ifld = ((Item_field*)args[0]);
   if (unlikely(!ifld->field || !ifld->field->table ||
         !ifld->field->table->part_info ||
-        ifld->field->table->part_info->m_pNoVec.empty()))
+        ifld->field->table->part_info->m_pNoVec.is_empty()))
     goto no_filter;
 
   result = filter_dropped_parts(result);

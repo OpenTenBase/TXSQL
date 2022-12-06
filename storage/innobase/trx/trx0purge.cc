@@ -315,6 +315,7 @@ void trx_purge_sys_close() {
 
   purge_sys->sess = nullptr;
 
+  purge_sys->view.~ReadView();
   purge_sys->pre_view.~ReadView();
 
   rw_lock_free(&purge_sys->latch);

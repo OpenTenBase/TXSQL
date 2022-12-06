@@ -18937,11 +18937,11 @@ static int copy_data_between_tables(
 
   to->file->ha_extra(HA_EXTRA_BEGIN_ALTER_COPY);
 
-  to->file->ha_prepare_copy_alter(&ha_copy_alter_info);
-
   if (check_if_can_use_parallel_copy_ddl(thd, from, to, alter_ctx,
                                          order, is_auto_inc, is_multi_value,
                                          table_def, old_table_def)) {
+
+    to->file->ha_prepare_copy_alter(&ha_copy_alter_info);
 
     ha_copy_alter_info.handler_ctx->init(alter_ctx->new_db, alter_ctx->db,
                                          alter_ctx->table_name, alter_ctx->tmp_name,

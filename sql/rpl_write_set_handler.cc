@@ -575,7 +575,7 @@ static bool generate_hash_pke(const std::string &pke, THD *thd
 */
 #endif
 
-static bool generate_mv_hash_pke(const std::string &prefix_pke, size_t pke_length,
+static bool generate_mv_hash_pke(const char *prefix_pke, size_t pke_length,
                                  THD *thd,
                                  Field *fld
 #ifndef NDEBUG
@@ -623,6 +623,38 @@ static bool generate_mv_hash_pke(const std::string &prefix_pke, size_t pke_lengt
   }
   return false;
 }
+
+/**
+  Function to generate set of hashes for a multi-valued key
+
+  @param[in] prefix_pke  - stringified non-multi-valued prefix of key
+  @param[in] pke_length  - prefix_pke's length
+  @param[in] thd         - THD object pointing to current thread.
+  @param[in] fld         - multi-valued keypart's field
+  @return true if a problem occurred on generation or write set tracking.
+#ifndef NDEBUG
+  @param[in] write_sets - DEBUG ONLY, list of all write sets
+  @param[in] hash_list   - DEBUG ONLY, list of all hashes
+#endif
+ */
+/*
+static bool generate_mv_hash_pke(const std::string &prefix_pke,
+                                 THD *thd,
+                                 Field *fld
+#ifndef NDEBUG
+                                 ,
+                                std::vector<std::string> &write_sets,
+                                std::vector<uint64> &hash_list
+#endif
+) {
+  return generate_mv_hash_pke(pke.c_str(), pke.length(), thd, fld
+#ifndef NDEBUG
+                           , write_sets, hash_list
+#endif
+                          );
+}
+*/
+
 
 bool add_pke(TABLE *table, THD *thd, const uchar *record) {
   DBUG_TRACE;
