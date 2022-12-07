@@ -112,8 +112,8 @@ REINTERPRET_INT(salary, 1, 10)
 3355185
 858927405
 Warnings:
-Warning	4177	reinterpret_int bytes truncated
-Warning	4177	reinterpret_int bytes truncated
+Warning	4179	reinterpret_int bytes truncated
+Warning	4179	reinterpret_int bytes truncated
 SELECT REINTERPRET_INT(ST_GeomCollFromText("MULTILINESTRING((10 10, 11 11), (9 9, 10 10))"), 0, 4);
 ERROR HY000: Incorrect arguments to reinterpret_int
 SELECT REINTERPRET_INT(ST_GeomCollFromText("MULTILINESTRING((10 10, 11 11), (9 9, 10 10))"), 0, 8);
