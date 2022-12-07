@@ -599,7 +599,6 @@ class Query_event : public Binary_log_event {
   bool flags2_inited;
   bool sql_mode_inited;
   bool charset_inited;
-  char m_release_query_buf;  // 1: free(this->query); 2: delete[]this->query.
 
   uint32_t flags2;
   /* In connections sql_mode is 32 bits now but will be 64 bits soon */
@@ -689,20 +688,7 @@ class Query_event : public Binary_log_event {
     to the log.
   */
   Query_event(Log_event_type type_arg = QUERY_EVENT);
-  ~Query_event() override {
-    if (query) {
-      if (m_release_query_buf == 1)
-        free(const_cast<char *>(query));
-      else if (m_release_query_buf == 2)
-        delete[](const_cast<char *>(query));
-
-      query = nullptr;
-    }
-  }
-
-  void set_release_query(char how) {
-    if (how == 1 || how == 2) m_release_query_buf = how;
-  }
+  ~Query_event() override = default;
 
 #ifndef HAVE_MYSYS
   void print_event_info(std::ostream &info) override;

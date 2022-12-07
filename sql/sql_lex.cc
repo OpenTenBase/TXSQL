@@ -3841,6 +3841,7 @@ LEX::LEX()
   gts_xa = 0;
   donor_transaction_id = nullptr;
   attach_session_id = 0;
+  drop_if_exists = false;
 }
 
 /**
