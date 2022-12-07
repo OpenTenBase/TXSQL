@@ -25,8 +25,11 @@ disconnect con_normal;
 
 --connection tencentroot
 set global cdb_admin_port_allow_for_normal_user=off;
+
+--disable_query_log
 --error ER_LOGIN_FROM_ADMIN_PORT_NOT_ALLOWED
 connect(con_admin,$ADMIN_ADDRESS,user1,,test,$ADMIN_PORT);
+--enable_query_log
 
 connect(con_normal,$ADMIN_ADDRESS,user1,,test,$MASTER_MYPORT);
 disconnect con_normal;

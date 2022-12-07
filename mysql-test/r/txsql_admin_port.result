@@ -5,7 +5,6 @@ CREATE USER 'user1'@'localhost';
 grant all privileges on *.* to 'user1'@'localhost';
 set global cdb_admin_port_allow_for_normal_user=on;
 set global cdb_admin_port_allow_for_normal_user=off;
-connect(127.0.0.1,user1,,test,12333,/data/ayuanzhang/txsql-8.0.30/bld-debug/mysql-test/var/tmp/mysqld.1.sock);
 ERROR HY000: Ordinary users are not allowed to log in to admin_port.
 set global cdb_admin_port_allow_for_normal_user=1;
 drop user 'user1'@'localhost';

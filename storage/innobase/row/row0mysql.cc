@@ -1229,13 +1229,15 @@ byte *row_mysql_store_col_in_innobase_format(
       }
 
       const byte *tmp_ptr = row_mysql_read_true_varchar(&col_len, mysql_data, lenlen);
+
       if (need_encryption)
         ptr = row_encrypt_column(tmp_ptr, &col_len, lenlen, encryption_algorithm,
                                  encryption_key, encryption_iv, prebuilt);
 
       if (need_compression)
         ptr = row_compress_column(tmp_ptr, &col_len, lenlen, comp_algorithm, prebuilt);
-      else
+        
+      if (!need_encryption && !need_compression)
         ptr = tmp_ptr;
     } else {
       /* Remove trailing spaces from old style VARCHAR

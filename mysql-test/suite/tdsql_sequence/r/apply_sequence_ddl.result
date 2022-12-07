@@ -31,7 +31,7 @@ a	b	c
 commit;
 DROP TDSQL_SEQUENCE IF EXISTS sequence_000;
 Warnings:
-Note	4181	Sequence sequence_000 in database dbtest_seq_ddl_other not found.
+Note	4183	Sequence sequence_000 in database dbtest_seq_ddl_other not found.
 DROP TDSQL_SEQUENCE dbtest_seq_ddl.sequence_001;
 DROP DATABASE dbtest_seq_ddl ;
 DROP DATABASE dbtest_seq_ddl_other ;
