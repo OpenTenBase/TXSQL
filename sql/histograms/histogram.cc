@@ -1803,7 +1803,7 @@ bool drop_histograms(THD *thd, TABLE_LIST &table, const columns_set &columns,
   return false;
 }
 
-bool Histogram::store_histogram_worker(THD *thd) const {
+bool Histogram::store_histogram_worker(THD *thd, bool &can_lock) const {
   Disable_autocommit_guard autocommit_guard(thd);
   dd::cache::Dictionary_client::Auto_releaser releaser(thd->dd_client());
 
@@ -1811,10 +1811,10 @@ bool Histogram::store_histogram_worker(THD *thd) const {
   MDL_REQUEST_INIT(&mdl_request, MDL_key::TABLE, get_database_name().str,
                    get_table_name().str, MDL_SHARED_READ_ONLY, MDL_TRANSACTION);
 
-  if (thd->mdl_context.acquire_lock(&mdl_request,
-                                    thd->variables.lock_wait_timeout)) {
-    // error has already been reported
-    return true; /* purecov: deadcode */
+  if (thd->mdl_context.try_acquire_lock(&mdl_request)) {
+    // DDL may hold this lock to drop task.
+    can_lock = false;
+    return true;
   }
   bool ret = store_histogram(thd);
 

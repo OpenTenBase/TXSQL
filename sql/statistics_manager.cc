@@ -264,6 +264,8 @@ void deinit_statistics_thread(THD *thd) {
 }
 
 bool is_maintenance_window(THD *thd) {
+  DBUG_EXECUTE_IF("auto_statistic_can_apply", {return true;});
+  DBUG_EXECUTE_IF("auto_statistic_not_apply", {return false;});
   assert(auto_stats_interval_duration >= 1 &&
       auto_stats_interval_duration <= 23);
   int hh,mm;
@@ -326,8 +328,7 @@ static void *cdb_statistics_manager_thread(void *arg __attribute__((unused)))
       while (!connection_events_loop_aborted() && !thd->killed
           && Statistics_manager::is_running()) {
         // check maintenance window and apply histograms
-        if (is_maintenance_window(thd) &&
-            DBUG_EVALUATE_IF("auto_statistic_flush_pending", false, true)) {
+        if (is_maintenance_window(thd)) {
           if (Statistics_manager::apply_histograms()) {
             LogErr(INFORMATION_LEVEL, ER_CDB_STATISTICS_WORKER_FAILURE,
                   "apply histograms failure");
@@ -346,7 +347,7 @@ static void *cdb_statistics_manager_thread(void *arg __attribute__((unused)))
             DBUG_EVALUATE_IF("auto_statistic_execution_pending", true, false)) {
           DBUG_PRINT("info", ("statistic thread busy"));
           my_sleep(3 * 1000000);
-        } else {
+        } else if (DBUG_EVALUATE_IF("auto_statistic_not_run", false, true)) {
           DBUG_PRINT("info", ("statistic thread pool a new task"));
           Statistics_manager::run(thd);
         }
@@ -411,6 +412,7 @@ static void *statistics_worker_thread(void *arg) {
   }
   task->m_status = ON_DOING;
   task->unlock_data(__func__, __LINE__);
+  DBUG_EXECUTE_IF("auto_statistic_sleep_on_doing", {my_sleep(10 * 1000000);});
 
   // step 0: build histogram SQL
   char llbuf[DECIMAL_LONGLONG_DIGITS];
@@ -486,7 +488,7 @@ start:
       (master_row = mysql_fetch_row(master_res))) {
     DBUG_PRINT("info", ("statistic SQL rsp: %s", master_row[0]));
   } else {
-    if (is_network_error(mysql_errno(statistics_mysql))) {
+    if (!is_network_error(mysql_errno(statistics_mysql))) {
       LogErr(INFORMATION_LEVEL, ER_CDB_STATISTICS_WORKER_FAILURE,
           "Get unknown err");
       mysql_free_result(master_res);
@@ -532,16 +534,14 @@ start:
   mysql_free_result(master_res);
   master_res = nullptr;
 
-  if (task->m_status != ON_DOING) {
-    goto be_deleted;
-  } else {
-    task->m_finished_at = (my_time_t)time(0);
-    task->m_status = FINISHED_TASK;
-    mysql_cond_broadcast(&task->COND_task_state);
-  }
+  if (task->m_status != ON_DOING) goto be_deleted;
 
-  my_thread_end();
+  task->m_finished_at = (my_time_t)time(0);
+
   thd->release_resources();
+  task->m_status = FINISHED_TASK;
+  mysql_cond_broadcast(&task->COND_task_state);
+  my_thread_end();
   return nullptr;
 
 err:
@@ -552,20 +552,21 @@ err:
       statistics_mysql = nullptr;
       goto start;
     }
+    thd->release_resources();
     task->m_status = FAILED_TASK;
   } else {
+    thd->release_resources();
     task->m_status = DELETED_TASK;
   }
   mysql_cond_broadcast(&task->COND_task_state);
   my_thread_end();
-  thd->release_resources();
   return nullptr;
 
 be_deleted:
+  thd->release_resources();
   task->m_status = DELETED_TASK;
   mysql_cond_broadcast(&task->COND_task_state);
   my_thread_end();
-  thd->release_resources();
   return nullptr;  // Can't return anything here
 }
 }  // extern "C"
@@ -1057,10 +1058,11 @@ start:
       // column may deleted by drop_histograms
       break;
     }
-
-    if ((apply_ret = histogram->store_histogram_worker(thd))) {
-      break;
-    }
+    bool can_lock = true;
+    apply_ret = histogram->store_histogram_worker(thd, can_lock);
+    // MDL lock may be held by a DDL, exit quickly.
+    if (!can_lock) goto interupt;
+    if (apply_ret) break;
   }
 
   if (apply_ret) {
@@ -1080,6 +1082,9 @@ start:
 
   UNLOCK_TASK_DATA();
   return false;
+ interupt:
+  UNLOCK_TASK_DATA();
+  return true;
 }
 
 
@@ -1561,11 +1566,10 @@ void Statistics_manager::cond_wait(THD *curr_thd, struct timespec *abstime,
 
 bool Statistics_manager::apply_histograms() {
   DBUG_TRACE;
-
   while (statistics_task_apply_queue->size() > 0) {
     DBUG_PRINT("info", ("Tasks ready for apply"));
-    mysql_mutex_lock(&LOCK_stats_manager);
 
+    mysql_mutex_lock(&LOCK_stats_manager);
     Statistics_task_element *task = statistics_task_apply_queue->top_queue();
 
     // task may dropped by fun::drop()
@@ -1576,7 +1580,10 @@ bool Statistics_manager::apply_histograms() {
 
     // direct delete failed/deleted tasks without apply
     if (task->m_status == FINISHED_TASK) {
-      task->do_apply_statistics_task(manager_thd);
+      if (task->do_apply_statistics_task(manager_thd)) {
+        mysql_mutex_unlock(&LOCK_stats_manager);
+        return true;
+      }
     }
     statistics_task_apply_queue->pop_queue();
     delete task;
@@ -1588,6 +1595,7 @@ bool Statistics_manager::apply_histograms() {
 }
 
 bool Statistics_manager::check_histograms_status(bool force_kill) {
+  DBUG_EXECUTE_IF("auto_statistic_not_apply", {return false;});
   DBUG_TRACE;
   if (!force_kill)
     mysql_mutex_lock(&LOCK_stats_manager);
