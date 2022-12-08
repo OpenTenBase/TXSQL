@@ -1,0 +1,397 @@
+CREATE DATABASE outline_db;
+CREATE TABLE outline_db.t1(id INT AUTO_INCREMENT PRIMARY KEY,
+col1 INT,
+col2 VARCHAR(100),
+KEY ind_1(col1),
+KEY ind_2(col2));
+CREATE TABLE outline_db.t2(id INT AUTO_INCREMENT PRIMARY KEY,
+col1 INT,
+col2 VARCHAR(100),
+KEY ind_1(col1),
+KEY ind_2(col2));
+INSERT INTO outline_db.t1 VALUES(1, 2, 'mysql');
+INSERT INTO outline_db.t2 VALUES(1, 2, 'mysql');
+CREATE USER 'u1'@'%';
+GRANT ALL PRIVILEGES ON outline_db.* to 'u1'@'%';
+GRANT ALL PRIVILEGES ON mysql.* to 'u1'@'%';
+#-----------------------------------------------------------
+# 1. check the statement outline rules table structure
+#-----------------------------------------------------------
+DESC mysql.statement_outline_rules;
+Field	Type	Null	Key	Default	Extra
+id	int	NO	PRI	NULL	auto_increment
+schema_name	varchar(64)	YES		NULL	
+digest	varchar(64)	NO		NULL	
+outline	json	NO		NULL	
+enabled	enum('YES','NO')	NO		YES	
+digest_text	varchar(5000)	YES		NULL	
+#-----------------------------------------------------------
+# 2. check outline procedures
+#-----------------------------------------------------------
+SET GLOBAL read_only = ON;
+CALL dbms_admin.statement_outline_add_rule('outline_db', "SELECT /*+ INDEX(t1 ind_2) */ * FROM t1 WHERE col1 = 2 AND col2 = 'mysql'");
+ERROR HY000: The MySQL server is running with the --read-only option so it cannot execute this statement
+SET GLOBAL read_only = OFF;
+USE outline_db;
+CALL dbms_admin.statement_outline_show_rules();
+ID	SCHEMA	DIGEST	ENABLED	HITS	OUTLINE	DIGEST_TEXT	HAS_APPLY_FAILURE
+CALL dbms_admin.statement_outline_show_rules();
+ID	SCHEMA	DIGEST	ENABLED	HITS	OUTLINE	DIGEST_TEXT	HAS_APPLY_FAILURE
+#	outline_db	e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855	YES	0	[{"hint": "/*+ INDEX(`t1`@`select#1` `ind_2`) */ ", "select_number": 1}]	select /*+ INDEX(`t1`@`select#1` `ind_2`) */ * from `outline_db`.`t1` where ((`col1` = ?) and (`col2` = ?))	0
+EXPLAIN SELECT * FROM t1 WHERE col1 = 2 AND col2 = 'mysql';
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ref	ind_1,ind_2	ind_1	5	const	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `outline_db`.`t1`.`id` AS `id`,`outline_db`.`t1`.`col1` AS `col1`,`outline_db`.`t1`.`col2` AS `col2` from `outline_db`.`t1` where ((`outline_db`.`t1`.`col2` = 'mysql') and (`outline_db`.`t1`.`col1` = 2))
+CALL dbms_admin.statement_outline_enable_rule(#, 0)
+CALL dbms_admin.statement_outline_show_rules();
+ID	SCHEMA	DIGEST	ENABLED	HITS	OUTLINE	DIGEST_TEXT	HAS_APPLY_FAILURE
+#	outline_db	e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855	NO	0	[{"hint": "/*+ INDEX(`t1`@`select#1` `ind_2`) */ ", "select_number": 1}]	select /*+ INDEX(`t1`@`select#1` `ind_2`) */ * from `outline_db`.`t1` where ((`col1` = ?) and (`col2` = ?))	0
+enabled
+NO
+EXPLAIN SELECT * FROM t1 WHERE col1 = 2 AND col2 = 'mysql';
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ref	ind_1,ind_2	ind_1	5	const	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `outline_db`.`t1`.`id` AS `id`,`outline_db`.`t1`.`col1` AS `col1`,`outline_db`.`t1`.`col2` AS `col2` from `outline_db`.`t1` where ((`outline_db`.`t1`.`col2` = 'mysql') and (`outline_db`.`t1`.`col1` = 2))
+CALL dbms_admin.statement_outline_enable_rule(#, 1)
+EXPLAIN SELECT * FROM t1 WHERE col1 = 2 AND col2 = 'mysql';
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ref	ind_1,ind_2	ind_1	5	const	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `outline_db`.`t1`.`id` AS `id`,`outline_db`.`t1`.`col1` AS `col1`,`outline_db`.`t1`.`col2` AS `col2` from `outline_db`.`t1` where ((`outline_db`.`t1`.`col2` = 'mysql') and (`outline_db`.`t1`.`col1` = 2))
+CALL dbms_admin.statement_outline_delete_rule(#)
+CALL dbms_admin.statement_outline_show_rules();
+ID	SCHEMA	DIGEST	ENABLED	HITS	OUTLINE	DIGEST_TEXT	HAS_APPLY_FAILURE
+#-----------------------------------------------------------
+# 3. check add rule procedure
+#-----------------------------------------------------------
+CALL dbms_admin.statement_outline_add_rule("SELECT /*+ INDEX(t1 ind_1) */ * FROM t1 WHERE col1 = 2 AND col2 = 'mysql'");
+ERROR 42000: Incorrect number of arguments for PROCEDURE DBMS_ADMIN.; expected 2, got 1
+CALL dbms_admin.statement_outline_add_rule(1, "SELECT /*+ INDEX(t1 ind_1) */ * FROM t1 WHERE col1 = 2 AND col2 = 'mysql'");
+ERROR HY000: The 1th parameter didn't match for native procedure DBMS_ADMIN.
+CALL dbms_admin.statement_outline_add_rule('outline_db',"SELECT /*+ XXX(t1 ind_1) */ * FROM t1 WHERE col1 = 2 AND col2 = 'mysql'");
+ERROR HY000: Could not add statement outline rule: "No hint or invalid hint is given.".
+CALL dbms_admin.statement_outline_add_rule('outline_db', "SELECT /*+ XXX(t1 ind_1) */ * FROM WHERE col1 = 2 AND col2 = 'mysql'");
+ERROR HY000: Could not add statement outline rule: "You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'WHERE col1 = 2 AND col2 = 'mysql'' at line 1".
+CALL dbms_admin.statement_outline_add_rule('outline_db1', "SELECT /*+ ORDER_INDEX(t1 ind_1, ind_2) */ * FROM t1 WHERE col1 = 2 AND col2 = 'mysql'");
+ID
+#
+CALL dbms_admin.statement_outline_add_rule('outline_db', "SELECT /*+ ORDER_INDEX(t1 ind_1, ind_2) */ * FROM t1 WHERE col1 = 2 AND col2 = 'mysql'");
+ID
+#
+CALL dbms_admin.statement_outline_show_rules();
+ID	SCHEMA	DIGEST	ENABLED	HITS	OUTLINE	DIGEST_TEXT	HAS_APPLY_FAILURE
+#	outline_db	e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855	YES	0	[{"hint": "/*+ ORDER_INDEX(`t1`@`select#1` `ind_1`, `ind_2`) */ ", "select_number": 1}]	select /*+ ORDER_INDEX(`t1`@`select#1` `ind_1`, `ind_2`) */ * from `outline_db`.`t1` where ((`col1` = ?) and (`col2` = ?))	0
+#	outline_db1	e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855	YES	0	[{"hint": "/*+ ORDER_INDEX(`t1`@`select#1` `ind_1`, `ind_2`) */ ", "select_number": 1}]	select /*+ ORDER_INDEX(`t1`@`select#1` `ind_1`, `ind_2`) */ * from `outline_db1`.`t1` where ((`col1` = ?) and (`col2` = ?))	0
+SELECT * FROM mysql.statement_outline_rules;
+id	schema_name	digest	outline	enabled	digest_text
+#	outline_db1	e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855	[{"hint": "/*+ ORDER_INDEX(`t1`@`select#1` `ind_1`, `ind_2`) */ ", "select_number": 1}]	YES	select /*+ ORDER_INDEX(`t1`@`select#1` `ind_1`, `ind_2`) */ * from `outline_db1`.`t1` where ((`col1` = ?) and (`col2` = ?))
+#	outline_db	e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855	[{"hint": "/*+ ORDER_INDEX(`t1`@`select#1` `ind_1`, `ind_2`) */ ", "select_number": 1}]	YES	select /*+ ORDER_INDEX(`t1`@`select#1` `ind_1`, `ind_2`) */ * from `outline_db`.`t1` where ((`col1` = ?) and (`col2` = ?))
+DELETE FROM mysql.statement_outline_rules;
+CALL dbms_admin.statement_outline_flush_rules();
+#-----------------------------------------------------------
+# 4. test table structure change, it's ok if add a column
+#-----------------------------------------------------------
+ALTER TABLE mysql.statement_outline_rules ADD col1 INT;
+CALL dbms_admin.statement_outline_add_rule('outline_db', "SELECT /*+ ORDER_INDEX(t1 ind_1, ind_2) */ * FROM t1 WHERE col1 = 2 AND col2 = 'mysql'");
+ID
+#
+CALL dbms_admin.statement_outline_flush_rules();
+CALL dbms_admin.statement_outline_delete_rule(11111);
+Warnings:
+Warning	4170	Could not delete statement outline rule: "Rule 11111 is not found.".
+ALTER TABLE mysql.statement_outline_rules DROP COLUMN col1;
+#-----------------------------------------------------------
+# 5. test flush warning
+#-----------------------------------------------------------
+CALL dbms_admin.statement_outline_add_rule('outline_db',
+"SELECT /*+ MAX_EXECUTION_TIME(1000) */ * FROM t1 WHERE col1 = 2 AND col2 = 'mysql'");
+ID
+#
+CALL dbms_admin.statement_outline_show_rules();
+ID	SCHEMA	DIGEST	ENABLED	HITS	OUTLINE	DIGEST_TEXT	HAS_APPLY_FAILURE
+#	outline_db	e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855	YES	0	[{"hint": "/*+ MAX_EXECUTION_TIME(1000) */ ", "select_number": 1}]	select /*+ MAX_EXECUTION_TIME(1000) */ * from `outline_db`.`t1` where ((`col1` = ?) and (`col2` = ?))	0
+#	outline_db	e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855	YES	0	[{"hint": "/*+ ORDER_INDEX(`t1`@`select#1` `ind_1`, `ind_2`) */ ", "select_number": 1}]	select /*+ ORDER_INDEX(`t1`@`select#1` `ind_1`, `ind_2`) */ * from `outline_db`.`t1` where ((`col1` = ?) and (`col2` = ?))	0
+UPDATE mysql.statement_outline_rules SET  outline ='[{"hint": "/*+ xxx */"}, {"select_number": 1}]' where digest_text like '%MAX_EXECUTION_TIME%';
+CALL dbms_admin.statement_outline_flush_rules();
+Warnings:
+Warning	4172	Invalid statement outline rule # in rules table: Invalid optimizer hint in outline column.
+Warning	4172	Error when refreshing statement outline rules: Some rules failed to load.
+UPDATE mysql.statement_outline_rules SET  outline ='[{"select_number": 1}]' where digest_text like '%MAX_EXECUTION_TIME%';
+CALL dbms_admin.statement_outline_flush_rules();
+Warnings:
+Warning	4172	Invalid statement outline rule # in rules table: Invalid optimizer hint in outline column.
+Warning	4172	Error when refreshing statement outline rules: Some rules failed to load.
+UPDATE mysql.statement_outline_rules SET  outline ='[{"number": 1}, {"hint": "/*+ MAX_EXECUTION_TIME(1000) */"}]' where digest_text like '%MAX_EXECUTION_TIME%';
+CALL dbms_admin.statement_outline_flush_rules();
+Warnings:
+Warning	4172	Invalid statement outline rule # in rules table: Invalid optimizer hint in outline column.
+Warning	4172	Error when refreshing statement outline rules: Some rules failed to load.
+DELETE FROM mysql.statement_outline_rules;
+CALL dbms_admin.statement_outline_flush_rules();
+#-----------------------------------------------------------
+# 6. Index-Level Optimizer Hints
+#-----------------------------------------------------------
+6.1 Single Table Index-Level Optimizer Hints
+USE outline_db;
+CALL dbms_admin.statement_outline_add_rule('outline_db', "SELECT /*+ INDEX(t1 ind_1) */* FROM t1 WHERE col1 = 2 AND col2 = 'mysql' ORDER BY col1");
+ID
+#
+EXPLAIN SELECT * FROM t1 WHERE col1 = 2 AND col2 = 'mysql' ORDER BY col1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ref	ind_1,ind_2	ind_1	5	const	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `outline_db`.`t1`.`id` AS `id`,`outline_db`.`t1`.`col1` AS `col1`,`outline_db`.`t1`.`col2` AS `col2` from `outline_db`.`t1` where ((`outline_db`.`t1`.`col2` = 'mysql') and (`outline_db`.`t1`.`col1` = 2)) order by `outline_db`.`t1`.`col1`
+DELETE FROM mysql.statement_outline_rules;
+COMMIT;
+CALL dbms_admin.statement_outline_flush_rules();
+CALL dbms_admin.statement_outline_add_rule('outline_db', "SELECT /*+ INDEX(t1 ind_1,ind_2) */* FROM t1 WHERE col1 = 2 AND col2 = 'mysql' ORDER BY col1");
+ID
+#
+EXPLAIN SELECT * FROM t1 WHERE col1 = 2 AND col2 = 'mysql' ORDER BY col1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ref	ind_1,ind_2	ind_1	5	const	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `outline_db`.`t1`.`id` AS `id`,`outline_db`.`t1`.`col1` AS `col1`,`outline_db`.`t1`.`col2` AS `col2` from `outline_db`.`t1` where ((`outline_db`.`t1`.`col2` = 'mysql') and (`outline_db`.`t1`.`col1` = 2)) order by `outline_db`.`t1`.`col1`
+DELETE FROM mysql.statement_outline_rules;
+CALL dbms_admin.statement_outline_flush_rules();
+6.2 Multiple Table Index-Level Optimizer Hints
+CALL dbms_admin.statement_outline_add_rule('outline_db',
+"SELECT /*+ INDEX(t1 ind_2) INDEX(t2 ind_2) */ t1.id, t2.id FROM t1, t2 WHERE t1.col1 = t2.col1 AND t1.col2 = t2.col2 AND t1.col1 = 1 AND t1.col2 = 'mysql'");
+ID
+#
+EXPLAIN SELECT t1.id, t2.id FROM t1, t2 WHERE t1.col1 = t2.col1 AND t1.col2 = t2.col2 AND t1.col1 = 1 AND t1.col2 = 'mysql';
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ref	ind_1,ind_2	ind_1	5	const	1	100.00	Using where
+1	SIMPLE	t2	NULL	ref	ind_1,ind_2	ind_1	5	const	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `outline_db`.`t1`.`id` AS `id`,`outline_db`.`t2`.`id` AS `id` from `outline_db`.`t1` join `outline_db`.`t2` where ((`outline_db`.`t1`.`col2` = 'mysql') and (`outline_db`.`t2`.`col2` = 'mysql') and (`outline_db`.`t1`.`col1` = 1) and (`outline_db`.`t2`.`col1` = 1))
+DELETE FROM mysql.statement_outline_rules;
+CALL dbms_admin.statement_outline_flush_rules();
+6.3 Nested Subquery Index-Level Optimizer Hints
+CALL dbms_admin.statement_outline_add_rule('outline_db',
+"SELECT /*+ INDEX(t1 ind_2) */ id FROM t1 WHERE col1 IN (SELECT /*+ INDEX(t2 ind_2) */ col1 FROM t2 WHERE col1 = 1 AND col2 = 'mysql') AND col2 = 'mysql'");
+ID
+#
+EXPLAIN  SELECT /*+ INDEX(t1 ind_2) */ id FROM t1 WHERE col1 IN (SELECT /*+ INDEX(t2 ind_2) */ col1 FROM t2 WHERE col1 = 1 AND col2 = 'mysql') AND col2 = 'mysql';
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ref	ind_2	ind_2	403	const	1	100.00	Using where
+1	SIMPLE	t2	NULL	ref	ind_2	ind_2	403	const	1	100.00	Using where; FirstMatch(t1)
+Warnings:
+Note	1003	/* select#1 */ select /*+ INDEX(`t2`@`select#2` `ind_2`) INDEX(`t1`@`select#1` `ind_2`) */ `outline_db`.`t1`.`id` AS `id` from `outline_db`.`t1` semi join (`outline_db`.`t2`) where ((`outline_db`.`t2`.`col2` = 'mysql') and (`outline_db`.`t1`.`col1` = 1) and (`outline_db`.`t2`.`col1` = 1) and (`outline_db`.`t1`.`col2` = 'mysql'))
+DELETE FROM mysql.statement_outline_rules;
+CALL dbms_admin.statement_outline_flush_rules();
+8.4 Index-Level Optimizer Hints Report Warning
+CALL dbms_admin.statement_outline_add_rule('outline_db',
+"SELECT /*+ INDEX(t1 ind_3) */ id FROM t1 WHERE col1 IN (SELECT col1 FROM t2 WHERE col1 = 1 AND col2 = 'mysql') AND col2 = 'mysql'");
+ID
+#
+SELECT /*+ INDEX(t1 ind_3) */ id FROM t1 WHERE col1 IN (SELECT col1 FROM t2 WHERE col1 = 1 AND col2 = 'mysql') AND col2 = 'mysql';
+id
+Warnings:
+Warning	3128	Unresolved name `t1`@`select#1` `ind_3` for INDEX hint
+DELETE FROM mysql.statement_outline_rules;
+CALL dbms_admin.statement_outline_flush_rules();
+#-----------------------------------------------------------
+# 7. Test Other Optimizer Hints
+#-----------------------------------------------------------
+7.1 Global Optimizer Hint
+CALL dbms_admin.statement_outline_add_rule('outline_db', "SELECT /*+ MAX_EXECUTION_TIME(1000) */ * FROM t1 WHERE col1 = 2 AND col2 = 'mysql'");
+ID
+#
+EXPLAIN SELECT * FROM t1 WHERE col1 = 2 AND col2 = 'mysql';
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ref	ind_1,ind_2	ind_1	5	const	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `outline_db`.`t1`.`id` AS `id`,`outline_db`.`t1`.`col1` AS `col1`,`outline_db`.`t1`.`col2` AS `col2` from `outline_db`.`t1` where ((`outline_db`.`t1`.`col2` = 'mysql') and (`outline_db`.`t1`.`col1` = 2))
+CALL dbms_admin.statement_outline_add_rule('outline_db', "UPDATE /*+ MAX_EXECUTION_TIME(1000) */ t1 SET col1 = 1");
+ERROR HY000: Could not add statement outline rule: "No hint or invalid hint is given.".
+DELETE FROM mysql.statement_outline_rules;
+CALL dbms_admin.statement_outline_flush_rules();
+7.2 Multiple Table Join
+CALL dbms_admin.statement_outline_add_rule('outline_db', "SELECT /*+ BNL(t1,t2) */ t1.id, t2.id FROM t1,t2");
+ID
+#
+EXPLAIN SELECT t1.id, t2.id FROM t1,t2;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	ind_1	5	NULL	1	100.00	Using index
+1	SIMPLE	t2	NULL	index	NULL	ind_1	5	NULL	1	100.00	Using index; Using join buffer (hash join)
+Warnings:
+Note	1003	/* select#1 */ select `outline_db`.`t1`.`id` AS `id`,`outline_db`.`t2`.`id` AS `id` from `outline_db`.`t1` join `outline_db`.`t2`
+CALL dbms_admin.statement_outline_add_rule('outline_db', "SELECT /*+ MAX_EXECUTION_TIME(1000) */ t1.id, t2.id FROM t1,t2");
+ID
+#
+EXPLAIN SELECT t1.id, t2.id FROM t1,t2;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	ind_1	5	NULL	1	100.00	Using index
+1	SIMPLE	t2	NULL	index	NULL	ind_1	5	NULL	1	100.00	Using index; Using join buffer (hash join)
+Warnings:
+Note	1003	/* select#1 */ select `outline_db`.`t1`.`id` AS `id`,`outline_db`.`t2`.`id` AS `id` from `outline_db`.`t1` join `outline_db`.`t2`
+DELETE from mysql.statement_outline_rules;
+CALL dbms_admin.statement_outline_flush_rules();
+7.3 Nested Subquery
+CALL dbms_admin.statement_outline_add_rule('outline_db', "SELECT t1.id FROM t1 WHERE t1.col1 IN (SELECT /*+ INDEX_MERGE(t2 ind_1, ind_2) */ t2.col1 FROM t2 WHERE t2.col1 = 1 AND t2.col2 = 'mysql')");
+ID
+#
+EXPLAIN SELECT t1.id FROM t1 WHERE t1.col1 IN (SELECT t2.col1 FROM t2 WHERE t2.col1 = 1 AND t2.col2 = 'mysql');
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ref	ind_1	ind_1	5	const	1	100.00	Using index
+1	SIMPLE	t2	NULL	ref	ind_1,ind_2	ind_1	5	const	1	100.00	Using where; FirstMatch(t1)
+Warnings:
+Note	1003	/* select#1 */ select `outline_db`.`t1`.`id` AS `id` from `outline_db`.`t1` semi join (`outline_db`.`t2`) where ((`outline_db`.`t2`.`col2` = 'mysql') and (`outline_db`.`t1`.`col1` = 1) and (`outline_db`.`t2`.`col1` = 1))
+DELETE FROM mysql.statement_outline_rules;
+CALL dbms_admin.statement_outline_flush_rules();
+7.4 Subquery Query Block Name
+CALL dbms_admin.statement_outline_add_rule('outline_db', "SELECT /*+ SEMIJOIN(@subq1 MATERIALIZATION, DUPSWEEDOUT) */ * FROM t1 WHERE t1.col1 IN (SELECT /*+ QB_NAME(subq1) */ col1 FROM t2)");
+ID
+#
+EXPLAIN SELECT * FROM t1 WHERE t1.col1 IN (SELECT  col1 FROM t2);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	ind_1	NULL	NULL	NULL	1	100.00	Using where
+1	SIMPLE	t2	NULL	ref	ind_1	ind_1	5	outline_db.t1.col1	1	100.00	Using index; FirstMatch(t1)
+Warnings:
+Note	1003	/* select#1 */ select `outline_db`.`t1`.`id` AS `id`,`outline_db`.`t1`.`col1` AS `col1`,`outline_db`.`t1`.`col2` AS `col2` from `outline_db`.`t1` semi join (`outline_db`.`t2`) where (`outline_db`.`t2`.`col1` = `outline_db`.`t1`.`col1`)
+EXPLAIN SELECT /*+ SEMIJOIN(@subq1 MATERIALIZATION, DUPSWEEDOUT) */ * FROM t1 WHERE t1.col1 IN (SELECT /*+ QB_NAME(subq1) */ col1 FROM t2);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	ind_1	NULL	NULL	NULL	1	100.00	Using where
+1	SIMPLE	t2	NULL	ref	ind_1	ind_1	5	outline_db.t1.col1	1	100.00	Using index; Start temporary; End temporary
+Warnings:
+Note	1003	/* select#1 */ select /*+ SEMIJOIN(@`subq1` MATERIALIZATION, DUPSWEEDOUT) */ `outline_db`.`t1`.`id` AS `id`,`outline_db`.`t1`.`col1` AS `col1`,`outline_db`.`t1`.`col2` AS `col2` from `outline_db`.`t1` semi join (`outline_db`.`t2`) where (`outline_db`.`t2`.`col1` = `outline_db`.`t1`.`col1`)
+DELETE FROM mysql.statement_outline_rules;
+CALL dbms_admin.statement_outline_flush_rules();
+7.5 Set Var
+CALL dbms_admin.statement_outline_add_rule('outline_db', "INSERT /*+ SET_VAR(foreign_key_checks=OFF) */ INTO t1 VALUES(123, 123, 'mysql')");
+ID
+#
+EXPLAIN INSERT INTO t1 VALUES(123, 123, 'mysql');
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	INSERT	t1	NULL	ALL	NULL	NULL	NULL	NULL	NULL	NULL	NULL
+Warnings:
+Note	1003	insert into `outline_db`.`t1` values (123,123,'mysql')
+DELETE FROM mysql.statement_outline_rules;
+CALL dbms_admin.statement_outline_flush_rules();
+7.6 Query Trim
+CALL dbms_admin.statement_outline_add_rule('outline_db', "SELECT /*+ INDEX(t1 ind_2) */ * FROM t2 WHERE col1 = 1 AND col2='mysql';");
+ID
+#
+EXPLAIN SELECT * FROM t1 WHERE col1 = 1 AND col2='mysql';
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ref	ind_1,ind_2	ind_1	5	const	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `outline_db`.`t1`.`id` AS `id`,`outline_db`.`t1`.`col1` AS `col1`,`outline_db`.`t1`.`col2` AS `col2` from `outline_db`.`t1` where ((`outline_db`.`t1`.`col2` = 'mysql') and (`outline_db`.`t1`.`col1` = 1))
+EXPLAIN SELECT * FROM t1 WHERE col1 = 1 AND col2='mysql';$
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ref	ind_1,ind_2	ind_1	5	const	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `outline_db`.`t1`.`id` AS `id`,`outline_db`.`t1`.`col1` AS `col1`,`outline_db`.`t1`.`col2` AS `col2` from `outline_db`.`t1` where ((`outline_db`.`t1`.`col2` = 'mysql') and (`outline_db`.`t1`.`col1` = 1))
+8.1 explain format = xxx
+CALL dbms_admin.statement_outline_add_rule('outline_db',
+"SELECT /*+ INDEX(t1 ind_1)  */ * FROM t1 WHERE t1.col1 =1 AND t1.col2 ='mysql'");
+ID
+#
+EXPLAIN SELECT * FROM t1 WHERE t1.col1 =2 AND t1.col2 ='mysql';
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ref	ind_1,ind_2	ind_1	5	const	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `outline_db`.`t1`.`id` AS `id`,`outline_db`.`t1`.`col1` AS `col1`,`outline_db`.`t1`.`col2` AS `col2` from `outline_db`.`t1` where ((`outline_db`.`t1`.`col2` = 'mysql') and (`outline_db`.`t1`.`col1` = 2))
+EXPLAIN FORMAT = JSON SELECT * FROM t1 WHERE t1.col1 =2 AND t1.col2 ='mysql';
+EXPLAIN
+{
+  "query_block": {
+    "select_id": 1,
+    "cost_info": {
+      "query_cost": "0.35"
+    },
+    "table": {
+      "table_name": "t1",
+      "access_type": "ref",
+      "possible_keys": [
+        "ind_1",
+        "ind_2"
+      ],
+      "key": "ind_1",
+      "used_key_parts": [
+        "col1"
+      ],
+      "key_length": "5",
+      "ref": [
+        "const"
+      ],
+      "rows_examined_per_scan": 1,
+      "rows_produced_per_join": 1,
+      "filtered": "100.00",
+      "cost_info": {
+        "read_cost": "0.25",
+        "eval_cost": "0.10",
+        "prefix_cost": "0.35",
+        "data_read_per_join": "416"
+      },
+      "used_columns": [
+        "id",
+        "col1",
+        "col2"
+      ],
+      "attached_condition": "(`outline_db`.`t1`.`col2` = 'mysql')"
+    }
+  }
+}
+Warnings:
+Note	1003	/* select#1 */ select `outline_db`.`t1`.`id` AS `id`,`outline_db`.`t1`.`col1` AS `col1`,`outline_db`.`t1`.`col2` AS `col2` from `outline_db`.`t1` where ((`outline_db`.`t1`.`col2` = 'mysql') and (`outline_db`.`t1`.`col1` = 2))
+EXPLAIN FORMAT = TRADITIONAL SELECT * FROM t1 WHERE t1.col1 =2 AND t1.col2 ='mysql';
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ref	ind_1,ind_2	ind_1	5	const	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `outline_db`.`t1`.`id` AS `id`,`outline_db`.`t1`.`col1` AS `col1`,`outline_db`.`t1`.`col2` AS `col2` from `outline_db`.`t1` where ((`outline_db`.`t1`.`col2` = 'mysql') and (`outline_db`.`t1`.`col1` = 2))
+EXPLAIN FORMAT = 'JsOn' SELECT * FROM t1 WHERE t1.col1 =2 AND t1.col2 ='mysql';
+EXPLAIN
+{
+  "query_block": {
+    "select_id": 1,
+    "cost_info": {
+      "query_cost": "0.35"
+    },
+    "table": {
+      "table_name": "t1",
+      "access_type": "ref",
+      "possible_keys": [
+        "ind_1",
+        "ind_2"
+      ],
+      "key": "ind_1",
+      "used_key_parts": [
+        "col1"
+      ],
+      "key_length": "5",
+      "ref": [
+        "const"
+      ],
+      "rows_examined_per_scan": 1,
+      "rows_produced_per_join": 1,
+      "filtered": "100.00",
+      "cost_info": {
+        "read_cost": "0.25",
+        "eval_cost": "0.10",
+        "prefix_cost": "0.35",
+        "data_read_per_join": "416"
+      },
+      "used_columns": [
+        "id",
+        "col1",
+        "col2"
+      ],
+      "attached_condition": "(`outline_db`.`t1`.`col2` = 'mysql')"
+    }
+  }
+}
+Warnings:
+Note	1003	/* select#1 */ select `outline_db`.`t1`.`id` AS `id`,`outline_db`.`t1`.`col1` AS `col1`,`outline_db`.`t1`.`col2` AS `col2` from `outline_db`.`t1` where ((`outline_db`.`t1`.`col2` = 'mysql') and (`outline_db`.`t1`.`col1` = 2))
+EXPLAIN FORMAT = 'TrAdItIoNaL' SELECT * FROM t1 WHERE t1.col1 =2 AND t1.col2 ='mysql';
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ref	ind_1,ind_2	ind_1	5	const	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `outline_db`.`t1`.`id` AS `id`,`outline_db`.`t1`.`col1` AS `col1`,`outline_db`.`t1`.`col2` AS `col2` from `outline_db`.`t1` where ((`outline_db`.`t1`.`col2` = 'mysql') and (`outline_db`.`t1`.`col1` = 2))
+DELETE FROM mysql.statement_outline_rules;
+CALL dbms_admin.statement_outline_flush_rules();
+DROP DATABASE outline_db;
+DROP USER 'u1'@'%';

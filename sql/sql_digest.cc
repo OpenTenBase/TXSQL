@@ -156,11 +156,12 @@ inline void store_token_identifier(sql_digest_storage *digest_storage,
 }
 
 void compute_digest_hash(const sql_digest_storage *digest_storage,
-                         unsigned char *hash) {
+                         unsigned char *hash, size_t skip_bytes) {
   static_assert(DIGEST_HASH_SIZE == SHA256_DIGEST_LENGTH,
                 "DIGEST is no longer SHA256, fix compute_digest_hash()");
 
-  SHA_EVP256(digest_storage->m_token_array, digest_storage->m_byte_count, hash);
+  SHA_EVP256(digest_storage->m_token_array + skip_bytes,
+             digest_storage->m_byte_count - skip_bytes, hash);
 }
 
 /*

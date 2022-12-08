@@ -162,6 +162,7 @@
 
 /* Changes from txsql start. */
 #include "mysqld_error.h"
+#include "sql/statement_outline/statement_outline.h"
 #include "sql/rpl_source.h"
 #include "sql/statistics_manager.h"
 
@@ -8816,6 +8817,29 @@ static Sys_var_bool Sys_partition_table_skip_limit(
     "partition_table_skip_limit",
     "The partion key doesn't need to be part of all unique index if setting to true",
     GLOBAL_VAR(opt_par_skip_limit),  CMD_LINE(OPT_ARG),DEFAULT(false));
+
+static Sys_var_bool Sys_statement_outline_enable_apply(
+    "statement_outline_enable_apply",
+    "Enable statement outline apply if true in current session",
+    SESSION_VAR(statement_outline_enable_apply), CMD_LINE(OPT_ARG),
+    DEFAULT(true));
+
+static Sys_var_bool Sys_statement_outline_enabled(
+    "statement_outline_enabled", "Enable statement outline if true",
+    GLOBAL_VAR(statement_outline::sys_var_enabled), CMD_LINE(OPT_ARG),
+    DEFAULT(true));
+
+static Sys_var_uint Sys_statement_outline_partitions(
+    "statement_outline_partitions",
+    "How many partitions of statement outline rule maps.",
+    READ_ONLY GLOBAL_VAR(statement_outline::sys_var_partitions),
+    CMD_LINE(REQUIRED_ARG), VALID_RANGE(1, 256), DEFAULT(16), BLOCK_SIZE(1));
+
+static Sys_var_bool Sys_statement_outline_verbose(
+    "statement_outline_apply_verbose",
+    "Output more information when applying statement outline rules",
+    SESSION_VAR(statement_outline_apply_verbose), CMD_LINE(OPT_ARG),
+    DEFAULT(false));
 
 #if defined(HAVE_OPT_CTX)
 static bool fix_optimizer_context_max_mem_size(sys_var *, THD *thd,

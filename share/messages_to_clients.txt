@@ -9899,6 +9899,27 @@ ER_COMPRESSED_COLUMN_USED_AS_KEY
 ER_UNSUPPORTED_COMPRESSED_COLUMN_TYPE
   eng "Can not define column '%-.192s' in compressed format"
 
+ER_NATIVE_PROC_PARAMETER_MISMATCH
+  eng "The %dth parameter didn't match for native procedure %s"
+
+ER_STATEMENT_OUTLINE_ADD_RULE_ERROR
+  eng "Could not add statement outline rule: \"%s\"."
+
+ER_STATEMENT_OUTLINE_DELETE_RULE_ERROR
+  eng "Could not delete statement outline rule: \"%s\"."
+
+ER_STATEMENT_OUTLINE_ENABLE_RULE_ERROR
+  eng "Could not enable or disable statement outline rule: \"%s\"."
+
+ER_STATEMENT_OUTLINE_INVALID_RULE
+ eng "Invalid statement outline rule %lld in rules table: %s"
+
+ER_STATEMENT_OUTLINE_REFRESH_ERROR
+  eng "Error when refreshing statement outline rules: %s"
+
+ER_STATEMENT_OUTLINE_APPLY_FAILED
+ eng "The statement fail to apply rule %lld: %s"
+
 #
 #  End of 8.0 error messages (server-to-client).
 #  Do NOT add messages intended for the error log above!

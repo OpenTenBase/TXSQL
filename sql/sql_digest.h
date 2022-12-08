@@ -165,7 +165,7 @@ typedef struct sql_digest_storage sql_digest_storage;
   @c DIGEST_HASH_SIZE.
 */
 void compute_digest_hash(const sql_digest_storage *digest_storage,
-                         unsigned char *hash);
+                         unsigned char *hash, size_t skip_bytes = 0);
 
 /**
   Compute a digest text.

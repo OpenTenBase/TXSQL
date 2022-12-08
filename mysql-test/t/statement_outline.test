@@ -1,0 +1,284 @@
+--disable_ps_protocol
+connection default;
+CREATE DATABASE outline_db;
+CREATE TABLE outline_db.t1(id INT AUTO_INCREMENT PRIMARY KEY,
+                           col1 INT,
+                           col2 VARCHAR(100),
+                           KEY ind_1(col1),
+                           KEY ind_2(col2));
+
+CREATE TABLE outline_db.t2(id INT AUTO_INCREMENT PRIMARY KEY,
+                           col1 INT,
+                           col2 VARCHAR(100),
+                           KEY ind_1(col1),
+                           KEY ind_2(col2));
+
+INSERT INTO outline_db.t1 VALUES(1, 2, 'mysql');
+INSERT INTO outline_db.t2 VALUES(1, 2, 'mysql');
+
+CREATE USER 'u1'@'%';
+GRANT ALL PRIVILEGES ON outline_db.* to 'u1'@'%';
+GRANT ALL PRIVILEGES ON mysql.* to 'u1'@'%';
+
+connect(con_u1, localhost, u1,,);
+connect(con_root,localhost, root,,);
+
+--echo #-----------------------------------------------------------
+--echo # 1. check the statement outline rules table structure
+--echo #-----------------------------------------------------------
+
+connection con_root;
+DESC mysql.statement_outline_rules;
+
+--echo #-----------------------------------------------------------
+--echo # 2. check outline procedures
+--echo #-----------------------------------------------------------
+# check read only
+SET GLOBAL read_only = ON;
+connection con_u1;
+--error ER_OPTION_PREVENTS_STATEMENT
+CALL dbms_admin.statement_outline_add_rule('outline_db', "SELECT /*+ INDEX(t1 ind_2) */ * FROM t1 WHERE col1 = 2 AND col2 = 'mysql'");
+connection con_root;
+SET GLOBAL read_only = OFF;
+
+connection con_u1;
+USE outline_db;
+# make sure rule table is empty
+--replace_column 1 #
+CALL dbms_admin.statement_outline_show_rules();
+
+let $enable_rule=`CALL dbms_admin.statement_outline_add_rule('outline_db', "SELECT /*+ INDEX(t1 ind_2) */ * FROM t1 WHERE col1 = 2 AND col2 = 'mysql'")`;
+--replace_column 1 #
+CALL dbms_admin.statement_outline_show_rules();
+EXPLAIN SELECT * FROM t1 WHERE col1 = 2 AND col2 = 'mysql';
+
+--echo CALL dbms_admin.statement_outline_enable_rule(#, 0)
+--disable_query_log
+--eval CALL dbms_admin.statement_outline_enable_rule($enable_rule, 0)
+--enable_query_log
+--replace_column 1 #
+CALL dbms_admin.statement_outline_show_rules();
+--disable_query_log
+--eval SELECT enabled FROM mysql.statement_outline_rules WHERE id = $enable_rule
+--enable_query_log
+EXPLAIN SELECT * FROM t1 WHERE col1 = 2 AND col2 = 'mysql';
+--echo CALL dbms_admin.statement_outline_enable_rule(#, 1)
+--disable_query_log
+--eval CALL dbms_admin.statement_outline_enable_rule($enable_rule, 1)
+--enable_query_log
+EXPLAIN SELECT * FROM t1 WHERE col1 = 2 AND col2 = 'mysql';
+--echo CALL dbms_admin.statement_outline_delete_rule(#)
+--disable_query_log
+--eval CALL dbms_admin.statement_outline_delete_rule($enable_rule)
+--enable_query_log
+--replace_column 1 #
+CALL dbms_admin.statement_outline_show_rules();
+
+--echo #-----------------------------------------------------------
+--echo # 3. check add rule procedure
+--echo #-----------------------------------------------------------
+
+--error ER_SP_WRONG_NO_OF_ARGS
+CALL dbms_admin.statement_outline_add_rule("SELECT /*+ INDEX(t1 ind_1) */ * FROM t1 WHERE col1 = 2 AND col2 = 'mysql'");
+
+--error ER_NATIVE_PROC_PARAMETER_MISMATCH
+CALL dbms_admin.statement_outline_add_rule(1, "SELECT /*+ INDEX(t1 ind_1) */ * FROM t1 WHERE col1 = 2 AND col2 = 'mysql'");
+
+--error ER_STATEMENT_OUTLINE_ADD_RULE_ERROR
+CALL dbms_admin.statement_outline_add_rule('outline_db',"SELECT /*+ XXX(t1 ind_1) */ * FROM t1 WHERE col1 = 2 AND col2 = 'mysql'");
+
+--error ER_STATEMENT_OUTLINE_ADD_RULE_ERROR
+CALL dbms_admin.statement_outline_add_rule('outline_db', "SELECT /*+ XXX(t1 ind_1) */ * FROM WHERE col1 = 2 AND col2 = 'mysql'");
+
+# Non-exist database is ok, now
+--replace_column 1 #
+CALL dbms_admin.statement_outline_add_rule('outline_db1', "SELECT /*+ ORDER_INDEX(t1 ind_1, ind_2) */ * FROM t1 WHERE col1 = 2 AND col2 = 'mysql'");
+--replace_column 1 #
+CALL dbms_admin.statement_outline_add_rule('outline_db', "SELECT /*+ ORDER_INDEX(t1 ind_1, ind_2) */ * FROM t1 WHERE col1 = 2 AND col2 = 'mysql'");
+--replace_column 1 #
+CALL dbms_admin.statement_outline_show_rules();
+
+--replace_column 1 #
+SELECT * FROM mysql.statement_outline_rules;
+
+DELETE FROM mysql.statement_outline_rules;
+CALL dbms_admin.statement_outline_flush_rules();
+
+--echo #-----------------------------------------------------------
+--echo # 4. test table structure change, it's ok if add a column
+--echo #-----------------------------------------------------------
+connection con_u1;
+ALTER TABLE mysql.statement_outline_rules ADD col1 INT;
+
+--replace_column 1 #
+CALL dbms_admin.statement_outline_add_rule('outline_db', "SELECT /*+ ORDER_INDEX(t1 ind_1, ind_2) */ * FROM t1 WHERE col1 = 2 AND col2 = 'mysql'");
+
+CALL dbms_admin.statement_outline_flush_rules();
+
+CALL dbms_admin.statement_outline_delete_rule(11111);
+
+ALTER TABLE mysql.statement_outline_rules DROP COLUMN col1;
+
+--echo #-----------------------------------------------------------
+--echo # 5. test flush warning
+--echo #-----------------------------------------------------------
+--replace_column 1 #
+CALL dbms_admin.statement_outline_add_rule('outline_db',
+                                      "SELECT /*+ MAX_EXECUTION_TIME(1000) */ * FROM t1 WHERE col1 = 2 AND col2 = 'mysql'");
+--replace_column 1 #
+CALL dbms_admin.statement_outline_show_rules();
+
+UPDATE mysql.statement_outline_rules SET  outline ='[{"hint": "/*+ xxx */"}, {"select_number": 1}]' where digest_text like '%MAX_EXECUTION_TIME%';
+
+--replace_regex /rule [[:digit:]]+/rule #/
+CALL dbms_admin.statement_outline_flush_rules();
+
+UPDATE mysql.statement_outline_rules SET  outline ='[{"select_number": 1}]' where digest_text like '%MAX_EXECUTION_TIME%';
+
+--replace_regex /rule [[:digit:]]+/rule #/
+CALL dbms_admin.statement_outline_flush_rules();
+
+UPDATE mysql.statement_outline_rules SET  outline ='[{"number": 1}, {"hint": "/*+ MAX_EXECUTION_TIME(1000) */"}]' where digest_text like '%MAX_EXECUTION_TIME%';
+
+--replace_regex /rule [[:digit:]]+/rule #/
+CALL dbms_admin.statement_outline_flush_rules();
+
+DELETE FROM mysql.statement_outline_rules;
+
+CALL dbms_admin.statement_outline_flush_rules();
+
+--echo #-----------------------------------------------------------
+--echo # 6. Index-Level Optimizer Hints
+--echo #-----------------------------------------------------------
+
+--echo 6.1 Single Table Index-Level Optimizer Hints
+USE outline_db;
+--replace_column 1 #
+CALL dbms_admin.statement_outline_add_rule('outline_db', "SELECT /*+ INDEX(t1 ind_1) */* FROM t1 WHERE col1 = 2 AND col2 = 'mysql' ORDER BY col1");
+
+EXPLAIN SELECT * FROM t1 WHERE col1 = 2 AND col2 = 'mysql' ORDER BY col1;
+
+DELETE FROM mysql.statement_outline_rules;
+COMMIT;
+CALL dbms_admin.statement_outline_flush_rules();
+
+# TODO: add a ORDER_INDEX example
+# TODO: combine INDEX and ORDER_INDEX
+
+# Multiple Index-Level Optimizer Hints
+--replace_column 1 #
+CALL dbms_admin.statement_outline_add_rule('outline_db', "SELECT /*+ INDEX(t1 ind_1,ind_2) */* FROM t1 WHERE col1 = 2 AND col2 = 'mysql' ORDER BY col1");
+
+EXPLAIN SELECT * FROM t1 WHERE col1 = 2 AND col2 = 'mysql' ORDER BY col1;
+
+DELETE FROM mysql.statement_outline_rules;
+CALL dbms_admin.statement_outline_flush_rules();
+
+--echo 6.2 Multiple Table Index-Level Optimizer Hints
+--replace_column 1 #
+CALL dbms_admin.statement_outline_add_rule('outline_db',
+   "SELECT /*+ INDEX(t1 ind_2) INDEX(t2 ind_2) */ t1.id, t2.id FROM t1, t2 WHERE t1.col1 = t2.col1 AND t1.col2 = t2.col2 AND t1.col1 = 1 AND t1.col2 = 'mysql'");
+EXPLAIN SELECT t1.id, t2.id FROM t1, t2 WHERE t1.col1 = t2.col1 AND t1.col2 = t2.col2 AND t1.col1 = 1 AND t1.col2 = 'mysql';
+DELETE FROM mysql.statement_outline_rules;
+CALL dbms_admin.statement_outline_flush_rules();
+
+--echo 6.3 Nested Subquery Index-Level Optimizer Hints
+--replace_column 1 #
+CALL dbms_admin.statement_outline_add_rule('outline_db',
+  "SELECT /*+ INDEX(t1 ind_2) */ id FROM t1 WHERE col1 IN (SELECT /*+ INDEX(t2 ind_2) */ col1 FROM t2 WHERE col1 = 1 AND col2 = 'mysql') AND col2 = 'mysql'");
+EXPLAIN  SELECT /*+ INDEX(t1 ind_2) */ id FROM t1 WHERE col1 IN (SELECT /*+ INDEX(t2 ind_2) */ col1 FROM t2 WHERE col1 = 1 AND col2 = 'mysql') AND col2 = 'mysql';
+DELETE FROM mysql.statement_outline_rules;
+CALL dbms_admin.statement_outline_flush_rules();
+
+--echo 8.4 Index-Level Optimizer Hints Report Warning
+--replace_column 1 #
+CALL dbms_admin.statement_outline_add_rule('outline_db',
+  "SELECT /*+ INDEX(t1 ind_3) */ id FROM t1 WHERE col1 IN (SELECT col1 FROM t2 WHERE col1 = 1 AND col2 = 'mysql') AND col2 = 'mysql'");
+SELECT /*+ INDEX(t1 ind_3) */ id FROM t1 WHERE col1 IN (SELECT col1 FROM t2 WHERE col1 = 1 AND col2 = 'mysql') AND col2 = 'mysql';
+DELETE FROM mysql.statement_outline_rules;
+CALL dbms_admin.statement_outline_flush_rules();
+
+--echo #-----------------------------------------------------------
+--echo # 7. Test Other Optimizer Hints
+--echo #-----------------------------------------------------------
+
+--echo 7.1 Global Optimizer Hint
+--replace_column 1 #
+CALL dbms_admin.statement_outline_add_rule('outline_db', "SELECT /*+ MAX_EXECUTION_TIME(1000) */ * FROM t1 WHERE col1 = 2 AND col2 = 'mysql'");
+EXPLAIN SELECT * FROM t1 WHERE col1 = 2 AND col2 = 'mysql';
+
+#
+# MAX_EXECUTION_TIME hint is supported by top-level standalone SELECT statements ONLY
+#
+--error ER_STATEMENT_OUTLINE_ADD_RULE_ERROR
+CALL dbms_admin.statement_outline_add_rule('outline_db', "UPDATE /*+ MAX_EXECUTION_TIME(1000) */ t1 SET col1 = 1");
+
+DELETE FROM mysql.statement_outline_rules;
+CALL dbms_admin.statement_outline_flush_rules();
+
+--echo 7.2 Multiple Table Join
+--replace_column 1 #
+CALL dbms_admin.statement_outline_add_rule('outline_db', "SELECT /*+ BNL(t1,t2) */ t1.id, t2.id FROM t1,t2");
+EXPLAIN SELECT t1.id, t2.id FROM t1,t2;
+
+--replace_column 1 #
+CALL dbms_admin.statement_outline_add_rule('outline_db', "SELECT /*+ MAX_EXECUTION_TIME(1000) */ t1.id, t2.id FROM t1,t2");
+EXPLAIN SELECT t1.id, t2.id FROM t1,t2;
+DELETE from mysql.statement_outline_rules;
+CALL dbms_admin.statement_outline_flush_rules();
+
+--echo 7.3 Nested Subquery
+--replace_column 1 #
+CALL dbms_admin.statement_outline_add_rule('outline_db', "SELECT t1.id FROM t1 WHERE t1.col1 IN (SELECT /*+ INDEX_MERGE(t2 ind_1, ind_2) */ t2.col1 FROM t2 WHERE t2.col1 = 1 AND t2.col2 = 'mysql')");
+EXPLAIN SELECT t1.id FROM t1 WHERE t1.col1 IN (SELECT t2.col1 FROM t2 WHERE t2.col1 = 1 AND t2.col2 = 'mysql');
+DELETE FROM mysql.statement_outline_rules;
+CALL dbms_admin.statement_outline_flush_rules();
+
+--echo 7.4 Subquery Query Block Name
+--replace_column 1 #
+CALL dbms_admin.statement_outline_add_rule('outline_db', "SELECT /*+ SEMIJOIN(@subq1 MATERIALIZATION, DUPSWEEDOUT) */ * FROM t1 WHERE t1.col1 IN (SELECT /*+ QB_NAME(subq1) */ col1 FROM t2)");
+EXPLAIN SELECT * FROM t1 WHERE t1.col1 IN (SELECT  col1 FROM t2);
+EXPLAIN SELECT /*+ SEMIJOIN(@subq1 MATERIALIZATION, DUPSWEEDOUT) */ * FROM t1 WHERE t1.col1 IN (SELECT /*+ QB_NAME(subq1) */ col1 FROM t2);
+DELETE FROM mysql.statement_outline_rules;
+CALL dbms_admin.statement_outline_flush_rules();
+
+--echo 7.5 Set Var
+--replace_column 1 #
+CALL dbms_admin.statement_outline_add_rule('outline_db', "INSERT /*+ SET_VAR(foreign_key_checks=OFF) */ INTO t1 VALUES(123, 123, 'mysql')");
+EXPLAIN INSERT INTO t1 VALUES(123, 123, 'mysql');
+DELETE FROM mysql.statement_outline_rules;
+CALL dbms_admin.statement_outline_flush_rules();
+
+--echo 7.6 Query Trim
+--replace_column 1 #
+CALL dbms_admin.statement_outline_add_rule('outline_db', "SELECT /*+ INDEX(t1 ind_2) */ * FROM t2 WHERE col1 = 1 AND col2='mysql';");
+EXPLAIN SELECT * FROM t1 WHERE col1 = 1 AND col2='mysql';
+DELIMITER $;
+EXPLAIN SELECT * FROM t1 WHERE col1 = 1 AND col2='mysql';$
+DELIMITER ;$
+
+#-----------------------------------------------------------
+# 8. Explain Format
+#-----------------------------------------------------------
+--echo 8.1 explain format = xxx
+--replace_column 1 #
+CALL dbms_admin.statement_outline_add_rule('outline_db',
+				 "SELECT /*+ INDEX(t1 ind_1)  */ * FROM t1 WHERE t1.col1 =1 AND t1.col2 ='mysql'");
+
+EXPLAIN SELECT * FROM t1 WHERE t1.col1 =2 AND t1.col2 ='mysql';
+EXPLAIN FORMAT = JSON SELECT * FROM t1 WHERE t1.col1 =2 AND t1.col2 ='mysql';
+EXPLAIN FORMAT = TRADITIONAL SELECT * FROM t1 WHERE t1.col1 =2 AND t1.col2 ='mysql';
+EXPLAIN FORMAT = 'JsOn' SELECT * FROM t1 WHERE t1.col1 =2 AND t1.col2 ='mysql';
+EXPLAIN FORMAT = 'TrAdItIoNaL' SELECT * FROM t1 WHERE t1.col1 =2 AND t1.col2 ='mysql';
+
+DELETE FROM mysql.statement_outline_rules;
+CALL dbms_admin.statement_outline_flush_rules();
+
+connection default;
+DROP DATABASE outline_db;
+DROP USER 'u1'@'%';
+
+disconnect con_u1;
+disconnect con_root;
+
+--enable_ps_protocol

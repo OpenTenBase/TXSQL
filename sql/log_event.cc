@@ -4964,6 +4964,7 @@ int Query_log_event::do_apply_event(Relay_log_info const *rli,
   bool len_error;
   bool is_invalid_db_name =
       validate_string(system_charset_info, db, db_len, &valid_len, &len_error);
+  bool need_exec_reload = false;
 
   DBUG_PRINT("debug", ("is_invalid_db_name= %s, valid_len=%zu, len_error=%s",
                        is_invalid_db_name ? "true" : "false", valid_len,
@@ -5332,6 +5333,9 @@ int Query_log_event::do_apply_event(Relay_log_info const *rli,
         /* Finalize server status flags after executing a statement. */
         thd->update_slow_query_status();
         log_slow_statement(thd);
+        
+        if (command == SQLCOM_COMMIT && thd->slave_thread)
+          need_exec_reload = true;
       }
 
       thd->variables.option_bits &= ~OPTION_MASTER_SQL_ERROR;
@@ -5501,6 +5505,9 @@ int Query_log_event::do_apply_event(Relay_log_info const *rli,
       }
       thd->is_slave_error = true;
     }
+
+    if (need_exec_reload && !thd->is_slave_error)
+      im::execute_reload_on_slave(thd, const_cast<Relay_log_info *>(rli));
 
     /*
         Although not executing the XA COMMIT event group, we must permanantly store its gtid
@@ -6701,6 +6708,10 @@ int Xid_apply_log_event::do_apply_event_worker(Slave_worker *w) {
         DBUG_SUICIDE(););
     if (skipped_commit_pos)
       error = w->commit_positions(this, ptr_group, w->is_transactional());
+
+    if (!error && thd->slave_thread &&
+      !thd->get_transaction()->xid_state()->check_in_xa(false))
+    im::execute_reload_on_slave(thd, w);
   }
 err:
   return error;
@@ -6867,6 +6878,9 @@ int Xid_apply_log_event::do_apply_event(Relay_log_info const *rli) {
      */
     if (!rli_ptr->is_transactional() || is_in_xa)
       rli_ptr->flush_info(Relay_log_info::RLI_FLUSH_NO_OPTION);
+
+    if (!is_in_xa && thd->slave_thread)
+      im::execute_reload_on_slave(thd, rli_ptr);
   }
 err:
   // This is Bug#24588741 fix:
@@ -10401,6 +10415,10 @@ int Rows_log_event::do_apply_event(Relay_log_info const *rli) {
     TABLE_LIST *ptr = rli->tables_to_lock;
     for (uint i = 0; ptr && (i < rli->tables_to_lock_count);
          ptr = ptr->next_global, i++) {
+      TABLE_SHARE *table_share = ptr->table->s;
+      if (thd->slave_thread && table_share->reload_entry)
+        im::mark_rli_trx_reload(thd, const_cast<Relay_log_info *>(rli),
+                                table_share);
       /*
         Please see comment in above 'for' loop to know the reason
         for this if condition

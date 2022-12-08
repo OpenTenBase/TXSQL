@@ -114,6 +114,7 @@ Note: YYTHD is passed as an argument to yyparse(), and subsequently to yylex().
 #include "sql/mdl.h"
 #include "sql/mem_root_array.h"
 #include "sql/mysqld.h"
+#include "sql/native_package/package_interface.h"  // find_native_proc_and_evoke
 #include "sql/options_mysqld.h"
 #include "sql/parse_location.h"
 #include "sql/parse_tree_helpers.h"
@@ -4232,7 +4233,8 @@ sp_suid:
 call_stmt:
           CALL_SYM sp_name opt_paren_expr_list
           {
-            $$= NEW_PTN PT_call($2, $3);
+            if (!($$ = im::find_native_proc_and_evoke(YYTHD, $2, $3)))
+              $$ = NEW_PTN PT_call($2, $3);
           }
         ;
 

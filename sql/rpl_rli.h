@@ -2005,6 +2005,11 @@ class Relay_log_info : public Rpl_info {
   */
   bool ddl_not_atomic;
 
+  /**
+    Reload entries of native packages to be executed in current transaction.
+  */
+  im::Reload *reload_entries[im::RELOAD_ENTRY_COUNT];
+
   void set_thd_tx_priority(int priority) { thd_tx_priority = priority; }
 
   int get_thd_tx_priority() { return thd_tx_priority; }

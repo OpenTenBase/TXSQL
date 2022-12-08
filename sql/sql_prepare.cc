@@ -180,6 +180,8 @@ When one supplies long data for a placeholder:
 #include "violite.h"
 #include "sql/opt_statistics.h"
 #include "sql/opt_outline_builder.h"
+#include "sql/statement_outline/statement_outline.h"
+
 
 namespace resourcegroups {
 class Resource_group;
@@ -1424,6 +1426,8 @@ bool Prepared_statement::prepare_query() {
     case SQLCOM_SHOW_VARIABLES:
     case SQLCOM_SET_RESOURCE_GROUP:
     case SQLCOM_SHOW_WARNS:
+    case SQLCOM_ADMIN_PROC:
+    case SQLCOM_TRANS_PROC:
       res = lex->m_sql_cmd->prepare(thd);
       break;
 
@@ -2549,6 +2553,13 @@ bool Prepared_statement::prepare(const char *query_str, size_t query_length,
     error = parse_sql(thd, &parser_state, nullptr);
   }
   error |= thd->is_error();
+  if (!error) {
+    // Now we can apply statement outline rules. Note current performance
+    // digest instrumentation has computed digest in parse_sql() if
+    // m_digest_psi is valid.
+    statement_outline::apply_outline_rules(
+      thd, parser_state.m_digest_psi != nullptr);
+  }
   if (!error) {  // We've just created the statement maybe there is a rewrite
     invoke_post_parse_rewrite_plugins(thd, true);
     error = init_param_array(this);

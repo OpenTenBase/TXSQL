@@ -31,7 +31,8 @@ AND table_name NOT IN (
 "ndb_binlog_index", "user", "db", "tables_priv", "columns_priv",
 "procs_priv", "proxies_priv", "role_edges", "default_roles",
 "global_grants", "password_history",
-"replication_asynchronous_connection_failover_managed"
+"replication_asynchronous_connection_failover_managed",
+"statement_outline_rules"
 )
 ORDER BY table_name;
 Preparing deadlock scenario for mysql.column_statistics_history

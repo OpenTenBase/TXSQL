@@ -32,6 +32,7 @@
 #include "my_sqlcommand.h"
 #include "my_thread_local.h"     // my_thread_id
 #include "sql/rpl_gtid.h"        // Gitd_specification
+#include "sql/rpl_reload_cache.h" // im::RELOAD_ENTRY_COUNT
 #include "sql/sql_plugin_ref.h"  // plugin_ref
 
 class MY_LOCALE;
@@ -502,6 +503,15 @@ struct System_variables {
     @sa Sys_txsql_range_estimation_by_histogram
   */
   bool txsql_range_estimation_by_histogram;
+  /**
+    @sa Sys_statement_outline_enable_apply
+  */
+  bool statement_outline_enable_apply;
+  /**
+    @sa Sys_statement_outline_verbose
+  */
+  bool statement_outline_apply_verbose;
+
   bool enable_select_semi_read;
   /**
     @sa Sys_txsql_parallel_copy_ddl
@@ -602,6 +612,9 @@ struct System_status_var {
   ulonglong max_execution_time_exceeded;
   ulonglong max_execution_time_set;
   ulonglong max_execution_time_set_failed;
+
+  /// Reload count of each reload entry on slave node.
+  ulonglong reload_stat[(uint)im::RELOAD_ENTRY_COUNT];
 
   /* Number of statements sent from the client. */
   ulonglong questions;

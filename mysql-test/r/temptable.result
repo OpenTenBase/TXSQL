@@ -36,6 +36,7 @@ def	mysql	PRIMARY	mysql	servers	PRIMARY KEY	YES
 def	mysql	PRIMARY	mysql	slave_master_info	PRIMARY KEY	YES
 def	mysql	PRIMARY	mysql	slave_relay_log_info	PRIMARY KEY	YES
 def	mysql	PRIMARY	mysql	slave_worker_info	PRIMARY KEY	YES
+def	mysql	PRIMARY	mysql	statement_outline_rules	PRIMARY KEY	YES
 def	mysql	PRIMARY	mysql	tables_priv	PRIMARY KEY	YES
 def	mysql	PRIMARY	mysql	tdsql_sequences	PRIMARY KEY	YES
 def	mysql	PRIMARY	mysql	time_zone	PRIMARY KEY	YES

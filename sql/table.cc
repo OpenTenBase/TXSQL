@@ -99,6 +99,7 @@
 #include "sql/psi_memory_key.h"
 #include "sql/query_options.h"
 #include "sql/query_result.h"  // Query_result
+#include "sql/rpl_reload_cache.h"  // im::lookup_reload_entry
 #include "sql/sql_base.h"
 #include "sql/sql_check_constraint.h"  // Sql_table_check_constraint
 #include "sql/sql_class.h"             // THD
@@ -438,6 +439,9 @@ TABLE_SHARE *alloc_table_share(const char *db, const char *table_name,
            table_cache_instances * sizeof(*cache_element_array));
     share->cache_element = cache_element_array;
 
+    // Lookup slave reload entry for current table
+    share->reload_entry = im::lookup_reload_entry(key, key_length);
+
     share->mem_root = std::move(mem_root);
     mysql_mutex_init(key_TABLE_SHARE_LOCK_ha_data, &share->LOCK_ha_data,
                      MY_MUTEX_INIT_FAST);
@@ -503,6 +507,13 @@ void init_tmp_table_share(THD *thd, TABLE_SHARE *share, const char *key,
   share->table_map_id = (ulonglong)thd->query_id;
 
   share->m_flush_tickets.clear();
+
+  // We also need to lookup reload entry because there are 2 calls of
+  // init_tmp_table_share() in dict2dd.cc, we cann't make sure they just for
+  // temporary tables.
+  share->reload_entry =
+      im::lookup_reload_entry(share->db.str, share->db.length,
+                              share->table_name.str, share->table_name.length);
 }
 
 Key_map TABLE_SHARE::usable_indexes(const THD *thd) const {
