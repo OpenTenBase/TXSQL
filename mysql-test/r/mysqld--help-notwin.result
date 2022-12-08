@@ -1569,6 +1569,9 @@ The following options may be given as the first argument:
  memory storage convert innodb
  --txsql-convert-myisam-to-innodb=name 
  myisam conversion innodb mode,Can be ON/OFF/WARN/TRY
+ --txsql-disable-sqlasyn 
+ A session only variable to disable strong synchroniaztion
+ if set
  --txsql-enable-resource-statistics 
  enable_resource_statistics.
  (Defaults to on; use --skip-txsql-enable-resource-statistics to disable.)
@@ -1577,6 +1580,9 @@ The following options may be given as the first argument:
  on an active transaction before closing it
  --txsql-optimize-xa-recover 
  optimize xa recover feature
+ --txsql-recalc-table-stats-after-manual-close 
+ Whether to re-calculate table stats after a manual
+ close,for example FLUSH TABLE WITH READ LOCK 
  --txsql-slave-io-optimaze-write 
  optimize slave io thread to reduce write
  --txsql-slave-wait-group-done[=#] 
@@ -2029,9 +2035,11 @@ transaction-read-only FALSE
 transaction-write-set-extraction XXHASH64
 txsql-convert-memory-to-innodb FALSE
 txsql-convert-myisam-to-innodb OFF
+txsql-disable-sqlasyn FALSE
 txsql-enable-resource-statistics TRUE
 txsql-kill-idle-trans-timeout 0
 txsql-optimize-xa-recover FALSE
+txsql-recalc-table-stats-after-manual-close FALSE
 txsql-slave-io-optimaze-write FALSE
 txsql-slave-wait-group-done 60
 updatable-views-with-limit YES

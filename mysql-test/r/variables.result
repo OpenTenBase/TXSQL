@@ -2034,6 +2034,7 @@ SET SESSION sql_log_bin = @@session.sql_log_bin;
 SET SESSION tdsql_allow_access_internal_table = @@session.tdsql_allow_access_internal_table;
 SET SESSION timestamp = @@session.timestamp;
 SET SESSION transaction_allow_batching = @@session.transaction_allow_batching;
+SET SESSION txsql_disable_sqlasyn = @@session.txsql_disable_sqlasyn;
 SET SESSION use_secondary_engine = @@session.use_secondary_engine;
 SET SESSION warning_count = @@session.warning_count;
 SET @@sql_big_selects=@sql_big_selects_save;
