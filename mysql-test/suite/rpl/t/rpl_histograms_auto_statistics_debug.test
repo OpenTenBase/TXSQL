@@ -2,7 +2,7 @@
 --echo # auto stats of rpl
 --echo ##################
 source include/master-slave.inc;
---source include/have_binlog_format_row.inc 
+--source include/have_binlog_format_row.inc
 --source include/have_debug.inc
 
 connection slave;
@@ -42,7 +42,7 @@ SELECT @@auto_stats_interval_duration;
 let $check_online= SELECT JSON_EXTRACT(HISTOGRAM, '$."number-of-buckets-specified"') AS hid FROM information_schema.column_statistics WHERE TABLE_NAME="tbl1" AND COLUMN_NAME="c1";
 let $check_history= SELECT JSON_EXTRACT(HISTOGRAM, '$."number-of-buckets-specified"') AS hid FROM mysql.column_statistics_history WHERE TABLE_NAME="tbl1" AND COLUMN_NAME="c1";
 
-sleep 3;
+sleep 6;
 
 CREATE TABLE tbl1(c1 INT);
 INSERT INTO tbl1(c1) VALUES (1),(1),(2),(3),(5);
@@ -50,19 +50,22 @@ INSERT INTO tbl1(c1) VALUES (1),(1),(2),(3),(5);
 --echo #
 --echo # Test duplicate remove
 --echo #
-SET SESSION debug= '+d,auto_statistic_execution_pending';
+SET GLOBAL debug= '+d,auto_statistic_not_apply';
+SET GLOBAL debug= '+d,auto_statistic_not_run';
+SET GLOBAL debug= '+d,auto_statistic_execution_pending';
 ANALYZE TABLE tbl1 UPDATE HISTOGRAM ON c1 WITH 1 BUCKETS;
 ANALYZE TABLE tbl1 UPDATE HISTOGRAM ON c1 WITH 2 BUCKETS;
 ANALYZE TABLE tbl1 UPDATE HISTOGRAM ON c1 WITH 3 BUCKETS;
-SET SESSION debug= '-d,auto_statistic_execution_pending';
 
 --replace_column 4 CURRENT_TIMESTAMP 5 CURRENT_TIMESTAMP 6 CURRENT_TIMESTAMP
 show cdb_statistics_tasks;
 
-sleep 4;
+SET GLOBAL debug= '-d,auto_statistic_not_apply';
+SET GLOBAL debug= '-d,auto_statistic_not_run';
+SET GLOBAL debug= '-d,auto_statistic_execution_pending';
 
---replace_column 4 CURRENT_TIMESTAMP 5 CURRENT_TIMESTAMP 6 CURRENT_TIMESTAMP
-show cdb_statistics_tasks;
+sleep 8;
+
 eval $check_history;
 
 DROP TABLE tbl1;
@@ -77,7 +80,9 @@ CREATE TABLE tbl2(c1 INT, c2 int);
 INSERT INTO tbl1(c1,c2) VALUES(1,1),(1,2),(2,3),(3,4),(5,6);
 INSERT INTO tbl2(c1,c2) VALUES(1,1),(1,2),(2,3),(3,4),(5,6);
 
-SET SESSION debug= '+d,auto_statistic_execution_pending';
+SET GLOBAL debug= '+d,auto_statistic_not_apply';
+SET GLOBAL debug= '+d,auto_statistic_not_run';
+SET GLOBAL debug= '+d,auto_statistic_execution_pending';
 
 ANALYZE TABLE tbl1 UPDATE HISTOGRAM ON c1;
 ANALYZE TABLE tbl2 UPDATE HISTOGRAM ON c1;
@@ -88,32 +93,30 @@ ANALYZE TABLE tbl2 UPDATE HISTOGRAM ON c2;
 ANALYZE TABLE tbl1 UPDATE HISTOGRAM ON c1,c2;
 ANALYZE TABLE tbl2 UPDATE HISTOGRAM ON c1,c2;
 
+--echo ON_PENDING
 --sorted_result
 --replace_column 4 CURRENT_TIMESTAMP 5 CURRENT_TIMESTAMP 6 CURRENT_TIMESTAMP
 select * from information_schema.CDB_AUTO_STATS_TASK_STATUS;
 
-SET SESSION debug= '-d,auto_statistic_execution_pending';
+SET GLOBAL debug= '+d,auto_statistic_sleep_on_doing';
+SET GLOBAL debug= '-d,auto_statistic_not_run';
+SET GLOBAL debug= '-d,auto_statistic_execution_pending';
 
---echo # check information_schema
+sleep 6;
+
+--echo # check information_schema(ON_DOING)
 --sorted_result
 --replace_column 4 CURRENT_TIMESTAMP 5 CURRENT_TIMESTAMP 6 CURRENT_TIMESTAMP
 select * from information_schema.CDB_AUTO_STATS_TASK_STATUS;
 
-SET SESSION debug= '+d,auto_statistic_flush_pending';
-
---echo # check information_schema
---replace_column 4 CURRENT_TIMESTAMP 5 CURRENT_TIMESTAMP 6 CURRENT_TIMESTAMP
-select * from information_schema.CDB_AUTO_STATS_TASK_STATUS;
-
-sleep 1;
-
+--sorted_result
 --replace_column 4 CURRENT_TIMESTAMP 5 CURRENT_TIMESTAMP 6 CURRENT_TIMESTAMP
 show cdb_statistics_tasks;
 
-SET SESSION debug= '-d,auto_statistic_flush_pending';
+SET GLOBAL debug= '-d,auto_statistic_sleep_on_doing';
 
 --echo # test delete / select column_statistics_history (lock)
-sleep 1;
+sleep 10;
 
 --echo # check information_schema
 --replace_column 4 CURRENT_TIMESTAMP 5 CURRENT_TIMESTAMP 6 CURRENT_TIMESTAMP
@@ -122,7 +125,11 @@ select * from information_schema.CDB_AUTO_STATS_TASK_STATUS;
 --replace_column 4 CURRENT_TIMESTAMP 5 CURRENT_TIMESTAMP 6 CURRENT_TIMESTAMP
 show cdb_statistics_tasks;
 
-sleep 1;
+SET GLOBAL debug= '+d,auto_statistic_can_apply';
+SET GLOBAL debug= '-d,auto_statistic_not_apply';
+
+sleep 4;
+SET GLOBAL debug= '-d,auto_statistic_can_apply';
 
 eval $check_history;
 eval $check_online;
@@ -153,13 +160,14 @@ show cdb_statistics_tasks;
 --replace_column 4 CURRENT_TIMESTAMP 5 CURRENT_TIMESTAMP 6 CURRENT_TIMESTAMP
 select * from information_schema.CDB_AUTO_STATS_TASK_STATUS;
 
-SET SESSION debug= '+d,auto_statistic_slave_sleep';
+#SET GLOBAL debug= '+d,auto_statistic_slave_sleep';
+SET GLOBAL debug= '+d,auto_statistic_not_apply';
 
 ANALYZE TABLE t1 UPDATE HISTOGRAM ON class, id, title;
 
-sleep 1;
+sleep 6;
 
---echo # check information_schema
+--echo # check information_schema(FINISHED)
 --replace_column 4 CURRENT_TIMESTAMP 5 CURRENT_TIMESTAMP 6 CURRENT_TIMESTAMP
 select * from information_schema.CDB_AUTO_STATS_TASK_STATUS;
 
@@ -168,10 +176,16 @@ show cdb_statistics_tasks;
 
 SELECT COUNT(*) FROM information_schema.processlist WHERE user='auto_statistics_worker';
 
+
+SET GLOBAL debug= '+d,auto_statistic_can_apply';
+SET GLOBAL debug= '-d,auto_statistic_not_apply';
+#SET GLOBAL debug= '-d,auto_statistic_slave_sleep';
+sleep 4;
+
+SET GLOBAL debug= '-d,auto_statistic_can_apply';
 DROP TABLE t1;
 
-SET SESSION debug= '-d,auto_statistic_slave_sleep';
-
+sleep 4;
 SELECT COUNT(*) FROM information_schema.processlist WHERE user='auto_statistics_worker';
 
 --replace_column 4 CURRENT_TIMESTAMP 5 CURRENT_TIMESTAMP 6 CURRENT_TIMESTAMP

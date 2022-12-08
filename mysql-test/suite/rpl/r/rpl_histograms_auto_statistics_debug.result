@@ -46,7 +46,9 @@ INSERT INTO tbl1(c1) VALUES (1),(1),(2),(3),(5);
 #
 # Test duplicate remove
 #
-SET SESSION debug= '+d,auto_statistic_execution_pending';
+SET GLOBAL debug= '+d,auto_statistic_not_apply';
+SET GLOBAL debug= '+d,auto_statistic_not_run';
+SET GLOBAL debug= '+d,auto_statistic_execution_pending';
 ANALYZE TABLE tbl1 UPDATE HISTOGRAM ON c1 WITH 1 BUCKETS;
 Table	Op	Msg_type	Msg_text
 test.tbl1	histogram	Pending	Histogram statistics creation pending for column 'c1'.
@@ -56,12 +58,12 @@ test.tbl1	histogram	Pending	Histogram statistics creation pending for column 'c1
 ANALYZE TABLE tbl1 UPDATE HISTOGRAM ON c1 WITH 3 BUCKETS;
 Table	Op	Msg_type	Msg_text
 test.tbl1	histogram	Pending	Histogram statistics creation pending for column 'c1'.
-SET SESSION debug= '-d,auto_statistic_execution_pending';
 show cdb_statistics_tasks;
 TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	CREATED_TIME	EXECUTE_TIME	LAST_EXECUTE_TIME	ATTEMPTS	Status
 test	tbl1	c1	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	0	ON_PENDING
-show cdb_statistics_tasks;
-TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	CREATED_TIME	EXECUTE_TIME	LAST_EXECUTE_TIME	ATTEMPTS	Status
+SET GLOBAL debug= '-d,auto_statistic_not_apply';
+SET GLOBAL debug= '-d,auto_statistic_not_run';
+SET GLOBAL debug= '-d,auto_statistic_execution_pending';
 SELECT JSON_EXTRACT(HISTOGRAM, '$."number-of-buckets-specified"') AS hid FROM mysql.column_statistics_history WHERE TABLE_NAME="tbl1" AND COLUMN_NAME="c1";
 hid
 1
@@ -73,7 +75,9 @@ CREATE TABLE tbl1(c1 INT, c2 int);
 CREATE TABLE tbl2(c1 INT, c2 int);
 INSERT INTO tbl1(c1,c2) VALUES(1,1),(1,2),(2,3),(3,4),(5,6);
 INSERT INTO tbl2(c1,c2) VALUES(1,1),(1,2),(2,3),(3,4),(5,6);
-SET SESSION debug= '+d,auto_statistic_execution_pending';
+SET GLOBAL debug= '+d,auto_statistic_not_apply';
+SET GLOBAL debug= '+d,auto_statistic_not_run';
+SET GLOBAL debug= '+d,auto_statistic_execution_pending';
 ANALYZE TABLE tbl1 UPDATE HISTOGRAM ON c1;
 Table	Op	Msg_type	Msg_text
 test.tbl1	histogram	Pending	Histogram statistics creation pending for column 'c1'.
@@ -94,55 +98,52 @@ ANALYZE TABLE tbl2 UPDATE HISTOGRAM ON c1,c2;
 Table	Op	Msg_type	Msg_text
 test.tbl2	histogram	Pending	Histogram statistics creation pending for column 'c1'.
 test.tbl2	histogram	Pending	Histogram statistics creation pending for column 'c2'.
+ON_PENDING
 select * from information_schema.CDB_AUTO_STATS_TASK_STATUS;
 TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	CREATED_TIME	EXECUTE_TIME	LAST_EXECUTE_TIME	ATTEMPTS	STATUS
 test	tbl1	c1	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	0	ON_PENDING
 test	tbl1	c2	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	0	ON_PENDING
 test	tbl2	c1	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	0	ON_PENDING
 test	tbl2	c2	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	0	ON_PENDING
-SET SESSION debug= '-d,auto_statistic_execution_pending';
-# check information_schema
+SET GLOBAL debug= '+d,auto_statistic_sleep_on_doing';
+SET GLOBAL debug= '-d,auto_statistic_not_run';
+SET GLOBAL debug= '-d,auto_statistic_execution_pending';
+# check information_schema(ON_DOING)
 select * from information_schema.CDB_AUTO_STATS_TASK_STATUS;
 TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	CREATED_TIME	EXECUTE_TIME	LAST_EXECUTE_TIME	ATTEMPTS	STATUS
-test	tbl1	c1	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	0	ON_PENDING
-test	tbl1	c2	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	0	ON_PENDING
-test	tbl2	c1	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	0	ON_PENDING
-test	tbl2	c2	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	0	ON_PENDING
-SET SESSION debug= '+d,auto_statistic_flush_pending';
-# check information_schema
-select * from information_schema.CDB_AUTO_STATS_TASK_STATUS;
-TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	CREATED_TIME	EXECUTE_TIME	LAST_EXECUTE_TIME	ATTEMPTS	STATUS
-test	tbl2	c1	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	0	ON_PENDING
-test	tbl2	c2	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	0	ON_PENDING
-test	tbl1	c1	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	0	ON_PENDING
-test	tbl1	c2	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	0	ON_PENDING
+test	tbl1	c1	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	1	ON_DOING
+test	tbl1	c2	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	1	ON_DOING
+test	tbl2	c1	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	1	ON_DOING
+test	tbl2	c2	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	1	ON_DOING
 show cdb_statistics_tasks;
 TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	CREATED_TIME	EXECUTE_TIME	LAST_EXECUTE_TIME	ATTEMPTS	Status
-test	tbl1	c1	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	1	FINISHED
-test	tbl1	c2	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	1	FINISHED
-test	tbl2	c1	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	1	FINISHED
-test	tbl2	c2	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	1	FINISHED
-SET SESSION debug= '-d,auto_statistic_flush_pending';
+test	tbl1	c1	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	1	ON_DOING
+test	tbl1	c2	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	1	ON_DOING
+test	tbl2	c1	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	1	ON_DOING
+test	tbl2	c2	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	1	ON_DOING
+SET GLOBAL debug= '-d,auto_statistic_sleep_on_doing';
 # test delete / select column_statistics_history (lock)
 # check information_schema
 select * from information_schema.CDB_AUTO_STATS_TASK_STATUS;
 TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	CREATED_TIME	EXECUTE_TIME	LAST_EXECUTE_TIME	ATTEMPTS	STATUS
-test	tbl2	c1	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	1	FINISHED
-test	tbl2	c2	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	1	FINISHED
 test	tbl1	c1	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	1	FINISHED
 test	tbl1	c2	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	1	FINISHED
+test	tbl2	c1	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	1	FINISHED
+test	tbl2	c2	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	1	FINISHED
 show cdb_statistics_tasks;
 TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	CREATED_TIME	EXECUTE_TIME	LAST_EXECUTE_TIME	ATTEMPTS	Status
-test	tbl2	c1	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	1	FINISHED
-test	tbl2	c2	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	1	FINISHED
 test	tbl1	c1	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	1	FINISHED
 test	tbl1	c2	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	1	FINISHED
+test	tbl2	c1	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	1	FINISHED
+test	tbl2	c2	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	1	FINISHED
+SET GLOBAL debug= '+d,auto_statistic_can_apply';
+SET GLOBAL debug= '-d,auto_statistic_not_apply';
+SET GLOBAL debug= '-d,auto_statistic_can_apply';
 SELECT JSON_EXTRACT(HISTOGRAM, '$."number-of-buckets-specified"') AS hid FROM mysql.column_statistics_history WHERE TABLE_NAME="tbl1" AND COLUMN_NAME="c1";
 hid
 100
 SELECT JSON_EXTRACT(HISTOGRAM, '$."number-of-buckets-specified"') AS hid FROM information_schema.column_statistics WHERE TABLE_NAME="tbl1" AND COLUMN_NAME="c1";
 hid
-100
 delete FROM mysql.column_statistics_history;
 SELECT * FROM mysql.column_statistics_history;
 schema_name	table_name	column_name	histogram	version	creation_time	options
@@ -165,13 +166,13 @@ TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	CREATED_TIME	EXECUTE_TIME	LAST_EXECUTE_TIME	
 # check information_schema
 select * from information_schema.CDB_AUTO_STATS_TASK_STATUS;
 TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	CREATED_TIME	EXECUTE_TIME	LAST_EXECUTE_TIME	ATTEMPTS	STATUS
-SET SESSION debug= '+d,auto_statistic_slave_sleep';
+SET GLOBAL debug= '+d,auto_statistic_not_apply';
 ANALYZE TABLE t1 UPDATE HISTOGRAM ON class, id, title;
 Table	Op	Msg_type	Msg_text
 test.t1	histogram	Pending	Histogram statistics creation pending for column 'class'.
 test.t1	histogram	Pending	Histogram statistics creation pending for column 'id'.
 test.t1	histogram	Pending	Histogram statistics creation pending for column 'title'.
-# check information_schema
+# check information_schema(FINISHED)
 select * from information_schema.CDB_AUTO_STATS_TASK_STATUS;
 TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	CREATED_TIME	EXECUTE_TIME	LAST_EXECUTE_TIME	ATTEMPTS	STATUS
 test	t1	class	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	1	FINISHED
@@ -185,8 +186,10 @@ test	t1	title	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	CURRENT_TIMESTAMP	1	FINISHED
 SELECT COUNT(*) FROM information_schema.processlist WHERE user='auto_statistics_worker';
 COUNT(*)
 1
+SET GLOBAL debug= '+d,auto_statistic_can_apply';
+SET GLOBAL debug= '-d,auto_statistic_not_apply';
+SET GLOBAL debug= '-d,auto_statistic_can_apply';
 DROP TABLE t1;
-SET SESSION debug= '-d,auto_statistic_slave_sleep';
 SELECT COUNT(*) FROM information_schema.processlist WHERE user='auto_statistics_worker';
 COUNT(*)
 0

@@ -634,10 +634,11 @@ class Histogram {
     Store this histogram to persistent storage for auto stats
 
     @param thd Thread handler.
+    @param[out] can_lock True if acquire MDL lock successfully. 
 
     @return false on success, true on error.
   */
-  bool store_histogram_worker(THD *thd) const;
+  bool store_histogram_worker(THD *thd, bool &can_lock) const;
 
   /**
     Get selectivity estimation.
