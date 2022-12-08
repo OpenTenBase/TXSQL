@@ -68,6 +68,11 @@ namespace histograms {
 class Histogram;
 }
 
+// For reload cache in slave sql threads.
+namespace im {
+class Reload;
+}
+
 class ACL_internal_schema_access;
 class ACL_internal_table_access;
 class COND_EQUAL;
@@ -1286,6 +1291,11 @@ struct TABLE_SHARE {
 
   /// Does this TABLE_SHARE represent a table in a secondary storage engine?
   bool m_secondary_engine{false};
+
+public:
+  /// Only used in slave sql thread to reload caches when their underlaying
+  /// storage table is changed in master.
+  const im::Reload *reload_entry;
 };
 
 /**

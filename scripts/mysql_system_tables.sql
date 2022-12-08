@@ -596,6 +596,20 @@ EXECUTE stmt;
 DROP PREPARE stmt;
 
 
+-- Statement outline system table
+SET @cmd = "CREATE TABLE IF NOT EXISTS statement_outline_rules (
+  id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  schema_name VARCHAR(64) DEFAULT NULL,
+  digest VARCHAR(64) NOT NULL,
+  outline json NOT NULL,
+  enabled ENUM('YES', 'NO') COLLATE utf8_general_ci NOT NULL DEFAULT 'YES',
+  digest_text VARCHAR(5000)
+) engine=InnoDB STATS_PERSISTENT=0 CHARACTER SET utf8 COLLATE utf8_bin comment='Statement outline' TABLESPACE=mysql";
+SET @str = CONCAT(@cmd, " ENCRYPTION='", @is_mysql_encrypted, "'");
+PREPARE stmt FROM @str;
+EXECUTE stmt;
+DROP PREPARE stmt;
+
 -- Remember for later if proxies_priv table already existed
 set @had_proxies_priv_table= @@warning_count != 0;
 

@@ -68,6 +68,7 @@ slave_relay_log_info	mysql
 slave_worker_info	mysql
 slow_log	\N
 st_spatial_reference_systems	mysql
+statement_outline_rules	mysql
 table_partition_values	mysql
 table_partitions	mysql
 table_stats	mysql
@@ -143,6 +144,7 @@ slave_master_info
 slave_relay_log_info
 slave_worker_info
 st_spatial_reference_systems
+statement_outline_rules
 table_partition_values
 table_partitions
 table_stats

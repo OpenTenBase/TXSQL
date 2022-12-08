@@ -42,6 +42,7 @@ slave_master_info
 slave_relay_log_info
 slave_worker_info
 slow_log
+statement_outline_rules
 tables_priv
 tdsql_sequences
 time_zone

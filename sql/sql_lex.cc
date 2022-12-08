@@ -933,7 +933,7 @@ Yacc_state::~Yacc_state() {
   }
 }
 
-static bool consume_optimizer_hints(Lex_input_stream *lip) {
+bool consume_optimizer_hints(Lex_input_stream *lip) {
   const my_lex_states *state_map = lip->query_charset->state_maps->main_map;
   int whitespace = 0;
   uchar c = lip->yyPeek();
@@ -951,6 +951,7 @@ static bool consume_optimizer_hints(Lex_input_stream *lip) {
 
     Hint_scanner hint_scanner(lip->m_thd, lip->yylineno, lip->get_ptr(),
                               lip->get_end_of_query() - lip->get_ptr(),
+                              lip->exclude_hints_in_digest ?nullptr :
                               lip->m_digest);
     PT_hint_list *hint_list = nullptr;
     int rc = HINT_PARSER_parse(lip->m_thd, &hint_scanner, &hint_list);
@@ -967,7 +968,8 @@ static bool consume_optimizer_hints(Lex_input_stream *lip) {
     lip->yylineno = hint_scanner.get_lineno();
     lip->yySkipn(hint_scanner.get_ptr() - lip->get_ptr());
     lip->yylval->optimizer_hints = hint_list;   // NULL in case of syntax error
-    lip->m_digest = hint_scanner.get_digest();  // NULL is digest buf. is full.
+    if (!lip->exclude_hints_in_digest)
+      lip->m_digest = hint_scanner.get_digest();  // NULL is digest buf. is full.
     return false;
   } else
     return false;

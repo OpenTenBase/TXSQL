@@ -514,6 +514,19 @@ SET(SQL_SHARED_SOURCES
   parse_tree_partitions.cc
   parse_tree_window.cc
   select_lex_visitor.cc
+  statement_outline/outline.cc
+  statement_outline/outline_main.cc
+  statement_outline/parser.cc
+  statement_outline/proc.cc
+  statement_outline/rule.cc
+  statement_outline/rule_table.cc
+  native_package/package.cc
+  native_package/package_cache.cc
+  native_package/package_common.cc
+  native_package/package_parse.cc
+  native_package/proc.cc
+  native_package/show_native_procedure.cc
+  rpl_reload_cache.cc
   parser_service.cc
   partition_info.cc
   partitioning/partition_handler.cc

@@ -976,6 +976,8 @@ MySQL clients support the protocol:
 #include "sql/server_component/log_builtins_imp.h"
 #include "sql/server_component/mysql_server_keyring_lockable_imp.h"
 #include "sql/server_component/persistent_dynamic_loader_imp.h"
+#include "sql/native_package/package_interface.h"
+#include "sql/statement_outline/statement_outline.h"
 #include "sql/srv_session.h"
 #include "sql/opt_statistics.h"
 #include "sql/sql_executor.h"
@@ -2868,8 +2870,6 @@ static void clean_up(bool print_message) {
     LogErr(SYSTEM_LEVEL, ER_SERVER_SHUTDOWN_COMPLETE, my_progname,
            server_version, MYSQL_COMPILATION_COMMENT_SERVER);
   cleanup_errmsgs();
-
-  Cdb_global_prepared_statement_map::destroy_instance();
 
   sysd::notify("STATUS=Server shutdown complete");
 
@@ -4783,6 +4783,12 @@ SHOW_VAR com_status_vars[] = {
     {"restore_from_recyle_bin",
      (char *)offsetof(System_status_var,
                       com_stat[(uint)SQLCOM_RESTORE_FROM_RECYCLE_BIN]),
+     SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
+    {"native_admin_proc",
+     (char *)offsetof(System_status_var, com_stat[(uint)SQLCOM_ADMIN_PROC]),
+     SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
+    {"native_trans_proc",
+     (char *)offsetof(System_status_var, com_stat[(uint)SQLCOM_TRANS_PROC]),
      SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
     {NullS, NullS, SHOW_LONG, SHOW_SCOPE_ALL}};
 
@@ -8015,6 +8021,11 @@ int mysqld_main(int argc, char **argv)
   */
   init_server_psi_keys();
 
+  /* Register all native procedures */
+  im::package_context_init();
+  // Initialize statement_outline
+  statement_outline::init_statement_outline();
+
   /*
     Now that some instrumentation is in place,
     recreate objects which were initialised early,
@@ -8678,6 +8689,11 @@ int mysqld_main(int argc, char **argv)
     flush_error_log_messages();
     return 1;
   }
+
+  /*
+    Load statement outline rules from disk rule table.
+  */
+  if (!opt_initialize) statement_outline::reload_outline_rules();
 
   /*
     Invoke the bootstrap thread, if required.
@@ -10643,6 +10659,8 @@ SHOW_VAR status_vars[] = {
      SHOW_FUNC, SHOW_SCOPE_GLOBAL},
     {"Total_pfs_memory_used", (char *)&show_total_pfs_memory_used, SHOW_FUNC,
      SHOW_SCOPE_GLOBAL},
+    {"Reload_slave", (char *)im::reload_entry_status, SHOW_ARRAY,
+     SHOW_SCOPE_ALL},
     {"Auto_perf_node_state", (char*) &auto_perf_node_state, SHOW_INT,
      SHOW_SCOPE_GLOBAL},
     {"recycle_bin_size", (char *)&show_recycle_bin_size,

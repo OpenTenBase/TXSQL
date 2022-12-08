@@ -1,0 +1,83 @@
+--source include/have_debug.inc
+--disable_ps_protocol
+connection default;
+
+CREATE DATABASE outline_db;
+CREATE TABLE outline_db.t1(id INT AUTO_INCREMENT PRIMARY KEY,
+                           col1 INT,
+                           col2 VARCHAR(100),
+                           KEY ind_1(col1),
+                           KEY ind_2(col2));
+
+CREATE TABLE outline_db.t2(id INT AUTO_INCREMENT PRIMARY KEY,
+                           col1 INT,
+                           col2 VARCHAR(100),
+                           KEY ind_1(col1),
+                           KEY ind_2(col2));
+
+INSERT INTO outline_db.t1 VALUES(1, 2, 'mysql');
+INSERT INTO outline_db.t2 VALUES(1, 2, 'mysql');
+# simulate_update_se_error use a crash injector.
+CALL mtr.add_suppression("Incorrect key file for table");
+
+--echo #
+--echo # add rule error test
+--echo #
+
+SET GLOBAL debug = '+d,stmtol.simulate_write_se_error';
+--error ER_STATEMENT_OUTLINE_ADD_RULE_ERROR
+CALL dbms_admin.statement_outline_add_rule('outline_db', "SELECT /*+ INDEX(t1 ind_2) */ * FROM t1 WHERE col1 = 2 AND col2 = 'mysql'");
+SET GLOBAL debug = '-d,stmtol.simulate_write_se_error';
+
+--echo #
+--echo # flush rules error test
+--echo #
+
+SET GLOBAL debug = '+d,stmtol.simulate_init_read_se_error';
+--error ER_STATEMENT_OUTLINE_REFRESH_ERROR
+CALL dbms_admin.statement_outline_flush_rules();
+SET GLOBAL debug = '-d,stmtol.simulate_init_read_se_error';
+
+let $rule_id=`CALL dbms_admin.statement_outline_add_rule('outline_db', "SELECT /*+ INDEX(t1 ind_2) */ * FROM t1 WHERE col1 = 2 AND col2 = 'mysql'")`;
+
+# This will show a warning, not an error
+SET GLOBAL debug = '+d,stmtol.simulate_read_se_error';
+CALL dbms_admin.statement_outline_flush_rules();
+SET GLOBAL debug = '-d,stmtol.simulate_read_se_error';
+# reload rule table
+CALL dbms_admin.statement_outline_flush_rules();
+
+--echo #
+--echo # enable rule error test
+--echo #
+
+--echo CALL dbms_admin.statement_outline_enable_rule(#, 0)
+SET GLOBAL debug = '+d,stmtol.simulate_update_se_error';
+--disable_query_log
+--error ER_STATEMENT_OUTLINE_ENABLE_RULE_ERROR
+--eval CALL dbms_admin.statement_outline_enable_rule($rule_id, 0)
+--enable_query_log
+SET GLOBAL debug = '-d,stmtol.simulate_update_se_error';
+--replace_column 1 #
+CALL dbms_admin.statement_outline_show_rules();
+
+--echo #
+--echo # delete rule error test
+--echo #
+
+--echo CALL dbms_admin.statement_outline_delete_rule(#)
+SET GLOBAL debug = '+d,stmtol.simulate_delete_se_error';
+--disable_query_log
+--error ER_STATEMENT_OUTLINE_DELETE_RULE_ERROR
+--eval CALL dbms_admin.statement_outline_delete_rule($rule_id)
+--enable_query_log
+SET GLOBAL debug = '-d,stmtol.simulate_delete_se_error';
+
+--disable_query_log
+--eval CALL dbms_admin.statement_outline_delete_rule($rule_id)
+--enable_query_log
+--replace_column 1 #
+CALL dbms_admin.statement_outline_show_rules();
+
+DROP DATABASE outline_db;
+

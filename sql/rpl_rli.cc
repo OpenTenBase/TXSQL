@@ -256,6 +256,7 @@ Relay_log_info::Relay_log_info(bool is_slave_recovery,
   do_server_version_split(::server_version, slave_version_split);
   until_option = nullptr;
   rpl_filter = nullptr;
+  memset(reload_entries, 0, sizeof(reload_entries));
 }
 
 /**

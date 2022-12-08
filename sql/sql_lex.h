@@ -3679,6 +3679,7 @@ class Lex_input_stream {
   */
   const int grammar_selector_token;
 
+  bool exclude_hints_in_digest;
   bool text_string_is_7bit() const { return !(tok_bitmap & 0x80); }
 };
 
@@ -4897,6 +4898,7 @@ inline void assert_consistent_hidden_flags(const mem_root_deque<Item *> &fields
 bool walk_item(Item *item, Select_lex_visitor *visitor);
 bool accept_for_order(SQL_I_List<ORDER> orders, Select_lex_visitor *visitor);
 bool accept_table(TABLE_LIST *t, Select_lex_visitor *visitor);
+bool consume_optimizer_hints(Lex_input_stream *lip);
 bool accept_for_join(mem_root_deque<TABLE_LIST *> *tables,
                      Select_lex_visitor *visitor);
 TABLE_LIST *nest_join(THD *thd, Query_block *select, TABLE_LIST *embedding,

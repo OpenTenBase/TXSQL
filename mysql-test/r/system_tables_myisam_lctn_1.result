@@ -172,6 +172,10 @@ MYSQL.SLAVE_WORKER_INFO
 ERROR
 Storage engine 'MyISAM' does not support system tables. [mysql.slave_worker_info]
 @table_name
+MYSQL.STATEMENT_OUTLINE_RULES
+ERROR
+Storage engine 'MyISAM' does not support system tables. [mysql.statement_outline_rules]
+@table_name
 MYSQL.TABLES_PRIV
 ERROR
 Storage engine 'MyISAM' does not support system tables. [mysql.tables_priv]
@@ -319,6 +323,8 @@ SEVERITY	ERRNO	MESSAGE
 Warning	1726	Storage engine 'MyISAM' does not support system tables. [mysql.slave_relay_log_info]
 SEVERITY	ERRNO	MESSAGE
 Warning	1726	Storage engine 'MyISAM' does not support system tables. [mysql.slave_worker_info]
+SEVERITY	ERRNO	MESSAGE
+Warning	1726	Storage engine 'MyISAM' does not support system tables. [mysql.statement_outline_rules]
 SEVERITY	ERRNO	MESSAGE
 Warning	1726	Storage engine 'MyISAM' does not support system tables. [mysql.tables_priv]
 SEVERITY	ERRNO	MESSAGE

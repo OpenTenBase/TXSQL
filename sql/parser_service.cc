@@ -147,8 +147,9 @@ MYSQL_THD mysql_parser_open_session() {
   thd->security_context()->set_host_ptr(STRING_WITH_LEN(my_localhost));
   thd->lex = new LEX;
   thd->lex->set_current_query_block(nullptr);
-
-  thd->variables.character_set_client = old_thd->variables.character_set_client;
+  
+  if (old_thd)
+    thd->variables.character_set_client = old_thd->variables.character_set_client;
 
   return thd;
 }
@@ -204,16 +205,29 @@ void *parser_service_start_routine(void *arg) {
 
 }  // namespace
 
-void mysql_parser_start_thread(THD *thd, callback_function fun, void *arg,
+
+/**
+ The original mysql_parser_start_thread() function has no return value, It may
+ be crash if mysql_thread_create() fails to start a thread. We don't want to
+ change the definition of the function due to ABI compatibility.
+*/
+int mysql_parser_create_thread(THD *thd, callback_function fun, void *arg,
                                my_thread_handle *thread_handle) {
   my_thread_handle handle;
   my_thread_attr_t attr;
   my_thread_attr_init(&attr);
 
   thread_args *args = new thread_args(thd, fun, arg);
-  mysql_thread_create(key_thread_parser_service, &handle, &attr,
+  int res = mysql_thread_create(key_thread_parser_service, &handle, &attr,
                       parser_service_start_routine, args);
-  *thread_handle = handle;
+  if (res == 0)
+    *thread_handle = handle;
+  return res;
+}
+
+void mysql_parser_start_thread(THD *thd, callback_function fun, void *arg,
+                               my_thread_handle *thread_handle) {
+  (void)mysql_parser_create_thread(thd, fun, arg, thread_handle);
 }
 
 void mysql_parser_join_thread(my_thread_handle *thread_id) {

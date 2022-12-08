@@ -264,6 +264,8 @@ MYSQL_THD mysql_parser_current_session();
 MYSQL_THD mysql_parser_open_session();
 void mysql_parser_start_thread(MYSQL_THD thd, callback_function fun, void *arg,
                                struct my_thread_handle *thread_handle);
+int mysql_parser_create_thread(THD *thd, callback_function fun, void *arg,
+                               my_thread_handle *thread_handle);
 void mysql_parser_join_thread(struct my_thread_handle *thread_handle);
 void mysql_parser_set_current_database(MYSQL_THD thd,
                                        const MYSQL_LEX_STRING db);

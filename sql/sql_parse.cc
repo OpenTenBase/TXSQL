@@ -128,6 +128,7 @@
 #include "sql/query_result.h"
 #include "sql/resourcegroups/resource_group_basic_types.h"
 #include "sql/resourcegroups/resource_group_mgr.h"  // Resource_group_mgr::instance
+#include "sql/statement_outline/statement_outline.h"
 #include "sql/rpl_context.h"
 #include "sql/rpl_filter.h"             // rpl_filter
 #include "sql/rpl_group_replication.h"  // group_replication_start
@@ -1394,6 +1395,8 @@ void init_sql_command_flags() {
   sql_command_flags[SQLCOM_RENAME_USER] |= CF_REQUIRE_ACL_CACHE;
   sql_command_flags[SQLCOM_SHOW_GRANTS] |= CF_REQUIRE_ACL_CACHE;
   sql_command_flags[SQLCOM_SET_PASSWORD] |= CF_REQUIRE_ACL_CACHE;
+  /* Native package proc flags */
+  sql_command_flags[SQLCOM_ADMIN_PROC] = CF_AUTO_COMMIT_TRANS;
 }
 
 bool sqlcom_can_generate_row_events(enum enum_sql_command command) {
@@ -5403,7 +5406,9 @@ int mysql_execute_command(THD *thd, bool first_level) {
     case SQLCOM_RESTART_SERVER:
     case SQLCOM_CREATE_SRS:
     case SQLCOM_DROP_SRS:
-    case SQLCOM_SHOW_TLOGS: {
+    case SQLCOM_SHOW_TLOGS:
+    case SQLCOM_ADMIN_PROC:
+    case SQLCOM_TRANS_PROC: {
       assert(lex->m_sql_cmd != nullptr);
 
       if (g_mc_enable && g_mc_gts_check && !is_tdsql_gts_valid(thd)) {
@@ -6163,6 +6168,14 @@ void dispatch_sql_command(THD *thd, Parser_state *parser_state,
   if (!err) {
     err = parse_sql(thd, parser_state, nullptr);
 
+    
+    if (!err) {
+      // Now we can apply statement outline rules. Note current performance
+      // digest instrumentation has computed digest in parse_sql() if
+      // m_digest_psi is valid.
+      statement_outline::apply_outline_rules(
+        thd, parser_state->m_digest_psi != nullptr);
+    }
     if (log_statement && g_log_statement_of_query_event && 
         thd->lex->query_tables &&
          // tdsql add internal tables under the two databases

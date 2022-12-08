@@ -1,0 +1,54 @@
+CREATE DATABASE outline_db;
+CREATE TABLE outline_db.t1(id INT AUTO_INCREMENT PRIMARY KEY,
+col1 INT,
+col2 VARCHAR(100),
+KEY ind_1(col1),
+KEY ind_2(col2));
+CREATE TABLE outline_db.t2(id INT AUTO_INCREMENT PRIMARY KEY,
+col1 INT,
+col2 VARCHAR(100),
+KEY ind_1(col1),
+KEY ind_2(col2));
+INSERT INTO outline_db.t1 VALUES(1, 2, 'mysql');
+INSERT INTO outline_db.t2 VALUES(1, 2, 'mysql');
+CALL mtr.add_suppression("Incorrect key file for table");
+#
+# add rule error test
+#
+SET GLOBAL debug = '+d,stmtol.simulate_write_se_error';
+CALL dbms_admin.statement_outline_add_rule('outline_db', "SELECT /*+ INDEX(t1 ind_2) */ * FROM t1 WHERE col1 = 2 AND col2 = 'mysql'");
+ERROR HY000: Could not add statement outline rule: "Out of memory in storage engine 'InnoDB'.".
+SET GLOBAL debug = '-d,stmtol.simulate_write_se_error';
+#
+# flush rules error test
+#
+SET GLOBAL debug = '+d,stmtol.simulate_init_read_se_error';
+CALL dbms_admin.statement_outline_flush_rules();
+ERROR HY000: Error when refreshing statement outline rules: Got error "Table definition has changed, please retry transaction" from storage engine.
+SET GLOBAL debug = '-d,stmtol.simulate_init_read_se_error';
+SET GLOBAL debug = '+d,stmtol.simulate_read_se_error';
+CALL dbms_admin.statement_outline_flush_rules();
+Warnings:
+Warning	4172	Error when refreshing statement outline rules: Got error "Deadlock found when trying to get lock; try restarting transaction" from storage engine.
+SET GLOBAL debug = '-d,stmtol.simulate_read_se_error';
+CALL dbms_admin.statement_outline_flush_rules();
+#
+# enable rule error test
+#
+CALL dbms_admin.statement_outline_enable_rule(#, 0)
+SET GLOBAL debug = '+d,stmtol.simulate_update_se_error';
+ERROR HY000: Could not enable or disable statement outline rule: "Incorrect key file for table 'statement_outline_rules'; try to repair it".
+SET GLOBAL debug = '-d,stmtol.simulate_update_se_error';
+CALL dbms_admin.statement_outline_show_rules();
+ID	SCHEMA	DIGEST	ENABLED	HITS	OUTLINE	DIGEST_TEXT	HAS_APPLY_FAILURE
+#	outline_db	e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855	YES	0	[{"hint": "/*+ INDEX(`t1`@`select#1` `ind_2`) */ ", "select_number": 1}]	select /*+ INDEX(`t1`@`select#1` `ind_2`) */ * from `outline_db`.`t1` where ((`col1` = ?) and (`col2` = ?))	0
+#
+# delete rule error test
+#
+CALL dbms_admin.statement_outline_delete_rule(#)
+SET GLOBAL debug = '+d,stmtol.simulate_delete_se_error';
+ERROR HY000: Could not delete statement outline rule: "Got error 122 - 'Internal (unspecified) error in handler' from storage engine".
+SET GLOBAL debug = '-d,stmtol.simulate_delete_se_error';
+CALL dbms_admin.statement_outline_show_rules();
+ID	SCHEMA	DIGEST	ENABLED	HITS	OUTLINE	DIGEST_TEXT	HAS_APPLY_FAILURE
+DROP DATABASE outline_db;

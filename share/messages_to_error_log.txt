@@ -11901,6 +11901,8 @@ ER_RES_GRP_SWITCH_FAILED_UNABLE_TO_APPLY_RES_GRP
 ER_IB_MSG_CLEAR_INSTANT_DROP_COLUMN_METADATA
   eng "Failed to clear instant drop column metadata for table %s"
 
+ER_STATEMENT_OUTLINE_LOAD_ERROR
+ eng "Error when loading statement outline rules: %s"
 
 # DO NOT add server-to-client messages here;
 # they go in messages_to_clients.txt
