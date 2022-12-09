@@ -337,6 +337,8 @@ enum class enum_condition_context {
 /// Used to uniquely name expressions in derived tables
 #define SYNTHETIC_FIELD_NAME "Name_exp_"
 
+/// TDSQL subpartition table name identifier, e.g. table1_TDSQL_SUBp1
+#define TDSQL_SUBPARTITION_NAME_SUFFIX "_TDSQL_SUB"
 #define AUTO_STATS_INTERVAL_BEGIN_DEFAULT_VALUE "03:00"
 #define AUTO_STATS_LONG_QUERY_DEFAULT_VALUE 65536
 #endif /* SQL_CONST_INCLUDED */

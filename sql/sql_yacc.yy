@@ -15705,6 +15705,13 @@ table_ident:
             $$= NEW_PTN Table_ident(to_lex_cstring($1));
             if ($$ == NULL)
               MYSQL_YYABORT;
+
+            // TDSQL subpartition tables share outline rules with their parent
+            // table, change the table name to its parent table in digest.
+            if (YYTHD->m_remap_subpartition_outline) {
+              Lex_input_stream *lip= YYLIP;
+              lip->change_digest_table_ident($$->table);
+            }
           }
         | ident '.' ident
           {
@@ -15713,6 +15720,13 @@ table_ident:
             $$= NEW_PTN Table_ident(schema_name, to_lex_cstring($3));
             if ($$ == NULL)
               MYSQL_YYABORT;
+
+            // TDSQL subpartition tables share outline rules with their parent
+            // table, change the table name to its parent table in digest.
+            if (YYTHD->m_remap_subpartition_outline) {
+              Lex_input_stream *lip= YYLIP;
+              lip->change_digest_table_ident($$->table);
+            }
           }
         ;
 

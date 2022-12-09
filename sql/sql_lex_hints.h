@@ -106,6 +106,10 @@ class Hint_scanner {
     add_hint_token_digest();
     return prev_token;
   }
+  /// Enable TDSQL subpartition tables use their parent table outline rules.
+  void enable_remap_subpartition_outline(uint token) {
+    if (digest_state) thd->m_remap_subpartition_outline = true;
+  }
 
  protected:
   int scan();

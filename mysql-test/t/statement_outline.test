@@ -274,6 +274,71 @@ EXPLAIN FORMAT = 'TrAdItIoNaL' SELECT * FROM t1 WHERE t1.col1 =2 AND t1.col2 ='m
 DELETE FROM mysql.statement_outline_rules;
 CALL dbms_admin.statement_outline_flush_rules();
 
+#-----------------------------------------------------------
+# 9. Prepare
+#-----------------------------------------------------------
+--echo 9. PREPARE
+--replace_column 1 #
+CALL dbms_admin.statement_outline_add_rule('outline_db',
+				 "SELECT /*+ INDEX(t1 ind_2)  */ * FROM t1 WHERE t1.col1 =1 AND t1.col2 ='mysql'");
+PREPARE stmt FROM "SELECT * FROM t1 WHERE t1.col1 =? AND t1.col2 = ?";
+
+# Hit column should be 1
+--replace_column 1 #
+CALL dbms_admin.statement_outline_show_rules();
+
+SET @col1 = 1;
+SET @col2 = 'mysql';
+EXECUTE stmt USING @col1, @col2;
+# Hit column should be 1
+--replace_column 1 #
+CALL dbms_admin.statement_outline_show_rules();
+DEALLOCATE PREPARE stmt;
+
+DELETE FROM mysql.statement_outline_rules;
+CALL dbms_admin.statement_outline_flush_rules();
+
+#-----------------------------------------------------------
+# 10. TDSQL subpartition
+#-----------------------------------------------------------
+--echo 10.1 TDSQL subpartition basic
+CREATE TABLE outline_db.t1_TDSQL_SUBp1(id INT AUTO_INCREMENT PRIMARY KEY,
+                           col1 INT,
+                           col2 VARCHAR(100),
+                           KEY ind_1(col1),
+                           KEY ind_2(col2));
+INSERT INTO outline_db.t1_TDSQL_SUBp1 VALUES(1, 2, 'mysql');
+CREATE TABLE outline_db.t3(a INT, b INT);
+INSERT INTO outline_db.t3 values(1,1);
+
+--replace_column 1 #
+CALL dbms_admin.statement_outline_add_rule('outline_db',
+				 "SELECT /*+ INDEX(t1 ind_2)  */ * FROM t1 WHERE col1 =1 AND col2 ='mysql'");
+EXPLAIN SELECT /*+ remap_subpartition_outline */ * FROM t1_TDSQL_SUBp1 WHERE col1 =1 AND col2 ='mysql';
+# No outline rule applied.
+EXPLAIN SELECT * FROM t1_TDSQL_SUBp1 WHERE col1 =1 AND col2 ='mysql';
+
+--echo 10.2 subpartition table name with alias
+--replace_column 1 #
+CALL dbms_admin.statement_outline_add_rule('outline_db',
+				 "SELECT /*+ INDEX(tab ind_2)  */ * FROM t1 tab WHERE tab.col1 =1 AND tab.col2 ='mysql'");
+EXPLAIN SELECT /*+ remap_subpartition_outline */ * FROM t1_TDSQL_SUBp1 tab WHERE tab.col1 =1 AND tab.col2 ='mysql';
+
+--echo 10.3 subpartition table name with IGNORE_INDEX
+--replace_column 1 #
+CALL dbms_admin.statement_outline_add_rule('outline_db', "SELECT /*+ INDEX(t1 ind_2)  */ * FROM t1 IGNORE INDEX(ind_1) WHERE col1 =1 AND col2 ='mysql'");
+EXPLAIN SELECT /*+ remap_subpartition_outline */ * FROM t1_TDSQL_SUBp1 IGNORE INDEX(ind_1) WHERE col1 =1 AND col2 ='mysql';
+
+--echo 10.4 subpartition table name with other tables
+--replace_column 1 #
+CALL dbms_admin.statement_outline_add_rule('outline_db', "SELECT /*+ INDEX(t1 ind_2) */ * FROM t1,t3 WHERE col1 = a AND col2 ='mysql'");
+EXPLAIN SELECT /*+ remap_subpartition_outline */ * FROM t1_TDSQL_SUBp1,t3 WHERE col1 = a AND col2 ='mysql';
+
+--echo 10.5 Don't support change table/alias name in where condition field reference.
+--replace_column 1 #
+CALL dbms_admin.statement_outline_add_rule('outline_db', "SELECT /*+ INDEX(t1 ind_2)  */ * FROM t1 WHERE t1.col1 =1 AND t1.col2 ='mysql'");
+EXPLAIN SELECT /*+ remap_subpartition_outline */ * FROM t1_TDSQL_SUBp1 WHERE t1_TDSQL_SUBp1.col1 =1 AND t1_TDSQL_SUBp1.col2 ='mysql';
+
 connection default;
 DROP DATABASE outline_db;
 DROP USER 'u1'@'%';

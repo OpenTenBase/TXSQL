@@ -118,6 +118,28 @@ int cmp_lex_string(const LEX_CSTRING &s, const LEX_CSTRING &t,
                                pointer_cast<const uchar *>(t.str), t.length);
 }
 
+/**
+  Check @param str whether starts with @param prefix and is followed by
+  TDSQL_SUBPARTITION_NAME_SUFFIX ("_TDSQL_SUB"), e.g. table1_TDSQL_SUB_p1
+*/
+bool match_subpartion_name(const LEX_CSTRING *prefix, const LEX_CSTRING *str,
+                           const CHARSET_INFO *cs) {
+  my_match_t match;
+  uint status = cs->coll->strstr(cs, str->str, str->length, prefix->str,
+                                 prefix->length, &match, 1);
+
+  // return false if it doesn't start with @param prefix
+  if (!status || match.end != 0) return false;
+  
+  // Followed by "_TDSQL_SUB"?
+  LEX_CSTRING subpart_pattern = {
+      STRING_WITH_LEN(TDSQL_SUBPARTITION_NAME_SUFFIX)};
+  status = cs->coll->strstr(cs, str->str + prefix->length,
+                            str->length - prefix->length, subpart_pattern.str,
+                            subpart_pattern.length, &match, 1);
+  return status && match.end == 0;
+}
+
 bool Opt_hints::get_switch(opt_hints_enum type_arg) const {
   if (is_specified(type_arg)) return hints_map.switch_on(type_arg);
 
@@ -131,7 +153,10 @@ Opt_hints *Opt_hints::find_by_name(const LEX_CSTRING *name_arg,
                                    const CHARSET_INFO *cs) const {
   for (uint i = 0; i < child_array.size(); i++) {
     const LEX_CSTRING *name = child_array[i]->get_print_name();
-    if (!cmp_lex_string(*name, *name_arg, cs)) return child_array[i];
+    if (!cmp_lex_string(*name, *name_arg, cs) ||
+        (current_thd->m_remap_subpartition_outline &&  // Or TDSQL subpartition of
+         match_subpartion_name(name, name_arg, cs)))
+      return child_array[i];
   }
   return nullptr;
 }

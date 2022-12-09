@@ -150,6 +150,9 @@ void Hint_scanner::add_hint_token_digest() {
 
   if (prev_token == 0 || prev_token == HINT_ERROR) return;  // nothing to add
 
+  // Don't add the token to digest_storage to prevent digest change.
+  if (prev_token == REMAP_SUBPARTITION_OUTLINE_HINT) return;
+
   if (prev_token == HINT_CLOSE) {
     if (has_hints) add_digest(TOK_HINT_COMMENT_CLOSE);
     return;

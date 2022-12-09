@@ -25,6 +25,7 @@ bool parse_query(THD *thd, const LEX_CSTRING query) {
   Parser_state parser_state;
   if (parser_state.init(thd, query.str, query.length)) return 1;
 
+  parser_state.m_input.m_has_digest = true;
   parser_state.m_input.m_compute_digest = true;
   thd->m_digest = &thd->m_digest_state;
   thd->m_digest->reset(thd->m_token_array, max_digest_length);
