@@ -748,6 +748,7 @@ THD::THD(bool enable_plugins)
       m_inside_system_variable_global_update(false),
       bind_parameter_values(nullptr),
       bind_parameter_values_count(0),
+      m_remap_subpartition_outline(false),
       m_is_local_or_admin_conn(false),
       m_txsql_qid(NULL_STR) {
   to_thread_pool = 0;

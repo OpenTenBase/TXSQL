@@ -3515,6 +3515,8 @@ class Lex_input_stream {
 
   void reduce_digest_token(uint token_left, uint token_right);
 
+  void change_digest_table_ident(LEX_CSTRING table);
+
   /**
     True if this scanner tokenizes a partial query (partition expression,
     generated column expression etc.)

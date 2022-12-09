@@ -6065,6 +6065,7 @@ void THD::reset_for_next_command() {
     a grant/revoke or flush.
   */
   thd->security_context()->checkout_access_maps();
+  thd->m_remap_subpartition_outline = false;
 #ifndef NDEBUG
   thd->set_tmp_table_seq_id(1);
 #endif

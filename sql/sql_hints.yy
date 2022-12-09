@@ -137,6 +137,8 @@ static bool parse_int(longlong *to, const char *from, size_t from_length)
 %token PARALLEL_HINT 1052
 %token NO_PARALLEL_HINT 1053
 
+%token REMAP_SUBPARTITION_OUTLINE_HINT 1054
+
 /*
   YYUNDEF in internal to Bison. Please don't change its number, or change
   it in sync with YYUNDEF in sql_yacc.yy.
@@ -166,6 +168,7 @@ static bool parse_int(longlong *to, const char *from, size_t from_length)
   qb_name_hint
   set_var_hint
   resource_group_hint
+  remap_subpartition_outline_hint
 
 %type <hint_list> hint_list
 
@@ -242,6 +245,7 @@ hint:
         | parallel_hint
         | set_var_hint
         | resource_group_hint
+        | remap_subpartition_outline_hint
         ;
 
 
@@ -704,6 +708,17 @@ resource_group_hint:
            if ($$ == nullptr)
               YYABORT; // OOM
          }
+       ;
+
+remap_subpartition_outline_hint:
+        REMAP_SUBPARTITION_OUTLINE_HINT
+        {
+          // To prevent hurt performance, we use REMAP_SUBPARTITION_OUTLINE_HINT
+          // to indicate to do remapping subpartition table name to its parent.
+          scanner->enable_remap_subpartition_outline(
+              REMAP_SUBPARTITION_OUTLINE_HINT);
+          $$= NULL;
+        }
        ;
 
 set_var_ident:

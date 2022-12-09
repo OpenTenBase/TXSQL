@@ -41,7 +41,7 @@ ERROR HY000: Could not enable or disable statement outline rule: "Incorrect key 
 SET GLOBAL debug = '-d,stmtol.simulate_update_se_error';
 CALL dbms_admin.statement_outline_show_rules();
 ID	SCHEMA	DIGEST	ENABLED	HITS	OUTLINE	DIGEST_TEXT	HAS_APPLY_FAILURE
-#	outline_db	e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855	YES	0	[{"hint": "/*+ INDEX(`t1`@`select#1` `ind_2`) */ ", "select_number": 1}]	select /*+ INDEX(`t1`@`select#1` `ind_2`) */ * from `outline_db`.`t1` where ((`col1` = ?) and (`col2` = ?))	0
+#	outline_db	c3fa7558f4dd3dd0713428fbd60beda118f35ed9c447ce58b2bb9239539fab76	YES	0	[{"hint": "/*+ INDEX(`t1`@`select#1` `ind_2`) */ ", "select_number": 1}]	select /*+ INDEX(`t1`@`select#1` `ind_2`) */ * from `outline_db`.`t1` where ((`col1` = ?) and (`col2` = ?))	0
 #
 # delete rule error test
 #

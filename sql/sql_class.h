@@ -5033,6 +5033,10 @@ private:
   PS_PARAM *bind_parameter_values;
   /** the number of elements in parameters */
   unsigned long bind_parameter_values_count;
+  /// Flag to change subpartition table name to its parent name so that they
+  /// have same digest, even though the statement has different table name. In
+  /// table level hint, we also use this to indicate to match parent table name.
+  bool m_remap_subpartition_outline;
 
   /** commit can by delay or not under after sync mode */
   bool can_delay_commit() const;

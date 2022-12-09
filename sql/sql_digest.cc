@@ -36,6 +36,7 @@
 #include "mysql_com.h"
 #include "sha2.h"                   // SHA256
 #include "sql/lexer_yystype.h"      // Lexer_yystype
+#include "sql/sql_const.h"          // TDSQL_SUBPARTITION_NAME_SUFFIX
 #include "sql/sql_digest_stream.h"  // sql_digest_state
 #include "sql/sql_yacc.h"           // Generated code.
 #include "sql_string.h"             // String
@@ -596,6 +597,7 @@ sql_digest_state *digest_add_token(sql_digest_state *state, uint token,
 
       /* Update the index of last identifier found. */
       state->m_last_id_index = digest_storage->m_byte_count;
+      state->m_last_id_length = yylen;
       break;
     }
     case 0: {
@@ -701,4 +703,34 @@ sql_digest_state *digest_reduce_token(sql_digest_state *state, uint token_left,
   }
 
   return state;
+}
+
+void digest_change_table_ident(sql_digest_state *state, LEX_CSTRING table) {
+  const char *pos = strstr(table.str, TDSQL_SUBPARTITION_NAME_SUFFIX);
+  // Is this a subpartition table name?
+  if (!pos) return;
+
+  int left_len = pos - table.str;
+  int name_len = table.length;
+  int erase_len = name_len - left_len;
+  sql_digest_storage *digest_storage = &state->m_digest_storage;
+  assert(state->m_last_id_length > 0);
+  int move_offset;
+  // TABLE_IDENT TABLE_ALIAS | if the last token is an identifier otherwise
+  // TABLE_IDENT WHERE | TABLE_IDENT, ... | TABLE_IDENT FORCE_INDEX
+  move_offset = (size_t)state->m_last_id_index == digest_storage->m_byte_count
+                    ? digest_storage->m_byte_count - state->m_last_id_length -
+                          2 * SIZE_OF_A_TOKEN - name_len - SIZE_OF_A_TOKEN
+                    : state->m_last_id_index - name_len - SIZE_OF_A_TOKEN;
+
+  // Remove "_TDSQL_SUB" and its following string from the identifier
+  unsigned char *dest = digest_storage->m_token_array + move_offset;
+  assert(name_len == (dest[0] | dest[1] << 8));
+  dest[0] = left_len & 0xff;
+  dest[1] = (left_len >> 8) & 0xff;
+  memmove(
+      dest + SIZE_OF_A_TOKEN + left_len, dest + SIZE_OF_A_TOKEN + name_len,
+      digest_storage->m_byte_count - move_offset - SIZE_OF_A_TOKEN - name_len);
+  state->m_last_id_index -= erase_len;
+  digest_storage->m_byte_count -= erase_len;
 }

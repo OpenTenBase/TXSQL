@@ -272,6 +272,7 @@ void Lex_input_stream::reset(const char *buffer, size_t length) {
   in_comment = NO_COMMENT;
   m_underscore_cs = nullptr;
   m_cpp_ptr = m_cpp_buf;
+  exclude_hints_in_digest = false;
 }
 
 /**
@@ -397,6 +398,12 @@ void Lex_input_stream::reduce_digest_token(uint token_left, uint token_right) {
   if (m_digest != nullptr) {
     m_digest = digest_reduce_token(m_digest, token_left, token_right);
   }
+}
+
+void Lex_input_stream::change_digest_table_ident(LEX_CSTRING table) {
+  assert(m_thd->m_remap_subpartition_outline);
+
+  if (m_digest != nullptr) digest_change_table_ident(m_digest, table);
 }
 
 void LEX::assert_ok_set_current_query_block() {

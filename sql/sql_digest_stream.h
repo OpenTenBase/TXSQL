@@ -23,6 +23,7 @@
 #ifndef SQL_DIGEST_STREAM_H
 #define SQL_DIGEST_STREAM_H
 
+#include "lex_string.h"
 #include "sql/sql_digest.h"
 
 union Lexer_yystype;
@@ -40,10 +41,17 @@ struct sql_digest_state {
     @sa digest_add_token
   */
   int m_last_id_index;
+
+  /**
+    Length of the last identifier seen. @sa digest_change_table_ident() which
+    wants change the identifier in front of it.
+  */
+  int m_last_id_length;
   sql_digest_storage m_digest_storage;
 
   inline void reset(unsigned char *token_array, uint length) {
     m_last_id_index = 0;
+    m_last_id_length = 0;
     m_digest_storage.reset(token_array, length);
   }
 
@@ -56,5 +64,7 @@ sql_digest_state *digest_add_token(sql_digest_state *state, uint token,
 
 sql_digest_state *digest_reduce_token(sql_digest_state *state, uint token_left,
                                       uint token_right);
+
+void digest_change_table_ident(sql_digest_state *state, LEX_CSTRING table);
 
 #endif
