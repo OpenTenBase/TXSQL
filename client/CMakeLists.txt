@@ -33,12 +33,13 @@ ADD_SUBDIRECTORY(base)
 ADD_SUBDIRECTORY(dump)
 ## Subdirectory for mysql_migrate_keyring code.
 ADD_SUBDIRECTORY(migrate_keyring)
-## Subdirectory for mysqlbinlog_keyring code.
-ADD_SUBDIRECTORY(mysqlbinlog_keyring)
 
 INCLUDE_DIRECTORIES(
   ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
+
+## Subdirectory for mysqlbinlog_keyring code.
+ADD_SUBDIRECTORY(mysqlbinlog_keyring)
 
 MYSQL_ADD_EXECUTABLE(mysql
   ${CMAKE_SOURCE_DIR}/sql-common/net_ns.cc
