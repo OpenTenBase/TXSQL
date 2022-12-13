@@ -13,6 +13,11 @@ INSERT INTO outline_db.t1 VALUES(1, 2, 'mysql');
 INSERT INTO outline_db.t2 VALUES(1, 2, 'mysql');
 CALL mtr.add_suppression("Incorrect key file for table");
 #
+# clean up the rule
+#
+DELETE FROM mysql.statement_outline_rules;
+CALL dbms_admin.statement_outline_flush_rules();
+#
 # add rule error test
 #
 SET GLOBAL debug = '+d,stmtol.simulate_write_se_error';

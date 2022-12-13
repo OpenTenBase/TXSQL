@@ -21,6 +21,13 @@ INSERT INTO outline_db.t2 VALUES(1, 2, 'mysql');
 CALL mtr.add_suppression("Incorrect key file for table");
 
 --echo #
+--echo # clean up the rule
+--echo #
+
+DELETE FROM mysql.statement_outline_rules;
+CALL dbms_admin.statement_outline_flush_rules();
+
+--echo #
 --echo # add rule error test
 --echo #
 
