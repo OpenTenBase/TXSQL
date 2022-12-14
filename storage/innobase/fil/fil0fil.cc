@@ -2945,7 +2945,9 @@ bool Fil_shard::open_file(fil_node_t *file) {
 
   bool read_only_mode;
 
-  read_only_mode = !fsp_is_system_temporary(space->id) && srv_read_only_mode;
+  read_only_mode =
+      (!fsp_is_system_temporary(space->id) && srv_read_only_mode) ||
+      ibddump_enabled;
 
   if (file->size == 0 ||
       (space->size_in_header == 0 && space->purpose == FIL_TYPE_TABLESPACE &&
