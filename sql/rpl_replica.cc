@@ -5243,6 +5243,12 @@ static int exec_relay_log_event(THD *thd, Relay_log_info *rli,
                         sql_slave_killed, rli);
             unmatch_event_info->reset();
             mysql_mutex_lock(&rli->data_lock);  // because of SHOW STATUS
+            DBUG_EXECUTE_IF("error_on_write_rows_log_event_apply", {
+              if (rli->retried_trans >= 1) {
+                DBUG_SET("-d,error_on_write_rows_log_event_apply");
+              }
+              silent = true;
+            };);
             if (!silent) {
               rli->trans_retries++;
               if (rli->is_processing_trx()) {

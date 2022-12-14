@@ -1912,7 +1912,7 @@ bool Slave_worker::retry_transaction(uint start_relay_number,
     };);
 
     DBUG_EXECUTE_IF("error_on_write_rows_log_event_apply", {
-      if (c_rli->retried_trans == 1) {
+      if (c_rli->retried_trans >= 1) {
         DBUG_SET("-d,error_on_write_rows_log_event_apply");
       }
       silent = true;
@@ -2505,9 +2505,16 @@ int slave_worker_exec_job_group(Slave_worker *worker, Relay_log_info *rli) {
         diff_timespec(&worker->ts_exec[1], &worker->ts_exec[0]);
     if (error || worker->found_commit_order_deadlock()) {
       worker->prepare_for_retry(*ev);
+      my_off_t end_relay_pos;
+      if (ev->is_aggregation_event && ev->last_event_relay_log_start_pos != 0) {
+        end_relay_pos = ev->last_event_relay_log_start_pos;
+        assert(ev->last_event_relay_log_start_pos >= ev->relay_log_start_pos);
+        assert(ev->last_event_relay_log_start_pos >= job_item->relay_pos);
+      } else {
+        end_relay_pos = job_item->relay_pos;
+      }
       error = worker->retry_transaction(start_relay_number, start_relay_pos,
-                                        job_item->relay_number,
-                                        job_item->relay_pos);
+                                        job_item->relay_number, end_relay_pos);
       if (error) goto err;
     }
     /*

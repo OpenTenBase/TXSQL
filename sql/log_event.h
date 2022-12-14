@@ -887,6 +887,8 @@ class Log_event {
     the related m_rli position status.
    */
   bool is_aggregation_event;
+  /* start position of last event */
+  my_off_t last_event_relay_log_start_pos;
 
 #ifdef MYSQL_SERVER
   THD *thd;

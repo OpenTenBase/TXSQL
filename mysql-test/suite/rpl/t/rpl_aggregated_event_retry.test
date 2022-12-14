@@ -1,0 +1,83 @@
+source include/have_debug.inc;
+source include/have_binlog_format_row.inc;
+source include/master-slave.inc;
+
+CALL mtr.add_suppression('Slave SQL for channel');
+
+connection master;
+create database bg_putiandiao_algo;
+use bg_putiandiao_algo;
+CREATE TABLE `order_timeline_15` (
+  `db_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT COMMENT '主键id',
+  `order_sn` varchar(32) NOT NULL COMMENT 'o单sn',
+  `pay_time` bigint(20) NOT NULL DEFAULT '0' COMMENT '支付时间',
+  `expect_arrival_end_time` bigint(20) NOT NULL DEFAULT '0' COMMENT '预期送达时间',
+  `wave_forward_time` bigint(20) NOT NULL DEFAULT '0' COMMENT '创波最晚时间（正向）',
+  `pack_forward_time` bigint(20) NOT NULL DEFAULT '0' COMMENT '打包最晚时间（正向）',
+  `dispatch_forward_time` bigint(20) NOT NULL DEFAULT '0' COMMENT '发运最晚时间（正向）',
+  `assign_reverse_time` bigint(20) NOT NULL DEFAULT '0' COMMENT '下发最晚时间（逆向）',
+  `pack_reverse_time` bigint(20) NOT NULL DEFAULT '0' COMMENT '打包最晚时间（逆向）',
+  `dispatch_reverse_time` bigint(20) NOT NULL DEFAULT '0' COMMENT '发运最晚时间（逆向）',
+  `order_updt` datetime(3) NOT NULL DEFAULT '1970-01-01 08:00:01.000' COMMENT '订单主数据更新时间',
+  `pack_delivery_updt` datetime(3) NOT NULL DEFAULT '1970-01-01 08:00:01.000' COMMENT '打包-发运配置更新时间',
+  `delivery_rcv_updt` datetime(3) NOT NULL DEFAULT '1970-01-01 08:00:01.000' COMMENT '发运-签收配置更新时间',
+  `created_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `updated_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+  PRIMARY KEY (`db_id`),
+  UNIQUE KEY `uk_key` (`order_sn`),
+  KEY `idx_created_at` (`created_at`),
+  KEY `idx_updated_at` (`updated_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='订单作业时间线';
+
+source include/sync_slave_sql_with_master.inc;
+
+connection slave;
+stop slave sql_thread;
+
+connection master;
+exec $MYSQL -e "source std_data/aggregated_event_retry.sql";
+checksum table bg_putiandiao_algo.order_timeline_15;
+source include/sync_slave_io_with_master.inc;
+connection slave;
+set global debug='+d,error_on_write_rows_log_event_apply';
+start slave sql_thread;
+connection master;
+source include/sync_slave_sql_with_master.inc;
+connection slave;
+checksum table bg_putiandiao_algo.order_timeline_15;
+
+# test no mts
+
+connection master;
+truncate bg_putiandiao_algo.order_timeline_15;
+source include/sync_slave_sql_with_master.inc;
+source include/rpl_reset.inc;
+
+connection slave;
+stop slave;
+set global replica_parallel_workers=0;
+start slave io_thread;
+connection master;
+exec $MYSQL -e "source std_data/aggregated_event_retry.sql";
+checksum table bg_putiandiao_algo.order_timeline_15;
+source include/sync_slave_io_with_master.inc;
+connection slave;
+set global debug='+d,error_on_write_rows_log_event_apply';
+start slave sql_thread;
+connection master;
+source include/sync_slave_sql_with_master.inc;
+connection slave;
+checksum table bg_putiandiao_algo.order_timeline_15;
+
+# clean
+connection slave;
+let $debug_point = error_on_write_rows_log_event_apply;
+source include/remove_debug_point.inc;
+stop slave;
+set global replica_parallel_workers=4;
+start slave;
+connection master;
+drop database bg_putiandiao_algo;
+source include/sync_slave_sql_with_master.inc;
+
+source include/rpl_end.inc;
