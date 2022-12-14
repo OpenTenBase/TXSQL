@@ -1063,6 +1063,9 @@ Log_event::Log_event(THD *thd_arg, uint16 flags_arg,
   common_header->when = thd->start_time;
   common_header->log_pos = 0;
   common_header->flags = flags_arg;
+  is_aggregation_event = false;
+  last_event_relay_log_start_pos = 0;
+  relay_log_start_pos = 0;
 }
 
 /**
@@ -1086,6 +1089,9 @@ Log_event::Log_event(Log_event_header *header, Log_event_footer *footer,
       thd(nullptr) {
   server_id = ::server_id;
   common_header->unmasked_server_id = server_id;
+  is_aggregation_event = false;
+  last_event_relay_log_start_pos = 0;
+  relay_log_start_pos = 0;
 }
 #endif /* MYSQL_SERVER */
 
@@ -1104,6 +1110,9 @@ Log_event::Log_event(Log_event_header *header, Log_event_footer *footer)
       common_footer(footer) {
 #ifdef MYSQL_SERVER
   thd = nullptr;
+  is_aggregation_event = false;
+  last_event_relay_log_start_pos = 0;
+  relay_log_start_pos = 0;
 #endif
   /*
      Mask out any irrelevant parts of the server_id
@@ -15058,6 +15067,8 @@ Rows_log_event *Aggregation_apply_unit::aggregate_event_collection() {
   // reset event future_event_relay_log_pos
   ev->future_event_relay_log_pos =
     event_collection.back()->future_event_relay_log_pos;
+  ev->last_event_relay_log_start_pos =
+      event_collection.back()->relay_log_start_pos;
   my_free(start);
   DBUG_PRINT("hash_scan_optimize",
              ("Aggregation_apply_unit::aggregate_event_collection: "

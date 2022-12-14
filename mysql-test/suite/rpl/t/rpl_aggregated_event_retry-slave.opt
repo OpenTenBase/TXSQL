@@ -1,0 +1,6 @@
+--enforce_gtid_consistency=ON
+--gtid_mode=ON
+--replica_parallel_type=logical_clock
+--replica_parallel_workers=4
+--cdb_hash_scan_max_agg_event_size=31457280
+--replica_transaction_retries=5

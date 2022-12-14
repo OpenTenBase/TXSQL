@@ -1,0 +1,3 @@
+--enforce_gtid_consistency=ON
+--gtid_mode=ON
+--binlog_format=row
