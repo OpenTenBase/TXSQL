@@ -7,9 +7,9 @@
 
 ### 修改这里的参数配置作为输入参数
 ### 请把her.cnf 和 my.cnf copy 到当前目录
-my $dest_version = "8.0.15";
-my $dest_version_number = "20190530_test";
-my $dest_dev_type = "ts85";
+my $dest_version = "8.0.30";
+my $dest_version_number = "20221215";
+my $dest_dev_type = "ts85_sh02_sh12";
 
 my $dest_pack_name = sprintf("mysql-txsql-%s-%s-linux-x86_64_%s.tar.gz", $dest_version, $dest_version_number, $dest_dev_type);
 my $dest_dir_name = sprintf("mysql-txsql-%s-%s-linux-x86_64_%s", $dest_version, $dest_version_number, $dest_dev_type);
