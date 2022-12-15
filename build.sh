@@ -416,7 +416,7 @@ if [ $optimize -eq 0 ];then
     -DWITH_JEMALLOC=$jemalloc                   \
     -DLOCAL_GMOCK_ZIP="${gmock_zip}" \
     -DGIT_COMMIT="$git_log"\
-    -DCOMPILATION_COMMENT_SERVER="20221230"
+    -DCOMPILATION_COMMENT_SERVER="20221215"
 else 
   # optimize compilation with lto + pgo + bolt.
   boost_dir="${boost_dir}/boost/boost_1_77_0"
@@ -472,7 +472,7 @@ else
     -DCMAKE_C_COMPILER=${cmake_c_compiler}      \
     -DWITH_JEMALLOC=$jemalloc                   \
     -DGIT_COMMIT="$git_log"\
-    -DCOMPILATION_COMMENT_SERVER="20221230"
+    -DCOMPILATION_COMMENT_SERVER="20221215"
 fi
 
 
