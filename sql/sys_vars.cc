@@ -4069,7 +4069,13 @@ static bool check_thread_handling(sys_var *, THD *, set_var *var) {
              thread_handling_names[var->save_result.ulonglong_value]);
     return true;
   }
-
+  if (g_sqlAsyn) {
+    if (Connection_handler_manager::thread_handling_switch_mode !=
+        Connection_handler_manager::DISABLED_SWITCH_MODE) {
+      my_error(ER_DISALLOW_THREAD_HANDLING_SWITCH, MYF(0));
+      return true;
+    }
+  }
   return false;
 }
 /* Changes from txsql end. */
