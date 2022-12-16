@@ -2090,6 +2090,7 @@ io:
    */
     assert(Connection_handler_manager::thread_handling_switch_mode !=
            Connection_handler_manager::DISABLED_SWITCH_MODE);
+    if (!g_sqlAsyn) {
     if (Connection_handler_manager::thread_handling_switch_mode ==
         Connection_handler_manager::FAST_SWITCH_MODE) {
       Connection_handler_manager *handler_manager =
@@ -2112,12 +2113,12 @@ io:
               ->migrate(thd)) {
         threadpool_remove_connection_except_psi(thd);
       }
-      mysql_mutex_unlock(&connection->m_lockWithSqlAsyn);
       return;
     } else if (Connection_handler_manager::thread_handling_switch_mode ==
                Connection_handler_manager::SHARP_SWITCH_MODE) {
       err = 1;
       goto end;
+    }
     }
   }
 
