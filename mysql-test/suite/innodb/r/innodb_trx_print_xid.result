@@ -57,4 +57,4 @@ trx_state	trx_xa_type	trx_xid
 RUNNING	external	X'626364',X'',1
 xa commit 'bcd';
 drop table t1;
-set global innodb_i_s_cache_min_idle_us=default;
+set global innodb_i_s_cache_min_idle_us=0;
