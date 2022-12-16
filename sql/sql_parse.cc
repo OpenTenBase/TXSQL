@@ -202,6 +202,7 @@
 #if defined(HAVE_PX)
 #include "sql/parallel_execution/px_interface.h" // fallback_to_serial_execution
 #endif /* defined(HAVE_PX) */
+#include "sql/xa/sql_xa_commit.h"
 /**
   Changes from txsql end.
 */
@@ -2043,6 +2044,14 @@ bool finish_command(enum enum_server_command command, THD *thd, Sql_cmd_clone *c
   return do_finish_command(command, thd, clone_cmd, error);
 }
 
+// it xa commit and not one phase
+inline bool is_xa_commit_command(THD *thd) { 
+  assert(thd->lex != nullptr);
+  return (thd->lex->sql_command == SQLCOM_XA_COMMIT &&
+          static_cast<Sql_cmd_xa_commit *>(thd->lex->m_sql_cmd)->get_xa_opt() != XA_ONE_PHASE);
+  //          static_cast<Sql_cmd_xa_commit *>(thd->lex->m_sql_cmd)->get_xa_opt() != XA_ONE_PHASE);
+}
+
 /**
   Perform one connection-level (COM_XXXX) command.
 
@@ -3062,7 +3071,7 @@ done:
   }
 
   if (!error &&
-      (thd->lex->sql_command != SQLCOM_XA_COMMIT) &&
+      !is_xa_commit_command(thd) &&
       (thd->lex->sql_command != SQLCOM_XA_ROLLBACK) &&
       thd->binlog_has_grown()) {
     thd->m_asyncAns = true;
@@ -3077,7 +3086,7 @@ done:
       return 0;  
     }
   } else {
-    if ((thd->lex->sql_command == SQLCOM_XA_COMMIT) ||
+    if (is_xa_commit_command(thd) ||
         (thd->lex->sql_command == SQLCOM_XA_ROLLBACK)) {
       thd->update_old_binlog_pos();
     }

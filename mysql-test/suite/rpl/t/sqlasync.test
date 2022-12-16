@@ -36,6 +36,13 @@ set global sqlasynwarntimeout = 120;
 --error ER_XA_RBTIMEOUT
 insert into t1 values (1,2);
 
+connect (con1,127.0.0.1,root,,sb1,,);
+xa start '1';
+insert into t1 values (100,3);
+xa end '1';
+--error ER_XA_RBTIMEOUT
+xa commit '1' one phase;
+
 # lose connection, reconnect to master
 let $rpl_connection_name= master;
 --source include/rpl_connection.inc
