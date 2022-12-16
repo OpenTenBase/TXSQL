@@ -2,7 +2,7 @@ source include/have_tdsql_root.inc;
 -- disable_warnings
 DROP TABLE IF EXISTS t1;
 -- enable_warnings
-
+--let $default = `select @@innodb_i_s_cache_min_idle_us`
 set global innodb_i_s_cache_min_idle_us = 0;
 
 create table t1(a int) engine=innodb;
@@ -94,5 +94,5 @@ xa commit 'bcd';
 
 drop table t1;
 
-set global innodb_i_s_cache_min_idle_us=default;
+eval set global innodb_i_s_cache_min_idle_us=$default;
 -- source include/wait_until_count_sessions.inc

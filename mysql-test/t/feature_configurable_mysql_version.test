@@ -44,7 +44,7 @@ select version();
 show variables like 'version';
 
 # only tencent root can change version.
-connect(conn_root,localhost,root,,);
+connect(conn_root,127.0.0.1,root,,,$MASTER_MYPORT,);
 --error ER_INCORRECT_GLOBAL_LOCAL_VAR
 set global version = '5.7.233';
 

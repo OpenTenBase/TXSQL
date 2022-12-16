@@ -34,7 +34,7 @@ send select * from t1 where a = 2 for update;
 connection con2;
 let $wait_condition=
   SELECT COUNT(*) = 1 FROM information_schema.innodb_trx
-  WHERE trx_operation_state = 'starting index read' AND
+  WHERE trx_query like '%select * from t1%' AND
   trx_state = 'LOCK WAIT';
 --source include/wait_condition.inc
 --error ER_LOCK_DEADLOCK
@@ -64,7 +64,7 @@ send select * from t1 where a = 2 for update;
 connection con2;
 let $wait_condition=
   SELECT COUNT(*) = 1 FROM information_schema.innodb_trx
-  WHERE trx_operation_state = 'starting index read' AND
+  WHERE trx_query like '%select * from t1%' AND
   trx_state = 'LOCK WAIT';
 --source include/wait_condition.inc
 --error ER_LOCK_DEADLOCK
@@ -95,7 +95,7 @@ send select * from t1 where a < 8 for update;
 connection con2;
 let $wait_condition=
   SELECT COUNT(*) = 1 FROM information_schema.innodb_trx
-  WHERE trx_operation_state = 'starting index read' AND
+  WHERE trx_query like '%select * from t1%' AND
   trx_state = 'LOCK WAIT';
 --source include/wait_condition.inc
 --error ER_LOCK_DEADLOCK
