@@ -8733,7 +8733,7 @@ void MYSQL_BIN_LOG::process_commit_stage_queue(THD *thd, THD *first) {
     head->get_transaction()->m_flags.committed = true;
     no_committed++;
   }
-  m_atomic_commit_trxs.fetch_add(no_committed);
+  m_atomic_commit_trxs.fetch_add(no_committed, std::memory_order_relaxed);
   trx_signal_commit();
 }
 
