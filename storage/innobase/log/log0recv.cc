@@ -4447,8 +4447,9 @@ const char *get_mlog_string(mlog_id_t type) {
 
 /** Find a dummy index struct in cache.
 @param[in]  n_cols  number of columns in the index
+@param[in]  is_comp true if the table is in compact format
 @retval dict_index_t if found */
-dict_index_t *dummy_index_search(ulint n_cols) {
+dict_index_t *dummy_index_search(ulint n_cols, const bool is_comp) {
   dummy_index_cache_t::iterator it;
   dict_index_dummy tmp;
   dict_index_t *ind = nullptr;
@@ -4457,6 +4458,7 @@ dict_index_t *dummy_index_search(ulint n_cols) {
   ut_ad(srv_log_dummy_cache);
 
   tmp.n_cols = n_cols;
+  tmp.is_comp = is_comp;
 
   if (!dummy_index_cache) {
     dummy_index_cache =
@@ -4483,6 +4485,9 @@ dict_index_t *dummy_index_search(ulint n_cols) {
     table->current_row_version = 0;
     table->instant_modified_cols_cnt = 0;
     table->m_upgraded_instant = 0;
+    table->flags = 0;
+    table->flags2 = 0;
+    ut_ad(it->is_comp == is_comp);
   }
 
   return ind;

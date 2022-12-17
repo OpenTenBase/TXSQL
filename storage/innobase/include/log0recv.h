@@ -689,31 +689,37 @@ extern std::list<space_id_t> recv_encr_ts_list;
 /** changes from txsql start */
 
 typedef struct dict_index_dummy {
+  /* true if this is a cached index for compact table */
+  bool is_comp;
   ulint n_cols;
   dict_index_t *index;
 } dict_index_dummy;
 
-struct dummy_index_compare {
-  bool operator()(const dict_index_dummy &idx1,
-                  const dict_index_dummy &idx2) const {
-    if (idx1.n_cols < idx2.n_cols) {
-      return true;
-    } else {
-      return false;
-    }
+struct dummy_index_hash {
+  size_t operator()(const dict_index_dummy &idx) const {
+    /* must use n_cols */
+    return std::hash<ulint>()(idx.n_cols);
   }
 };
 
-typedef std::set<dict_index_dummy, dummy_index_compare,
-                 ut::allocator<dict_index_dummy>>
-    dummy_index_cache_t;
+struct dummy_index_equal {
+  bool operator()(const dict_index_dummy &idx1,
+                  const dict_index_dummy &idx2) const {
+    return (idx1.n_cols == idx2.n_cols && idx1.is_comp == idx2.is_comp);
+  }
+};
+
+using dummy_index_cache_t =
+    std::unordered_set<dict_index_dummy, dummy_index_hash, dummy_index_equal,
+                       ut::allocator<dict_index_dummy>>;
 
 extern thread_local dummy_index_cache_t* dummy_index_cache;
 
 /** Find a dummy index struct in cache.
 @param[in]  n_cols  number of columns in the index
+@param[in]  is_comp true if the table is in compact format
 @retval dict_index_t if found */
-dict_index_t *dummy_index_search(ulint n_cols);
+dict_index_t *dummy_index_search(ulint n_cols, const bool is_comp);
 
 /** free the local dummy index cache */
 void dummy_index_cache_free();

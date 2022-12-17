@@ -3530,7 +3530,7 @@ char *srv_async_drop_tmp_dir = nullptr;
 ulong srv_table_drop_mode = SRV_SYNC_DROP;
 bool srv_stats_skip_adjustment_for_primary_key = false;
 
-bool srv_log_dummy_cache = true;
+bool srv_log_dummy_cache = false;
 
 Backquery_manager::Backquery_manager() { total_ref = 0; }
 
