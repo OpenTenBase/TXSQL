@@ -451,7 +451,7 @@ byte *mlog_parse_index_8027(byte *ptr, const byte *end_ptr, bool comp,
   }
 
   if (srv_log_dummy_cache) {
-    ind = dummy_index_search(n);
+    ind = dummy_index_search(n, comp);
   }
 
   if (!ind) {
@@ -464,6 +464,7 @@ byte *mlog_parse_index_8027(byte *ptr, const byte *end_ptr, bool comp,
     if (srv_log_dummy_cache) {
       dict_index_dummy tmp;
 
+      tmp.is_comp = comp;
       tmp.n_cols = n;
       tmp.index = ind;
       dummy_index_cache->insert(tmp);
@@ -1283,7 +1284,7 @@ byte *mlog_parse_index(byte *ptr, const byte *end_ptr, dict_index_t **index) {
   dict_table_t *table = nullptr;
   bool found = false;
   if (srv_log_dummy_cache) {
-    ind = dummy_index_search(n);
+    ind = dummy_index_search(n, is_comp);
   }
 
   if (!ind) {
@@ -1299,6 +1300,7 @@ byte *mlog_parse_index(byte *ptr, const byte *end_ptr, dict_index_t **index) {
     if (srv_log_dummy_cache) {
       dict_index_dummy tmp;
 
+      tmp.is_comp = is_comp;
       tmp.n_cols = n;
       tmp.index = ind;
       dummy_index_cache->insert(tmp);
@@ -1601,7 +1603,7 @@ static byte *mlog_parse_index_8029(byte *ptr, const byte *end_ptr,
   dict_table_t *table = nullptr;
   bool found = false;
   if (srv_log_dummy_cache) {
-    ind = dummy_index_search(n);
+    ind = dummy_index_search(n, is_comp);
   }
 
   if (!ind) {
@@ -1617,6 +1619,7 @@ static byte *mlog_parse_index_8029(byte *ptr, const byte *end_ptr,
     if (srv_log_dummy_cache) {
       dict_index_dummy tmp;
 
+      tmp.is_comp = is_comp;
       tmp.n_cols = n;
       tmp.index = ind;
       dummy_index_cache->insert(tmp);

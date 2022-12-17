@@ -24898,7 +24898,7 @@ static MYSQL_SYSVAR_ENUM(
 static MYSQL_SYSVAR_BOOL(log_dummy_cache, srv_log_dummy_cache,
                          PLUGIN_VAR_NOCMDARG | PLUGIN_VAR_READONLY,
                          "Use dummy index cache in recovery.", nullptr, nullptr,
-                         true);
+                         false);
 
 static int deadlock_history_size_check(THD *thd, SYS_VAR *var, void *save,
                                        struct st_mysql_value *value) {
