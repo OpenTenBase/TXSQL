@@ -1,0 +1,70 @@
+
+source include/have_tdsql_root.inc;
+call mtr.add_suppression("\\[ERROR\\] Plugin keyring_kms reported*");
+call mtr.add_suppression("Plugin keyring_kms reported");
+
+# no keyring_kms plugin installed
+SELECT PLUGIN_NAME, PLUGIN_STATUS, PLUGIN_TYPE, PLUGIN_LIBRARY
+FROM INFORMATION_SCHEMA.PLUGINS WHERE PLUGIN_NAME like 'keyring_kms%';
+
+# install keyring_kms plugin, will success
+--replace_regex /\.dll/.so/
+eval INSTALL PLUGIN keyring_kms SONAME '$KEYRING_KMS';
+
+# will find a record.
+SELECT PLUGIN_NAME, PLUGIN_STATUS, PLUGIN_TYPE, PLUGIN_LIBRARY
+FROM INFORMATION_SCHEMA.PLUGINS WHERE PLUGIN_NAME like 'keyring_kms%';
+
+# non-tencentroot user check show and set global variables & status
+SHOW VARIABLES LIKE 'keyring_kms_verify';
+
+SHOW STATUS LIKE 'keyring_kms_error';
+
+SET @@global.keyring_kms_file = 'keyring_kms_file';
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET @@global.keyring_kms_config = '{\"secret_id\":\"AKID797wa55caP3VltqoZ9aqumW6at374nXI\",\"secret_key\":\"nV5Uiq3BPbdWJyUo4DB1f7UikaDh3HJC\",\"kms_endpoint\":\"https://kms-dev.api.tencentyun.com\",\"cam_endpoint\":\"https://sts.test.api.qcloud.com\",\"role_name\":\"kmsCDBRole\",\"uin\":3374997818}';
+
+SET @@global.keyring_kms_dump = 1;
+
+SET @@global.keyring_kms_switch = 1;
+
+SET @@global.keyring_kms_verify = 1;
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET @@global.keyring_kms_check = 1;
+
+# tdsql root user check show and set global variables & status
+
+SHOW VARIABLES LIKE 'keyring_kms_verify';
+
+SHOW STATUS LIKE 'keyring_kms_error';
+
+SET @@global.keyring_kms_file = 'keyring_kms_file';
+
+# fail beacause cannot access to cam & kms service
+--error ER_WRONG_VALUE_FOR_VAR
+SET @@global.keyring_kms_config = '{\"secret_id\":\"AKID797wa55caP3VltqoZ9aqumW6at374nXI\",\"secret_key\":\"nV5Uiq3BPbdWJyUo4DB1f7UikaDh3HJC\",\"kms_endpoint\":\"https://kms-dev.api.tencentyun.com\",\"cam_endpoint\":\"https://sts.test.api.qcloud.com\",\"role_name\":\"kmsCDBRole\",\"uin\":3374997818}';
+
+SET @@global.keyring_kms_dump = 1;
+
+SET @@global.keyring_kms_switch = 1;
+
+SET @@global.keyring_kms_verify = 1;
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET @@global.keyring_kms_check = 1;
+
+SHOW VARIABLES LIKE 'keyring_kms_verify';
+
+# uninstall
+UNINSTALL PLUGIN keyring_kms;
+
+let $MYSQL_DATA_DIR = `select @@datadir`;
+--remove_file $MYSQL_DATA_DIR/keyring_kms_file
+#--remove_file $MYSQL_DATA_DIR/keyring_kms_file.backup
+exec rm -f $MYSQL_DATA_DIR/keyring_kms_file.backup;
+
+# no record
+SELECT PLUGIN_NAME, PLUGIN_STATUS, PLUGIN_TYPE, PLUGIN_LIBRARY
+FROM INFORMATION_SCHEMA.PLUGINS WHERE PLUGIN_NAME like 'keyring_kms%';

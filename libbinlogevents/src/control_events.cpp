@@ -367,7 +367,12 @@ XA_prepare_event::XA_prepare_event(const char *buf,
     if (likely(header()->data_written >
                static_cast<size_t>(MY_FIXED_SIZE + my_xid.gtrid_length +
                                    my_xid.bqual_length))) {
-      READER_TRY_SET(gts, read<uint64_t>);
+      if (likely(reader().can_read(sizeof(uint64_t)))) {
+        READER_TRY_SET(gts, read<uint64_t>);
+      } else {
+        /* malformed binlog */
+        gts = 0;
+      }
     }
 #endif
 
