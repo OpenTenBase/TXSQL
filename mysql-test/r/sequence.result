@@ -16,7 +16,7 @@ drop sequence seq1;
 ERROR HY000: Sequence seq1 in database test not found.
 drop sequence if exists seq1;
 Warnings:
-Note	4190	Sequence seq1 in database test not found.
+Note	4191	Sequence seq1 in database test not found.
 alter sequence seq1;
 ERROR HY000: Sequence seq1 in database test not found.
 create sequence seq1;
@@ -27,10 +27,10 @@ create sequence seq1;
 ERROR HY000: Sequence seq1 in database test already exists.
 create sequence if not exists seq1;
 Warnings:
-Note	4188	Sequence seq1 in database test already exists.
+Note	4189	Sequence seq1 in database test already exists.
 show warnings;
 Level	Code	Message
-Note	4188	Sequence seq1 in database test already exists.
+Note	4189	Sequence seq1 in database test already exists.
 select*from mysql.tdsql_sequences;
 db	name	curval	start	step	max_value	min_value	do_cycle	n_cache
 test	seq1	-9223372036854775808	1	1	9223372036854775807	1	0	20
@@ -80,7 +80,7 @@ select seq1.nextval;
 ERROR HY000: Sequence seq1 in database test not found.
 drop sequence if exists seq1;
 Warnings:
-Note	4190	Sequence seq1 in database test not found.
+Note	4191	Sequence seq1 in database test not found.
 drop sequence seq1;
 ERROR HY000: Sequence seq1 in database test not found.
 create sequence seq2 increment by 2 start with 0 maxvalue 10 minvalue -4;
