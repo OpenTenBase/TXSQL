@@ -1814,7 +1814,6 @@ static dberr_t log_write_buffer(log_t &log, byte *buffer, size_t buffer_size,
   /* Write ahead is included in write_size. */
   ut_a(write_size >= written_ahead);
   srv_stats.os_log_written.add(write_size - written_ahead);
-  update_thread_stats(REDO_TYPE, write_size - written_ahead);
   MONITOR_INC_VALUE(MONITOR_LOG_PADDED, written_ahead);
 
   int64_t free_space = log.m_capacity.soft_logical_capacity();
