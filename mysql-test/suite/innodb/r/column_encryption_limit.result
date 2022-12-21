@@ -47,6 +47,8 @@ ERROR HY000: Can not mixed use stored virtual column and encryption column in on
 create table t1(c1 int primary key, c2 varchar(255) default 'abc' encryption algorithm=SM4);
 insert into t1 values(1,'a'),(2,'b'),(3,'c');
 set global cdb_column_encryption_whitelist = 'invalid';
+Warnings:
+Warning	1287	'@@cdb_column_encryption_whitelist' is deprecated and will be removed in a future release. Please use txsql_column_encryption_whitelist instead.
 insert into t1 values(4,'d');
 ERROR HY000: illegal user can not write encryption column 'c2'
 update t1 set c1=c1+10 where c1=1;
@@ -59,6 +61,8 @@ delete from t1 where c2='a';
 Warnings:
 Warning	4148	illegal user or without master key can only read encrypted data of the encrypted column 'c2'
 set global cdb_column_encryption_whitelist = '';
+Warnings:
+Warning	1287	'@@cdb_column_encryption_whitelist' is deprecated and will be removed in a future release. Please use txsql_column_encryption_whitelist instead.
 alter instance rotate innodb master key;
 ERROR HY000: Can not alter rotate master key, because 'have encryption column'
 drop table t1;

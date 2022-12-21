@@ -296,6 +296,12 @@ The following options may be given as the first argument:
  --cdb-column-encryption-whitelist=name 
  allows user to access column encryption data,if set 0 or
  empty string means no priv limit 
+ This option is deprecated. Use
+ txsql_column_encryption_whitelist instead.
+ --cdb-compressed-histogram-enabled 
+ Enable to use compressed histogram, which consists of
+ most common values and equi-height buckets for other
+ values.
  --cdb-convert-memory-to-innodb 
  memory storage convert innodb
  --cdb-enable-key-rotate 
@@ -1361,6 +1367,9 @@ The following options may be given as the first argument:
  --range-alloc-block-size=# 
  Allocation block size for storing ranges during
  optimization
+ --range-estimation-by-histogram 
+ This option is deprecated. Use
+ txsql_range_estimation_by_histogram instead.
  --range-optimizer-max-mem-size=# 
  Maximum amount of memory used by the range optimizer to
  allocate predicates during range analysis. The larger the
@@ -1967,6 +1976,9 @@ The following options may be given as the first argument:
  This option is used to let the server know when to
  extract the write set which will be used for various
  purposes. 
+ --txsql-column-encryption-whitelist=name 
+ allows user to access column encryption data,if set 0 or
+ empty string means no priv limit 
  --txsql-compute-query-time-for-slow-logging[=#] 
  Compute query time for slow logging by measuring from
  query reception(2) or query start(1) or after locking(0)
@@ -1985,6 +1997,9 @@ The following options may be given as the first argument:
  Specify the maximum number of worker threads for parallel
  execution on the server. A zero value disables parallel
  execution for any statement.
+ --txsql-optimize-ps-priv-check 
+ This option is deprecated. Use txsql_simplify_priv_check
+ instead.
  --txsql-optimizer-context-max-mem-size[=#] 
  Maximum amount of memory used by the optimizer context to
  cache the values of table stats, index dive during
@@ -2494,6 +2509,7 @@ protocol-compression-algorithms zlib,zstd,uncompressed
 query-alloc-block-size 8192
 query-prealloc-size 8192
 range-alloc-block-size 4096
+range-estimation-by-histogram FALSE
 range-optimizer-max-mem-size 8388608
 read-buffer-size 131072
 read-only FALSE
@@ -2638,12 +2654,14 @@ transaction-isolation REPEATABLE-READ
 transaction-prealloc-size 4096
 transaction-read-only FALSE
 transaction-write-set-extraction XXHASH64
+txsql-column-encryption-whitelist (No default value)
 txsql-compute-query-time-for-slow-logging 0
 txsql-disable-gtid-in-undo FALSE
 txsql-extend-slow-log-level 0
 txsql-found-rows 0
 txsql-load-data-local-strict-mode FALSE
 txsql-max-parallel-worker-threads 0
+txsql-optimize-ps-priv-check FALSE
 txsql-optimizer-context-max-mem-size 8388608
 txsql-optimizer-context-prealloc-size 4096
 txsql-parallel-copy-ddl FALSE

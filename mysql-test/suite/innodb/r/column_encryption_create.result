@@ -353,6 +353,8 @@ c1	c2
 10	bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
 #test for tencentroot slow query log
 set global cdb_column_encryption_whitelist = '';
+Warnings:
+Warning	1287	'@@cdb_column_encryption_whitelist' is deprecated and will be removed in a future release. Please use txsql_column_encryption_whitelist instead.
 select * from t1 where c1='数' or c2 ='据' or c3='库' or c4='系' or c5='统';
 c1	c2	c3	c4	c5
 数	据	库	系	统
@@ -385,6 +387,8 @@ select c2=repeat('a',255) from tc where c1=1;
 c2=repeat('a',255)
 0
 set global cdb_column_encryption_whitelist = 'invalid';
+Warnings:
+Warning	1287	'@@cdb_column_encryption_whitelist' is deprecated and will be removed in a future release. Please use txsql_column_encryption_whitelist instead.
 select * from t1 where c1='数' or c2 ='据' or c3='库' or c4='系' or c5='统';
 c1	c2	c3	c4	c5
 Warnings:
@@ -440,6 +444,8 @@ c2=repeat('a',255)
 Warnings:
 Warning	4148	illegal user or without master key can only read encrypted data of the encrypted column 'c2'
 set global cdb_column_encryption_whitelist = 'tencentroot';
+Warnings:
+Warning	1287	'@@cdb_column_encryption_whitelist' is deprecated and will be removed in a future release. Please use txsql_column_encryption_whitelist instead.
 select * from t1 where c1='数' or c2 ='据' or c3='库' or c4='系' or c5='统';
 c1	c2	c3	c4	c5
 数	据	库	系	统
@@ -472,6 +478,8 @@ select c2=repeat('a',255) from tc where c1=1;
 c2=repeat('a',255)
 0
 set global cdb_column_encryption_whitelist = 'tencentroot,invalid';
+Warnings:
+Warning	1287	'@@cdb_column_encryption_whitelist' is deprecated and will be removed in a future release. Please use txsql_column_encryption_whitelist instead.
 select * from t1 where c1='数' or c2 ='据' or c3='库' or c4='系' or c5='统';
 c1	c2	c3	c4	c5
 数	据	库	系	统
@@ -538,3 +546,5 @@ drop table t1,t2,t3,t4,t5,t6,t7;
 drop table tc,te;
 drop table vc_t1,vc_t2,vc_t3,vc_t4,vc_t5,vc_t6;
 set global cdb_column_encryption_whitelist = '';
+Warnings:
+Warning	1287	'@@cdb_column_encryption_whitelist' is deprecated and will be removed in a future release. Please use txsql_column_encryption_whitelist instead.
