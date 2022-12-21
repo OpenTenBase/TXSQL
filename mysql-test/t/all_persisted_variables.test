@@ -43,8 +43,8 @@ call mtr.add_suppression("Truncated incorrect DOUBLE value: 'ON'");
 call mtr.add_suppression("Variable 'tdsql_hide_partitions' can't be set to the value of 'NULL'.");
 call mtr.add_suppression("Currently unknown variable 'partition_table_skip_limit' was read from the persisted config file.");
 let $total_global_vars=`SELECT COUNT(*) FROM performance_schema.global_variables where variable_name NOT LIKE 'ndb_%' AND variable_name NOT LIKE 'debug_%'`;
-let $total_persistent_vars=563;
-let $total_persistent_vars_here=512;
+let $total_persistent_vars=564;
+let $total_persistent_vars_here=513;
 
 --echo ***************************************************************
 --echo * 0. Verify that variables present in performance_schema.global

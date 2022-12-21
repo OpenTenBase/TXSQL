@@ -1,0 +1,92 @@
+--source include/have_debug.inc
+
+set @saved_value= @@global.innodb_stats_notify_change;
+
+--echo # with innodb_stats_notify_change being OFF, records_per_key could be stale.
+
+create table t1 (a int, b int, key (a), key (b));
+
+set global innodb_stats_notify_change = off;
+insert t1 values (1, 1), (1, 2);
+# wait for persistent storage update
+sleep 1;
+set debug='-d,print_records_per_key'; select database_name,table_name,index_name,stat_name,stat_value from mysql.innodb_index_stats where table_name = 't1' and index_name in ('a', 'b') and stat_name = 'n_diff_pfx01';
+set debug='+d,print_records_per_key'; select count(*) from t1;
+analyze table t1;
+set debug='-d,print_records_per_key'; select database_name,table_name,index_name,stat_name,stat_value from mysql.innodb_index_stats where table_name = 't1' and index_name in ('a', 'b') and stat_name = 'n_diff_pfx01';
+set debug='+d,print_records_per_key'; select count(*) from t1;
+truncate t1;
+set debug='-d,print_records_per_key'; select database_name,table_name,index_name,stat_name,stat_value from mysql.innodb_index_stats where table_name = 't1' and index_name in ('a', 'b') and stat_name = 'n_diff_pfx01';
+set debug='+d,print_records_per_key'; select count(*) from t1;
+
+drop table t1;
+
+--echo # with innodb_stats_notify_change being ON, records_per_key is up to update.
+
+create table t1 (a int, b int, key (a), key (b));
+
+set global innodb_stats_notify_change = on;
+insert t1 values (1, 1), (1, 2);
+# wait for persistent storage update
+sleep 1;
+set debug='-d,print_records_per_key'; select database_name,table_name,index_name,stat_name,stat_value from mysql.innodb_index_stats where table_name = 't1' and index_name in ('a', 'b') and stat_name = 'n_diff_pfx01';
+set debug='+d,print_records_per_key'; select count(*) from t1;
+analyze table t1;
+set debug='-d,print_records_per_key'; select database_name,table_name,index_name,stat_name,stat_value from mysql.innodb_index_stats where table_name = 't1' and index_name in ('a', 'b') and stat_name = 'n_diff_pfx01';
+set debug='+d,print_records_per_key'; select count(*) from t1;
+truncate t1;
+set debug='-d,print_records_per_key'; select database_name,table_name,index_name,stat_name,stat_value from mysql.innodb_index_stats where table_name = 't1' and index_name in ('a', 'b') and stat_name = 'n_diff_pfx01';
+set debug='+d,print_records_per_key'; select count(*) from t1;
+
+drop table t1;
+
+--echo # with innodb_stats_notify_change being OFF, records_per_key could be stale (for partition table).
+
+create table t2 (a int, b int, key (a), key (b))
+partition by range (a) (
+  partition p0 values less than (100),
+  partition p1 values less than MAXVALUE
+);
+
+set global innodb_stats_notify_change = off;
+insert t2 values (1, 1), (1, 2);
+# wait for persistent storage update
+sleep 1;
+set debug='-d,print_records_per_key'; select database_name,table_name,index_name,stat_name,stat_value from mysql.innodb_index_stats where table_name = 't2' and index_name in ('a', 'b') and stat_name = 'n_diff_pfx01';
+set debug='+d,print_records_per_key'; select count(*) from t2;
+analyze table t2;
+set debug='-d,print_records_per_key'; select database_name,table_name,index_name,stat_name,stat_value from mysql.innodb_index_stats where table_name = 't2' and index_name in ('a', 'b') and stat_name = 'n_diff_pfx01';
+set debug='+d,print_records_per_key'; select count(*) from t2;
+truncate t2;
+set debug='-d,print_records_per_key'; select database_name,table_name,index_name,stat_name,stat_value from mysql.innodb_index_stats where table_name = 't2' and index_name in ('a', 'b') and stat_name = 'n_diff_pfx01';
+set debug='+d,print_records_per_key'; select count(*) from t2;
+
+drop table t2;
+
+--echo # with innodb_stats_notify_change being ON, records_per_key is up to update (for partition table).
+
+create table t2 (a int, b int, key (a), key (b))
+partition by range (a) (
+  partition p0 values less than (100),
+  partition p1 values less than MAXVALUE
+);
+
+set global innodb_stats_notify_change = on;
+insert t2 values (1, 1), (1, 2);
+# wait for persistent storage update
+sleep 1;
+set debug='-d,print_records_per_key'; select database_name,table_name,index_name,stat_name,stat_value from mysql.innodb_index_stats where table_name = 't2' and index_name in ('a', 'b') and stat_name = 'n_diff_pfx01';
+set debug='+d,print_records_per_key'; select count(*) from t2;
+analyze table t2;
+set debug='-d,print_records_per_key'; select database_name,table_name,index_name,stat_name,stat_value from mysql.innodb_index_stats where table_name = 't2' and index_name in ('a', 'b') and stat_name = 'n_diff_pfx01';
+set debug='+d,print_records_per_key'; select count(*) from t2;
+truncate t2;
+set debug='-d,print_records_per_key'; select database_name,table_name,index_name,stat_name,stat_value from mysql.innodb_index_stats where table_name = 't2' and index_name in ('a', 'b') and stat_name = 'n_diff_pfx01';
+set debug='+d,print_records_per_key'; select count(*) from t2;
+
+drop table t2;
+
+--echo # clean up
+
+set debug='-d,print_records_per_key';
+set global innodb_stats_notify_change = @saved_value;

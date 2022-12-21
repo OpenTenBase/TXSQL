@@ -18464,6 +18464,8 @@ various fields of the handle object.
 int ha_innobase::info_low(uint flag, bool is_analyze) {
   dict_table_t *ib_table;
   uint64_t n_rows;
+  int tst_val = true;
+  int new_val = false;
 
   DBUG_TRACE;
 
@@ -18533,6 +18535,13 @@ int ha_innobase::info_low(uint flag, bool is_analyze) {
     stat_clustered_index_size = ib_table->stat_clustered_index_size;
 
     stat_sum_of_other_index_sizes = ib_table->stat_sum_of_other_index_sizes;
+
+    /* Piggyback fetching constant statistics when it has been updated.
+    Note that the ANALYZE command has explicitly requested the fetch. */
+    if (srv_stats_notify_change && !is_analyze &&
+        ib_table->stats_updated.compare_exchange_weak(tst_val, new_val)) {
+      flag |= HA_STATUS_CONST;
+    }
 
     if (!(flag & HA_STATUS_NO_LOCK)) {
       dict_table_stats_unlock(ib_table, RW_S_LATCH);
@@ -23552,6 +23561,12 @@ static MYSQL_SYSVAR_BOOL(
     "that the table has changed too much and needs a new statistics.",
     nullptr, nullptr, false);
 
+static MYSQL_SYSVAR_BOOL(
+    stats_notify_change, srv_stats_notify_change, PLUGIN_VAR_OPCMDARG,
+    "When InnoDB statistics are updated, tell the server about the change "
+    "to fetch the new statistics.",
+    nullptr, nullptr, false);
+
 static MYSQL_SYSVAR_ULONGLONG(
     stats_persistent_sample_pages, srv_stats_persistent_sample_pages,
     PLUGIN_VAR_RQCMDARG,
@@ -25253,6 +25268,7 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(stats_persistent_sample_pages),
     MYSQL_SYSVAR(stats_auto_recalc),
     MYSQL_SYSVAR(stats_recalc_with_histogram),
+    MYSQL_SYSVAR(stats_notify_change),
     MYSQL_SYSVAR(adaptive_hash_index),
     MYSQL_SYSVAR(adaptive_hash_index_parts),
     MYSQL_SYSVAR(fast_ahi_cleanup_for_drop_table),
