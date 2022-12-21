@@ -2932,6 +2932,8 @@ static void clean_up(bool print_message) {
 
   deadlock_history_deinit();
 
+  statement_outline::destroy_statement_outline();
+
   /*
     killed us
   */

@@ -419,6 +419,7 @@ ReadView::ReadView()
   ut_d(m_view_low_limit_no = 0);
   m_trx = nullptr;
   m_view_ts.store(CopyFreeSnapshot::DISABLE);
+  m_gts = 0;
 }
 
 /**
