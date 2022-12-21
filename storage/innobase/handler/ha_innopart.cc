@@ -3584,6 +3584,8 @@ int ha_innopart::info_low(uint flag, bool is_analyze) {
   uint64_t max_rows = 0;
   uint biggest_partition = 0;
   int error = 0;
+  int tst_val = true;
+  int new_val = false;
 
   DBUG_TRACE;
 
@@ -3672,6 +3674,13 @@ int ha_innopart::info_low(uint flag, bool is_analyze) {
       stat_clustered_index_size += ib_table->stat_clustered_index_size;
 
       stat_sum_of_other_index_sizes += ib_table->stat_sum_of_other_index_sizes;
+
+      /* Piggyback fetching constant statistics when it has been updated.
+      Note that the ANALYZE command has explicitly requested the fetch. */
+      if (srv_stats_notify_change && !is_analyze &&
+          ib_table->stats_updated.compare_exchange_weak(tst_val, new_val)) {
+        flag |= HA_STATUS_CONST;
+      }
 
       if ((flag & HA_STATUS_NO_LOCK) == 0) {
         dict_table_stats_unlock(ib_table, RW_S_LATCH);

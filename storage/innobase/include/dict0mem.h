@@ -2290,6 +2290,9 @@ struct dict_table_t {
   database startup or table creation. */
   unsigned stat_initialized : 1;
 
+  /** TRUE if statistics have been updated in the background. */
+  std::atomic<int> stats_updated;
+
   /** Timestamp of last recalc of the stats. */
   std::chrono::steady_clock::time_point stats_last_recalc;
 
