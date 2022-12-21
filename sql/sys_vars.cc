@@ -8366,6 +8366,9 @@ static Sys_var_bool Sys_txsql_range_estimation_by_histogram(
     DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG,
     ON_CHECK(NULL), ON_UPDATE(NULL));
 
+static Sys_var_deprecated_alias Sys_range_estimation_by_histogram(
+    "range_estimation_by_histogram", Sys_txsql_range_estimation_by_histogram);
+
 static Sys_var_bool Sys_txsql_load_data_local_strict_mode(
     "txsql_load_data_local_strict_mode",
     "Whether to emit errors (or warnings) in strict mode when executing LOAD "
@@ -8494,11 +8497,14 @@ static Sys_var_long Sys_auto_stats_thread_monitor_interval(
     NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(nullptr));
 /* Changes from txsql end. */
 
-static Sys_var_charptr Sys_cdb_column_encryption_whitelist(
-    "cdb_column_encryption_whitelist", "allows user to access column encryption data,"
+static Sys_var_charptr Sys_txsql_column_encryption_whitelist(
+    "txsql_column_encryption_whitelist", "allows user to access column encryption data,"
     "if set 0 or empty string means no priv limit ",
     GLOBAL_VAR(opt_cdb_column_encryption_whitelist), CMD_LINE(REQUIRED_ARG),
     IN_FS_CHARSET, DEFAULT(0), NO_MUTEX_GUARD, NOT_IN_BINLOG);
+
+static Sys_var_deprecated_alias Sys_cdb_column_encryption_whitelist(
+    "cdb_column_encryption_whitelist", Sys_txsql_column_encryption_whitelist);
 
 static Sys_var_bool Sys_cdb_instant_modify_column_enabled(
     "cdb_instant_modify_column_enabled",
@@ -8741,6 +8747,9 @@ static Sys_var_deprecated_alias Sys_simplify_priv_check(
 #else
 static Sys_var_deprecated_alias Sys_cdb_optimize_ps_priv_check(
     "cdb_optimize_ps_priv_check", Sys_txsql_simplify_priv_check);
+
+static Sys_var_deprecated_alias Sys_txsql_optimize_ps_priv_check(
+    "txsql_optimize_ps_priv_check", Sys_txsql_simplify_priv_check);
 #endif
 
 static Sys_var_bool Sys_mc_gts_check(

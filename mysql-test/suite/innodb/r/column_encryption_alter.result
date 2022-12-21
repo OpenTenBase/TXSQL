@@ -465,6 +465,8 @@ id	c1	c2	c3	c4	c5
 3					
 4	a	b	c	d	e
 set global cdb_column_encryption_whitelist = 'invalid';
+Warnings:
+Warning	1287	'@@cdb_column_encryption_whitelist' is deprecated and will be removed in a future release. Please use txsql_column_encryption_whitelist instead.
 alter table t1 drop primary key;
 alter table t1 add a1 varchar(255) default 'with primary' encryption algorithm=sm4, add primary key(id);
 alter table t1 add a2 int default 222, drop primary key;
@@ -476,6 +478,8 @@ Warnings:
 Warning	4148	illegal user or without master key can only read encrypted data of the encrypted column 'a1'
 alter table t1 drop column a1, drop column a2, drop column a3;
 set global cdb_column_encryption_whitelist = '';
+Warnings:
+Warning	1287	'@@cdb_column_encryption_whitelist' is deprecated and will be removed in a future release. Please use txsql_column_encryption_whitelist instead.
 select * from t1 order by id limit 4;
 id	c1	c2	c3	c4	c5
 1	a	b	c	d	e
