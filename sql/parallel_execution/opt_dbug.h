@@ -52,15 +52,15 @@ class Opt_dbug_session {
     m_dbug_vals.clear();
   }
 
-  bool dbug_init_thd(THD *thd) {
+  bool dbug_init_thd(THD *thd [[maybe_unused]]) {
     // Must be called with current thd, because DBUG stack is thread local.
     assert(current_thd == thd);
     DBUG_TRACE;
-    for (auto &val : m_dbug_vals) {
+    for (auto &val [[maybe_unused]]: m_dbug_vals) {
       DBUG_SET(val);
     }
     // Separated for full dbug stack.
-    for (auto &val : m_dbug_vals) {
+    for (auto &val [[maybe_unused]]: m_dbug_vals) {
       DBUG_PRINT("info", ("DBUG_SET %s", val));
     }
     return false;

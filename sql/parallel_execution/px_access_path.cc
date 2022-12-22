@@ -1107,9 +1107,9 @@ bool AccessPath::operator==(const AccessPath &other) const {
               other.const_table().ref)) {
         return false;
       }
-      TABLE *table = u.const_table.table;
+      TABLE *table [[maybe_unused]] = u.const_table.table;
       assert(table->file->pushed_cond == nullptr);
-      TABLE *coordinator_table = other.const_table().table;
+      TABLE *coordinator_table [[maybe_unused]] = other.const_table().table;
       assert(coordinator_table->file->pushed_cond == nullptr);
       break;
     }
@@ -2911,7 +2911,7 @@ void FixSortAccessPath(JOIN *join, AccessPath *path, TABLE *const new_table,
    - column read bitmap is ignored (can print garbage for unused columns)
    - there is no quoting
 */
-static void dbug_print_table(TABLE *table, const char *str, uint slice) {
+[[maybe_unused]] static void dbug_print_table(TABLE *table, const char *str, uint slice) {
   char buff[1024];
   Field **pfield;
   String tmp(buff, sizeof(buff), &my_charset_bin);

@@ -4461,7 +4461,7 @@ Query_log_event::Query_log_event(THD *thd_arg, const char *query_arg,
 
     Transaction_ctx *trn_ctx = thd->get_transaction();
 
-    bool is_rb_truncate_or_drop_db =
+    bool is_rb_truncate_or_drop_db [[maybe_unused]] =
         (thd->lex->recycle_bin_op == RB_RECYCLE_TABLE_BY_TRUNCATE ||
          thd->lex->recycle_bin_op == RB_RECYCLE_TABLE_BY_DROP_DATABASE);
     /* Transaction needs to be active for xid to be assigned, */

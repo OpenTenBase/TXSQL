@@ -1389,7 +1389,7 @@ bool Security_context::has_column_access(ulong priv, TABLE const *table,
 #if defined(HAVE_PX)
 void Security_context::px_copy_from(Security_context *src_sctx) {
   DBUG_TRACE;
-  THD *thd = get_thd();
+  THD *thd [[maybe_unused]] = get_thd();
   assert(thd && m_active_roles.empty());
 
   // Deep copy members of Security_context except active_roles and m_acl_map
