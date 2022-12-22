@@ -728,7 +728,7 @@ bool load_file_into_buffer(FILE *file){
 	size_t input_buffer_size = file_size - keyring_kms::Checker::EOF_TAG_SIZE - keyring_file_version_2_0.length() - SHA256_DIGEST_LENGTH;
 	fseek(file , keyring_file_version_2_0.length(), SEEK_SET);
   unique_ptr<uchar[]> tmp = make_unique<uchar[]>(input_buffer_size);
-	fread(tmp.get(), input_buffer_size, 1, file);
+	auto res [[maybe_unused]] = fread(tmp.get(), input_buffer_size, 1, file);
 
   /* 2.checks whether keyring file matches any known keyring file structure */
   keyring_kms::CheckerFactory checker_factory;

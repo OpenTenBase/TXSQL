@@ -1814,7 +1814,7 @@ void ha_innobase::parallel_scan_end(void *parallel_scan_ctx) {
 void ha_innobase::prepare_copy_alter(Alter_copy_info *ha_copy_alter_info) {
   ha_copy_alter_info->handler_ctx = new (m_user_thd->mem_root)
                                         ha_innobase_copy_ctx(m_prebuilt);
-  ha_innobase_copy_ctx *ctx =
+  ha_innobase_copy_ctx *ctx [[maybe_unused]] =
       static_cast<ha_innobase_copy_ctx *>(ha_copy_alter_info->handler_ctx);
   assert(ctx);
   if (m_prebuilt->mysql_template == nullptr) {

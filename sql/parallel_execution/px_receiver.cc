@@ -119,7 +119,7 @@ err:
 }
 
 #ifndef DBUG_OFF
-static const char* cstr(THD::killed_state state) {
+[[maybe_unused]] static const char* cstr(THD::killed_state state) {
   const char *s;
   switch (state) {
     case THD::NOT_KILLED:

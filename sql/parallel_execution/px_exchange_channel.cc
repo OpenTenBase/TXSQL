@@ -26,7 +26,7 @@ void PX_mq_channel::set_receiver(PX_proc *me) {
 }
 
 #ifndef DBUG_OFF
-static const char *cstr(PX_mq_result res) {
+[[maybe_unused]] static const char *cstr(PX_mq_result res) {
   const char *s = "???";
   switch (res) {
     case PX_MQ_SUCCESS:

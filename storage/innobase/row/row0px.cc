@@ -97,7 +97,7 @@ dberr_t PX_reader::add_scan(trx_t *trx, const PX_Config &config) {
 
 size_t PX_reader::calulate_split_point() {
   size_t split_point{};
-  auto depth = m_scan_ctxs.front()->m_depth;
+  auto depth [[maybe_unused]] = m_scan_ctxs.front()->m_depth;
   PX_PRINT_INFO_INNOBASE("B+Tree depth is: %lu", depth);
   PX_PRINT_INFO_INNOBASE("ctx size is: %lu", m_ctxs.size());
   PX_PRINT_INFO_INNOBASE("DOP is: %lu", max_threads());
@@ -136,7 +136,7 @@ dberr_t PX_reader::split(ulong avg_partitions) {
   PX_PRINT_INFO_INNOBASE("split_point is: %lu", split_point);
   PX_PRINT_INFO_INNOBASE("current split level is: %lu", current_split_level);
 
-  clock_t start,end;
+  clock_t start [[maybe_unused]], end [[maybe_unused]];
   start = clock();
   for (; i < ctx_size; ++i) {
     auto ctx = dequeue();
@@ -154,7 +154,7 @@ dberr_t PX_reader::split(ulong avg_partitions) {
 
   end = clock();
   PX_PRINT_INFO_INNOBASE("split time is: %g", double(end-start)/CLOCKS_PER_SEC);
-  size_t m_n_tasks = m_ctxs.size();
+  size_t m_n_tasks [[maybe_unused]] = m_ctxs.size();
   PX_PRINT_INFO_INNOBASE("total tasks is: %lu", m_n_tasks);
 
   

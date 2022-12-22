@@ -4052,7 +4052,7 @@ void LocalPartitionBuffer::tail_padding() {
 void LocalPartitionBuffer::flush_buf() {
   tail_padding();
   ulint write_offset = output_file->offset.fetch_add(1);
-  bool write_succ = 
+  bool write_succ [[maybe_unused]] =
       row_merge_write(output_file->file->fd, write_offset, data);
   ut_ad(write_succ);
   len = 0;
