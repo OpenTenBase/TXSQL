@@ -407,7 +407,9 @@ void Master_info::sync_relaylog_send_ack() {
   // Can be called by both the IO thread and the forceSignalTimer thread.
   bool send_it = false;
   BinlogPosAns ans;
+  std::string host_info = my_bind_addr_str;
 
+  host_info += ":" + std::to_string(mysqld_port);
   if (need_fsync_ack && g_reliable_relaylog) {
     mysql_mutex_lock(rli->relay_log.get_log_lock());
     mysql_mutex_lock(&data_lock);
@@ -417,6 +419,7 @@ void Master_info::sync_relaylog_send_ack() {
     ans.setFileName(master_log_name, strlen(master_log_name));
     ans.log_pos = master_log_pos;
     ans.set_server_id(server_id);
+    ans.set_host(host_info.c_str(), host_info.length());
     update_sync_ack_status(true);
     mysql_mutex_unlock(&data_lock);
   } else if (num_acks_sent < 3) {
@@ -441,6 +444,7 @@ void Master_info::sync_relaylog_send_ack() {
     ans.setFileName(master_log_name,strlen(master_log_name));
     ans.log_pos = master_log_pos;
     ans.set_server_id(server_id);
+    ans.set_host(host_info.c_str(), host_info.length());
     num_acks_sent++;
     mysql_mutex_unlock(&data_lock);
   }
