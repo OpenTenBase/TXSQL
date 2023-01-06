@@ -1,0 +1,71 @@
+--source include/not_group_replication_plugin.inc
+--source include/have_debug.inc
+--source include/have_binlog_format_row.inc
+
+--let rpl_topology=1->2, 1->3, 1->4, 1->5
+--source include/rpl_init.inc
+
+CALL mtr.add_suppression("aborting in bottom half answering thread");
+
+CREATE TABLE t1(c1 INT);
+--source include/rpl_sync.inc
+
+--let $rpl_connection_name= server_1
+--source include/rpl_connection.inc
+--eval set global sqlasync_wait_slave_hosts = '{ "wait_slaves": [{ "count": "1", "hosts": ["localhost:$SERVER_MYPORT_2", "localhost:$SERVER_MYPORT_3"] }, { "count": "2", "hosts": ["localhost:$SERVER_MYPORT_4", "localhost:$SERVER_MYPORT_5"] } ] }';
+show variables like "sqlasync_wait_slave_hosts";
+insert into t1 values(1);
+--source include/rpl_sync.inc
+
+#case 1 stop one slave in group 1
+#the insert will success
+--let $rpl_connection_name= server_2
+--source include/rpl_connection.inc
+stop slave;
+
+--let $rpl_connection_name= server_1
+--source include/rpl_connection.inc
+insert into t1 values(2);
+#--source include/rpl_sync.inc
+
+#case 2 stop one slave in group 2
+#the insert will failed
+--let $rpl_connection_name= server_5
+--source include/rpl_connection.inc
+stop slave;
+
+--connect (server_1_err, 127.0.0.1,root,,test,$MASTER_MYPORT,)
+--connection server_1_err
+--error ER_XA_RBTIMEOUT
+insert into t1 values(3);
+
+#case 3 reset the sqlasync_wait_slave_hosts
+#use the old n_slaves
+--let $rpl_connection_name= server_1
+--source include/rpl_connection.inc
+#after sync 3 can't be seen
+select * from t1;
+set global sqlasync_wait_slave_hosts = '';
+insert into t1 values(4);
+
+--let $rpl_connection_name= server_2
+--source include/rpl_connection.inc
+start slave;
+
+--let $rpl_connection_name= server_5
+--source include/rpl_connection.inc
+start slave;
+
+--let $rpl_connection_name= server_1
+--source include/rpl_connection.inc
+insert into t1 values(5);
+--source include/rpl_sync.inc
+
+--let $rpl_connection_name= server_5
+--source include/rpl_connection.inc
+select * from t1;
+
+--let $rpl_connection_name= server_1
+--source include/rpl_connection.inc
+DROP TABLE t1;
+--source include/rpl_end.inc

@@ -466,6 +466,9 @@ void Ack_container::resize() {
   CTGuard<CTMutex> gaurd(m_mutex);
 
   uint32_t new_size = g_sqlAsyncNSlaves;
+  if (!is_old()) {
+    new_size = wait_host_cnt; // set by hosts
+  }
 
   if (m_container.size() <= new_size) {
     return;
@@ -480,12 +483,18 @@ void Ack_container::resize() {
   auto itr = min_ack();
   assert(itr != m_container.end());
 
-  g_thdBottomHalf->dealBinlogPosAns(itr->second.second);
+
+  m_one_slave_info.server_id = itr->first;
+  m_one_slave_info.ack_time = itr->second.first;
+  m_one_slave_info.ack_pos = itr->second.second;
+
+  if (is_old())
+    g_thdBottomHalf->dealBinlogPosAns(itr->second.second);
 }
 
 
 void Ack_container::copy(std::vector<AckInfo> &infos) {
-  infos.clear();
+  if (is_old()) infos.clear();
 
   CTGuard<CTMutex> gaurd(m_mutex);
 
@@ -507,24 +516,28 @@ void Ack_container::copy(std::vector<AckInfo> &infos) {
   }
 }
 
-void Ack_container::process(const Thd_Trans_binlog_info &new_ack_info, uint64_t server_id, time_t ack_time) {
+bool Ack_container::process(const Thd_Trans_binlog_info &new_ack_info, uint64_t server_id, time_t ack_time) {
   CTGuard<CTMutex> gaurd(m_mutex);
 
   uint max_slaves = g_sqlAsyncNSlaves;
+  // multi mode use the hosts configure
+  if (!is_old()) max_slaves = wait_host_cnt; 
 
   if (max_slaves == 1) {
     /* recomment this line , Maintain the best compatibility in performance
      * When G_SQLASyncnSlaves is changed from 1 to N, it doesn't matter much if this record is missing.
      * Anyway, it will be covered soon after waiting for multiple ack
      */
-    //    m_container[thread_id] = new_ack_info;
-    g_thdBottomHalf->dealBinlogPosAns(new_ack_info);
-
     m_one_slave_info.server_id = server_id;
     m_one_slave_info.ack_time = ack_time;
     m_one_slave_info.ack_pos = new_ack_info;
 
-    return;
+    if (is_old()) {
+      g_thdBottomHalf->dealBinlogPosAns(new_ack_info);
+      return false; // proccessed
+    } else {
+      return true;
+    }
   }
 
   auto itr = m_container.find(server_id);
@@ -550,19 +563,61 @@ void Ack_container::process(const Thd_Trans_binlog_info &new_ack_info, uint64_t 
     } else {
       /** The min element is even larger than current one, so
           skip it. */
-      return;
+      return false;
     }
   }
 
   if (m_container.size() < max_slaves) {
     /* do nothing because we don't have enough slave */
-    return;
+    return false;
   }
 
   itr = min_ack();
   assert(itr != m_container.end());
 
-  g_thdBottomHalf->dealBinlogPosAns(itr->second.second);
+  m_one_slave_info.server_id = itr->first;
+  m_one_slave_info.ack_time = itr->second.first;
+  m_one_slave_info.ack_pos = itr->second.second;
+
+  if (is_old()) {
+    g_thdBottomHalf->dealBinlogPosAns(itr->second.second);
+    return false;
+  } else {
+    return true;
+  }
+}
+
+bool multi_ack_container::process(const Thd_Trans_binlog_info &new_ack_info,
+                                  uint64_t server_id, time_t ack_time, const char *host) {
+  CTGuard<CTMutex> gaurd(m_mutex);
+
+  int group = find_group(host);
+  if (group == -1) {
+    sql_print_error("cann't find the slave host %s \
+                    from the multi_ack_group hosts %s",
+                    (host != nullptr ? host : "NULL"),
+                    (g_sqlasync_wait_slave_hosts != nullptr ?
+                     g_sqlasync_wait_slave_hosts : "NULL"));
+    return false;
+  }
+
+  if (slave_groups[group].process(new_ack_info, server_id, ack_time)) {
+    if (slave_groups.size() == 1) { // fast path of one group
+      g_thdBottomHalf->dealBinlogPosAns(slave_groups[0].get_min_ack_pos());
+      return true;
+    }
+    // increase not the lowest_water group no need to process
+    if (min_group != -1 && min_group != group) {
+      return false;
+    } else {
+      recalculate_lowest_water();
+      g_thdBottomHalf->dealBinlogPosAns(get_lowest_water()); 
+      return true;
+    } 
+  } else { 
+    // pos not update in one group or have processed of old version
+    return false;
+  }
 }
 
 bool CThdBottomHalf::do_request(const char* buf, int len, const char* ip) {
@@ -589,7 +644,11 @@ bool CThdBottomHalf::do_request(const char* buf, int len, const char* ip) {
     ack_info.set(binlogAns->getFileName(), binlogAns->log_pos);
 
     /* If packet is from older version, we give it a fake id */
-    g_thdBottomHalf->ack_container.process(ack_info, binlogAns->get_server_id(), time(0));
+
+    g_thdBottomHalf->ack_container.process(ack_info,
+                                           binlogAns->get_server_id(),
+                                           time(0),
+                                           binlogAns->get_host());
 
     return true;
   }

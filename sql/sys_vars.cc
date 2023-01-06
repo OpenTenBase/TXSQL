@@ -146,6 +146,9 @@
 #include "template_utils.h"  // pointer_cast
 #include "thr_lock.h"
 #include "cdb_sql_filter.h"
+#include "sql/item_json_func.h"
+#include "sql-common/json_dom.h"
+#include "sql/thd_bottom_half.h"
 #ifdef _WIN32
 #include "sql/named_pipe.h"
 #endif
@@ -8999,8 +9002,9 @@ static Sys_var_uint Sys_g_sqlAsynWarnTimeout(
     GLOBAL_VAR(g_sqlAsynWarnTimeout), CMD_LINE(OPT_ARG),
     VALID_RANGE(1, UINT_MAX), DEFAULT(3), BLOCK_SIZE(1));
 static bool fix_ack_slave_count(sys_var *, THD *, enum_var_type) {
-  if (g_thdBottomHalf) {
-    g_thdBottomHalf->ack_container.resize();
+  // if slave hosts set not change the group[0] by n_slave
+  if (g_thdBottomHalf && g_thdBottomHalf->ack_container.is_old()) {
+    g_thdBottomHalf->ack_container.get_groups()[0].resize();
   }
   return false;
 }
@@ -9011,6 +9015,152 @@ static Sys_var_uint Sys_g_sqlAsync_n_slaves(
     VALID_RANGE(1, UINT_MAX), DEFAULT(1), BLOCK_SIZE(1),
     NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL),
     ON_UPDATE(fix_ack_slave_count));
+
+static bool parse_str_to_json(String &json_str, Json_wrapper *wrapper) {
+  /* Is this a JSON text? */
+  Json_dom_ptr dom;  //@< we'll receive a DOM here from a successful text parse
+  JsonParseDefaultErrorHandler parse_handler("json_valid", 0);
+  //if (parse_json(json_str, 0, "json_valid", &dom, false, &parse_error)) {
+  if (parse_json(json_str, &dom, false, parse_handler, JsonDocumentDefaultDepthHandler)) {
+    return true;
+  }
+  assert(dom);
+  *wrapper = Json_wrapper(std::move(dom));
+  return false;
+}
+static bool extract_value_from_json(Json_wrapper *wrapper, const String &path,
+                                    bool json_quoted, String &value) {
+  assert(wrapper);
+  Json_path json_path{key_memory_JSON};
+  if (parse_path(path, false, &json_path)) return true;
+  Json_wrapper_vector v(key_memory_JSON);
+  if (wrapper->seek(json_path, json_path.leg_count(), &v, true, false)) {
+    return true;
+  }
+  if (v.size() == 0) return true;
+  // there should only be one match
+  assert(v.size() == 1);
+  Json_wrapper wr = std::move(v[0]);
+  value.length(0);
+  JsonDocumentDepthHandler depth_handler{nullptr};
+  if (wr.to_string(&value, json_quoted, "json_extract", depth_handler)) return true;
+  return false;
+}
+static inline bool extract_quoted_value_from_json(Json_wrapper *wrapper,
+                                                  const String &path,
+                                                  String &value) {
+  return extract_value_from_json(wrapper, path, true, value);
+}
+static inline bool extract_unquoted_value_from_json(Json_wrapper *wrapper,
+                                                    const String &path,
+                                                    String &value) {
+  return extract_value_from_json(wrapper, path, false, value);
+}
+static bool extract_value_from_str(String &str, String &path, String &value) {
+  Json_wrapper wr;
+  if (parse_str_to_json(str, &wr)) return true;
+  if (extract_quoted_value_from_json(&wr, path, value)) return true;
+  return false;
+}
+static std::string convert_string_to_std_string(String &str) {
+  char buffer[64];
+  String tmp(buffer, sizeof(buffer), &my_charset_latin1);
+  // convert to latin1 charset
+  if (str.charset() != tmp.charset()) {
+    uint dummy_errors;
+    StringBuffer<MAX_FIELD_WIDTH> convert_buffer;
+    convert_buffer.copy(str.ptr(), str.length(), str.charset(), tmp.charset(),
+                        &dummy_errors);
+    tmp.copy(convert_buffer);
+  }
+  // copy to std string
+  return std::string(tmp.ptr(), tmp.length());
+}
+static bool parse_wait_slave_hosts(const CHARSET_INFO *var_charset, String &str,
+                                   wait_slave_hosts_info &info) {
+  String wait_slaves_key("$.wait_slaves", var_charset);
+  String wait_slaves_value;
+  if (extract_value_from_str(str, wait_slaves_key, wait_slaves_value)) {
+    return true;
+  }
+  Json_wrapper wait_slaves_wrapper;
+  if (parse_str_to_json(wait_slaves_value, &wait_slaves_wrapper)) return true;
+  String hosts_key("$.hosts", var_charset);
+  String count_key("$.count", var_charset);
+  uint iter = 0;
+  while (true) {
+    String iter_key("$[", var_charset);
+    iter_key.append_ulonglong(iter);
+    iter_key.append("]");
+    String iter_value;
+    if (extract_quoted_value_from_json(&wait_slaves_wrapper, iter_key,
+                                       iter_value)) {
+      break;
+    }
+    Json_wrapper iter_wrapper;
+    if (parse_str_to_json(iter_value, &iter_wrapper)) return true;
+    String hosts_value;
+    String count_value;
+    if (extract_quoted_value_from_json(&iter_wrapper, hosts_key, hosts_value)) {
+      return true;
+    }
+    if (extract_unquoted_value_from_json(&iter_wrapper, count_key,
+                                         count_value)) {
+      return true;
+    }
+    std::vector<std::string> iter_hosts_info;
+    Json_wrapper iter_hosts_wrapper;
+    if (parse_str_to_json(hosts_value, &iter_hosts_wrapper)) return true;
+    uint hosts_iter = 0;
+    while (true) {
+      String hosts_iter_key("$[", var_charset);
+      hosts_iter_key.append_ulonglong(hosts_iter);
+      hosts_iter_key.append("]"); 
+      String hosts_iter_value;
+      if (extract_unquoted_value_from_json(&iter_hosts_wrapper, hosts_iter_key,
+                                           hosts_iter_value)) {
+        break;
+      }
+      iter_hosts_info.push_back(convert_string_to_std_string(hosts_iter_value));
+      hosts_iter += 1;
+    }
+    uint count_info = std::stoi(convert_string_to_std_string(count_value));
+    info.push_back(std::make_pair(std::move(iter_hosts_info), count_info));
+    iter += 1;
+  }
+  return false;
+}
+static bool check_wait_slave_hosts(sys_var *self, THD *thd, set_var *var) {
+  const CHARSET_INFO *var_charset = self->charset(thd);
+  if (var->save_result.string_value.str == nullptr) return true;
+  String value(var->save_result.string_value.str,
+               var->save_result.string_value.length, 
+               var_charset);
+  wait_slave_hosts_info slave_info;
+  if (!g_thdBottomHalf) return true;
+  if (var->save_result.string_value.length == 0) {
+    // use old version
+    g_thdBottomHalf->ack_container.resize(slave_info);
+    return false;   
+  }
+  if (parse_wait_slave_hosts(var_charset, value, slave_info)) return true;
+  g_thdBottomHalf->ack_container.resize(slave_info);
+  return false;
+}
+static bool update_wait_slave_hosts(sys_var *self, THD *thd,
+                                    enum_var_type type) {
+  return false;
+}
+static Sys_var_charptr Sys_sqlasync_wait_slave_hosts(
+    "sqlasync_wait_slave_hosts",
+    "A json-formatted string defines a strong synchronous ACK rule. The "
+    "json string consists of multiple {hosts, count} entries. For each entry, "
+    "the number of ip responses in hosts must exceed or equal count, and each "
+    "entry is an AND conditional relationship",
+    GLOBAL_VAR(g_sqlasync_wait_slave_hosts), CMD_LINE(OPT_ARG),
+    IN_SYSTEM_CHARSET, DEFAULT(""), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+    ON_CHECK(check_wait_slave_hosts), ON_UPDATE(update_wait_slave_hosts));
+
 static Sys_var_ulong Sys_relay_log_sync_threshold(
     "relay_log_sync_threshold",
     "Number of bytes to accumulate before fsync'ing relay log and sending an ack to master.",

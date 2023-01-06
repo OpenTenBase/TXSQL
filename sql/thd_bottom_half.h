@@ -37,8 +37,9 @@ inline uint64_t getMonotonic_sec() {
 //after this version,we will support m_server_id for BinlogPosAns
 enum BinlogPosAnsVer : uint16_t {
   DefaultVer = 1,
-      NewVer_20210420 = 2,
-      };
+  NewVer_20210420 = 2,
+  NewVer_20221120 = 3,
+};
 
 struct BinlogPosAns: public VarBufNS::CloudCommHead {
 public:
@@ -46,6 +47,7 @@ public:
 private:
     VarBufNS::VarValue m_filename; //binlog name
     uint64_t m_server_id;//we can safely add fields before m_varBuf
+    VarBufNS::VarValue m_host; // the host of the slave
 
     typedef VarBufNS::VarBufMgn VarBufType;
     VarBufType m_varBuf; //use getVarBuf to access this varaible.
@@ -53,13 +55,19 @@ public:
     BinlogPosAns() : log_pos(0),m_server_id(0) {
         CloudBaseConstruct;
         snprintf(classname, sizeof(classname), "BinlogPosAns");
+        ver = NewVer_20221120;
     }
 
     void decode() {}
 
     std::string toString() {
         char buf[1024] = { 0 };
-        snprintf(buf, sizeof(buf), "filename:%s,filePos:%llu,server id:%lu", getFileName(), log_pos, get_server_id());
+        if (ver >= NewVer_20221120) {
+          snprintf(buf, sizeof(buf), "filename:%s,filePos:%llu,server id:%lu,ip:%s",
+                   getFileName(), log_pos, get_server_id(), get_host());
+        } else {
+          snprintf(buf, sizeof(buf), "filename:%s,filePos:%llu,server id:%lu", getFileName(), log_pos, get_server_id());
+        }
         return buf;
     }
 
@@ -85,6 +93,32 @@ public:
       }
     }
 
+
+#if 0
+    void set_ip_v4(const char *ip) {
+      snprintf(ip_v4, 16, ip);
+    }
+
+    const char *get_ip_v4() {
+      if (ver >= NewVer_20221120) {
+        return ip_v4;
+      } else {
+        return nullptr;
+      }
+    }
+#endif
+    //set host name
+    char* set_host(const void* ptr, unsigned int len) {
+      return getVarBuf()->assigenVarValue(m_host, ptr, len);
+    }
+
+    const char* get_host() {
+      if (ver >= NewVer_20221120) { 
+        return getVarBuf()->getBuf(m_host.valIndex);
+      } else {
+        return nullptr;
+      }
+    }
     CloudBaseFun(BinlogPosAns)
 private:
     BinlogPosAns(const BinlogPosAns &);
@@ -205,10 +239,29 @@ struct AckInfo {
   Thd_Trans_binlog_info ack_pos;
 };
 
+using all_ack_hosts = std::vector<std::string>;
+using group_hosts_info = std::pair<all_ack_hosts, uint>;
+extern uint g_sqlAsyncNSlaves;
+// compatiable one ack group
 class Ack_container {
 public:
   Ack_container() {
     m_container.clear();
+
+    // set by n_slave
+    ack_slaves.clear();
+  }
+
+  Ack_container(group_hosts_info &info) {
+    ack_slaves = info.first;
+    wait_host_cnt = info.second;
+    resize();
+  }
+
+  Ack_container(const Ack_container &rt) {
+    ack_slaves = rt.ack_slaves;
+    wait_host_cnt = rt.wait_host_cnt;
+    resize(); 
   }
 
   typedef AckMap::iterator container_iter;
@@ -218,12 +271,102 @@ public:
 
   void copy(std::vector<AckInfo> &infos);
 
-  void process(const Thd_Trans_binlog_info &new_ack_info, uint64_t server_id, time_t ack_time);
+  // compatiable return true if update min ack_pos in m_one_slave_info not processed yet
+  bool process(const Thd_Trans_binlog_info &new_ack_info, uint64_t server_id, time_t ack_time);
 
+  const Thd_Trans_binlog_info &get_min_ack_pos() { return m_one_slave_info.ack_pos; }
+
+  /* old version has no hosts info */
+  bool is_old() { return ack_slaves.empty(); }
 
 private:
   AckMap m_container;
   AckInfo m_one_slave_info;
+  CTMutex m_mutex;
+
+public:
+  uint32_t wait_host_cnt = 1; // default number 
+  all_ack_hosts ack_slaves; /* the hosts of this group */
+};
+
+using wait_slave_hosts_info = std::vector<group_hosts_info>;
+using ack_groups = std::vector<Ack_container>;
+
+class multi_ack_container {
+public:
+  multi_ack_container() {
+    // compatiable at least one group
+    slave_groups.emplace_back(Ack_container());
+  }
+
+  void resize(wait_slave_hosts_info &hosts_info) {
+    CTGuard<CTMutex> gaurd(m_mutex);
+    slave_groups.clear();
+    for (auto it : hosts_info) {
+      slave_groups.emplace_back(Ack_container(it));
+    }
+    if (slave_groups.empty()) { // fall back to old version
+      slave_groups.emplace_back(Ack_container());
+      slave_groups[0].resize();
+    }
+  }
+
+  // return true if min pos of all groups increase 
+  bool process(const Thd_Trans_binlog_info &new_ack_info,
+               uint64_t server_id, time_t ack_time, const char *host);
+
+  void copy(std::vector<AckInfo> &infos) {
+    for (auto it : slave_groups) {
+      it.copy(infos);
+    }
+  }
+
+  ack_groups &get_groups() { return slave_groups; }
+
+  // compatible old container only one group and no hosts info
+  bool is_old() {
+    return (slave_groups.size() == 1 &&
+            slave_groups[0].is_old());
+  }
+
+private:
+  int find_group(const char *host) {
+    if (is_old()) return 0; // fast path of old container 
+    if (host == nullptr) { // old slave can't processed in new patten
+      return -1;
+    }
+    // find the slave in ack groups
+    for (int i = 0; i < static_cast<int>(slave_groups.size()); i++) {
+      if (std::find(slave_groups[i].ack_slaves.begin(),
+                    slave_groups[i].ack_slaves.end(), host) !=
+          slave_groups[i].ack_slaves.end()) {
+        return i;
+      }
+    }
+    // invalid
+    return -1;
+  }
+
+  void recalculate_lowest_water() {
+    if (min_group == -1) min_group = 0; // first time
+    assert(slave_groups.size() > 1);
+    Thd_Trans_binlog_info lowest = slave_groups[min_group].get_min_ack_pos();
+    for (int i = 0; i < static_cast<int>(slave_groups.size()); i++) {
+      if (i == min_group) continue;
+      if (slave_groups[i].get_min_ack_pos().less(lowest)) {
+        min_group = i;
+      }
+    }
+  }
+
+  const Thd_Trans_binlog_info &get_lowest_water() {
+    // CTGuard<CTMutex> gaurd(m_mutex); // must under lock 
+    assert(min_group >= 0);
+    return slave_groups[min_group].get_min_ack_pos();
+  }
+
+  int min_group = -1; // the smallest pos group
+  ack_groups slave_groups;
   CTMutex m_mutex;
 };
 
@@ -327,7 +470,8 @@ public:
     void set_thd_error_server_stop(THD *thd);
     void reset_answer();
     void commit_timeout_trxs(void);
-    Ack_container ack_container;
+    // hope compatiable old one container
+    multi_ack_container ack_container;
 private:
     // ipV4 address
     const std::string m_ip;

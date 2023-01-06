@@ -1021,6 +1021,7 @@ extern ulong g_relaylog_fsync_txn_count;
 extern uint g_sqlAsynTimeout;
 extern uint g_sqlAsynWarnTimeout;
 extern uint g_sqlAsyncNSlaves;
+extern char *g_sqlasync_wait_slave_hosts;
 
 class CThdBottomHalf;
 extern CThdBottomHalf *g_thdBottomHalf;

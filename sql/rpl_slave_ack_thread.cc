@@ -103,11 +103,14 @@ void rpl_slave_ack_thread::flush_and_ack(
 
         BinlogPosAns ans;
         char binlog_name[256];
+        std::string host_info = my_bind_addr_str;
+        host_info += ":" + std::to_string(mysqld_port);
         int name_len = snprintf(binlog_name, sizeof(binlog_name),
                                 "binlog.%06lu", binlog_info.file_no());
         ans.setFileName(binlog_name, name_len);
         ans.log_pos = binlog_info.pos();
         ans.set_server_id(server_id);
+        ans.set_host(host_info.c_str(), host_info.length());
 
         ans.computeLen();
         mi->sendAnsToMaster(ans);
