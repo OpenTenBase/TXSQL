@@ -18815,10 +18815,6 @@ static int copy_data_between_tables(
   gen_fields_end = gen_fields;
   for (ptr = to->field; *ptr; ptr++) {
     def = it++;
-    if ((*ptr)->is_flag_set(AUTO_INCREMENT_FLAG) ||
-        (def->field && def->field->is_flag_set(AUTO_INCREMENT_FLAG))) {
-      is_auto_inc = true;
-    }
     /* Whether it is a multi-value index */
     if ((*ptr)->is_virtual_gcol() &&
         (((*ptr)->gcol_info->expr_item &&
@@ -18866,6 +18862,11 @@ static int copy_data_between_tables(
         New column. Add it to the array of columns requiring value
         generation if it has generated default.
       */
+
+      if ((*ptr)->is_flag_set(AUTO_INCREMENT_FLAG)) {
+        is_auto_inc = true;
+      }
+
       if ((*ptr)->has_insert_default_general_value_expression()) {
         assert(!((*ptr)->is_gcol()));
         *(gen_fields_end++) = *ptr;
