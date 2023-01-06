@@ -1090,30 +1090,20 @@ int init_recovery(Master_info *mi) {
   Relay_log_info *rli = mi->rli;
   char *group_master_log_name = nullptr;
 
-  /* Set the recovery_parallel_workers to 0 if Auto Position is enabled. */
-  bool is_gtid_with_autopos_on =
-      (((mi->get_gtid_mode_from_copy(GTID_MODE_LOCK_NONE) == GTID_MODE_ON) &&
-        mi->is_auto_position())
-           ? true
-           : false);
-  if (is_gtid_with_autopos_on) rli->recovery_parallel_workers = 0;
+  /*
+    This is not idempotent and a crash after this function and before
+    the recovery is actually done may lead the system to an inconsistent
+    state.
 
-  if (rli->recovery_parallel_workers) {
-    /*
-      This is not idempotent and a crash after this function and before
-      the recovery is actually done may lead the system to an inconsistent
-      state.
+    This may happen because the gap is not persitent stored anywhere
+    and eventually old relay log files will be removed and further
+    calculations on the gaps will be impossible.
 
-      This may happen because the gap is not persitent stored anywhere
-      and eventually old relay log files will be removed and further
-      calculations on the gaps will be impossible.
+    We need to improve this. /Alfranio.
+  */
 
-      We need to improve this. /Alfranio.
-    */
-    error = mts_recovery_groups(rli);
-    if (rli->mts_recovery_group_cnt) return error;
-  }
-
+  error = mts_recovery_groups(rli);
+  if (rli->mts_recovery_group_cnt) return error;
   group_master_log_name = const_cast<char *>(rli->get_group_master_log_name());
   if (!error) {
     if (!group_master_log_name[0]) {
@@ -1938,6 +1928,22 @@ bool start_slave_threads(bool need_lock_slave, bool wait_for_start,
     my_error(ER_CANT_USE_AUTO_POSITION_WITH_GTID_MODE_OFF, MYF(0),
              mi->get_for_channel_str());
     return true;
+  }
+
+  /**
+    SQL AFTER MTS GAPS has no effect when GTID_MODE=ON and SOURCE_AUTO_POS=1
+    as no gaps information was collected.
+  **/
+  if (mi->get_gtid_mode_from_copy(GTID_MODE_LOCK_NONE) == GTID_MODE_ON && 
+     mi->is_auto_position() && 
+     mi->rli->until_condition == Relay_log_info::UNTIL_SQL_AFTER_MTS_GAPS) {
+    if (current_thd) {
+      push_warning_printf(
+          current_thd, Sql_condition::SL_WARNING,
+          ER_WARN_SQL_AFTER_MTS_GAPS_GAP_NOT_CALCULATED,
+          ER_THD(current_thd, ER_WARN_SQL_AFTER_MTS_GAPS_GAP_NOT_CALCULATED),
+          mi->get_channel());
+    }
   }
 
   if (need_lock_slave) {
@@ -6128,19 +6134,19 @@ bool mts_recovery_groups(Relay_log_info *rli) {
   if (rli->is_mts_recovery()) return 0;
 
   /*
-    Parallel applier recovery is based on master log name and
-    position, on Group Replication we have several masters what
-    makes impossible to recover parallel applier from that information.
-    Since we always have GTID_MODE=ON on Group Replication, we can
-    ignore the positions completely, seek the current relay log to the
-    beginning and start from there. Already applied transactions will be
-    skipped due to GTIDs auto skip feature and applier will resume from
-    the last applied transaction.
+    The process of relay log recovery for the multi threaded applier
+    is focused on marking transactions as already executed so they are
+    skipped when the SQL thread applies them.
+    This is important as the position stored for the last executed relay log
+    position may be behind what transactions workers already handled.
+    When GTID_MODE=ON however we can use the old relay log position, even if
+    stale as applied transactions will be skipped due to GTIDs auto skip
+    feature.
   */
-  if (channel_map.is_group_replication_channel_name(rli->get_channel(), true)) {
-    rli->recovery_parallel_workers = 0;
+  if (rli->mi &&
+      rli->mi->get_gtid_mode_from_copy(GTID_MODE_LOCK_NONE) == GTID_MODE_ON  &&
+      rli->mi->is_auto_position()) {
     rli->mts_recovery_group_cnt = 0;
-    rli->set_group_relay_log_pos(BIN_LOG_HEADER_SIZE);
     return 0;
   }
 
