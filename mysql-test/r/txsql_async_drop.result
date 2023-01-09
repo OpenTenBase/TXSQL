@@ -102,6 +102,11 @@ here should NOT see trash file
 no .trh
 no .ibd
 no .trh
+=== now check async table status ===
+show status like "%async_drop_table%counts%";
+Variable_name	Value
+Txsql_async_drop_table_async_truncate_counts	4
+Txsql_async_drop_table_counts	4
 === now check adding orphaned trash file when start ===
 # restart:--tencent-root-cnf=tmy.conf --innodb-table-drop-mode=async_drop --innodb-async-drop-tmp-dir=DROP_TMPDIR
 here should NOT see trash file
