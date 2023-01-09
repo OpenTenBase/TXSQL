@@ -239,10 +239,13 @@ Thd_Trans_binlog_info():m_file_no(0), m_pos(0) {}
     }
   }
 
-  void set(const char *file,my_off_t pos) {
+  void set(const char *file,my_off_t pos, const char *channel = nullptr) {
     if (file != nullptr) {
       m_file_no = get_file_no(file);
       m_pos = pos;
+    }
+    if (channel != nullptr) {
+      snprintf(channel_name, NAME_LEN + 1, "%s", channel);
     }
   }
 
@@ -280,12 +283,16 @@ Thd_Trans_binlog_info():m_file_no(0), m_pos(0) {}
     return m_file_no > 0;
   }
 
+  const char *get_channel_name() const { return channel_name; }
+
   friend bool operator ==(const Thd_Trans_binlog_info & lft, const Thd_Trans_binlog_info & rht);
   friend bool operator <(const Thd_Trans_binlog_info & lft, const Thd_Trans_binlog_info & rht);
 
 private:
   uint64_t  m_file_no;
   my_off_t  m_pos;
+  // see Rpl::channel defination
+  char channel_name[NAME_LEN + 1] = { 0 };
 };
 
 /*

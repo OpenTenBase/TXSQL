@@ -13411,3 +13411,4 @@ PSI_mutex_key key_LOCK_Running_Task_Barrier;
 #endif /* defined(HAVE_PX) */
 bool g_txsql_check_thd_in_bottom_half = false;
 char *g_sqlasync_wait_slave_hosts = nullptr;
+bool g_txsql_enable_name_ack = false;

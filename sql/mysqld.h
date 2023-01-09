@@ -1026,5 +1026,7 @@ extern char *g_sqlasync_wait_slave_hosts;
 class CThdBottomHalf;
 extern CThdBottomHalf *g_thdBottomHalf;
 
+extern bool g_txsql_enable_name_ack;
+
 /* Changes from txsql end. */
 #endif /* MYSQLD_INCLUDED */

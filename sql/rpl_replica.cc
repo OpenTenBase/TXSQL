@@ -5665,7 +5665,10 @@ extern "C" void *handle_slave_io(void *arg) {
            whether event has been synced to disk */
         bool synced = false;
         bool needAck = false;
-        bool local_sqlasync_group_slave_ack = sqlasync_group_slave_ack && g_sqlAsyn && mi->channel_is_empty();
+        bool local_sqlasync_group_slave_ack = sqlasync_group_slave_ack &&
+                                              g_sqlAsyn &&
+                                              (mi->channel_is_empty() ||
+                                              g_txsql_enable_name_ack);
 #ifndef NDEBUG
         bool was_in_trx = false;
         if (mi->is_queueing_trx()) {
@@ -5701,7 +5704,9 @@ extern "C" void *handle_slave_io(void *arg) {
         if (g_sqlAsyn && needAck) {
 
           if (local_sqlasync_group_slave_ack) {
-            while(!global_slave_ack_thread->push(mi->master_log_name, mi->master_log_pos)) {//don't need lock
+            while(!global_slave_ack_thread->push(mi->master_log_name, mi->master_log_pos,//don't need lock
+                                                 // if g_txsql_enable_name_ack true store the channel info
+                                                 (!g_txsql_enable_name_ack ? nullptr : mi->get_channel()))) {
               ++sqlasync_group_slave_push_to_queue_fail ;
               std::this_thread::yield();
             }
@@ -8537,7 +8542,7 @@ QUEUE_EVENT_RESULT queue_event(Master_info *mi, const char *buf,
 
     bool is_default_channel =
         strcmp(mi->get_channel(), channel_map.get_default_channel()) == 0;
-    if (g_sqlAsyn && likely(is_default_channel)) {
+    if (g_sqlAsyn && likely(is_default_channel || g_txsql_enable_name_ack)) {
       needAck = need_write;
     }
 
