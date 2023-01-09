@@ -131,6 +131,9 @@ drop table et;
 --exec if [ -f $MYSQLD_DATADIR/test/et.ibd ]; then echo "[ERROR]Found .ibd"; else echo "no .ibd"; fi;
 --exec if [ -f $DROP_TMPDIR/._test_et.trh* ]; then echo "[ERROR]Found .trh"; else echo "no .trh"; fi;
 
+--echo === now check async table status ===
+show status like "%async_drop_table%counts%";
+
 --echo === now check adding orphaned trash file when start ===
 --exec fallocate -l 2m $DROP_TMPDIR/._test_at.trh.1
 --exec fallocate -l 2m $DROP_TMPDIR/._test_bt.trh.1
