@@ -9066,4 +9066,10 @@ static Sys_var_bool Sys_have_tdsql(
     "have_tdsql", "Whether the server was compiled with TDSQL support.",
     READ_ONLY GLOBAL_VAR(have_tdsql), NO_CMD_LINE, DEFAULT(have_tdsql),
     NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL), ON_UPDATE(NULL));
+
+static Sys_var_bool Sys_txsql_check_thd_in_bottom_half(
+       "txsql_check_thd_in_bottom_half",
+       "Whether to check thd valid or not in bottom half of sqlasync ",
+       GLOBAL_VAR(g_txsql_check_thd_in_bottom_half), CMD_LINE(OPT_ARG),
+       DEFAULT(false));
 /* Changes from txsql end. */
