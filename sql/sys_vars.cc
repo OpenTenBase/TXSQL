@@ -9108,6 +9108,8 @@ static bool parse_wait_slave_hosts(const CHARSET_INFO *var_charset, String &str,
                                          count_value)) {
       return true;
     }
+    if (count_value.length() == 0) return true; // illegal
+
     std::vector<std::string> iter_hosts_info;
     Json_wrapper iter_hosts_wrapper;
     if (parse_str_to_json(hosts_value, &iter_hosts_wrapper)) return true;
@@ -9124,7 +9126,8 @@ static bool parse_wait_slave_hosts(const CHARSET_INFO *var_charset, String &str,
       iter_hosts_info.push_back(convert_string_to_std_string(hosts_iter_value));
       hosts_iter += 1;
     }
-    uint count_info = std::stoi(convert_string_to_std_string(count_value));
+    int count_info = std::stoi(convert_string_to_std_string(count_value));
+    if (count_info <= 0) return true; // illegal 
     info.push_back(std::make_pair(std::move(iter_hosts_info), count_info));
     iter += 1;
   }

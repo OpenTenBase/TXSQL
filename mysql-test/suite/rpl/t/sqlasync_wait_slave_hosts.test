@@ -12,7 +12,16 @@ CREATE TABLE t1(c1 INT);
 
 --let $rpl_connection_name= server_1
 --source include/rpl_connection.inc
+#count must be >=1
+--error ER_WRONG_VALUE_FOR_VAR
+set global sqlasync_wait_slave_hosts = '{ "wait_slaves": [{ "count": "", "hosts": ["localhost:1"] } ] }';
+--error ER_WRONG_VALUE_FOR_VAR
+set global sqlasync_wait_slave_hosts = '{ "wait_slaves": [{ "count": "0", "hosts": ["localhost:1"] } ] }';
+--error ER_WRONG_VALUE_FOR_VAR
+set global sqlasync_wait_slave_hosts = '{ "wait_slaves": [{ "count": "-1", "hosts": ["localhost:1"] } ] }';
+--replace_result $SERVER_MYPORT_2 MYPORT_2 $SERVER_MYPORT_3 MYPORT_3 $SERVER_MYPORT_4 MYPORT_4 $SERVER_MYPORT_5 MYPORT_5
 --eval set global sqlasync_wait_slave_hosts = '{ "wait_slaves": [{ "count": "1", "hosts": ["localhost:$SERVER_MYPORT_2", "localhost:$SERVER_MYPORT_3"] }, { "count": "2", "hosts": ["localhost:$SERVER_MYPORT_4", "localhost:$SERVER_MYPORT_5"] } ] }';
+--replace_result $SERVER_MYPORT_2 MYPORT_2 $SERVER_MYPORT_3 MYPORT_3 $SERVER_MYPORT_4 MYPORT_4 $SERVER_MYPORT_5 MYPORT_5
 show variables like "sqlasync_wait_slave_hosts";
 insert into t1 values(1);
 --source include/rpl_sync.inc
