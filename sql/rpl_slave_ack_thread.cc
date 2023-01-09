@@ -80,7 +80,13 @@ void rpl_slave_ack_thread::flush_and_ack(
 
   channel_map.rdlock();
 
-  Master_info *mi = channel_map.get_default_channel_mi();
+  Master_info *mi = nullptr;
+  // note if the name is "" it will return default one
+  if (binlog_info.get_channel_name()[0] == '\0') {
+    mi = channel_map.get_default_channel_mi();
+  } else {
+    mi = channel_map.get_mi(binlog_info.get_channel_name());
+  }
   if (likely(mi)) {
 
     Relay_log_info *rli = mi->rli;
@@ -129,7 +135,10 @@ void rpl_slave_ack_thread::flush_and_ack(
       sql_print_error("rpl_slave_ack_thread::flush_and_ack get error,so we should stop io thread when get next binlog");
       set_fail_next_check(true);//notify io thread exit
     }
-
+  } else {
+    sql_print_error("rpl_slave_ack_thread::flush_and_ack can't get the mi for name %s",
+                    binlog_info.get_channel_name());
+    set_fail_next_check(true);// avoid too many logs
   }
 
   channel_map.unlock();

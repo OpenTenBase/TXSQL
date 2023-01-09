@@ -9205,6 +9205,12 @@ static Sys_var_bool Sys_g_txsql_slave_io_optimaze_write(
     "optimize slave io thread to reduce write",
     GLOBAL_VAR(txsql_slave_io_optimaze_write),
     CMD_LINE(OPT_ARG), DEFAULT(false));
+
+static Sys_var_bool Sys_txsql_enable_name_ack(
+    "txsql_enable_name_ack",
+    "Whether to enable named channel to ack the master of sqlasync ",
+    GLOBAL_VAR(g_txsql_enable_name_ack), CMD_LINE(OPT_ARG),
+    DEFAULT(false));
 #endif
 
 #ifdef HAVE_TDSQL

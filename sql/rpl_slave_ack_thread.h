@@ -40,9 +40,9 @@ rpl_slave_ack_thread() :
     m_thread = move(t);
   }
 
-  bool push(const char *binlog, my_off_t pos) {
+  bool push(const char *binlog, my_off_t pos, const char* channel) {
     Thd_Trans_binlog_info info;
-    info.set(binlog, pos);
+    info.set(binlog, pos, channel);
     return m_queue.push(info);
   }
 
