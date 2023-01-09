@@ -997,6 +997,7 @@ extern uint g_simple_slow_logging;
 extern bool g_mc_enable;
 extern bool g_mc_sleep_mode;
 extern bool g_mc_gts_check;
+extern bool g_txsql_check_thd_in_bottom_half;
 
 extern std::atomic<unsigned long> global_privilege_version;
 extern bool txsql_simplify_priv_check;

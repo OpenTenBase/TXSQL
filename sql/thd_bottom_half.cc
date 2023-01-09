@@ -33,6 +33,7 @@
 
 PSI_stage_info stage_waiting_for_sqlasyn_ack_from_slave = { 0, "Waiting for sqlasyn ACK from slave", 0 };
 PSI_stage_info stage_waiting_for_dispatch_thd_to_ans_thread = { 0, "dispatched thd to answering thread(ack'ed)", 0 };
+PSI_stage_info stage_after_sync_mode_timeout = { 0, "Wait for sqlasyn ack timeout", 0 };
 
 struct connection_t;
 
@@ -392,6 +393,18 @@ void CThdBottomHalf::do_timeout_loop() { //deal with timeout session
                   sqlasyn= false;
                 }
 
+                /*
+                 * very little chance proccess a released thd and
+                 * have no time to find the reason add a protection
+                 * and remove it after fix the bug
+                 */
+                if (unlikely(g_txsql_check_thd_in_bottom_half &&
+                    iter->getThd()->release_resources_done())) {
+                  iter->mark_processed();
+                  sql_print_error("proccess a released thd in bottom half %llu", iter->getThd());
+                  continue;
+                }
+
                 if (unlikely(!sqlasyn || iter->getThd()->is_killed())) {
                   iter->mark_processed();
                   num_processed++;
@@ -730,6 +743,7 @@ void CThdBottomHalfAnsThread::deal_answered_thd(const CThdKey &thdKey, bool stop
         if (vio) vio_cancel(vio, SHUT_WR); // close the connection under connection lock
         the_thd->m_sql_asyn_deal_stage = THD::WAIT_TIMEOUT;
         sqlasync_uncommitted_timeout_trxs++;
+        THD_STAGE_INFO(the_thd, stage_after_sync_mode_timeout);
         bind_result = true; // keep the connection alive
       } else {
         assert(the_thd->m_sql_asyn_deal_stage == THD::WAIT_TIMEOUT);
