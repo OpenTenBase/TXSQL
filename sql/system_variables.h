@@ -524,6 +524,11 @@ struct System_variables {
     print profile to slow log if enabled.
    */
   bool log_profile_in_slow_log;
+
+  /**
+    session variable of set sqlasyn = 0
+  */
+  bool txsql_disable_sqlasyn;
   uint txsql_extend_slow_log_level;
   ulonglong log_slow_verbosity;
 #if defined(HAVE_OPT_CTX)

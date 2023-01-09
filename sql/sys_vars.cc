@@ -9073,4 +9073,11 @@ static Sys_var_bool Sys_txsql_check_thd_in_bottom_half(
        "Whether to check thd valid or not in bottom half of sqlasync ",
        GLOBAL_VAR(g_txsql_check_thd_in_bottom_half), CMD_LINE(OPT_ARG),
        DEFAULT(false));
+
+static Sys_var_bool Sys_tdsql_current_session_sqlasyn(
+    "txsql_disable_sqlasyn",
+    "A session only variable to disable strong synchroniaztion if set",
+    SESSION_ONLY(txsql_disable_sqlasyn), CMD_LINE(OPT_ARG), DEFAULT(false),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL), ON_UPDATE(NULL));
+
 /* Changes from txsql end. */

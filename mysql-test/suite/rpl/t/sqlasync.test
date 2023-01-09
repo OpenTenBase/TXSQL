@@ -102,10 +102,29 @@ show slave ack;
 --replace_column 2 #
 show status like 'sqlasyn_%';
 
+# Testing timeout
+--connection master
+set global sqlasyntimeout = 60;
+set global sqlasynwarntimeout = 120;
+
+#stop slave
+--connection slave
+--source include/stop_slave.inc
+
+--connection master
+--error ER_LOCAL_VARIABLE
+set global txsql_disable_sqlasyn=1;
+set txsql_disable_sqlasyn=1;
+insert into t1 values (10,12,12);
+
+--connection slave
+--source include/start_slave.inc
+
 #revert timeout configuration
 --connection master
 set global sqlasyntimeout = 30;
 set global sqlasynwarntimeout = 3;
+set txsql_disable_sqlasyn=0;
 #set global sqlasync_after_sync = 0;
 
 #cleanup

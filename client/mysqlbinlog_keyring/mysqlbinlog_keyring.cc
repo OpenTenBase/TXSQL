@@ -608,6 +608,7 @@ bool set_kms_config_and_decrypt_master_key() {
     if (val.second.key_id == mysqlbinlog_kms::kms_config_key_id) {
       int elen;
       unsigned char *des_key = new unsigned char[val.second.key_len * 3];
+      memset(des_key, 0, val.second.key_len * 3);
       elen = my_aes_decrypt(static_cast<unsigned char*>(val.second.key.get()),
                             val.second.key_len,
                             des_key,
@@ -644,8 +645,8 @@ bool set_kms_config_and_decrypt_master_key() {
 
     val.second.key_len = kms_plain_key.length();
     val.second.key.reset(new uchar[val.second.key_len]);
-
-    memcpy(val.second.key.get(), reinterpret_cast<const uchar*>(kms_plain_key.c_str()), val.second.key_len);
+    memset(val.second.key.get(), 0, val.second.key_len);
+    strncpy(reinterpret_cast<char*>(val.second.key.get()), kms_plain_key.c_str(), val.second.key_len);
   }
   return false;
 }
