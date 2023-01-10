@@ -8842,13 +8842,14 @@ static Sys_var_bool Sys_statement_outline_enable_apply(
 static Sys_var_bool Sys_statement_outline_enabled(
     "statement_outline_enabled", "Enable statement outline if true",
     GLOBAL_VAR(statement_outline::sys_var_enabled), CMD_LINE(OPT_ARG),
-    DEFAULT(true));
+    DEFAULT(statement_outline::default_enabled));
 
 static Sys_var_uint Sys_statement_outline_partitions(
     "statement_outline_partitions",
     "How many partitions of statement outline rule maps.",
     READ_ONLY GLOBAL_VAR(statement_outline::sys_var_partitions),
-    CMD_LINE(REQUIRED_ARG), VALID_RANGE(1, 256), DEFAULT(16), BLOCK_SIZE(1));
+    CMD_LINE(REQUIRED_ARG), VALID_RANGE(1, 256),
+    DEFAULT(statement_outline::default_partitions), BLOCK_SIZE(1));
 
 static Sys_var_bool Sys_statement_outline_verbose(
     "statement_outline_apply_verbose",
