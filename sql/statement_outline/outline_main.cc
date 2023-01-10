@@ -44,11 +44,11 @@ public:
 LEX_CSTRING OUTLINE_RULE_TABLE_KEY = {
     STRING_WITH_LEN("mysql\0statement_outline_rules\0")};
 
-static Outline *outline;
+static Outline *outline = nullptr;
 
 /// Enabled.
-bool sys_var_enabled;
-uint sys_var_partitions;
+bool sys_var_enabled = default_enabled;
+uint sys_var_partitions = default_partitions;
 
 PSI_memory_key psi_key_memory_statement_outline;
 PSI_rwlock_key psi_key_rwlock_outline_rules;
@@ -104,6 +104,7 @@ bool init_statement_outline() {
 void destroy_statement_outline() {
   remove_reload_entry();
   delete outline;
+  outline = nullptr;
 }
 
 longlong add_rule_from_query(THD *thd, const char *database,
@@ -142,6 +143,8 @@ void apply_outline_rules(THD* thd, bool digest_computed) {
   if (!sys_var_enabled || !thd->variables.statement_outline_enable_apply ||
       !thd->m_digest || !is_explainable_query(thd->lex->sql_command))
     return;
+
+  assert(outline);
 
   uchar digest_buf[DIGEST_HASH_SIZE];
 

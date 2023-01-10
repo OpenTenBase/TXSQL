@@ -32,6 +32,10 @@
 class THD;
 
 namespace statement_outline {
+
+constexpr bool default_enabled = true;
+constexpr uint default_partitions = 16;
+
 /**
   @sa Sys_statement_outline_enabled.
 */
