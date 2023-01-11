@@ -454,6 +454,7 @@ Histogram *build_histogram(MEM_ROOT *mem_root, const Value_map<T> &value_map,
                            size_t num_buckets, const std::string &db_name,
                            const std::string &tbl_name,
                            const std::string &col_name) {
+  assert(!is_history_table(db_name.c_str(), tbl_name.c_str()));
   Histogram *histogram = nullptr;
 
   if (cdb_compressed_histogram_enabled) {
@@ -1365,6 +1366,7 @@ static bool fill_value_maps(
 bool update_histogram(THD *thd, TABLE_LIST *table, const columns_set &columns,
                       int num_buckets, LEX_STRING data, int64_t version,
                       results_map &results) {
+  assert(!is_history_table(table));
   dd::cache::Dictionary_client::Auto_releaser auto_releaser(thd->dd_client());
 
   // Read only should have been stopped at an earlier stage.
@@ -1682,6 +1684,10 @@ end:
 bool drop_all_histograms(THD *thd, TABLE_LIST &table,
                          const dd::Table &table_definition,
                          results_map &results) {
+  if (is_history_table(&table)) {
+    return false;
+  }
+
   columns_set columns;
   for (const auto &col : table_definition.columns())
     columns.emplace(col->name().c_str());
@@ -1691,6 +1697,9 @@ bool drop_all_histograms(THD *thd, TABLE_LIST &table,
 
 bool drop_histograms(THD *thd, TABLE_LIST &table, const columns_set &columns,
                      bool needs_lock, results_map &results) {
+  if (is_history_table(&table)) {
+    return false;
+  }
   dd::cache::Dictionary_client *client = thd->dd_client();
   dd::cache::Dictionary_client::Auto_releaser auto_releaser(client);
 
@@ -1911,6 +1920,9 @@ static bool rename_histogram(THD *thd, const char *old_schema_name,
                              const char *new_schema_name,
                              const char *new_table_name,
                              const char *column_name, results_map &results) {
+  assert(!is_history_table(old_schema_name, old_table_name) &&
+         !is_history_table(new_schema_name, new_table_name));
+
   dd::cache::Dictionary_client *client = thd->dd_client();
   dd::cache::Dictionary_client::Auto_releaser auto_releaser(client);
 
@@ -1998,6 +2010,11 @@ static bool rename_histogram(THD *thd, const char *old_schema_name,
 bool rename_histograms(THD *thd, const char *old_schema_name,
                        const char *old_table_name, const char *new_schema_name,
                        const char *new_table_name, results_map &results) {
+  if (is_history_table(old_schema_name, old_table_name) ||
+      is_history_table(new_schema_name, new_table_name)) {
+    return false;
+  }
+
   dd::cache::Dictionary_client::Auto_releaser releaser(thd->dd_client());
 
   MDL_request mdl_request;
@@ -2742,5 +2759,22 @@ template bool prepare_value_container<Value_vector>(Value_vector_base **,
 
 template bool add_value(Value_map_base *, Value_map_type, Item *);
 template bool add_value(Value_vector_base *, Value_map_type, Item *);
+
+// Manipulating column_statistics_history itself as a side effect gets MDL
+// deadlock, because persistor uses its own THD, thus needs to be avoided.
+// Therefore, creating, modifying or dropping histograms for
+// column_statistics_history should not be allowed.
+bool is_history_table(const char *db_name, const char *table_name) {
+  return (strcasecmp(db_name, "mysql") == 0 &&
+          strcasecmp(table_name, "column_statistics_history") == 0);
+}
+
+// Manipulating column_statistics_history itself as a side effect gets MDL
+// deadlock, because persistor uses its own THD, thus needs to be avoided.
+// Therefore, creating, modifying or dropping histograms for
+// column_statistics_history should not be allowed.
+bool is_history_table(const TABLE_LIST *table) {
+  return is_history_table(table->db, table->table_name);
+}
 
 }  // namespace histograms

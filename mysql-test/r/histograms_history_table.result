@@ -1,0 +1,38 @@
+##################
+# Dropping or renaming column_statistics_history
+##################
+SET GLOBAL CDB_AUTO_STATISTICS_ENABLED= 1;
+SET GLOBAL HISTOGRAM_HISTORY_ENABLED= 1;
+SET GLOBAL HISTOGRAM_HISTORY_VERSIONS_LIMIT= 3;
+ANALYZE TABLE mysql.column_statistics_history UPDATE HISTOGRAM ON schema_name;
+Table	Op	Msg_type	Msg_text
+mysql.column_statistics_history	histogram	Error	Histogram statistics creation for table 'mysql.column_statistics_history' is not allowed
+SELECT * FROM mysql.column_statistics_history;
+schema_name	table_name	column_name	histogram	version	creation_time	options
+RENAME TABLE mysql.column_statistics_history TO mysql.column_statistics_history_1;
+RENAME TABLE mysql.column_statistics_history_1 TO mysql.column_statistics_history;
+DROP TABLE mysql.column_statistics_history;
+USE mysql;
+CREATE TABLE IF NOT EXISTS `column_statistics_history` (
+`schema_name` varchar(64) CHARACTER SET utf8 COLLATE utf8_bin NOT NULL,
+`table_name` varchar(64) CHARACTER SET utf8 COLLATE utf8_bin NOT NULL,
+`column_name` varchar(64) CHARACTER SET utf8 COLLATE utf8_tolower_ci NOT NULL,
+`histogram` json NOT NULL,
+`version` bigint NOT NULL,
+`creation_time` datetime NOT NULL,
+`options` mediumtext COLLATE utf8_bin,
+PRIMARY KEY (`schema_name`,`table_name`,`column_name`,`version`)
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8 COLLATE=utf8_bin STATS_PERSISTENT=0 ROW_FORMAT=DYNAMIC TABLESPACE=mysql;
+Warnings:
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+Warning	3778	'utf8mb3_bin' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+Warning	3778	'utf8mb3_bin' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+Warning	3778	'utf8mb3_tolower_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+Warning	3778	'utf8mb3_bin' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+Warning	3778	'utf8mb3_bin' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+SET GLOBAL HISTOGRAM_HISTORY_VERSIONS_LIMIT= 5;
+SET GLOBAL HISTOGRAM_HISTORY_ENABLED= 0;
+SET GLOBAL CDB_AUTO_STATISTICS_ENABLED= 0;

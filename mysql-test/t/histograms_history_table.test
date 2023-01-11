@@ -1,0 +1,39 @@
+--echo ##################
+--echo # Dropping or renaming column_statistics_history
+--echo ##################
+
+let $SAVED_OPTION_CDB_ENABLE= `SELECT @@CDB_AUTO_STATISTICS_ENABLED;`;
+SET GLOBAL CDB_AUTO_STATISTICS_ENABLED= 1;
+
+let $SAVED_OPTION_ENABLED= `SELECT @@HISTOGRAM_HISTORY_ENABLED;`;
+SET GLOBAL HISTOGRAM_HISTORY_ENABLED= 1;
+
+let $SAVED_OPTION_VERSIONS= `SELECT @@HISTOGRAM_HISTORY_VERSIONS_LIMIT;`;
+SET GLOBAL HISTOGRAM_HISTORY_VERSIONS_LIMIT= 3;
+
+ANALYZE TABLE mysql.column_statistics_history UPDATE HISTOGRAM ON schema_name;
+
+SELECT * FROM mysql.column_statistics_history;
+
+RENAME TABLE mysql.column_statistics_history TO mysql.column_statistics_history_1;
+
+RENAME TABLE mysql.column_statistics_history_1 TO mysql.column_statistics_history;
+
+DROP TABLE mysql.column_statistics_history;
+
+USE mysql;
+CREATE TABLE IF NOT EXISTS `column_statistics_history` (
+  `schema_name` varchar(64) CHARACTER SET utf8 COLLATE utf8_bin NOT NULL,
+  `table_name` varchar(64) CHARACTER SET utf8 COLLATE utf8_bin NOT NULL,
+  `column_name` varchar(64) CHARACTER SET utf8 COLLATE utf8_tolower_ci NOT NULL,
+  `histogram` json NOT NULL,
+  `version` bigint NOT NULL,
+  `creation_time` datetime NOT NULL,
+  `options` mediumtext COLLATE utf8_bin,
+  PRIMARY KEY (`schema_name`,`table_name`,`column_name`,`version`)
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8 COLLATE=utf8_bin STATS_PERSISTENT=0 ROW_FORMAT=DYNAMIC TABLESPACE=mysql;
+
+eval SET GLOBAL HISTOGRAM_HISTORY_VERSIONS_LIMIT= $SAVED_OPTION_VERSIONS;
+eval SET GLOBAL HISTOGRAM_HISTORY_ENABLED= $SAVED_OPTION_ENABLED;
+eval SET GLOBAL CDB_AUTO_STATISTICS_ENABLED= $SAVED_OPTION_CDB_ENABLE;
+
