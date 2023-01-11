@@ -124,6 +124,7 @@ enum class Message {
   HISTOGRAM_HISTORY_VERSION_CREATE_FAILURE,
   HISTOGRAM_AUTO_STATS_CREATED,
   HISTOGRAM_AUTO_STATS_CREATE_FAILURE,
+  HISTOGRAM_FOR_HISTORY_TABLE,
 };
 
 struct Histogram_psi_key_alloc {
@@ -831,6 +832,8 @@ bool prepare_value_container(Value_container_base **container_base,
 template <class C, class V>
 bool add_value(C *container, histograms::Value_map_type data_type,
                V *data_value);
+bool is_history_table(const char *db_name, const char *table_name);
+bool is_history_table(const TABLE_LIST *table);
 
 }  // namespace histograms
 

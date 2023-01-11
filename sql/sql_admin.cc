@@ -625,6 +625,12 @@ bool Sql_cmd_analyze_table::send_histogram_results(
         message.append(pair.first);
         message.append("' failed.");
         break;
+      case histograms::Message::HISTOGRAM_FOR_HISTORY_TABLE:
+        message_type.assign("Error");
+        message.assign(
+            "Histogram statistics creation for table "
+            "'mysql.column_statistics_history' is not allowed");
+        break;
     }
 
     protocol->start_row();
@@ -1665,6 +1671,13 @@ bool Sql_cmd_analyze_table::handle_histogram_command(THD *thd,
     if (read_only || thd->tx_read_only) {
       // Do not try to update histograms when in read_only mode.
       results.emplace("", histograms::Message::SERVER_READ_ONLY);
+      res = false;
+    } else if (histograms::is_history_table(table)) {
+      // Do not create histograms for table mysql.column_statistics_history used
+      // to store histograms history, because it is meaningless and manipulating
+      // column_statistics_history itself as a side effect gets MDL deadlock.
+      // see histograms::is_history_table()
+      results.emplace("", histograms::Message::HISTOGRAM_FOR_HISTORY_TABLE);
       res = false;
     } else {
       Disable_autocommit_guard autocommit_guard(thd);
