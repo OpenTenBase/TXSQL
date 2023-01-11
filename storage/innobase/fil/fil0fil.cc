@@ -8780,7 +8780,10 @@ bool fil_delete_file(const char *path) {
   bool success = true;
 
   /* Force a delete of any stale .ibd files that are left. */
-  if (srv_table_drop_mode != SRV_SYNC_DROP &&
+  struct stat st;
+  int ret = stat(path, &st);
+  if ((ret == 0 && (ulong)st.st_size >= srv_async_table_size * 1024 * 1024) &&
+      srv_table_drop_mode != SRV_SYNC_DROP &&
       srv_async_drop_tmp_dir != nullptr) {
     dberr_t err = row_process_async_drop(path);
     if (DB_SUCCESS != err) {
