@@ -1,0 +1,12 @@
+create table t(id int primary key);
+insert into t values(1);
+xa start '1' tdsql_withgts 1;
+insert into t values(2);
+xa end '1';
+xa rollback '1';
+set global innodb_min_purge_gts=2;
+select * from t;
+id
+1
+drop table t;
+set global innodb_min_purge_gts=1;

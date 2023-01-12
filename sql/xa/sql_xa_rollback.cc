@@ -30,6 +30,7 @@
 #include "sql/rpl_gtid.h"            // gtid_state_commit_or_rollback
 #include "sql/rpl_rli.h"
 #include "sql/sql_class.h"           // THD
+#include "sql/sql_lex.h"             // struct LEX
 #include "sql/tc_log.h"              // tc_log
 #include "sql/transaction.h"  // trans_reset_one_shot_chistics, trans_track_end_trx
 #include "sql/transaction_info.h"  // Transaction_ctx
@@ -68,6 +69,8 @@ bool Sql_cmd_xa_rollback::execute(THD *thd) {
       *m_xid = *(xid_state->get_xid());
     } else {
       clean_state_from_coord_inject(thd);
+      /* TXSQL: reset gts assigned by 'XA START' */
+      thd->lex->gts_xa = 0;
       my_ok(thd);
       return false;
     }
@@ -82,6 +85,9 @@ bool Sql_cmd_xa_rollback::execute(THD *thd) {
       isolation level and access mode to the session default.
     */
     trans_reset_one_shot_chistics(thd);
+
+    /* TXSQL: reset gts assigned by 'XA START' */
+    thd->lex->gts_xa = 0;
     my_ok(thd);
   }
 
