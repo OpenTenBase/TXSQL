@@ -72,6 +72,7 @@
 #include "bp_sync.h"
 #include <map>
 #include <set>
+#include <stdlib.h>
 
 extern char *mysqld_admin_port_init_tool;
 extern char *mysqld_admin_port_init_tool_md5;

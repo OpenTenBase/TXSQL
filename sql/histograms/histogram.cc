@@ -876,7 +876,7 @@ bool Histogram::extract_json_dom_value(const Json_dom *json_dom, String *out,
     static_assert(
         static_cast<int>(enum_field_types::MYSQL_TYPE_STRING) == 254, "");
     constexpr const char *prefix = "base64:type254:";
-    constexpr int prefix_length = strlen(prefix);
+    int prefix_length = strlen(prefix);
 
     size_t pos = str.find(prefix, 0, prefix_length);
     if (pos == str.npos) {

@@ -49,7 +49,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "storage/innobase/include/detail/ut/pfs.h"
 
 extern const size_t large_page_default_size;
-
+extern je_counter_t jemalloc_internal_je_je_server_totalsize;
 namespace ut {
 namespace detail {
 

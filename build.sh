@@ -175,6 +175,9 @@ parse_options() {
 	  shift
 	  commit_input=`get_key_value "$1"`
     ;;
+    --clang)
+      clang=1
+    ;;
     -h | --help)
       usage
       exit 0
@@ -337,6 +340,13 @@ if [ ! -n "$commit_input" ]; then
   git_log=`git log -1 |head -n 1| awk '{print $2}'`
 else
   git_log=$commit_input
+fi
+
+if [ $clang -eq 1 ]; then
+  echo "clang is ON"
+  CC=clang
+  CXX=clang++
+  export CC CXX
 fi
 
 cd "$pwd/$build_dir"
