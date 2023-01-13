@@ -1,0 +1,18 @@
+{
+    "audit_tmp_log": "/tmp/audit_tmp/",
+    "audit_unique_string": "2",
+    "instance_id": "7f0bf83a-cf52-11e7-b828-70e2840ca2fd",
+    "instance_name": "audittest",
+	"rule": {
+        "1": [
+            {
+                "policy": "policy111"
+            },
+            {
+                "compare": "=",
+                "type": "dbName",
+                "value": "test"
+            }
+        ]
+    }
+}

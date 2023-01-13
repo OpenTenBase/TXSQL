@@ -1,0 +1,88 @@
+--disable_ps_protocol
+ 
+--echo #
+--echo # Prepare
+--echo #
+connect (con1,localhost,tencentroot,,);
+connect (con2,localhost,root,,);
+connection con1;
+--echo #
+--echo # Config audit
+--echo #
+set global cdb_audit_action_enabled = on;
+set global cdb_tencentroot_audit_action_enabled = on;
+--exec mkdir audit_tmp
+let $TEMP_CUR_DIR = $MYSQL_TEST_DIR;
+let $save_audit_cdb_tencentroot_audit_dir = `select @@GLOBAL.audit_cdb_tencentroot_audit_dir`;
+let $save_audit_cdb_audit_dir = `select @@GLOBAL.audit_cdb_audit_dir`;
+let $save_audit_cdb_audit_reload_config = `select @@GLOBAL.audit_cdb_audit_reload_config`;
+--replace_result $MYSQL_TEST_DIR mysql_test_dir
+eval set global audit_cdb_tencentroot_audit_dir = "$TEMP_CUR_DIR/audit_tmp/";
+--replace_result $MYSQL_TEST_DIR mysql_test_dir
+eval set global audit_cdb_audit_dir = "$TEMP_CUR_DIR/audit_tmp/";
+--replace_result $MYSQL_TEST_DIR mysql_test_dir
+show variables like 'audit_cdb_audit_dir';
+
+show variables like "AUDIT_CDB_AUDIT_RELOAD_CONFIG";
+--replace_result $MYSQL_TEST_DIR mysql_test_dir
+eval set global audit_cdb_config_json = "$TEMP_CUR_DIR/t/plugin_audit_cdb_file_check.json";
+set global audit_cdb_audit_reload_config = on;
+show variables like "AUDIT_CDB_AUDIT_RELOAD_CONFIG";
+
+
+--echo #
+--echo # Run
+--echo #
+
+--sleep 1
+--echo #
+--echo # recycle bin is off
+--echo #
+connection con1;
+set global cdb_recycle_bin_enabled= off;
+connection con2;
+use test;
+create table t1 (a int);
+truncate table t1;
+drop table t1;
+
+--echo #
+--echo # recycle bin is on
+--echo #
+connection con1;
+set global cdb_recycle_bin_enabled= on;
+connection con2;
+use test;
+create table t1 (a int);
+truncate table t1;
+drop table t1;
+--sleep 5
+
+--echo #
+--echo # search audit file
+--echo #
+
+--echo # test: drop table
+--exec cat $TEMP_CUR_DIR/audit_tmp/my_audit_log_file.0 | grep -a '\"sqlType\":\"DROP\"' | wc -l
+--echo # test: truncate table
+--exec cat $TEMP_CUR_DIR/audit_tmp/my_audit_log_file.0 | grep -a '\"sqlType\":\"DELETE\"' | wc -l
+
+
+--echo #
+--echo # Cleanup
+--echo #
+connection con1;
+--replace_result $MYSQL_TEST_DIR mysql_test_dir
+--exec rm -rf $TEMP_CUR_DIR/audit_tmp/
+
+--replace_result $save_audit_cdb_tencentroot_audit_dir mysql_test_dir
+eval set global audit_cdb_tencentroot_audit_dir = "$save_audit_cdb_tencentroot_audit_dir";
+--replace_result $save_audit_cdb_audit_dir mysql_test_dir
+eval set global audit_cdb_audit_dir = "$save_audit_cdb_audit_dir";
+
+set global audit_cdb_config_json = default;
+set global cdb_recycle_bin_enabled= default;
+eval set global audit_cdb_audit_reload_config = $save_audit_cdb_audit_reload_config;
+let $MYSQL_TEST_DIR = $TEMP_CUR_DIR;
+disconnect con1;
+disconnect con2;

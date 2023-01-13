@@ -371,6 +371,19 @@ int mysql_audit_notify(THD *thd, mysql_event_general_subclass_t subclass,
                                   static_cast<unsigned long>(subclass)))
     return 0;
 
+  enum_sql_command sql_command = thd->lex->sql_command;
+  /* need more information */
+  if (nullptr != thd->lex)
+  {
+    if (sql_command == SQLCOM_RENAME_TABLE &&
+        thd->lex->recycle_bin_op == RB_RECYCLE_TABLE_BY_DROP) {
+      sql_command = SQLCOM_DROP_TABLE;
+    } else if (sql_command == SQLCOM_CREATE_TABLE &&
+                 thd->lex->recycle_bin_op == RB_RECYCLE_TABLE_BY_TRUNCATE) {
+      sql_command = SQLCOM_TRUNCATE;
+    }
+  }
+
   event.event_subclass = subclass;
   event.general_error_code = error_code;
   event.general_thread_id = thd->thread_id();
@@ -383,7 +396,7 @@ int mysql_audit_notify(THD *thd, mysql_event_general_subclass_t subclass,
   event.general_host = sctx->host();
   event.general_external_user = sctx->external_user();
   event.general_rows = thd->get_stmt_da()->current_row_for_condition();
-  event.general_sql_command = sql_statement_names[thd->lex->sql_command];
+  event.general_sql_command = sql_statement_names[sql_command];
 
   event.general_charset = const_cast<CHARSET_INFO *>(
       thd_get_audit_query(thd, &event.general_query));
