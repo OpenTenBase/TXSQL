@@ -616,6 +616,7 @@ bool Statistics_task_element::add_columns(
 
   if (m_columns.size() == COLUMN_QUEUE_MAX_SIZE ||
       m_columns.size() + columns.size() > COLUMN_QUEUE_MAX_SIZE) {
+    UNLOCK_TASK_DATA();
     return true;
   }
 
