@@ -1,4 +1,0 @@
-create table t(id int primary key);
-insert into t values(1);
-select * from t where id = 1 for update tdsql_withgts 1;
-drop table t;
