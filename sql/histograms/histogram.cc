@@ -1811,7 +1811,8 @@ bool Histogram::store_histogram_worker(THD *thd, bool &can_lock) const {
   MDL_REQUEST_INIT(&mdl_request, MDL_key::TABLE, get_database_name().str,
                    get_table_name().str, MDL_SHARED_READ_ONLY, MDL_TRANSACTION);
 
-  if (thd->mdl_context.try_acquire_lock(&mdl_request)) {
+  if (thd->mdl_context.try_acquire_lock(&mdl_request) ||
+      mdl_request.ticket == nullptr) {
     // DDL may hold this lock to drop task.
     can_lock = false;
     return true;
