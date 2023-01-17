@@ -1,0 +1,40 @@
+create table t(id int primary key);
+xa start '1';
+insert into t values(1);
+xa end '1';
+xa prepare '1';
+xa commit '1' tdsql_withgts 1;
+
+xa start '1';
+insert into t values(2);
+xa end '1';
+xa prepare '1';
+xa commit '1' tdsql_withgts 10;
+
+xa start '1';
+select * from t tdsql_withgts 2;
+select * from t for update tdsql_withgts 3;
+xa end '1';
+xa prepare '1';
+xa commit '1';
+
+xa start '1';
+select * from t with session 1 tdsql_withgts 4;
+xa end '1';
+xa prepare '1';
+xa commit '1';
+
+xa start '1';
+(select * from t) tdsql_withgts 5;
+xa end '1';
+xa prepare '1';
+xa commit '1';
+
+xa start '1';
+select * from t into @a tdsql_withgts 6;
+select @a;
+xa end '1';
+xa prepare '1';
+xa commit '1';
+
+drop table t;

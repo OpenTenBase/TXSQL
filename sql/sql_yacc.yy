@@ -10223,21 +10223,28 @@ select_stmt:
             $$ = NEW_PTN PT_select_stmt($1);
             Lex->gts = $2;
           }
-        | query_expression WITH SESSION_SYM real_ulonglong_num 
+        | query_expression WITH SESSION_SYM real_ulonglong_num opt_with_gts
           {
             $$ = NEW_PTN PT_select_stmt($1);
             Lex->attach_session_id = $4;
+            Lex->gts = $5;
           }
         | query_expression locking_clause_list opt_with_gts
           {
             $$ = NEW_PTN PT_select_stmt(NEW_PTN PT_locking($1, $2),
                                         nullptr, true);
+            Lex->gts = $3;
           }
-        | query_expression_parens
+        | query_expression_parens opt_with_gts
           {
             $$ = NEW_PTN PT_select_stmt($1);
+            Lex->gts = $2;
           }
         | select_stmt_with_into opt_with_gts
+        {
+            $$ = $1;
+            Lex->gts = $2;
+        }
         ;
 
 opt_with_gts:
