@@ -887,11 +887,12 @@ void Gtid_state::handle_gtid_on_finish(THD *thd, bool is_commit) {
 
     assert(executed_gtids.contains_gtid(thd->owned_gtid));
     executed_gtids._remove_gtid(thd->owned_gtid);
-    update_gtids_impl_broadcast_and_unlock_sidno(sidno);
  
     if (thd->owned_gtid.sidno == server_sidno &&
         next_free_gno > thd->owned_gtid.gno)
       next_free_gno = thd->owned_gtid.gno;
+      
+    update_gtids_impl_broadcast_and_unlock_sidno(sidno);
   }
 
   thd->clear_owned_gtids();
