@@ -6,6 +6,7 @@
 #include "audit_txsql.h"
 #include "sql/mysqld.h"
 #include "mysql/psi/mysql_mutex.h"
+#include <sql_string.h>
 
 #define OS_FILE_MAX_PATH  4000
 #define DELIMITER         '#'
@@ -42,6 +43,71 @@ static char str100[] = "0001020304050607080910111213141516171819202122232425"
 static const char *audit_filename_group[10] = {
   "audit_log1", "audit_log2", "audit_log3", "audit_log4", "audit_log5",
   "audit_log6", "audit_log7", "audit_log8", "audit_log9", "audit_log10"};
+
+/* This function will parse the escape character in audit log records
+   This function is very similar with function double_quote().
+   The idea is following:
+
+   1. For the escape character: '\\', '"', we just append the character.
+
+   2. For the escape character: '\b', '\f', '\n', '\r', '\t',
+      We need to append extra '\\' first, and then append the character.
+
+   3. For the Unprintable control character, we need to convert to hexadecimal
+      number before appending.
+
+   @param cptr[in]          The buffer contain the original sql statement
+   @param length[in]        The length of the original sql statement
+   @param buf[out]          The buffer storing the processed sql statement
+*/
+static bool escape_character_handling(const char *cptr, size_t length,
+                                      String *buf) {
+  for (size_t i = 0; i < length; i++) {
+    char esc[2] = {'\\', cptr[i]};
+    bool done = true;
+    switch (cptr[i]) {
+      case '"':
+      case '\\':
+        break;
+      case '\b':
+        esc[1] = 'b';
+        break;
+      case '\f':
+        esc[1] = 'f';
+        break;
+      case '\n':
+        esc[1] = 'n';
+        break;
+      case '\r':
+        esc[1] = 'r';
+        break;
+      case '\t':
+        esc[1] = 't';
+        break;
+      default:
+        done = false;
+    }
+
+    if (done) {
+      if (buf->append(esc[0]) || buf->append(esc[1]))
+        return true;                        /* purecov: inspected */
+    } else if (((cptr[i] & ~0x7f) == 0) &&  // bit 8 not set
+               (cptr[i] <= 0x1f)) {
+      /*
+        Unprintable control character, use hex a hexadecimal number.
+        The meaning of such a number determined by ISO/IEC 10646.
+      */
+      if (buf->append("\\u00") ||
+          buf->append(_dig_vec_lower[(cptr[i] & 0xf0) >> 4]) ||
+          buf->append(_dig_vec_lower[(cptr[i] & 0x0f)]))
+        return true; /* purecov: inspected */
+    } else if (buf->append(cptr[i])) {
+      return true; /* purecov: inspected */
+    }
+  }
+
+  return false;
+}
 
 /**
   get_log_file_name_in_append
@@ -203,6 +269,7 @@ void audit_handler::convert_to_json(struct mysql_event_general *event_general) {
   int lock_wait_len = 0, cpu_time_len = 0, io_wait_len = 0,
       ns_time_len = 0, trx_time_len = 0;
   int current_log_safety_level = log_safety_level;
+  int current_trunc_len = trunc_len;
 
   ulonglong thread_id = (ulonglong) event_general->general_thread_id;
 
@@ -226,8 +293,23 @@ void audit_handler::convert_to_json(struct mysql_event_general *event_general) {
                  event_general->general_lock_wait_time);
   CLAC_ULOGN_LEN(total_len,FORMAT_TRX_TIME_LEN, trx_time_len,
                  event_general->general_trx_utime);
-  query_len = event_general->general_query.length > trunc_len ?
-              trunc_len : event_general->general_query.length;
+
+  /* We need the dynamic buffer to store the processed sql. */
+  String sql_str;
+  /* We append query_length bytes of sql statement into dynamic buffer.
+  But the actual bytes in buffer maybe different from query_length. */
+  escape_character_handling(event_general->general_query.str,
+                            event_general->general_query.length, &sql_str);
+  query_len = sql_str.length() > current_trunc_len ? current_trunc_len
+                                                   : sql_str.length();
+  /* Add the end mark ... if the sql need to be truncated.
+  The maximum bytes reverse in share_mem is cur_trunc_len. */
+  if (sql_str.length() > current_trunc_len) {
+    sql_str[current_trunc_len - 1] = '.';
+    sql_str[current_trunc_len - 2] = '.';
+    sql_str[current_trunc_len - 3] = '.';
+    ++trunc_sql_counts;
+  }
 
   total_len += (affect_row_len + exec_len + time_len + err_len +
                 FORMAT_STR_LEN_part1 + event_general->general_ip.length +
@@ -300,33 +382,11 @@ void audit_handler::convert_to_json(struct mysql_event_general *event_general) {
 
   memcpy(CUR_AUDIT_MEM_PTR, "\",\"sql\":\"", FORMAT_SQLTEXT_LEN);
   mem_pos += FORMAT_SQLTEXT_LEN;
-  if (query_len > 0) {
-    char *dest_ptr = CUR_AUDIT_MEM_PTR;
-    char *src_ptr = const_cast<char *>(event_general->general_query.str);
-    int  i = 0;
-    while(i < query_len) {
-      switch(src_ptr[i]) {
-      case '\"':
-        dest_ptr[i] = '\'';
-        break;
-      case '\\':
-        dest_ptr[i] = '/';
-        break;
-      case '\n':
-      case '\r':
-      case '\t':
-      case '\0':
-        dest_ptr[i] = ' ';
-        break;
-      default:
-        dest_ptr[i] = src_ptr[i];
-      }
-      i++;
-    }
 
-    trunc_sql_counts += (event_general->general_query.length > trunc_len);
-    mem_pos += query_len;
-  }
+  /* We just write current_trunc_len bytes into share_mem from buffer. */
+  memcpy(CUR_AUDIT_MEM_PTR, sql_str.c_ptr_safe(), query_len);
+  mem_pos += query_len;
+
   *CUR_AUDIT_MEM_PTR = '\"';
   mem_pos++;
 
