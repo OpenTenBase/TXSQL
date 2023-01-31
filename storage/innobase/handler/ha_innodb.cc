@@ -26360,6 +26360,9 @@ bool innobase_get_page_status(std::vector<uint>& pages, ulint space_id,
       res = true;
       break;
     }
+#ifdef UNIV_DEBUG
+    if (block->page.file_page_was_freed) continue;
+#endif
     *used_bytes += innobase_calc_used_bytes(block);
     /* Add infimum and supremum to non-deleted recs. */
     *real_recs +=
