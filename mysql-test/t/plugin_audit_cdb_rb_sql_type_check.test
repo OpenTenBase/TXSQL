@@ -84,5 +84,6 @@ set global audit_cdb_config_json = default;
 set global cdb_recycle_bin_enabled= default;
 eval set global audit_cdb_audit_reload_config = $save_audit_cdb_audit_reload_config;
 let $MYSQL_TEST_DIR = $TEMP_CUR_DIR;
+clear recycle_bin;
 disconnect con1;
 disconnect con2;
