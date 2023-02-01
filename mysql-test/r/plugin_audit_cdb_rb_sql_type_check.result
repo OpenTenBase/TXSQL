@@ -26,6 +26,8 @@ audit_cdb_audit_reload_config	OFF
 # recycle bin is off
 #
 set global cdb_recycle_bin_enabled= off;
+Warnings:
+Warning	1287	'@@cdb_recycle_bin_enabled' is deprecated and will be removed in a future release. Please use txsql_recycle_bin_enabled instead.
 use test;
 create table t1 (a int);
 truncate table t1;
@@ -34,6 +36,8 @@ drop table t1;
 # recycle bin is on
 #
 set global cdb_recycle_bin_enabled= on;
+Warnings:
+Warning	1287	'@@cdb_recycle_bin_enabled' is deprecated and will be removed in a future release. Please use txsql_recycle_bin_enabled instead.
 use test;
 create table t1 (a int);
 truncate table t1;
@@ -52,4 +56,7 @@ set global audit_cdb_tencentroot_audit_dir = "mysql_test_dir";
 set global audit_cdb_audit_dir = "mysql_test_dir";
 set global audit_cdb_config_json = default;
 set global cdb_recycle_bin_enabled= default;
+Warnings:
+Warning	1287	'@@cdb_recycle_bin_enabled' is deprecated and will be removed in a future release. Please use txsql_recycle_bin_enabled instead.
 set global audit_cdb_audit_reload_config = 1;
+clear recycle_bin;

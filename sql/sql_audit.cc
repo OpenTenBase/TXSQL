@@ -375,12 +375,12 @@ int mysql_audit_notify(THD *thd, mysql_event_general_subclass_t subclass,
   /* need more information */
   if (nullptr != thd->lex)
   {
-    if (sql_command == SQLCOM_RENAME_TABLE &&
-        thd->lex->recycle_bin_op == RB_RECYCLE_TABLE_BY_DROP) {
-      sql_command = SQLCOM_DROP_TABLE;
-    } else if (sql_command == SQLCOM_CREATE_TABLE &&
-                 thd->lex->recycle_bin_op == RB_RECYCLE_TABLE_BY_TRUNCATE) {
-      sql_command = SQLCOM_TRUNCATE;
+    if (sql_command == SQLCOM_RENAME_TABLE) {
+      if (thd->lex->recycle_bin_op == RB_RECYCLE_TABLE_BY_DROP) {
+        sql_command = SQLCOM_DROP_TABLE;
+      } else if (thd->lex->recycle_bin_op == RB_RECYCLE_TABLE_BY_TRUNCATE) {
+        sql_command = SQLCOM_TRUNCATE;
+      }
     }
   }
 
