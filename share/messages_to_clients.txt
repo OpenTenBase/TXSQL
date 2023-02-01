@@ -10080,6 +10080,12 @@ ER_PX_DECODE_ERROR
 ER_PX_WORKER_NOT_USE_PX
   eng "Worker does not use px as same as Coordinator."
 
+ER_RECYCLE_BIN_DROP_TRIGGERS_FAILURE
+  eng "Drop triggers fail."
+
+ER_RECYCLE_BIN_CAN_NOT_TRUNCATE_TABLE_WITH_TRIGGERS
+  eng "Cannot truncate a table that contains triggers in Recycle Bin Mode"
+
 #
 # End of parallel execution specific messages to be sent to client
 #
