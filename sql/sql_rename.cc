@@ -589,6 +589,40 @@ bool mysql_rename_tables(THD *thd, TABLE_LIST *table_list) {
     }
   }
 
+  if (thd->lex->recycle_bin_op == RB_RECYCLE_TABLE_BY_DROP ||
+      thd->lex->recycle_bin_op == RB_RECYCLE_TABLE_BY_RENAME ||
+      thd->lex->recycle_bin_op == RB_RECYCLE_TABLE_BY_TRUNCATE) {
+    is_ren_table = false;
+    dd::Table *modify_table = nullptr;
+    for (TABLE_LIST *table = table_list; table && table->next_local;
+         table = table->next_local) {
+      if (is_ren_table) continue;
+      is_ren_table = !is_ren_table;
+      if (thd->dd_client()->acquire_for_modification(
+              table->db, table->table_name, &modify_table)) {
+        return true;
+      }
+
+      if (modify_table && modify_table->has_trigger()) {
+        if (thd->lex->recycle_bin_op == RB_RECYCLE_TABLE_BY_TRUNCATE) {
+          my_error(ER_RECYCLE_BIN_CAN_NOT_TRUNCATE_TABLE_WITH_TRIGGERS, MYF(0));
+          return true;
+        }
+        modify_table->drop_all_triggers();
+        if (thd->dd_client()->update(modify_table)) {
+          return true;
+        }
+      }
+    }
+
+    DBUG_EXECUTE_IF("rb_execute_failure_alter_drop_triggers", {
+      my_error(ER_RECYCLE_BIN_DROP_TRIGGERS_FAILURE, MYF(0));
+      return true;
+    });
+
+    DBUG_EXECUTE_IF("rb_crash_alter_drop_triggers", DBUG_SUICIDE(););
+  }
+
   for (ren_table = table_list; ren_table; ren_table = ren_table->next_local) {
     if (thd->locked_tables_mode)
       close_all_tables_for_name(thd, ren_table->db, ren_table->table_name,

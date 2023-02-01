@@ -1,0 +1,72 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+#
+#  Prepare
+#
+# open recycle bin on master
+set global txsql_recycle_bin_enabled = on;
+# open recycle bin on slave
+set global txsql_recycle_bin_enabled = on;
+create table t1(a int, b int);
+create trigger trig after insert on t1 for each row insert into t1 set b=1;
+#
+# Run 
+#
+#
+# case1. rename table
+#
+rename table t1 to t2;
+show triggers;
+Trigger	Event	Table	Statement	Timing	Created	sql_mode	Definer	character_set_client	collation_connection	Database Collation
+trig	INSERT	t2	insert into t1 set b=1	AFTER	<CREATE_TIME>	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	root@localhost	utf8mb4	utf8mb4_0900_ai_ci	utf8mb4_0900_ai_ci
+#
+# case2. drop triggers fail
+#
+SET DEBUG= '+d, rb_execute_failure_alter_drop_triggers';
+drop table t2;
+ERROR HY000: Drop triggers fail.
+show triggers;
+Trigger	Event	Table	Statement	Timing	Created	sql_mode	Definer	character_set_client	collation_connection	Database Collation
+trig	INSERT	t2	insert into t1 set b=1	AFTER	<CREATE_TIME>	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	root@localhost	utf8mb4	utf8mb4_0900_ai_ci	utf8mb4_0900_ai_ci
+SET DEBUG= '-d, rb_execute_failure_alter_drop_triggers';
+#
+# case3. crash after drop triggers
+#
+SET DEBUG= '+d, rb_crash_alter_drop_triggers';
+drop table t2;
+ERROR HY000: Lost connection to MySQL server during query
+# Restart the master server
+include/rpl_start_server.inc [server_number=1]
+SET DEBUG= '-d, rb_crash_alter_drop_triggers';
+show triggers;
+Trigger	Event	Table	Statement	Timing	Created	sql_mode	Definer	character_set_client	collation_connection	Database Collation
+trig	INSERT	t2	insert into t1 set b=1	AFTER	<CREATE_TIME>	ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION	root@localhost	utf8mb4	utf8mb4_0900_ai_ci	utf8mb4_0900_ai_ci
+#
+# case4. drop table with recycle_bin
+#
+set global txsql_recycle_bin_enabled = on;
+drop table t2;
+show triggers;
+Trigger	Event	Table	Statement	Timing	Created	sql_mode	Definer	character_set_client	collation_connection	Database Collation
+show triggers;
+Trigger	Event	Table	Statement	Timing	Created	sql_mode	Definer	character_set_client	collation_connection	Database Collation
+#
+# case5. truncate table with recycle_bin
+#
+set global txsql_recycle_bin_enabled = on;
+create table t3(a int, b int);
+create trigger trig after insert on t3 for each row insert into t3 set b=1;
+truncate table t3;
+ERROR HY000: Cannot truncate a table that contains triggers in Recycle Bin Mode
+#
+# Cleanup 
+# 
+clear recycle_bin;
+set global txsql_recycle_bin_enabled=0;
+set global txsql_recycle_bin_enabled=0;
+drop table t3;
+[connection master]
+include/rpl_end.inc
