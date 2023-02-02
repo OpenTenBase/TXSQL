@@ -1,0 +1,19 @@
+CREATE TABLE t1 (
+id1 INT ,
+a1 VARCHAR(200) ,
+b1 TEXT ,
+FULLTEXT KEY (a1,b1), PRIMARY KEY (a1, id1)
+) CHARACTER SET = utf8 , ENGINE = InnoDB;
+Warnings:
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+set global debug="+d,fts_wait_between_cacheclean_trxcommit";
+INSERT INTO t1 (id1,a1,b1) VALUES
+(1,'MySQL Tutorial','DBMS stands for DataBase VÐƷWİ...');
+SELECT * FROM t1 WHERE MATCH (a1,b1) AGAINST ('tutorial') ORDER BY id1;
+id1	a1	b1
+1	MySQL Tutorial	DBMS stands for DataBase VÐƷWİ...
+SELECT * FROM t1 WHERE MATCH (a1,b1) AGAINST ('tutorial') ORDER BY id1;
+id1	a1	b1
+1	MySQL Tutorial	DBMS stands for DataBase VÐƷWİ...
+drop table t1;
+set global debug="-d,fts_wait_between_cacheclean_trxcommit";

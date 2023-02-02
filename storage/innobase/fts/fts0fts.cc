@@ -3697,6 +3697,8 @@ static ulint fts_add_doc_by_id(fts_trx_table_t *ftt, doc_id_t doc_id,
         if (need_sync) {
           fts_optimize_request_sync_table(table);
         }
+        DBUG_EXECUTE_IF("fts_wait_between_cacheclean_trxcommit",
+                        {fts_optimize_request_sync_table(table);});
 
         mtr_start(&mtr);
 
@@ -4263,7 +4265,12 @@ static void fts_sync_index_reset(fts_index_cache_t *index_cache) {
   fts_cache_clear(cache);
   DEBUG_SYNC_C("fts_deleted_doc_ids_clear");
   fts_cache_init(cache);
-  rw_lock_x_unlock(&cache->lock);
+
+  DBUG_EXECUTE_IF("fts_wait_between_cacheclean_trxcommit", {
+      /* wait before trx commit, after fts cache cleaned. let the fts query happens at this point. */
+      std::this_thread::sleep_for(std::chrono::microseconds(5 * 1000 * 1000));
+    }
+  );
 
   if (error == DB_SUCCESS) {
     fts_sql_commit(trx);
@@ -4273,6 +4280,10 @@ static void fts_sync_index_reset(fts_index_cache_t *index_cache) {
 
     ib::error(ER_IB_MSG_476) << "(" << ut_strerr(error) << ") during SYNC.";
   }
+
+  /* Release cache lock after fts sql commit. if not, unconsistent read may happens 
+   * see fts_wait_between_cacheclean_trxcommit */
+  rw_lock_x_unlock(&cache->lock);
 
   if (fts_enable_diag_print && elapsed_time != std::chrono::seconds::zero()) {
     ib::info(ER_IB_MSG_477)

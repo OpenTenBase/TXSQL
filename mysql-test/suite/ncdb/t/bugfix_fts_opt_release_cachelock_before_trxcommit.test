@@ -1,0 +1,35 @@
+##
+# FTS opt thread clean fts cache and release cache lock before the written 
+# data is committed(flush cache data trx).
+# Query using fts index will not read the data cached during this time. 
+##
+--source include/have_debug.inc
+
+CREATE TABLE t1 (
+    id1 INT ,
+    a1 VARCHAR(200) ,
+    b1 TEXT ,
+    FULLTEXT KEY (a1,b1), PRIMARY KEY (a1, id1)
+    ) CHARACTER SET = utf8 , ENGINE = InnoDB;
+
+
+# let the fts opt thread sleep after fts cache lock release , before trx(flush cache data trx) commit
+# opt thread sleep 5 secs.
+set global debug="+d,fts_wait_between_cacheclean_trxcommit";
+
+# Insert rows
+INSERT INTO t1 (id1,a1,b1) VALUES
+        (1,'MySQL Tutorial','DBMS stands for DataBase VÐƷWİ...');
+
+--sleep 2
+
+# read uncosistent, if release lock before trx commit
+SELECT * FROM t1 WHERE MATCH (a1,b1) AGAINST ('tutorial') ORDER BY id1;
+
+--sleep 5
+
+# After the sleep, data is committed. read consistent
+SELECT * FROM t1 WHERE MATCH (a1,b1) AGAINST ('tutorial') ORDER BY id1;
+
+drop table t1;
+set global debug="-d,fts_wait_between_cacheclean_trxcommit";
