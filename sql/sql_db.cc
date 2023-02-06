@@ -756,9 +756,8 @@ bool mysql_rm_db(THD *thd, const LEX_CSTRING &db, bool if_exists) {
 
   bool is_recyle_bin = (strcasecmp(db.str, RECYCLE_BIN_SCHEMA_NAME.str) == 0);
 
-  bool enable_recycle = (!is_recyle_bin && txsql_recycle_bin_enabled &&
-                         thd->system_thread != SYSTEM_THREAD_SLAVE_SQL &&
-                         thd->system_thread != SYSTEM_THREAD_SLAVE_WORKER);
+  bool enable_recycle =
+      !is_recyle_bin && recycle_bin_enabled_in_user_thread(thd);
 
   /** Only txsql or tdsql user allows to drop recycle bin database */
   if (is_recyle_bin && !(thd->is_system_thread())) {
@@ -888,14 +887,12 @@ bool mysql_rm_db(THD *thd, const LEX_CSTRING &db, bool if_exists) {
       thd->clear_error(); /* @todo Do not ignore errors */
       Disable_binlog_guard binlog_guard(thd);
       error = Events::drop_schema_events(thd, *schema);
+      error = (error || sp_drop_db_routines(thd, *schema));
       if (!error) {
         if (enable_recycle) {
           db_object_recycle(thd, db.str, schema->id());
         } else {
-          error = (error || sp_drop_db_routines(thd, *schema));
-          if (!error) {
-            drop_db_sequences(thd, db.str);
-          }
+          drop_db_sequences(thd, db.str);
         }
       }
     }

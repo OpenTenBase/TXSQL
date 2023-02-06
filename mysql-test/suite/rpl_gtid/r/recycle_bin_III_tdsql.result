@@ -452,6 +452,10 @@ sb_seq.nextval
 select * from mysql.tdsql_sequences;
 db	name	curval	start	step	max_value	min_value	do_cycle	n_cache
 db_a	sb_seq	40	1	1	9223372036854775807	1	0	20
+use db_a;
+select sb_seq.nextval;
+sb_seq.nextval
+41
 drop database db_a;
 clear recycle_bin;
 Warnings:
@@ -474,8 +478,7 @@ restore database db_a from RECYCLE_BIN;
 Warnings:
 Warning	4203	No corresponding record was found in recycle_bin.
 select hello("wx2");
-hello("wx2")
-Hello, wx2!
+ERROR 42000: FUNCTION db_a.hello does not exist
 use db_a;
 set allow_access_dd_tables=on;
 select * from mysql.routines where name like '%hello%';
@@ -505,8 +508,7 @@ ERROR 42000: PROCEDURE db_a.p1 does not exist
 restore database db_a from RECYCLE_BIN;
 use db_a;
 call p1();
-a
-1
+ERROR 42000: PROCEDURE db_a.p1 does not exist
 use db_a;
 call p1();
 ERROR 42000: PROCEDURE db_a.p1 does not exist
