@@ -468,6 +468,8 @@ select sb_seq.nextval;
 --connection tdsql_slave
 --replace_regex /.*__recycle_bin__db_a/__recycle_bin__db_a/
 select * from mysql.tdsql_sequences;
+use db_a;
+select sb_seq.nextval;
 --connection tdsql_master
 
 drop database db_a;
@@ -490,6 +492,7 @@ use db_a;
 select hello("wx");
 
 restore database db_a from RECYCLE_BIN;
+--error ER_SP_DOES_NOT_EXIST
 select hello("wx2");
 
 --sync_slave_with_master
@@ -527,6 +530,7 @@ call p1();
 
 restore database db_a from RECYCLE_BIN;
 use db_a;
+--error ER_SP_DOES_NOT_EXIST
 call p1();
 
 --sync_slave_with_master

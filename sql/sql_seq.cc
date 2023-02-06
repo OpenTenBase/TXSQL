@@ -100,10 +100,7 @@ struct Seq_task {
     DROP_DB_SEQ,
     RECYCLE_SEQUENCE,
     CLEAR_SEQUENCE,
-    RESTORE_SEQUENCE,
-    RECYCLE_ROUTINE,
-    CLEAR_ROUTINE,
-    RESTORE_ROUTINE
+    RESTORE_SEQUENCE
   };
   std::string db, name;
   Type type;
@@ -139,8 +136,7 @@ struct Seq_task {
         (char *)"DROP_SEQUENCE",         (char *)"FETCH_SEQUENCE",
         (char *)"DROP_DB_SEQ",           (char *)"RECYCLE_SEQUENCE",
         (char *)"CLEAR_SEQUENCE",        (char *)"RESTORE_SEQUENCE",
-        (char *)"RECYCLE_ROUTINE",       (char *)"CLEAR_ROUTINE",
-        (char *)"RESTORE_ROUTINE"};
+        (char *)"RECYCLE_ROUTINE"};
     return type_strs[t];
   }
 
@@ -462,32 +458,6 @@ static void *sql_work(void*param0) {
                  "update mysql.tdsql_sequences set db = '%s' where db like "
                  "'%%__recycle_bin__%s'",
                  rtask->db.c_str(), rtask->db.c_str());
-        break;
-      }
-      case Seq_task::RECYCLE_ROUTINE: {
-        Object_recycle_task *rtask = (Object_recycle_task *)task;
-        snprintf(sql_buf, sizeof(sql_buf),
-                 "update mysql.routines set name = concat(unix_timestamp(), "
-                 "'_', '%s', '__recycle_bin__', name) where schema_id = %lu",
-                 rtask->db.c_str(), rtask->schema_id);
-        break;
-      }
-      case Seq_task::CLEAR_ROUTINE: {
-        Object_clear_task *ctask = (Object_clear_task *)task;
-        snprintf(
-            sql_buf, sizeof(sql_buf),
-            "delete from mysql.routines where name like '%%__recycle_bin__%%' "
-            "and substring_index(name, '_', 1) <= %ld",
-            ctask->before_time);
-        break;
-      }
-      case Seq_task::RESTORE_ROUTINE: {
-        Object_restore_task *rtask = (Object_restore_task *)task;
-        snprintf(sql_buf, sizeof(sql_buf),
-                 "update mysql.routines set name = substring_index(name, "
-                 "'__recycle_bin__', -1), schema_id = %lu where name like "
-                 "'%%%s__recycle_bin__%%'",
-                 rtask->schema_id, rtask->db.c_str());
         break;
       }
       default:
@@ -1424,35 +1394,12 @@ void db_object_recycle(THD *thd, const char *dbname, uint64_t schema_id) {
                         ER_THD(thd, ER_RECYCLE_BIN_FAIL_OP_OBJECTS), "recycle",
                         "sequence", dbname, t.get_error());
   }
-
-  /* Recycle routine */
-  Object_recycle_task t2(dbname, schema_id, Seq_task::RECYCLE_ROUTINE, false);
-  t2.thread_type = SYSTEM_THREAD_DD_MODIFY;
-  seq_tasks.append_task(&t2);
-  t2.wait();
-
-  if (t2.get_error()) {
-    push_warning_printf(thd, Sql_condition::SL_NOTE,
-                        ER_RECYCLE_BIN_FAIL_OP_OBJECTS,
-                        ER_THD(thd, ER_RECYCLE_BIN_FAIL_OP_OBJECTS), "recycle",
-                        "routine", dbname, t2.get_error());
-  }
-
-  sp_cache_invalidate();
 }
 
 void db_object_clear(THD *thd, time_t before_time) {
   Object_clear_task t(before_time, Seq_task::CLEAR_SEQUENCE, true);
   seq_tasks.append_task(&t);
   t.wait();
-
-  /* Clear routine */
-  Object_clear_task t2(before_time, Seq_task::CLEAR_ROUTINE, false);
-  t2.thread_type = SYSTEM_THREAD_DD_MODIFY;
-  seq_tasks.append_task(&t2);
-  t2.wait();
-
-  sp_cache_invalidate();
 }
 
 void db_object_restore(THD *thd, const char *dbname, uint64_t schema_id) {
@@ -1466,19 +1413,4 @@ void db_object_restore(THD *thd, const char *dbname, uint64_t schema_id) {
                         ER_THD(thd, ER_RECYCLE_BIN_FAIL_OP_OBJECTS), "restore",
                         "sequence", dbname, t.get_error());
   }
-
-  /* Restore routine */
-  Object_restore_task t2(dbname, schema_id, Seq_task::RESTORE_ROUTINE, false);
-  t2.thread_type = SYSTEM_THREAD_DD_MODIFY;
-  seq_tasks.append_task(&t2);
-  t2.wait();
-
-  if (t2.get_error()) {
-    push_warning_printf(thd, Sql_condition::SL_NOTE,
-                        ER_RECYCLE_BIN_FAIL_OP_OBJECTS,
-                        ER_THD(thd, ER_RECYCLE_BIN_FAIL_OP_OBJECTS), "restore",
-                        "routine", dbname, t2.get_error());
-  }
-
-  sp_cache_invalidate();
 }
