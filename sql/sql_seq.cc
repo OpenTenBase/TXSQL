@@ -357,6 +357,15 @@ static void *sql_work(void*param0) {
 
   my_thread_init();
   THD *thd = create_thd(false, true, false, 0, 0);
+#ifndef HAVE_TDSQL
+  Security_context *ctx = thd->security_context();
+
+  ctx->set_user_ptr(STRING_WITH_LEN("tencentroot"));
+  thd->in_white_list = true;
+  thd->is_tencent_root = true;
+
+  ctx->tencentroot_grants();
+#endif
   thd->set_new_thread_id(); // avoid assert check fail under debug mode
   thd->variables.option_bits |= OPTION_AUTOCOMMIT;//we must use autocommit in this thd
   thd->variables.option_bits &= ~OPTION_NOT_AUTOCOMMIT;

@@ -1,0 +1,6 @@
+set global cdb_forbid_mysql_write = on;
+set global cdb_forbid_system_database_write = on;
+create sequence seq;
+drop sequence seq;
+set global cdb_forbid_mysql_write = default;
+set global cdb_forbid_system_database_write = default;
