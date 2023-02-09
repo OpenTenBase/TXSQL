@@ -1976,6 +1976,9 @@ The following options may be given as the first argument:
  This option is used to let the server know when to
  extract the write set which will be used for various
  purposes. 
+ --txsql-check-thd-in-bottom-half 
+ Whether to check thd valid or not in bottom half of
+ sqlasync 
  --txsql-column-encryption-whitelist=name 
  allows user to access column encryption data,if set 0 or
  empty string means no priv limit 
@@ -1987,6 +1990,9 @@ The following options may be given as the first argument:
  Do not record GTID in undo log header which cause
  performance degradation. If set to ON, clone statement is
  not allowed.
+ --txsql-disable-sqlasyn 
+ A session only variable to disable strong synchroniaztion
+ if set
  --txsql-extend-slow-log-level=# 
  Control the level of extended information in slow log.
  --txsql-found-rows  Sets the total size of the transactional cache
@@ -2654,9 +2660,11 @@ transaction-isolation REPEATABLE-READ
 transaction-prealloc-size 4096
 transaction-read-only FALSE
 transaction-write-set-extraction XXHASH64
+txsql-check-thd-in-bottom-half FALSE
 txsql-column-encryption-whitelist (No default value)
 txsql-compute-query-time-for-slow-logging 0
 txsql-disable-gtid-in-undo FALSE
+txsql-disable-sqlasyn FALSE
 txsql-extend-slow-log-level 0
 txsql-found-rows 0
 txsql-load-data-local-strict-mode FALSE

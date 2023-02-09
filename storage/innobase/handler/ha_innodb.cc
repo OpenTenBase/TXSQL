@@ -24722,6 +24722,12 @@ static MYSQL_SYSVAR_BOOL(async_checkpoint_now, srv_async_checkpoint_now,
                          "FALSE automaticly." ,
                          nullptr, innodb_async_checkpoint_update, false);
 
+/* compatible with cdb8022 */
+static MYSQL_SYSVAR_BOOL(flush_redo_using_fdatasync, srv_use_fdatasync,
+                         PLUGIN_VAR_NOCMDARG,
+                         "Use fdatasync() instead of the default fsync().",
+                         nullptr, nullptr, false);
+
 #define ASYNC_TRUNCATE_SIZE_MAX 4096
 #define ASYNC_TRUNCATE_SIZE_MIN 128
 #define ASYNC_TABLE_SIZE_MAX 204800
@@ -25412,6 +25418,7 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(min_column_compress_length),
     MYSQL_SYSVAR(zlib_column_compression_level),
     MYSQL_SYSVAR(zstd_column_compression_level),
+    MYSQL_SYSVAR(flush_redo_using_fdatasync),
     nullptr};
 
 mysql_declare_plugin(innobase){
