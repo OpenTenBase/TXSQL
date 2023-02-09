@@ -134,6 +134,8 @@ innodb_fast_ahi_cleanup_num_entries_thres
 innodb_fast_ahi_cleanup_num_entries_thres
 innodb_fast_ddl
 innodb_fast_ddl
+innodb_flush_redo_using_fdatasync
+innodb_flush_redo_using_fdatasync
 innodb_hot_update_detect
 innodb_hot_update_detect
 innodb_hot_update_wait_timeout
@@ -390,6 +392,7 @@ tls_ciphersuites
 tls_ciphersuites
 tx_isolation
 tx_isolation
+txsql_disable_sqlasyn
 txsql_found_rows
 txsql_found_rows
 txsql_load_data_local_strict_mode

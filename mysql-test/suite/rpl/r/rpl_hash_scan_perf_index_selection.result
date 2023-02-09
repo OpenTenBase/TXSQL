@@ -21,6 +21,7 @@ Variable_name	Value
 innodb_stats_auto_recalc	ON
 innodb_stats_include_delete_marked	OFF
 innodb_stats_method	nulls_equal
+innodb_stats_notify_change	OFF
 innodb_stats_on_metadata	OFF
 innodb_stats_persistent	ON
 innodb_stats_persistent_sample_pages	20
