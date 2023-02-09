@@ -7,6 +7,9 @@
 #include "sync0sync.h"
 #include "trx0tlog.h"
 #include "ha_prototypes.h"
+
+#include <filesystem>
+
 TLogManager *tlog_mgr = nullptr;
 
 #define TLOG_GTS_MASK          0xFFFFFFFF0FFFFFFF
@@ -36,7 +39,11 @@ TLogFile::TLogFile(uint64_t file_num, const std::string &dir) {
   m_file_buffer = nullptr;
   m_file_buffer_ptr = nullptr;
 
-  m_path = dir + std::string(TLOG_FILE_PREFIX) + std::to_string(file_num);
+  /* 'dir' may not end with directory separator, using std::filesystem::path
+  to concatenate 'dir' and file name. */
+  std::filesystem::path dir_path(dir);
+  dir_path.append(std::string(TLOG_FILE_PREFIX) + std::to_string(file_num));
+  m_path = dir_path.string();
   m_file_num = file_num;
 }
 
