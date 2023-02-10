@@ -694,17 +694,15 @@ end:
    Mark wheather the recycle bin feature is turned on.
  */ 
 bool recycle_bin_enabled(THD *thd) {
-  return (txsql_recycle_bin_enabled &&
-          dd::bootstrap::DD_bootstrap_ctx::instance().get_stage() ==
-              dd::bootstrap::Stage::FINISHED) ||
+  return (txsql_recycle_bin_enabled && !thd->is_bootstrap_system_thread() &&
+          !thd->is_server_upgrade_thread()) ||
          thd->system_thread == SYSTEM_THREAD_SLAVE_SQL ||
          thd->system_thread == SYSTEM_THREAD_SLAVE_WORKER;
 }
 
 bool recycle_bin_enabled_in_user_thread(THD *thd) {
-  return txsql_recycle_bin_enabled &&
-         dd::bootstrap::DD_bootstrap_ctx::instance().get_stage() ==
-             dd::bootstrap::Stage::FINISHED &&
+  return txsql_recycle_bin_enabled && !thd->is_bootstrap_system_thread() &&
+         !thd->is_server_upgrade_thread() &&
          thd->system_thread != SYSTEM_THREAD_SLAVE_SQL &&
          thd->system_thread != SYSTEM_THREAD_SLAVE_WORKER;
 }

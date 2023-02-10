@@ -1,0 +1,50 @@
+--source include/have_txsql.inc
+--echo #
+--echo # Test recycle bin compatibility after upgrading from 8022
+--echo #
+
+connect (con_tencentroot, localhost, tencentroot,'', );
+
+let BASEDIR=    `select @@basedir`;
+let extra_args= --no-defaults --innodb_dedicated_server=OFF --secure-file-priv="" --loose-skip-auto_generate_certs --loose-skip-sha256_password_auto_generate_rsa_keys --skip-ssl --basedir=$BASEDIR --lc-messages-dir=$MYSQL_SHAREDIR;
+
+--echo #
+--echo # Test upgrade from 8022 when recycle_bin is enabled
+--echo #
+
+--echo # Stop the running server.
+--exec echo "wait" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--shutdown_server 300
+--connection con_tencentroot
+--source include/wait_until_disconnected.inc
+--echo # Unzip a 8.0.22 datadir
+--file_exists $MYSQLTEST_VARDIR/std_data/recycle_bin/8022_without_cdb_recycle_bin.zip
+--exec unzip -qo $MYSQLTEST_VARDIR/std_data/recycle_bin/8022_without_cdb_recycle_bin.zip -d $MYSQL_TMP_DIR
+let $DATA_80022_DATADIR = $MYSQL_TMP_DIR/data;
+
+--echo # Restart the server
+let $MYSQLD_LOG= $MYSQLTEST_VARDIR/log/save_upgrade.log;
+--exec echo "restart: --datadir=$DATA_80022_DATADIR --txsql_recycle_bin_enabled=on --log-error=$MYSQLD_LOG" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--enable_reconnect
+--let $wait_counter= 10000
+--source include/wait_until_connected_again.inc
+
+--let $assert_text = txsql_recycle_bin_enabled shall be on
+--let $assert_cond = @@global.txsql_recycle_bin_enabled = 1
+--source include/assert.inc
+
+--echo #
+--echo # Remove files and stop the server.
+--echo #
+# shutdwon first
+--source include/shutdown_mysqld.inc
+# remove MYSQLD_LOG
+--file_exists $MYSQLD_LOG
+--remove_file $MYSQLD_LOG
+--force-rmdir $MYSQL_TMP_DIR/data
+
+--echo #
+--echo # Restart with default options.
+--echo #
+let $restart_parameters =;
+--source include/start_mysqld_no_echo.inc
