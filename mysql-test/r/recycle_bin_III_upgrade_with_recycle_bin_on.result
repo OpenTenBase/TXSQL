@@ -1,0 +1,16 @@
+#
+# Test recycle bin compatibility after upgrading from 8022
+#
+#
+# Test upgrade from 8022 when recycle_bin is enabled
+#
+# Stop the running server.
+# Unzip a 8.0.22 datadir
+# Restart the server
+include/assert.inc [txsql_recycle_bin_enabled shall be on]
+#
+# Remove files and stop the server.
+#
+#
+# Restart with default options.
+#
