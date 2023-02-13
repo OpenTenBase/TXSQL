@@ -1,0 +1,53 @@
+--source include/have_log_bin.inc
+--source include/have_binlog_format_row.inc
+--source include/master-slave.inc
+--source include/have_debug.inc
+
+--echo #
+--echo #  Prepare
+--echo #
+
+connect (con_tencentroot_master, localhost, tencentroot,,,,$MASTER_MYSOCK);
+--let $txsql_recycle_bin_enabled_default= `select @@txsql_recycle_bin_enabled`
+--echo # open recycle bin on master
+set global txsql_recycle_bin_enabled = on;
+
+connect (con_tencentroot_slave, localhost, tencentroot,,,,$SLAVE_MYSOCK);
+--echo # open recycle bin on slave
+set global txsql_recycle_bin_enabled = on;
+
+--echo #
+--echo # Run 
+--echo #
+--connection con_tencentroot_master 
+create table t1(a int);
+drop table t1;
+
+--let $rb_table_name= `select table_name from mysql.recycle_bin_info limit 1`
+--replace_regex /__txsql_.*__/<RECYCLED_TABLE>/
+--eval drop table if exists __txsql_recycle_bin__.$rb_table_name
+--replace_column 1 <RECYCLED_TABLE>  4 <DROP_TIME>  5 <PURGE_TIME>
+select * from mysql.recycle_bin_info;
+show tables in __txsql_recycle_bin__;
+
+--sync_slave_with_master
+--replace_column 1 <RECYCLED_TABLE>  4 <DROP_TIME>  5 <PURGE_TIME>
+select * from mysql.recycle_bin_info;
+show tables in __txsql_recycle_bin__;
+
+--connection con_tencentroot_master 
+delete from mysql.recycle_bin_info;
+
+--echo #
+--echo # Cleanup 
+--echo # 
+
+--connection con_tencentroot_slave
+--eval set global txsql_recycle_bin_enabled=$txsql_recycle_bin_enabled_default
+
+
+--connection con_tencentroot_master
+--eval set global txsql_recycle_bin_enabled=$txsql_recycle_bin_enabled_default
+
+--source include/rpl_connection_master.inc
+--source include/rpl_end.inc

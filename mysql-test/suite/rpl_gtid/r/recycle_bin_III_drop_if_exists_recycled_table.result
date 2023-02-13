@@ -1,0 +1,36 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+#
+#  Prepare
+#
+# open recycle bin on master
+set global txsql_recycle_bin_enabled = on;
+# open recycle bin on slave
+set global txsql_recycle_bin_enabled = on;
+#
+# Run 
+#
+create table t1(a int);
+drop table t1;
+drop table if exists <RECYCLED_TABLE>;
+select * from mysql.recycle_bin_info;
+table_name	origin_schema	origin_table	drop_time	purge_time
+<RECYCLED_TABLE>	test	t1	<DROP_TIME>	<PURGE_TIME>
+show tables in __txsql_recycle_bin__;
+Tables_in___txsql_recycle_bin__
+select * from mysql.recycle_bin_info;
+table_name	origin_schema	origin_table	drop_time	purge_time
+<RECYCLED_TABLE>	test	t1	<DROP_TIME>	<PURGE_TIME>
+show tables in __txsql_recycle_bin__;
+Tables_in___txsql_recycle_bin__
+delete from mysql.recycle_bin_info;
+#
+# Cleanup 
+# 
+set global txsql_recycle_bin_enabled=0;
+set global txsql_recycle_bin_enabled=0;
+[connection master]
+include/rpl_end.inc

@@ -1098,7 +1098,7 @@ bool mysql_clear_tables(THD *thd, time_t before_time, Table_ident *table_ident,
 
   thd->lex->recycle_bin_op = RB_PURGE_TABLE;
 
-  bool error =  mysql_rm_table(thd, head, true, false);
+  bool error =  mysql_rm_table(thd, head, false, false);
 
   /** Clear objects */
   if (!error && table_ident == nullptr) {
