@@ -13471,7 +13471,7 @@ drop_table_stmt:
               YYPS->m_lock_type= TL_UNLOCK;
               YYPS->m_mdl_type= MDL_EXCLUSIVE;
               lex->sql_command= SQLCOM_DROP_TABLE;
-              if (tables_in_recycle_bin)
+              if (tables_in_recycle_bin && !lex->drop_if_exists)
                 lex->recycle_bin_op= RB_PURGE_TABLE;
               else
                 lex->recycle_bin_op= RB_NO_OP;
