@@ -126,6 +126,8 @@
 #include "sql/sql_seq.h"
 /* Changes from TXSQL end. */
 
+extern bool sql_auto_is_null;
+extern bool sql_safe_updates;
 class Parse_tree_root;
 
 using std::max;
@@ -1190,6 +1192,15 @@ void THD::init(void) {
   else
     variables.option_bits &= ~OPTION_BIN_LOG;
 
+  if (sql_auto_is_null)
+    variables.option_bits |= OPTION_AUTO_IS_NULL;
+  else
+    variables.option_bits &= ~OPTION_AUTO_IS_NULL;
+
+  if (sql_safe_updates)
+    variables.option_bits |= OPTION_SAFE_UPDATES;
+  else
+    variables.option_bits &= ~OPTION_SAFE_UPDATES;
 #if defined(ENABLED_DEBUG_SYNC)
   /* Initialize the Debug Sync Facility. See debug_sync.cc. */
   debug_sync_init_thread(this);

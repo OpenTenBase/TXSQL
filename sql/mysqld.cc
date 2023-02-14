@@ -1853,6 +1853,9 @@ void clean_txsql_thread_resouce() {
   }
 }
 
+bool sql_auto_is_null = false;
+bool sql_safe_updates = false;
+
 /* Changes from txsql end. */
 
 namespace {
@@ -9863,7 +9866,12 @@ struct my_option my_long_options[] = {
      "server if required; FORCE to force upgrade server.",
      &opt_upgrade_mode, &opt_upgrade_mode, &upgrade_mode_typelib, GET_ENUM,
      REQUIRED_ARG, UPGRADE_AUTO, 0, 0, nullptr, 0, nullptr},
-
+    {"sql_auto_is_null", 0, "sql_auto_is_null", &sql_auto_is_null,
+     &sql_auto_is_null, nullptr, GET_BOOL, OPT_ARG, false, 0, 0, nullptr, 0,
+     nullptr},
+    {"sql_safe_updates", 0, "sql_safe_updates", &sql_safe_updates,
+     &sql_safe_updates, nullptr, GET_BOOL, OPT_ARG, false, 0, 0, nullptr, 0,
+     nullptr},
     {nullptr, 0, nullptr, nullptr, nullptr, nullptr, GET_NO_ARG, NO_ARG, 0, 0,
      0, nullptr, 0, nullptr}};
 
