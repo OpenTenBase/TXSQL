@@ -38,8 +38,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "lob0lob.h"
 #include "log0chkp.h"
 
-/** Innodb B-tree index fill factor for bulk load. */
-long innobase_fill_factor;
+#include "ddl0ddl.h"
 
 /** Initialize members, allocate page if needed and start mtr.
 Note: we commit all mtrs on failure.
@@ -143,11 +142,11 @@ dberr_t PageBulk::init() {
   ut_ad(m_is_comp == !!page_is_comp(new_page));
   m_free_space = page_get_free_space_of_empty(m_is_comp);
 
-  if (innobase_fill_factor == 100 && m_index->is_clustered()) {
+  if (ddl::fill_factor == 100 && m_index->is_clustered()) {
     /* Keep default behavior compatible with 5.6 */
     m_reserved_space = dict_index_get_space_reserve();
   } else {
-    m_reserved_space = UNIV_PAGE_SIZE * (100 - innobase_fill_factor) / 100;
+    m_reserved_space = UNIV_PAGE_SIZE * (100 - ddl::fill_factor) / 100;
   }
 
   m_padding_space =
@@ -339,7 +338,7 @@ void PageBulk::commit(bool success) {
     /* Set no free space left and no buffered changes in ibuf. */
     if (!m_index->is_clustered() && !m_index->table->is_temporary() &&
         page_is_leaf(m_page)) {
-      ibuf_set_bitmap_for_bulk_load(m_block, innobase_fill_factor == 100);
+      ibuf_set_bitmap_for_bulk_load(m_block, ddl::fill_factor == 100);
     }
   }
 

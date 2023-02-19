@@ -41,9 +41,6 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "ut0class_life_cycle.h"
 #include "ut0new.h"
 
-/** Innodb B-tree index fill factor for bulk load. */
-extern long innobase_fill_factor;
-
 /*
 The proper function call sequence of PageBulk is as below:
 -- PageBulk::init
