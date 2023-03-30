@@ -300,11 +300,12 @@ void audit_handler::convert_to_json(struct mysql_event_general *event_general) {
   But the actual bytes in buffer maybe different from query_length. */
   escape_character_handling(event_general->general_query.str,
                             event_general->general_query.length, &sql_str);
-  query_len = sql_str.length() > current_trunc_len ? current_trunc_len
-                                                   : sql_str.length();
+  query_len = sql_str.length() > (size_t)current_trunc_len
+                  ? (size_t)current_trunc_len
+                  : sql_str.length();
   /* Add the end mark ... if the sql need to be truncated.
   The maximum bytes reverse in share_mem is cur_trunc_len. */
-  if (sql_str.length() > current_trunc_len) {
+  if (sql_str.length() > (size_t)current_trunc_len) {
     sql_str[current_trunc_len - 1] = '.';
     sql_str[current_trunc_len - 2] = '.';
     sql_str[current_trunc_len - 3] = '.';
