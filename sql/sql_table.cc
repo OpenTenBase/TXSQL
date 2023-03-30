@@ -10136,6 +10136,7 @@ void mysql_convert_table_myisam_to_innodb(THD *thd, const char *type,
     switch (tmp_myisam_conversion_innodb) {
       case CONVERSION_MODE_TRY:
         db_type = ha_resolve_by_legacy_type(thd, DB_TYPE_INNODB);
+        if (thd->lex->part_info) thd->lex->part_info->convert_engine_type(thd);
         create_info->used_fields |= HA_CREATE_USED_ENGINE;
         converted = true;
         sql_print_information(
@@ -10151,6 +10152,7 @@ void mysql_convert_table_myisam_to_innodb(THD *thd, const char *type,
                                 ha_resolve_by_legacy_type(thd, DB_TYPE_INNODB)),
                             table);
         db_type = ha_resolve_by_legacy_type(thd, DB_TYPE_INNODB);
+        if (thd->lex->part_info) thd->lex->part_info->convert_engine_type(thd);
         create_info->used_fields |= HA_CREATE_USED_ENGINE;
         sql_print_information(
             "%s %s db:[%s],tb[%s]"
@@ -10159,6 +10161,7 @@ void mysql_convert_table_myisam_to_innodb(THD *thd, const char *type,
         break;
       case CONVERSION_MODE_ON:
         db_type = ha_resolve_by_legacy_type(thd, DB_TYPE_INNODB);
+        if (thd->lex->part_info) thd->lex->part_info->convert_engine_type(thd);
         create_info->used_fields |= HA_CREATE_USED_ENGINE;
         sql_print_information(
             "%s %s db:[%s],tb[%s]"
