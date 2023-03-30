@@ -1,0 +1,84 @@
+--source include/have_log_bin.inc
+--source include/have_myisam.inc
+
+--echo #
+--echo # Prepare
+--echo # 
+
+connect (con_tencentroot, localhost, tencentroot,'', );
+--connection con_tencentroot
+SET @save_myisam_conversion_innodb=@@myisam_conversion_innodb;
+SET @save_tencent_myisam_conversion_innodb=@@tencent_myisam_conversion_innodb;
+SET GLOBAL myisam_conversion_innodb=TRY;
+SET GLOBAL tencent_myisam_conversion_innodb=TRY;
+
+--echo #
+--echo # Run
+--echo # 
+
+connection default;
+
+--echo # case 1 table engine = all partition engine = myisam
+CREATE TABLE t1 (id INT, name VARCHAR(50), purchased DATE) ENGINE=MYISAM
+  PARTITION BY RANGE( YEAR(purchased) ) (
+  PARTITION p0 VALUES LESS THAN (1990) ENGINE=MYISAM,
+  PARTITION p1 VALUES LESS THAN (1995) ENGINE=MYISAM,
+  PARTITION p2 VALUES LESS THAN (2000) ENGINE=MYISAM,
+  PARTITION p3 VALUES LESS THAN (2005) ENGINE=MYISAM);
+
+show create table t1;
+drop table t1;
+
+--echo case2 default storage engine = myisam
+SET @save_default_storage_engine=@@default_storage_engine;
+set default_storage_engine=MyISAM;
+CREATE TABLE t1 (id INT, name VARCHAR(50), purchased DATE) 
+  PARTITION BY RANGE( YEAR(purchased) ) (
+  PARTITION p0 VALUES LESS THAN (1990), 
+  PARTITION p1 VALUES LESS THAN (1995),
+  PARTITION p2 VALUES LESS THAN (2000),
+  PARTITION p3 VALUES LESS THAN (2005));
+show create table t1;
+drop table t1;
+set default_storage_engine=@save_default_storage_engine;
+
+--echo case3 table engine = partial engine = myisam
+CREATE TABLE t1 (id INT, name VARCHAR(50), purchased DATE) ENGINE=MYISAM
+  PARTITION BY RANGE( YEAR(purchased) ) (
+  PARTITION p0 VALUES LESS THAN (1990), 
+  PARTITION p1 VALUES LESS THAN (1995) ENGINE=MYISAM,
+  PARTITION p2 VALUES LESS THAN (2000),
+  PARTITION p3 VALUES LESS THAN (2005));
+show create table t1;
+drop table t1;
+
+--echo case4 table engine != myisam and partial partition engine = myisam
+--error ER_MIX_HANDLER_ERROR
+CREATE TABLE t1 (id INT, name VARCHAR(50), purchased DATE) ENGINE=InnoDB
+  PARTITION BY RANGE( YEAR(purchased) ) (
+  PARTITION p0 VALUES LESS THAN (1990), 
+  PARTITION p1 VALUES LESS THAN (1995) ENGINE=MYISAM,
+  PARTITION p2 VALUES LESS THAN (2000),
+  PARTITION p3 VALUES LESS THAN (2005));
+
+--error ER_MIX_HANDLER_ERROR
+CREATE TABLE t1 (id INT, name VARCHAR(50), purchased DATE)
+  PARTITION BY RANGE( YEAR(purchased) ) (
+  PARTITION p0 VALUES LESS THAN (1990), 
+  PARTITION p1 VALUES LESS THAN (1995) ENGINE=MYISAM,
+  PARTITION p2 VALUES LESS THAN (2000),
+  PARTITION p3 VALUES LESS THAN (2005));
+
+--echo case5 alter table ddl
+CREATE TABLE t1 (id INT, name VARCHAR(50), purchased DATE) ENGINE=MYISAM
+  PARTITION BY RANGE( YEAR(purchased) ) (
+  PARTITION p0 VALUES LESS THAN (1990), 
+  PARTITION p1 VALUES LESS THAN (1995) ENGINE=MYISAM,
+  PARTITION p2 VALUES LESS THAN (2000),
+  PARTITION p3 VALUES LESS THAN (2005));
+show create table t1;
+--error ER_MIX_HANDLER_ERROR
+alter table t1 add partition (partition p4 values less than (2007) engine=MyISAM);
+
+drop table t1;
+
