@@ -811,7 +811,11 @@ bool PX_coordinator::schedule(worker_pool_t *worker_pool)
       thd()->collect_px_stmt_da_for_error();
     goto fallback_unlock_clean_workers;
   }
-  if (!check_equivalence(worker_pool)) goto fallback_unlock_clean_workers;
+
+  if (!check_equivalence(worker_pool)) {
+    my_error(ER_PX_FALLBACK_SERIAL_EXECUTION, MYF(0));
+    goto fallback_unlock_clean_workers;
+  }
 
   PX_PRINT_INFO("prepare for run task command");
   /**
