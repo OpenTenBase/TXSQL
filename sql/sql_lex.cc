@@ -870,9 +870,11 @@ bool LEX::check_px_execution() const {
     return false;
   }
 
-  // backquery has not supported yet!
-  if (thd && thd->has_backquery()) {
-    return false;
+  if (!is_from_ps && !is_executing_ps) {
+    // backquery has not supported yet!
+    if (thd && thd->has_backquery()) {
+      return false;
+    }
   }
 
   // Statements that use the hypergraph optimizer are temporarily not
