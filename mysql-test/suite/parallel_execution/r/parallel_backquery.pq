@@ -49,6 +49,13 @@ id	c1
 2	2
 3	3
 4	4
+show status like '%txsql_parallel_stmt%';
+Variable_name	Value
+Txsql_parallel_stmt_error	0
+Txsql_parallel_stmt_executed	1
+Txsql_parallel_stmt_fallback	0
+Txsql_parallel_stmt_hint_executed	0
+Txsql_parallel_stmt_thread_refused	0
 # --include set_px_to_saved.inc
 set global innodb_backquery_enable=@saved_innodb_backquery_enable;
 drop table if exists t1;
