@@ -902,12 +902,15 @@ bool LEX::check_px_execution() const {
     return false;
   }
 
-  if (locking_clause || sql_command != SQLCOM_SELECT ||
-      is_from_ps || is_from_sp || is_executing_ps ||
-      get_using_match()) {  // MATCH function, Use ft_prebuilt->fts_doc_id to
-                            // scan full text index. ft_prebuilt->fts_doc_id
-                            // does not update correctly in parallel execution
-                            // even in serial plan slices.
+  if (sql_command != SQLCOM_SELECT) {
+    return false;
+  }
+
+  if (locking_clause) {
+    return false;
+  }
+
+  if (is_from_sp) {
     return false;
   }
 
@@ -919,6 +922,15 @@ bool LEX::check_px_execution() const {
         rt_type == Sroutine_hash_entry::PROCEDURE) {
       return false;
     }
+  }
+
+  /*
+    MATCH function, Use ft_prebuilt->fts_doc_id to scan full text index.
+    ft_prebuilt->fts_doc_id does not update correctly in parallel execution
+    even in serial plan slices.
+  */
+  if (get_using_match()) {
+    return false;
   }
 
   /*
