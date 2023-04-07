@@ -325,15 +325,18 @@ void audit_handler::convert_to_json(struct mysql_event_general *event_general) {
   tmp_flush = ((share_mem_head*)share_mem)->flush_pos;
 
   /* Ignore the following cases in which pressure is high. */
-  if (tmp_write < tmp_flush && new_write > tmp_flush) {
+  if (tmp_write < tmp_flush && new_write >= tmp_flush) {
     ++ignore_actions;
     mysql_mutex_unlock(&mem_lock);
     return;
-  } else if (tmp_write > tmp_flush && new_write > GLOBAL_AUDIT_MEM_BLOCK &&
-             total_len + SHARE_MEM_HEAD_SIZE > tmp_flush) {
+  } else if (tmp_write > tmp_flush && new_write >= GLOBAL_AUDIT_MEM_BLOCK &&
+             total_len + SHARE_MEM_HEAD_SIZE >= tmp_flush) {
     ++ignore_actions;
     mysql_mutex_unlock(&mem_lock);
     return;
+  } else if (tmp_write == tmp_flush && ((share_mem_head*) share_mem)->end_pos != 0) {
+    ++ignore_actions;
+    mysql_mutex_unlock(&mem_lock);
   }
 
   /* Update position information for normal cases. */
@@ -342,8 +345,8 @@ void audit_handler::convert_to_json(struct mysql_event_general *event_general) {
     mem_pos = tmp_write;
   } else {
     /* Write from the beginning. */
-    ((share_mem_head*)share_mem)->write_pos = SHARE_MEM_HEAD_SIZE + total_len;
     ((share_mem_head*)share_mem)->end_pos = tmp_write;
+    ((share_mem_head*)share_mem)->write_pos = SHARE_MEM_HEAD_SIZE + total_len;
     mem_pos = SHARE_MEM_HEAD_SIZE;
   }
   if (current_log_safety_level < AUDIT_LOG_SAFETY_SAFEST)
