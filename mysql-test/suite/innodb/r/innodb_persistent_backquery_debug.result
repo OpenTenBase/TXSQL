@@ -1,0 +1,110 @@
+call mtr.add_suppression("can not change innodb_backquery_persistent");
+call mtr.add_suppression("delete from backquery table failed");
+call mtr.add_suppression("persist readview for backquery failed");
+call mtr.add_suppression("Can not disable backquery, some views are being used");
+set global innodb_backquery_enable=OFF;
+set global innodb_backquery_persistent=ON;
+set global innodb_backquery_persistent=ON;
+set global innodb_backquery_persistent=OFF;
+set global innodb_backquery_persistent=OFF;
+set global innodb_backquery_enable=ON;
+create table t1(id int primary key, c1 varchar(20));
+insert into t1 values(1,'aaa'),(2,'bbb'),(3,'ccc'),(4,'ddd'),(5,'eee');
+id	c1
+1	aaa
+2	bbb
+3	ccc
+4	abcdefg
+id	c1
+1	aaa
+2	bbb
+3	ccc
+4	ddd
+5	eee
+set global innodb_backquery_persistent=OFF;
+set global innodb_backquery_persistent=ON;
+set global innodb_backquery_persistent=ON;
+set global innodb_backquery_persistent=OFF;
+set global debug='+d,innodb_simulate_clear_backquery_table_failed';
+set global innodb_backquery_persistent=ON;
+ERROR 42000: Variable 'innodb_backquery_persistent' can't be set to the value of 'ON'
+set global debug='-d,innodb_simulate_clear_backquery_table_failed';
+set global innodb_backquery_persistent=ON;
+show variables like 'innodb_backquery%';
+Variable_name	Value
+innodb_backquery_enable	ON
+innodb_backquery_history_limit	8000000
+innodb_backquery_persistent	ON
+innodb_backquery_trackpoint_clean_interval	1
+innodb_backquery_trackpoint_create_interval	1
+innodb_backquery_window	86400
+set global debug='+d,innodb_simulate_write_backquery_table_failed';
+include/assert_grep.inc [persist readview for backquery should fail one time]
+SET GLOBAL innodb_log_checkpoint_now = ON;
+SET GLOBAL innodb_page_cleaner_disabled_debug = 1;
+SET GLOBAL innodb_dict_stats_disabled_debug = 1;
+SET GLOBAL innodb_master_thread_disabled_debug = 1;
+begin;
+insert into t1 values(9, 'fggs');
+update t1 set c1 = 'kkkk' where id=3;
+commit;
+select * from t1;
+id	c1
+1	aaa
+2	bbb
+3	kkkk
+4	abcdefg
+9	fggs
+# Kill and restart: --innodb_backquery_enable=ON --innodb_backquery_persistent=ON
+id	c1
+1	aaa
+2	bbb
+3	ccc
+4	ddd
+5	eee
+set global innodb_backquery_enable=OFF;
+set global innodb_backquery_enable=ON;
+set global innodb_backquery_persistent=ON;
+set global debug='+d,innodb_simulate_write_backquery_external';
+include/assert_grep.inc [check write fake readviews finished]
+# restart: --innodb_backquery_enable=ON --innodb_backquery_persistent=ON --debug=+d,innodb_simulate_write_backquery_external
+include/assert_grep.inc [check read fake readviews finished]
+show variables like '%backquery%';
+Variable_name	Value
+innodb_backquery_enable	ON
+innodb_backquery_history_limit	8000000
+innodb_backquery_persistent	ON
+innodb_backquery_trackpoint_clean_interval	1
+innodb_backquery_trackpoint_create_interval	1
+innodb_backquery_window	86400
+set global innodb_backquery_enable=OFF;
+set global innodb_backquery_persistent=OFF;
+set global debug='+d,innodb_simulate_change_backquery_variable_failed';
+set global innodb_backquery_enable=OFF;
+ERROR 42000: Variable 'innodb_backquery_enable' can't be set to the value of 'OFF'
+set global innodb_backquery_persistent=OFF;
+ERROR 42000: Variable 'innodb_backquery_persistent' can't be set to the value of 'OFF'
+set global innodb_backquery_enable=ON;
+ERROR 42000: Variable 'innodb_backquery_enable' can't be set to the value of 'ON'
+set global innodb_backquery_persistent=ON;
+ERROR 42000: Variable 'innodb_backquery_persistent' can't be set to the value of 'ON'
+set global debug='-d,innodb_simulate_change_backquery_variable_failed';
+set global innodb_backquery_enable=ON;
+show variables like '%backquery';
+Variable_name	Value
+set global debug='+d,innodb_simulate_clear_backquery_table_failed';
+set global innodb_backquery_enable=OFF;
+ERROR 42000: Variable 'innodb_backquery_enable' can't be set to the value of 'OFF'
+set global debug='-d,innodb_simulate_clear_backquery_table_failed';
+set global innodb_backquery_enable=OFF;
+set global debug='+d,innodb_simulate_clear_backquery_table_failed';
+set global innodb_backquery_enable=ON;
+ERROR 42000: Variable 'innodb_backquery_enable' can't be set to the value of 'ON'
+set global debug='-d,innodb_simulate_clear_backquery_table_failed';
+set global innodb_backquery_enable=ON;
+set global innodb_backquery_persistent=ON;
+set global debug='+d,innodb_simulate_clear_backquery_table_failed';
+set global debug='-d,innodb_simulate_clear_backquery_table_failed';
+set global innodb_backquery_enable=OFF;
+set global innodb_backquery_persistent=OFF;
+drop table t1;

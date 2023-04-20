@@ -97,6 +97,10 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "ut0mem.h"
 #include "trx0rseg.h"
 
+#include "dict0dd.h"
+#include "current_thd.h"
+#include "lob0lob.h"
+
 /* Changes from txsql start. */
 #include "buf0dump.h"
 
@@ -3509,6 +3513,7 @@ void set_srv_redo_log(bool enable) {
 */
 
 bool srv_backquery_enable = false;
+bool srv_backquery_persistent = false;
 rw_lock_t *backquery_enable_lock = nullptr;
 long srv_backquery_window = 86400;
 ulong srv_backquery_history_limit = 8000000;
@@ -3527,7 +3532,12 @@ bool srv_stats_skip_adjustment_for_primary_key = false;
 
 bool srv_log_dummy_cache = false;
 
-Backquery_manager::Backquery_manager() { total_ref = 0; }
+Backquery_manager::Backquery_manager() {
+  total_ref = 0;
+  inited = false;
+  last_persisted_timestamp = 0;
+  current_purge_trx_no = 0;
+}
 
 Backquery_manager::~Backquery_manager() {
   while (history_readviews.size() > 0) {
@@ -3539,30 +3549,71 @@ Backquery_manager::~Backquery_manager() {
 }
 
 /** Clear history readviews.
-@param[in] window How long a readview remain in memory.
-@return false no readview is deleted.
-@return true at least one readview is deleted.
+@param[in] window How long a readview should be keeped.
+@param[in] oldest Only clean the oldest view.
+@paran[in] clean_table Whether to clean the view in table.
+@return -1 : error
+        0  : no views to be cleaned
+        1  : at least one view is cleaned
 */
-bool Backquery_manager::clear_no_lock(long window) {
+int Backquery_manager::clear_no_lock(time_t window, trx_t *trx, bool oldest,
+                                     bool clean_table) {
   if (history_readviews.empty()) return false;
-  bool ret = false;
   time_t now = time(nullptr);
+  time_t clean_before = 0;
+  time_t clean_end;
+  if (window != 0) {
+    clean_end = (now - window);
+  } else {
+    /* clear all */
+    clean_end = std::numeric_limits<time_t>::max();
+  }
+  for (auto it = history_readviews.begin(); it != history_readviews.end();
+       it++) {
+    if (it->second.ref > 0) break;
+    if (oldest) {
+      clean_before = it->first;
+      /* only clean the oldest view */
+      break;
+    }
+    if (clean_end < it->first) break;
+    clean_before = it->first;
+  }
+  if (clean_before == 0) {
+    /* no view to be cleaned */
+    if (oldest) {
+      ib::info() << "the oldest view is not cleaned!!";
+    }
+    return 0;
+  } else if (clean_before == history_readviews.crbegin()->first) {
+    /* clear all */
+    clean_before = std::numeric_limits<time_t>::max();
+  }
+  if (clean_table) {
+    /* delete from table where create_time <= clean_before */
+    bool ret = this->clear_data_in_table(trx, clean_before);
+    if (!ret) {
+      /* clean from table failed */
+      return -1;
+    }
+  }
   while (history_readviews.size() > 0) {
     auto it = history_readviews.begin();
-    if (it->second.ref > 0) break;
-    if (now - window < it->first) break;
-    /* The oldest view is out of date, we should delete it. */
+    if (it->first > clean_before) {
+      break;
+    }
+    ut_ad(it->second.ref == 0);
     ReadView *r = it->second.view;
-    history_readviews.erase(it);
     ut::delete_(r);
-    ret = true;
+    history_readviews.erase(it);
   }
-  return ret;
+  return 1;
 }
 
-bool Backquery_manager::clear(long window) {
+int Backquery_manager::clear(time_t window, trx_t *trx, bool oldest,
+                             bool clean_table) {
   std::lock_guard<std::mutex> lock(mtx);
-  return clear_no_lock(window);
+  return clear_no_lock(window, trx, oldest, clean_table);
 }
 
 /** Clone the oldest readview in history readviews.
@@ -3621,6 +3672,11 @@ bool Backquery_manager::get_view_for_query(time_t ts, ReadView *&out,
   if (backquery_enable == false) {
     return ret;
   }
+  if (this->get_init_state() == false) {
+    ib::warn() << "Backquery_manager has not been initialized yet!";
+    /* not inited, just return */
+    return ret;
+  }
   std::lock_guard<std::mutex> lock(mtx);
   if (history_readviews.empty()) {
     return ret;
@@ -3665,22 +3721,65 @@ void Backquery_manager::release_view_for_query(time_t ts) {
 @return false Backquery can't be disabled
 */
 bool Backquery_manager::disable() {
+  DBUG_EXECUTE_IF("innodb_simulate_change_backquery_variable_failed",
+                  { return false; });
+  if (this->get_init_state() == false) {
+    return false;
+  }
+  bool disabled = false;
+  int ret = 0;
+  bool clean_table = false;
+  rw_lock_x_lock(backquery_enable_lock, UT_LOCATION_HERE);
+  std::lock_guard<std::mutex> lock_persist(persistent_mtx);
   std::lock_guard<std::mutex> lock(mtx);
-  clear_no_lock(0);
-  if (history_readviews.empty()) {
-    rw_lock_x_lock(backquery_enable_lock, UT_LOCATION_HERE);
+  if (!srv_backquery_enable) {
+    disabled = true;
+    goto unlock_and_exit;
+  }
+  if (this->check_table_if_exists()) {
+    clean_table = true;
+  }
+  ret = clear_no_lock(0, nullptr, false, clean_table);
+  if (ret != -1 && history_readviews.empty()) {
     srv_backquery_enable = false;
-    rw_lock_x_unlock(backquery_enable_lock);
-    return true;
+    this->last_persisted_timestamp = 0;
+    ib::info() << "TXSQL: backquery is disabled.";
+    disabled = true;
+    goto unlock_and_exit;
   }
   ib::warn() << "Can not disable backquery, some views are being used, please "
                 "try again later.";
-  return false;
+
+unlock_and_exit:
+  rw_lock_x_unlock(backquery_enable_lock);
+  return disabled;
 }
 
 bool Backquery_manager::enable() {
+  DBUG_EXECUTE_IF("innodb_simulate_change_backquery_variable_failed",
+                  { return false; });
+  if (this->get_init_state() == false) {
+    return false;
+  }
   rw_lock_x_lock(backquery_enable_lock, UT_LOCATION_HERE);
+  std::lock_guard<std::mutex> lock_persist(persistent_mtx);
+  std::lock_guard<std::mutex> lock(mtx);
   if (!srv_backquery_enable) {
+    if (this->check_table_if_exists()) {
+      time_t clean_before = std::numeric_limits<time_t>::max();
+      /* additional clear operation to keep clean in table. */
+      if (this->clear_data_in_table(nullptr, clean_before) == false) {
+        /* clean from table failed. */
+        rw_lock_x_unlock(backquery_enable_lock);
+        return false;
+      }
+    }
+    while (history_readviews.size() > 0) {
+      auto it = history_readviews.begin();
+      ut::delete_(it->second.view);
+      history_readviews.erase(it);
+    }
+    this->last_persisted_timestamp = 0;
     set_process_for_pre_purge();
     srv_backquery_enable = true;
   }
@@ -3688,39 +3787,10 @@ bool Backquery_manager::enable() {
   return true;
 }
 
-/** Release the oldest readview in history readviews.
-@return false the oldest view is not deleted or there is no history view
-@return true the oldest view is deleted
-*/
-bool Backquery_manager::release_oldest_view() {
-  bool ret = false;
-  std::lock_guard<std::mutex> lock(mtx);
-  if (history_readviews.size() > 0) {
-    auto it = history_readviews.begin();
-    if (it->second.ref == 0) {
-      ReadView *r = it->second.view;
-      history_readviews.erase(it);
-      ut::delete_(r);
-      ret = true;
-    } else {
-      assert(total_ref != 0);
-    }
-  }
-  ib::info() << "The oldest view is" << (ret ? "" : " not") << " deleted";
-  return ret;
-}
-
 /** Update status for backquery. */
 void Backquery_manager::update_status() {
   std::lock_guard<std::mutex> lock(mtx);
-  export_vars.innodb_backquery_history_views = history_readviews.size();
-  if (history_readviews.size() > 0) {
-    export_vars.innodb_backquery_up_time = history_readviews.cbegin()->first;
-    export_vars.innodb_backquery_low_time = history_readviews.crbegin()->first;
-  } else {
-    export_vars.innodb_backquery_up_time = 0;
-    export_vars.innodb_backquery_low_time = 0;
-  }
+  this->update_status_no_lock();
 }
 
 Backquery_manager *backquery_manager = nullptr;
@@ -3729,10 +3799,10 @@ void backquery_sys_create() {
   if (backquery_manager == nullptr) {
     backquery_manager = ut::new_withkey<Backquery_manager>(
         ut::make_psi_memory_key(mem_key_backquery));
-    assert(backquery_manager);
+    ut_a(backquery_manager);
     backquery_enable_lock = reinterpret_cast<rw_lock_t *>(ut::malloc_withkey(
         ut::make_psi_memory_key(mem_key_backquery), sizeof(rw_lock_t)));
-    assert(backquery_enable_lock);
+    ut_a(backquery_enable_lock);
     rw_lock_create(backquery_enable_lock_key, backquery_enable_lock,
                    SYNC_NO_ORDER_CHECK);
   }
@@ -3750,53 +3820,51 @@ void backquery_sys_close() {
 
 /** Background thread of backquery. */
 void srv_backquery_thread() {
+  ut_a(!srv_read_only_mode);
+  ut_a(srv_force_recovery < SRV_FORCE_NO_BACKGROUND);
+
+  THD *thd = create_internal_thd();
+
+  backquery_manager->init();
   time_t last_create_time = time(nullptr);
+  time_t create_interval;
   time_t last_clean_time = last_create_time;
-  time_t create_interval, clean_interval;
+  time_t last_persist_time = last_clean_time;
+  time_t clean_interval, persist_interval;
   assert(backquery_manager);
-  while (srv_shutdown_state.load() < SRV_SHUTDOWN_CLEANUP) {
-    std::this_thread::sleep_for(std::chrono::seconds(1));
+  while (srv_shutdown_state.load() <
+         SRV_SHUTDOWN_PRE_DD_AND_SYSTEM_TRANSACTIONS) {
+    /* sleep 200ms */
+    std::this_thread::sleep_for(std::chrono::microseconds(200000));
     bool backquery_enable;
     rw_lock_s_lock(backquery_enable_lock, UT_LOCATION_HERE);
     backquery_enable = srv_backquery_enable;
-    rw_lock_s_unlock(backquery_enable_lock);
     if (backquery_enable == false) {
-      backquery_manager->clear(0);
-      backquery_manager->update_status();
+      rw_lock_s_unlock(backquery_enable_lock);
       continue;
     }
     time_t now = time(nullptr);
     create_interval = now - last_create_time;
     clean_interval = now - last_clean_time;
+    persist_interval = now - last_persist_time;
     if (create_interval >= srv_backquery_trackpoint_create_interval) {
       /* Generate a new readview for backquery. */
       backquery_manager->add_view(now);
       last_create_time = now;
     }
-    if (clean_interval >= srv_backquery_trackpoint_clean_interval) {
-      /* Clean up expired readviews. */
-      bool delete_views = backquery_manager->clear(srv_backquery_window);
-      last_clean_time = now;
-      /* No readview is deleted during cleanup, check history length. */
-      if (delete_views == false) {
-        /* Do not own any mutex when read rseg_history_len */
-        auto history_len = trx_sys->rseg_history_len.load();
-        if (history_len >= srv_backquery_history_limit) {
-          /*
-            The length of undo history list reached the maximum
-            value supported by backquery, we should clean the oldest
-            history readview.
-          */
-          ib::warn() << "History length(" << history_len
-                     << ") reached the maximum value("
-                     << srv_backquery_history_limit
-                     << "), try release the oldest view";
-          backquery_manager->release_oldest_view();
-        }
-      }
-    }
     backquery_manager->update_status();
+    bool try_clean =
+        (clean_interval >= srv_backquery_trackpoint_clean_interval);
+    bool try_persist =
+        (persist_interval >= srv_backquery_trackpoint_create_interval);
+
+    if (try_clean || try_persist) {
+      backquery_manager->clean_and_persist(try_clean, try_persist, now,
+                                           last_clean_time, last_persist_time);
+    }
+    rw_lock_s_unlock(backquery_enable_lock);
   }
+  destroy_internal_thd(thd);
 }
 
 void show_backquery_time_status(THD *thd, SHOW_VAR *var, char *buff) {
@@ -3827,7 +3895,505 @@ the same version of the cache. */
 uint64_t srv_i_s_cache_min_idle_us = 100000;
 #endif
 
+void srv_wait_backquery_threads_exit() {
+  srv_threads.m_backquery_readview_generator.join();
+}
+
+extern bool opt_initialize, opt_initialize_insecure;
+
+void Backquery_manager::clean_and_persist(bool try_clean, bool try_persist,
+                                          time_t now, time_t &last_clean_time,
+                                          time_t &last_persist_time) {
+  /* changing state is not allowed. */
+  std::lock_guard<std::mutex> lock_persist(persistent_mtx);
+  /* Called in srv_backquery_thread. After locking persistent_mtx, read
+  history_readviews without lock is safe. */
+  trx_t *trx = nullptr;
+  ut_ad(try_clean || try_persist);
+  if (srv_backquery_persistent) {
+    /* when persist is enabled, we need a trx object for clean
+    and write. */
+    trx = trx_allocate_for_background();
+    trx_start_internal(trx, UT_LOCATION_HERE);
+  }
+  bool error = false;
+  if (try_clean) {
+    /* Clean up expired readviews. */
+    int ret = backquery_manager->clear(srv_backquery_window, trx, false,
+                                       srv_backquery_persistent);
+    last_clean_time = now;
+    if (ret == -1) {
+      error = true;
+    }
+    /* No readview is deleted during cleanup, check history length. */
+    if (ret == 0 && backquery_manager->size() > 0) {
+      /* Do not own any mutex when read rseg_history_len */
+      uint64_t history_len = trx_sys->rseg_history_len.load();
+      bool block_purge_thread =
+          (current_purge_trx_no >=
+           history_readviews.cbegin()->second.view->low_limit_no());
+      if (history_len >= srv_backquery_history_limit && block_purge_thread) {
+        /*
+          The length of undo history list reached the maximum
+          value supported by backquery, we should clean the oldest
+          history readview.
+        */
+        ib::warn() << "History length(" << history_len
+                   << ") reached the maximum value("
+                   << srv_backquery_history_limit
+                   << "), try release the oldest view";
+        ret = backquery_manager->clear(srv_backquery_window, trx, true,
+                                       srv_backquery_persistent);
+        if (ret == -1) {
+          error = true;
+        }
+      }
+    }
+  }
+  if (!error && try_persist && srv_backquery_persistent) {
+    ut_ad(trx != nullptr);
+    bool ret = backquery_manager->persist_view(trx);
+    if (!ret) {
+      error = true;
+    }
+    last_persist_time = now;
+  }
+  if (trx != nullptr) {
+    ut_ad(srv_backquery_persistent);
+    if (!error) {
+      trx_commit_for_mysql(trx);
+    } else {
+      trx->op_info = "rollback of internal trx for backquery table";
+      trx_rollback_to_savepoint(trx, nullptr);
+      trx->op_info = "";
+      ut_a(trx->error_state == DB_SUCCESS);
+    }
+    trx_free_for_background(trx);
+  }
+}
+
+void Backquery_manager::load_data_in_table() {
+  if (opt_initialize || opt_initialize_insecure || srv_is_upgrade_mode) {
+    /* upgrade, initialize is not supported */
+    ib::info() << "Skip load snapshots for backquery";
+    return;
+  }
+  if (!this->check_table_if_exists()) {
+    ib::info() << "Table " << BACKQUERY_TABLE_NAME << " doesn't exist!";
+    srv_backquery_persistent = false;
+    return;
+  }
+  if (!srv_backquery_enable || !srv_backquery_persistent) {
+    /* always clean data at start if:
+    1. backquery is disabled or
+    2. backquery_persistent is disabled
+    */
+    ib::info() << "clean data in " << BACKQUERY_TABLE_NAME;
+    bool ret =
+        this->clear_data_in_table(nullptr, std::numeric_limits<time_t>::max());
+    if (ret == false) {
+      ib::error() << "clean data in " << BACKQUERY_TABLE_NAME << " failed!";
+    }
+    return;
+  }
+  dict_table_t *backquery_views = dict_table_open_on_name(
+      BACKQUERY_TABLE_NAME, false, false, DICT_ERR_IGNORE_NONE);
+  if (backquery_views == nullptr) {
+    ib::error() << "can not open table: " << BACKQUERY_TABLE_NAME;
+    /* disable persist */
+    srv_backquery_persistent = false;
+    return;
+  }
+  btr_pcur_t pcur;
+  mtr_t mtr;
+  ulint offsets_[REC_OFFS_NORMAL_SIZE];
+  rec_offs_init(offsets_);
+  ulint *offsets = offsets_;
+  mem_heap_t *heap = mem_heap_create(2000, UT_LOCATION_HERE);
+  ut_a(heap);
+  dict_index_t *clust_index = backquery_views->first_index();
+  ut_a(clust_index->is_clustered());
+  dtuple_t *tuple = dtuple_create(heap, 1);
+  /* create_time field */
+  dfield_t *dfield = dtuple_get_nth_field(tuple, 0);
+  void *buf = mem_heap_alloc(heap, 8);
+  /* create_time > 0 */
+  mach_write_to_8(buf, 0);
+  dfield_set_data(dfield, buf, 8);
+  dict_index_copy_types(tuple, clust_index, 1);
+  mtr_start(&mtr);
+  pcur.open_on_user_rec(clust_index, tuple, PAGE_CUR_GE, BTR_SEARCH_LEAF, &mtr,
+                        UT_LOCATION_HERE);
+  ib::info() << "load backquery info started!";
+  ulint len;
+  const byte *field;
+  time_t create_time;
+  trx_id_t low_limit_id;
+  trx_id_t up_limit_id;
+  trx_id_t low_limit_no;
+  uint64_t trx_ids_count;
+  const page_size_t page_size(dict_table_page_size(backquery_views));
+  for (;;) {
+    if (!pcur.is_on_user_rec()) {
+      break;
+    }
+    const rec_t *rec = pcur.get_rec();
+    if (rec_get_deleted_flag(rec, 1)) {
+      /* skip delete marked record */
+      pcur.move_to_next_user_rec(&mtr);
+      continue;
+    }
+    HistoryReadView hr;
+    hr.view = ut::new_<ReadView>();
+    offsets = rec_get_offsets(rec, clust_index, offsets_, ULINT_UNDEFINED,
+                              UT_LOCATION_HERE, &heap);
+    /* create_time */
+    field = rec_get_nth_field(clust_index, rec, offsets,
+                              BACKQUERY_FIELD_CREATE_TIME, &len);
+    ut_a(len == 8);
+    create_time = mach_read_from_8(field);
+    /* low_limit_id*/
+    field = rec_get_nth_field(clust_index, rec, offsets,
+                              BACKQUERY_FIELD_LOW_LIMIT_ID, &len);
+    ut_a(len == 8);
+    low_limit_id = mach_read_from_8(field);
+    /* up_limit_id */
+    field = rec_get_nth_field(clust_index, rec, offsets,
+                              BACKQUERY_FIELD_UP_LIMIT_ID, &len);
+    ut_a(len == 8);
+    up_limit_id = mach_read_from_8(field);
+    /* low_limit_no */
+    field = rec_get_nth_field(clust_index, rec, offsets,
+                              BACKQUERY_FIELD_LOW_LIMIT_NO, &len);
+    ut_a(len == 8);
+    low_limit_no = mach_read_from_8(field);
+    field = rec_get_nth_field(clust_index, rec, offsets,
+                              BACKQUERY_FIELD_TRX_IDS_COUNT, &len);
+    ut_a(len == 8);
+    trx_ids_count = mach_read_from_8(field);
+    /* trx_ids */
+    if (trx_ids_count > 0) {
+      if (rec_offs_nth_extern(clust_index, offsets, BACKQUERY_FIELD_TRX_IDS)) {
+        field = lob::btr_rec_copy_externally_stored_field(
+            nullptr, clust_index, rec, offsets, page_size,
+            BACKQUERY_FIELD_TRX_IDS, &len, nullptr, false, heap);
+      } else {
+        field = rec_get_nth_field(clust_index, rec, offsets,
+                                  BACKQUERY_FIELD_TRX_IDS, &len);
+      }
+      ut_a(len == trx_ids_count * sizeof(trx_id_t));
+      hr.view->m_ids.reserve(trx_ids_count);
+      hr.view->m_ids.resize(trx_ids_count);
+      memcpy(hr.view->m_ids.data(), field, len);
+      DBUG_EXECUTE_IF("innodb_simulate_write_backquery_external", {
+        time_t fake_time = std::numeric_limits<time_t>::max();
+        if (create_time == fake_time || create_time == (fake_time - 1)) {
+          for (size_t i = 0; i < hr.view->m_ids.size(); i++) {
+            ut_ad(hr.view->m_ids.at(i) == std::numeric_limits<trx_id_t>::max());
+          }
+          ut::delete_(hr.view);
+          if (create_time == (fake_time - 1)) {
+            ut_ad(trx_ids_count == 2);
+          } else {
+            ut_ad(trx_ids_count == 1024);
+            DBUG_SET("-d,innodb_simulate_write_backquery_external");
+            ib::info() << "read fake readviews finished";
+          }
+          goto next_backquery_rec;
+        }
+      });
+    } else {
+      hr.view->m_ids.clear();
+    }
+    hr.view->m_low_limit_id = low_limit_id;
+    hr.view->m_up_limit_id = up_limit_id;
+    hr.view->m_low_limit_no = low_limit_no;
+    ut_a(create_time < std::numeric_limits<time_t>::max() - 1);
+    history_readviews.insert(
+        std::pair<const time_t, HistoryReadView>(create_time, hr));
+
+#ifdef UNIV_DEBUG
+  next_backquery_rec:
+#endif
+    mem_heap_empty(heap);
+    pcur.move_to_next_user_rec(&mtr);
+  }
+  pcur.close();
+  mtr_commit(&mtr);
+  mem_heap_free(heap);
+  ib::info() << "load backquery info finished!";
+  dict_table_close(backquery_views, false, false);
+  if (!history_readviews.empty()) {
+    last_persisted_timestamp = history_readviews.rbegin()->first;
+  }
+}
+
+void Backquery_manager::init() {
+  ReadView local_view;
+  bool update_purge_view = false;
+  {
+    /* prevent concurrent operation(example: user disable backquery during init)
+     */
+    std::lock_guard<std::mutex> lock_persist(persistent_mtx);
+    std::lock_guard<std::mutex> lock(mtx);
+    this->load_data_in_table();
+    if (!history_readviews.empty()) {
+      local_view.clone_from(history_readviews.cbegin()->second.view);
+      update_purge_view = true;
+    }
+    this->update_status_no_lock();
+  }
+  if (update_purge_view) {
+    /* Before loading data finished, purge_sys->view is the oldest view
+    in system. And at this point, purge thread is not running, we should
+    update purge_sys->view manually to prevent crash caused by user's backquery!
+    */
+    rw_lock_x_lock(&purge_sys->latch, UT_LOCATION_HERE);
+    purge_sys->view.clone_from(&local_view);
+    rw_lock_x_unlock(&purge_sys->latch);
+  }
+  this->inited = true;
+}
+
+/** save view to table.
+@return false : failed
+*/
+bool Backquery_manager::persist_view(trx_t *trx) {
+  std::vector<std::pair<const time_t, ReadView *>> views;
+  /* persist at most batch_size views, to do: configurable */
+  constexpr int batch_size = 10;
+  {
+    /* We have already locked persistent_mtx, it's safe to release the
+    lock after this scope(backquery can not be disabled and history_readviews
+    can not be changed). */
+    std::lock_guard<std::mutex> lock(mtx);
+    auto it = history_readviews.begin();
+    if (last_persisted_timestamp != 0) {
+      it = history_readviews.lower_bound(last_persisted_timestamp);
+      if (it != history_readviews.end() &&
+          it->first == last_persisted_timestamp) {
+        it++;
+      }
+      ut_a(it == history_readviews.end() ||
+           it->first != last_persisted_timestamp);
+    }
+    for (int i = 0; i < batch_size && it != history_readviews.end();
+         i++, it++) {
+      views.emplace_back(it->first, it->second.view);
+    }
+  }
+  if (views.empty()) {
+    return true;
+  }
+  DBUG_EXECUTE_IF("innodb_simulate_write_backquery_external", {
+    time_t fake_time = std::numeric_limits<time_t>::max();
+    ReadView *temp_r1 = new ReadView();
+    temp_r1->m_ids.reserve(2);
+    temp_r1->m_ids.push_back(std::numeric_limits<trx_id_t>::max());
+    temp_r1->m_ids.push_back(std::numeric_limits<trx_id_t>::max());
+    views.emplace_back(fake_time - 1, temp_r1);
+
+    ReadView *temp_r2 = new ReadView();
+    temp_r2->m_ids.reserve(1024);
+    /* each trx_id is 8 bytes, this record must be stored externally */
+    for (size_t i = 0; i < 1024; i++) {
+      temp_r2->m_ids.push_back(std::numeric_limits<trx_id_t>::max());
+    }
+    views.emplace_back(fake_time, temp_r2);
+  });
+  ut_a(!srv_read_only_mode);
+  bool trx_started = false;
+  if (trx == nullptr) {
+    trx = trx_allocate_for_background();
+    trx_start_internal(trx, UT_LOCATION_HERE);
+    trx_started = true;
+  }
+  const char *sql =
+      "PROCEDURE INSERT_BACKQUERY_VIEWS () IS\n"
+      "BEGIN\n"
+      "INSERT INTO \"" BACKQUERY_TABLE_NAME
+      "\" VALUES (\n"
+      ":create_time,\n"
+      ":low_limit_id,\n"
+      ":up_limit_id,\n"
+      ":low_limit_no,\n"
+      ":trx_ids_count,\n"
+      ":trx_ids);\n"
+      "END;\n";
+  dberr_t err = DB_SUCCESS;
+  for (auto it = views.begin(); it != views.end(); it++) {
+    pars_info_t *pinfo = pars_info_create();
+    ReadView *r = it->second;
+    const uint64_t trx_ids_count = r->m_ids.size();
+    void *trx_ids_ptr;
+    ulint length;
+    if (trx_ids_count != 0) {
+      trx_ids_ptr = r->m_ids.data();
+      length = trx_ids_count * sizeof(trx_id_t);
+    } else {
+      trx_ids_ptr = nullptr;
+      length = UNIV_SQL_NULL;
+    }
+    ut_ad((trx_ids_ptr == nullptr && length == UNIV_SQL_NULL) ||
+          (trx_ids_ptr && length != 0 && length != UNIV_SQL_NULL));
+    pars_info_add_ull_literal(pinfo, "create_time", it->first);
+    pars_info_add_ull_literal(pinfo, "low_limit_id", r->m_low_limit_id);
+    pars_info_add_ull_literal(pinfo, "up_limit_id", r->m_up_limit_id);
+    pars_info_add_ull_literal(pinfo, "low_limit_no", r->m_low_limit_no);
+    pars_info_add_ull_literal(pinfo, "trx_ids_count", trx_ids_count);
+    pars_info_add_literal(pinfo, "trx_ids", trx_ids_ptr, length, DATA_BLOB, 0);
+    err = que_eval_sql(pinfo, sql, trx);
+    DBUG_EXECUTE_IF("innodb_simulate_write_backquery_table_failed", {
+      err = DB_INTERRUPTED;
+      DBUG_SET("-d,innodb_simulate_write_backquery_table_failed");
+    });
+    DBUG_EXECUTE_IF("innodb_simulate_write_backquery_external", {
+      time_t fake_time = std::numeric_limits<time_t>::max();
+      if (it->first == fake_time || it->first == (fake_time - 1)) {
+        if (it->first == fake_time) {
+          ut_ad(trx_ids_count == 1024);
+          DBUG_SET("-d,innodb_simulate_write_backquery_external");
+          ib::info() << "write fake readviews finished";
+        } else {
+          ut_ad(trx_ids_count == 2);
+        }
+        delete r;
+      }
+    });
+    /* pinfo is freed in que_eval_sql */
+    if (err != DB_SUCCESS) {
+      ib::error() << "persist readview for backquery failed, timestamp:"
+                  << it->first << ", error:" << err;
+      break;
+    }
+  }
+  if (err == DB_SUCCESS) {
+    /* It's safe to update last_persisted_timestamp here even the trx object
+    is allocated outside this function because the trx will be committed soon.
+    */
+    last_persisted_timestamp = views.crbegin()->first;
+  }
+  if (trx_started) {
+    if (err == DB_SUCCESS) {
+      trx_commit_for_mysql(trx);
+    } else {
+      trx->op_info = "rollback of internal trx for backquery table";
+      trx_rollback_to_savepoint(trx, nullptr);
+      trx->op_info = "";
+      ut_a(trx->error_state == DB_SUCCESS);
+    }
+    trx_free_for_background(trx);
+  }
+  return (err == DB_SUCCESS);
+}
+
+/** Clean views in table by delete mark.
+@return false : failed
+*/
+bool Backquery_manager::clear_data_in_table(trx_t *trx, time_t t) {
+  bool trx_started = false;
+  if (trx == nullptr) {
+    trx = trx_allocate_for_background();
+    trx_start_internal(trx, UT_LOCATION_HERE);
+    trx_started = true;
+    ut_a(trx);
+  }
+  pars_info_t *pinfo = pars_info_create();
+  pars_info_add_ull_literal(pinfo, "create_time", t);
+  const char *sql =
+      "PROCEDURE CLEAR_BACKQUERY_VIEWS () IS\n"
+      "BEGIN\n"
+      "DELETE FROM \"" BACKQUERY_TABLE_NAME
+      "\" WHERE\n"
+      "create_time <= :create_time;\n"
+      "END;\n";
+  dberr_t err = DB_SUCCESS;
+  err = que_eval_sql(pinfo, sql, trx);
+  DBUG_EXECUTE_IF("innodb_simulate_clear_backquery_table_failed",
+                  { err = DB_INTERRUPTED; });
+  if (err != DB_SUCCESS) {
+    ib::error() << "delete from backquery table failed, err:" << err;
+  }
+  if (trx_started) {
+    if (err == DB_SUCCESS) {
+      trx_commit_for_mysql(trx);
+    } else {
+      trx->op_info = "rollback of internal trx for backquery table";
+      trx_rollback_to_savepoint(trx, nullptr);
+      trx->op_info = "";
+      ut_a(trx->error_state == DB_SUCCESS);
+    }
+    trx_free_for_background(trx);
+  }
+  return (err == DB_SUCCESS);
+}
+
+bool Backquery_manager::change_persist_state(bool state) {
+  DBUG_EXECUTE_IF("innodb_simulate_change_backquery_variable_failed",
+                  { return false; });
+  std::lock_guard<std::mutex> lock(persistent_mtx);
+  bool backquery_table_exists = this->check_table_if_exists();
+  if (state) {
+    if (srv_backquery_persistent) {
+      /* already on, return */
+      return true;
+    }
+  } else {
+    /* disable */
+    if (!srv_backquery_persistent) {
+      /* already off, return */
+      return true;
+    }
+    ut_a(backquery_table_exists);
+  }
+  if (!backquery_table_exists) {
+    ib::info() << BACKQUERY_TABLE_NAME << " doesn't exist!";
+    return false;
+  }
+  /* always clear data in table to keep a clean state */
+  if (!this->clear_data_in_table(nullptr, std::numeric_limits<time_t>::max())) {
+    ib::error() << "can not change innodb_backquery_persistent";
+    return false;
+  }
+  ib::info() << "innodb_backquery_persistent is set to " << state;
+  srv_backquery_persistent = state;
+  this->last_persisted_timestamp = 0;
+  return true;
+}
+
+/** Check if mysql/innodb_backquery_snapshots exists.
+@return false : not exists
+*/
+bool Backquery_manager::check_table_if_exists() {
+  THD *thd = current_thd;
+  MDL_ticket *ticket = nullptr;
+  dict_table_t *backquery_views = dd_table_open_on_name(
+      thd, &ticket, BACKQUERY_TABLE_NAME, false, DICT_ERR_IGNORE_ALL);
+  if (backquery_views == nullptr) {
+    ut_a(ticket == nullptr);
+    return false;
+  }
+  ut_a(ticket != nullptr);
+  dd_table_close(backquery_views, thd, &ticket, false);
+  return true;
+}
+
+void Backquery_manager::update_status_no_lock() {
+  export_vars.innodb_backquery_history_views = history_readviews.size();
+  if (history_readviews.size() > 0) {
+    export_vars.innodb_backquery_up_time = history_readviews.cbegin()->first;
+    export_vars.innodb_backquery_low_time = history_readviews.crbegin()->first;
+  } else {
+    export_vars.innodb_backquery_up_time = 0;
+    export_vars.innodb_backquery_low_time = 0;
+  }
+}
+
+void Backquery_manager::update_purge_trx_no(trx_id_t trx_no) {
+  this->current_purge_trx_no.store(trx_no,
+                                   std::memory_order::memory_order_relaxed);
+}
+
 /**
  Changes from txsql end.
 */
-

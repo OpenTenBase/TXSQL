@@ -100,6 +100,8 @@ mysql.help_topic
 ERROR
 Storage engine 'MyISAM' does not support system tables. [mysql.help_topic]
 @table_name
+mysql.innodb_backquery_snapshots
+@table_name
 mysql.innodb_index_stats
 ERROR
 Specified key was too long; max key length is 1000 bytes
@@ -611,6 +613,7 @@ mysql	columns_priv	MyISAM
 mysql	db	MyISAM
 mysql	event	MyISAM
 mysql	func	MyISAM
+mysql	innodb_backquery_snapshots	MyISAM
 mysql	ndb_binlog_index	MyISAM
 mysql	proc	MyISAM
 mysql	procs_priv	MyISAM
@@ -623,4 +626,5 @@ WHERE table_schema='mysql'
                                               AND engine='MyISAM';
 TABLE_SCHEMA	TABLE_NAME	ENGINE
 mysql	event	MyISAM
+mysql	innodb_backquery_snapshots	MyISAM
 mysql	proc	MyISAM

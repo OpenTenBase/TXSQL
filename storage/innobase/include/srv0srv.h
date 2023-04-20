@@ -1361,6 +1361,7 @@ struct srv_slot_t {
  Changes from txsql start.
 */
 extern bool srv_backquery_enable;
+extern bool srv_backquery_persistent;
 extern rw_lock_t *backquery_enable_lock;
 extern long srv_backquery_window;
 extern ulong srv_backquery_history_limit;
@@ -1403,23 +1404,56 @@ struct HistoryReadView {
   HistoryReadView(ReadView *v = nullptr) : view(v), ref(0) {}
 };
 
+#define BACKQUERY_TABLE_NAME "mysql/innodb_backquery_snapshots"
+
 class Backquery_manager {
  private:
   /* Mutex to protect history_readviews. */
   std::mutex mtx;
+  /* Mutex used to:
+  1. protect srv_backquery_persistent
+  2. prevent concurrent operation on mysql/innodb_backquery_snapshots
+  Operations on srv_backquery_persistent don't block read or write on
+  history_readviews. If persistent_mtx is locked, disable or enable backquery
+  is blocked.
+  lock order:
+  1. backquery_enable_lock
+  2. Backquery_manager::persistent_mtx
+  3. Backquery_manager::mtx
+  */
+  std::mutex persistent_mtx;
   std::map<time_t, HistoryReadView, std::less<time_t>,
            ut::allocator<std::pair<const time_t, HistoryReadView>>>
       history_readviews;
   /* Total references. */
   ulong total_ref;
-  bool clear_no_lock(long window);
+  std::atomic<bool> inited;
+  time_t last_persisted_timestamp;
+  std::atomic<trx_id_t> current_purge_trx_no;
+  int clear(time_t window, trx_t *trx, bool oldest, bool clean_table);
+  int clear_no_lock(time_t window, trx_t *trx, bool oldest, bool clean_table);
+  void load_data_in_table();
+  bool clear_data_in_table(trx_t *trx, time_t t);
+  bool check_table_if_exists();
+  void update_status_no_lock();
+  bool persist_view(trx_t *trx);
+
+  enum {
+    BACKQUERY_FIELD_CREATE_TIME = 0,
+    BACKQUERY_FIELD_DB_TRX_ID = 1,
+    BACKQUERY_FIELD_DB_ROLL_PTR = 2,
+    BACKQUERY_FIELD_LOW_LIMIT_ID = 3,
+    BACKQUERY_FIELD_UP_LIMIT_ID = 4,
+    BACKQUERY_FIELD_LOW_LIMIT_NO = 5,
+    BACKQUERY_FIELD_TRX_IDS_COUNT = 6,
+    BACKQUERY_FIELD_TRX_IDS = 7
+  };
 
  public:
   Backquery_manager();
   Backquery_manager(const Backquery_manager &) = delete;
   Backquery_manager &operator=(const Backquery_manager &) = delete;
   ~Backquery_manager();
-  bool clear(long window);
   bool clone_oldest_view(ReadView *out);
   void add_view(time_t t);
   std::size_t size();
@@ -1427,8 +1461,13 @@ class Backquery_manager {
   void release_view_for_query(time_t ts);
   bool disable();
   bool enable();
-  bool release_oldest_view();
   void update_status();
+  void init();
+  bool get_init_state() { return inited.load(); }
+  bool change_persist_state(bool state);
+  void clean_and_persist(bool try_clean, bool try_persist, time_t now,
+                         time_t &last_clean_time, time_t &last_persist_time);
+  void update_purge_trx_no(trx_id_t);
 };
 
 extern Backquery_manager *backquery_manager;
@@ -1440,6 +1479,7 @@ extern uint srv_page_hash_cell_factor;
 #ifdef HAVE_TDSQL
 extern uint64_t srv_i_s_cache_min_idle_us;
 #endif
+void srv_wait_backquery_threads_exit();
 /**
  Changes from txsql end.
 */
