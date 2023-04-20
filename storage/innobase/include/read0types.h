@@ -342,6 +342,7 @@ uint32_t get_state() const {
   friend class MVCC;
   friend class OldestViewGetter;
   friend class OldestViewGetterForCopyFree;
+  friend class Backquery_manager;
 
  private:
   // Disable copying

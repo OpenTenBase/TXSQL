@@ -71,6 +71,7 @@ mtr/asserted_test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/asserted_test_suppre
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_ignored_global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_ignored_global_suppressions	MYSQLD_DATADIR/mtr/test_ignored_global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/innodb_backquery_snapshots	TABLESPACE	InnoDB	NORMAL	mysql/innodb_backquery_snapshots	MYSQLD_DATADIR/mysql/innodb_backquery_snapshots.ibd
 test/emp#p#northeast#sp#ne0	TABLESPACE	InnoDB	NORMAL	test/emp#p#northeast#sp#ne0	MYSQL_TMP_DIR/alt_dir_northeast/test/emp#p#northeast#sp#ne0.ibd
 test/emp#p#northeast#sp#ne1	TABLESPACE	InnoDB	NORMAL	test/emp#p#northeast#sp#ne1	MYSQL_TMP_DIR/alt_dir_northeast/test/emp#p#northeast#sp#ne1.ibd
 test/emp#p#southwest#sp#sw2	TABLESPACE	InnoDB	NORMAL	test/emp#p#southwest#sp#sw2	MYSQL_TMP_DIR/alt_dir_southwest/test/emp#p#southwest#sp#sw2.ibd
@@ -165,6 +166,7 @@ mtr/asserted_test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/asserted_test_suppre
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_ignored_global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_ignored_global_suppressions	MYSQLD_DATADIR/mtr/test_ignored_global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/innodb_backquery_snapshots	TABLESPACE	InnoDB	NORMAL	mysql/innodb_backquery_snapshots	MYSQLD_DATADIR/mysql/innodb_backquery_snapshots.ibd
 test/emp#p#east#sp#e0	TABLESPACE	InnoDB	NORMAL	test/emp#p#east#sp#e0	MYSQL_TMP_DIR/alt_dir_east/test/emp#p#east#sp#e0.ibd
 test/emp#p#east#sp#e1	TABLESPACE	InnoDB	NORMAL	test/emp#p#east#sp#e1	MYSQL_TMP_DIR/alt_dir_east/test/emp#p#east#sp#e1.ibd
 test/emp#p#north#sp#n0	TABLESPACE	InnoDB	NORMAL	test/emp#p#north#sp#n0	MYSQL_TMP_DIR/alt_dir_north/test/emp#p#north#sp#n0.ibd

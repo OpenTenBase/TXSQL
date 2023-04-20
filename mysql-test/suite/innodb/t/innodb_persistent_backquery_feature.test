@@ -1,0 +1,54 @@
+disable_ps_protocol;
+
+set global innodb_backquery_enable = ON;
+set global innodb_backquery_persistent = ON;
+
+create table t1(id int primary key, c1 varchar(20));
+insert into t1 values(1,'aaa'),(2,'bbb'),(3,'ccc'),(4,'ddd'),(5,'eee');
+
+create table externally_stored_field_table(id int, c1 text) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+insert into externally_stored_field_table values(1,repeat('a',60000)),(2,'aaaa');
+
+disable_query_log;
+sleep 2;
+let $time1 = query_get_value(select now(), now(), 1);
+sleep 1;
+update t1 set c1='abcdefg' where id=4;
+delete from t1 where id=5;
+select * from t1;
+eval select * from t1 as of timestamp '$time1';
+
+update externally_stored_field_table set c1='dddd' where id=1;
+select length(c1) from externally_stored_field_table where id=1;
+
+eval select length(c1) from externally_stored_field_table as of timestamp '$time1' where id=1;
+
+--let $restart_parameters="restart: --innodb_backquery_enable=ON --innodb_backquery_persistent=ON"
+--source include/restart_mysqld.inc
+
+select * from t1;
+select length(c1) from externally_stored_field_table;
+
+sleep 5;
+disable_query_log;
+eval select * from t1 as of timestamp '$time1';
+eval select length(c1) from externally_stored_field_table as of timestamp '$time1' where id=1;
+
+--let $restart_parameters="restart: --innodb_backquery_enable=ON --innodb_backquery_persistent=OFF"
+--source include/restart_mysqld.inc
+
+sleep 2;
+select * from t1;
+disable_query_log;
+disable_result_log;
+error ER_BACKQUERY_TIMESTAMP;
+eval select * from t1 as of timestamp '$time1';
+
+enable_result_log;
+enable_query_log;
+
+set global innodb_backquery_enable = OFF;
+show variables like 'innodb_backquery_persistent';
+
+drop table t1;
+drop table externally_stored_field_table;

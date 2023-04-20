@@ -24642,7 +24642,9 @@ static int srv_backquery_enable_check(THD *thd, SYS_VAR *var, void *save,
   }
   bool target = *static_cast<bool *>(save);
   if (target) {
-    backquery_manager->enable();
+    if (!backquery_manager->enable()) {
+      error = 1;
+    }
   } else if (!backquery_manager->disable()) {
     error = 1;
   }
@@ -24682,6 +24684,38 @@ static MYSQL_SYSVAR_LONG(
     srv_backquery_trackpoint_clean_interval, PLUGIN_VAR_RQCMDARG,
     "The time interval at which the system cleans trackpoints", nullptr,
     nullptr, 1, 1, 86400, 0);
+
+static int srv_backquery_persistent_check(THD *thd, SYS_VAR *var, void *save,
+                                          struct st_mysql_value *value) {
+  int error = check_func_bool(thd, var, save, value);
+  if (error != 0) {
+    return (error);
+  }
+  bool target = *static_cast<bool *>(save);
+  if (target) {
+    if (!backquery_manager->change_persist_state(true)) {
+      error = 1;
+    }
+  } else {
+    if (!backquery_manager->change_persist_state(false)) {
+      error = 1;
+    }
+  }
+  return error;
+}
+
+static void srv_backquery_persistent_update(
+    THD *thd MY_ATTRIBUTE((unused)), struct SYS_VAR *var MY_ATTRIBUTE((unused)),
+    void *var_ptr MY_ATTRIBUTE((unused)), const void *save) {
+  /* empty function */
+  return;
+}
+
+static MYSQL_SYSVAR_BOOL(backquery_persistent, srv_backquery_persistent,
+                         PLUGIN_VAR_RQCMDARG,
+                         "Whether to persist backquery snapshots or not",
+                         srv_backquery_persistent_check,
+                         srv_backquery_persistent_update, false);
 
 static void innodb_async_checkpoint_update(
     THD* thd MY_ATTRIBUTE((unused)),
@@ -25394,6 +25428,7 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(zlib_column_compression_level),
     MYSQL_SYSVAR(zstd_column_compression_level),
     MYSQL_SYSVAR(flush_redo_using_fdatasync),
+    MYSQL_SYSVAR(backquery_persistent),
     nullptr};
 
 mysql_declare_plugin(innobase){

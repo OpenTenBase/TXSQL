@@ -19,6 +19,7 @@ lower(name)	file_size	autoextend_size
 innodb_temporary	12582912	0
 test/t5	114688	0
 ts1	147456	0
+mysql/innodb_backquery_snapshots	114688	0
 # Update autoextend_size attribute both for the implicit as
 # well as explicit tablespaces
 ALTER TABLE t5 AUTOEXTEND_SIZE 4M;
@@ -30,6 +31,7 @@ lower(name)	file_size	autoextend_size
 innodb_temporary	12582912	0
 test/t5	114688	4194304
 ts1	147456	4194304
+mysql/innodb_backquery_snapshots	114688	0
 # Cleanup
 # Shutdown server
 # Remove the copied files

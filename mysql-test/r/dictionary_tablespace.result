@@ -3,6 +3,7 @@
 general_log.CSM
 general_log.CSV
 general_log_XXX.sdi
+innodb_backquery_snapshots.ibd
 slow_log.CSM
 slow_log.CSV
 slow_log_XXX.sdi
@@ -41,6 +42,7 @@ index_column_usage	mysql
 index_partitions	mysql
 index_stats	mysql
 indexes	mysql
+innodb_backquery_snapshots	\N
 innodb_ddl_log	mysql
 innodb_dynamic_metadata	mysql
 innodb_index_stats	mysql
@@ -204,6 +206,7 @@ t1	CREATE TABLE `t1` (
 general_log.CSM
 general_log.CSV
 general_log_XXX.sdi
+innodb_backquery_snapshots.ibd
 slow_log.CSM
 slow_log.CSV
 slow_log_XXX.sdi

@@ -166,6 +166,7 @@ mtr/asserted_test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/asserted_test_suppre
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_ignored_global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_ignored_global_suppressions	MYSQLD_DATADIR/mtr/test_ignored_global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/innodb_backquery_snapshots	TABLESPACE	InnoDB	NORMAL	mysql/innodb_backquery_snapshots	MYSQLD_DATADIR/mysql/innodb_backquery_snapshots.ibd
 s_ !@#$%^&*()_+-={}[]|\?<>,. 	TABLESPACE	InnoDB	NORMAL	s_ !@#$%^&*()_+-={}[]|\?<>,. 	MYSQLD_DATADIR/s_utf8.ibd
 s_Cöŀumň	TABLESPACE	InnoDB	NORMAL	s_Cöŀumň	MYSQLD_DATADIR/s_utf8_a.ibd
 s_cöĿǖmň	TABLESPACE	InnoDB	NORMAL	s_cöĿǖmň	MYSQLD_DATADIR/s_utf8_b.ibd
@@ -339,6 +340,7 @@ mtr/asserted_test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/asserted_test_suppre
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_ignored_global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_ignored_global_suppressions	MYSQLD_DATADIR/mtr/test_ignored_global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/innodb_backquery_snapshots	TABLESPACE	InnoDB	NORMAL	mysql/innodb_backquery_snapshots	MYSQLD_DATADIR/mysql/innodb_backquery_snapshots.ibd
 s1_#_hash	TABLESPACE	InnoDB	NORMAL	s1_#_hash	MYSQLD_DATADIR/s1_#_hash.ibd
 s1_remote	TABLESPACE	InnoDB	NORMAL	s1_remote	MYSQL_TMP_DIR/s1.ibd.ibd
 s2_remote	TABLESPACE	InnoDB	NORMAL	s2_remote	MYSQL_TMP_DIR/s2_#_dir/s2.ibd
@@ -396,6 +398,7 @@ mtr/asserted_test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/asserted_test_suppre
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_ignored_global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_ignored_global_suppressions	MYSQLD_DATADIR/mtr/test_ignored_global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/innodb_backquery_snapshots	TABLESPACE	InnoDB	NORMAL	mysql/innodb_backquery_snapshots	MYSQLD_DATADIR/mysql/innodb_backquery_snapshots.ibd
 s_def	TABLESPACE	InnoDB	NORMAL	s_def	MYSQLD_DATADIR/s_def.ibd
 test/t_single	TABLESPACE	InnoDB	NORMAL	test/t_single	MYSQLD_DATADIR/test/t_single.ibd
 CREATE TABLE t_general (a int, b text) TABLESPACE test/t_single engine=InnoDB;
@@ -448,6 +451,7 @@ mtr/asserted_test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/asserted_test_suppre
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_ignored_global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_ignored_global_suppressions	MYSQLD_DATADIR/mtr/test_ignored_global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/innodb_backquery_snapshots	TABLESPACE	InnoDB	NORMAL	mysql/innodb_backquery_snapshots	MYSQLD_DATADIR/mysql/innodb_backquery_snapshots.ibd
 s_def	TABLESPACE	InnoDB	NORMAL	s_def	MYSQLD_DATADIR/s_def.ibd
 #
 # Row format is not allowed on CREATE TABLESPACE
@@ -483,6 +487,7 @@ mtr/asserted_test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/asserted_test_suppre
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_ignored_global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_ignored_global_suppressions	MYSQLD_DATADIR/mtr/test_ignored_global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/innodb_backquery_snapshots	TABLESPACE	InnoDB	NORMAL	mysql/innodb_backquery_snapshots	MYSQLD_DATADIR/mysql/innodb_backquery_snapshots.ibd
 s_def	TABLESPACE	InnoDB	NORMAL	s_def	MYSQLD_DATADIR/s_def.ibd
 === information_schema.innodb_tables  and innodb_tablespaces ===
 Table Name	Tablespace	Table Flags	Columns	Row Format	Zip Size	Space Type
@@ -535,6 +540,7 @@ mtr/asserted_test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/asserted_test_suppre
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_ignored_global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_ignored_global_suppressions	MYSQLD_DATADIR/mtr/test_ignored_global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/innodb_backquery_snapshots	TABLESPACE	InnoDB	NORMAL	mysql/innodb_backquery_snapshots	MYSQLD_DATADIR/mysql/innodb_backquery_snapshots.ibd
 s_def	TABLESPACE	InnoDB	NORMAL	s_def	MYSQLD_DATADIR/s_def.ibd
 # Directory listing of MYSQLD_DATADIR/
 mysql.ibd
@@ -597,6 +603,7 @@ mtr/asserted_test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/asserted_test_suppre
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_ignored_global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_ignored_global_suppressions	MYSQLD_DATADIR/mtr/test_ignored_global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/innodb_backquery_snapshots	TABLESPACE	InnoDB	NORMAL	mysql/innodb_backquery_snapshots	MYSQLD_DATADIR/mysql/innodb_backquery_snapshots.ibd
 s_def	TABLESPACE	InnoDB	NORMAL	s_def	MYSQLD_DATADIR/s_def.ibd
 test/s_single	TABLESPACE	InnoDB	NORMAL	test/s_single	MYSQLD_DATADIR/test/s_single.ibd
 DROP TABLE s_single;
@@ -676,6 +683,7 @@ mtr/asserted_test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/asserted_test_suppre
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_ignored_global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_ignored_global_suppressions	MYSQLD_DATADIR/mtr/test_ignored_global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/innodb_backquery_snapshots	TABLESPACE	InnoDB	NORMAL	mysql/innodb_backquery_snapshots	MYSQLD_DATADIR/mysql/innodb_backquery_snapshots.ibd
 s_def	TABLESPACE	InnoDB	NORMAL	s_def	MYSQLD_DATADIR/s_def.ibd
 === information_schema.innodb_tables  and innodb_tablespaces ===
 Table Name	Tablespace	Table Flags	Columns	Row Format	Zip Size	Space Type
@@ -712,6 +720,7 @@ mtr/asserted_test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/asserted_test_suppre
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_ignored_global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_ignored_global_suppressions	MYSQLD_DATADIR/mtr/test_ignored_global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/innodb_backquery_snapshots	TABLESPACE	InnoDB	NORMAL	mysql/innodb_backquery_snapshots	MYSQLD_DATADIR/mysql/innodb_backquery_snapshots.ibd
 s_def	TABLESPACE	InnoDB	NORMAL	s_def	MYSQLD_DATADIR/s_def.ibd
 === information_schema.innodb_tables  and innodb_tablespaces ===
 Table Name	Tablespace	Table Flags	Columns	Row Format	Zip Size	Space Type
@@ -758,6 +767,7 @@ mtr/asserted_test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/asserted_test_suppre
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_ignored_global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_ignored_global_suppressions	MYSQLD_DATADIR/mtr/test_ignored_global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/innodb_backquery_snapshots	TABLESPACE	InnoDB	NORMAL	mysql/innodb_backquery_snapshots	MYSQLD_DATADIR/mysql/innodb_backquery_snapshots.ibd
 s_def	TABLESPACE	InnoDB	NORMAL	s_def	MYSQLD_DATADIR/s_def.ibd
 test/t_com_as_file_per_table	TABLESPACE	InnoDB	NORMAL	test/t_com_as_file_per_table	MYSQLD_DATADIR/test/t_com_as_file_per_table.ibd
 test/t_def_as_remote	TABLESPACE	InnoDB	NORMAL	test/t_def_as_remote	MYSQL_TMP_DIR/test/t_def_as_remote.ibd
@@ -826,6 +836,7 @@ mtr/asserted_test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/asserted_test_suppre
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_ignored_global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_ignored_global_suppressions	MYSQLD_DATADIR/mtr/test_ignored_global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/innodb_backquery_snapshots	TABLESPACE	InnoDB	NORMAL	mysql/innodb_backquery_snapshots	MYSQLD_DATADIR/mysql/innodb_backquery_snapshots.ibd
 s_def	TABLESPACE	InnoDB	NORMAL	s_def	MYSQLD_DATADIR/s_def.ibd
 s_multiple	TABLESPACE	InnoDB	NORMAL	s_multiple	MYSQLD_DATADIR/multiple.ibd
 === information_schema.innodb_tables  and innodb_tablespaces ===
@@ -871,6 +882,7 @@ mtr/asserted_test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/asserted_test_suppre
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_ignored_global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_ignored_global_suppressions	MYSQLD_DATADIR/mtr/test_ignored_global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/innodb_backquery_snapshots	TABLESPACE	InnoDB	NORMAL	mysql/innodb_backquery_snapshots	MYSQLD_DATADIR/mysql/innodb_backquery_snapshots.ibd
 s_def	TABLESPACE	InnoDB	NORMAL	s_def	MYSQLD_DATADIR/s_def.ibd
 s_multiple	TABLESPACE	InnoDB	NORMAL	s_multiple	MYSQLD_DATADIR/multiple.ibd
 test/t_com_to_file_per_table	TABLESPACE	InnoDB	NORMAL	test/t_com_to_file_per_table	MYSQLD_DATADIR/test/t_com_to_file_per_table.ibd
@@ -1006,6 +1018,7 @@ mtr/asserted_test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/asserted_test_suppre
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_ignored_global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_ignored_global_suppressions	MYSQLD_DATADIR/mtr/test_ignored_global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/innodb_backquery_snapshots	TABLESPACE	InnoDB	NORMAL	mysql/innodb_backquery_snapshots	MYSQLD_DATADIR/mysql/innodb_backquery_snapshots.ibd
 s_def	TABLESPACE	InnoDB	NORMAL	s_def	MYSQLD_DATADIR/s_def.ibd
 s_ignore1	TABLESPACE	InnoDB	NORMAL	s_ignore1	MYSQLD_DATADIR/s_ignore1.ibd
 s_ignore2	TABLESPACE	InnoDB	NORMAL	s_ignore2	MYSQLD_DATADIR/s_ignore2.ibd
@@ -1227,6 +1240,7 @@ mtr/asserted_test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/asserted_test_suppre
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_ignored_global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_ignored_global_suppressions	MYSQLD_DATADIR/mtr/test_ignored_global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/innodb_backquery_snapshots	TABLESPACE	InnoDB	NORMAL	mysql/innodb_backquery_snapshots	MYSQLD_DATADIR/mysql/innodb_backquery_snapshots.ibd
 s_alt1	TABLESPACE	InnoDB	NORMAL	s_alt1	MYSQLD_DATADIR/s_alt1.ibd
 s_alt2	TABLESPACE	InnoDB	NORMAL	s_alt2	MYSQLD_DATADIR/s_alt2.ibd
 s_def	TABLESPACE	InnoDB	NORMAL	s_def	MYSQLD_DATADIR/s_def.ibd
@@ -1297,6 +1311,7 @@ mtr/asserted_test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/asserted_test_suppre
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_ignored_global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_ignored_global_suppressions	MYSQLD_DATADIR/mtr/test_ignored_global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/innodb_backquery_snapshots	TABLESPACE	InnoDB	NORMAL	mysql/innodb_backquery_snapshots	MYSQLD_DATADIR/mysql/innodb_backquery_snapshots.ibd
 s_alt1	TABLESPACE	InnoDB	NORMAL	s_alt1	MYSQLD_DATADIR/s_alt1.ibd
 s_alt2	TABLESPACE	InnoDB	NORMAL	s_alt2	MYSQLD_DATADIR/s_alt2.ibd
 s_def	TABLESPACE	InnoDB	NORMAL	s_def	MYSQLD_DATADIR/s_def.ibd
@@ -1816,6 +1831,7 @@ mtr/asserted_test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/asserted_test_suppre
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_ignored_global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_ignored_global_suppressions	MYSQLD_DATADIR/mtr/test_ignored_global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/innodb_backquery_snapshots	TABLESPACE	InnoDB	NORMAL	mysql/innodb_backquery_snapshots	MYSQLD_DATADIR/mysql/innodb_backquery_snapshots.ibd
 s_def	TABLESPACE	InnoDB	NORMAL	s_def	MYSQLD_DATADIR/s_def.ibd
 s_empty1	TABLESPACE	InnoDB	NORMAL	s_empty1	MYSQLD_DATADIR/s_empty1.ibd
 test/t_single	TABLESPACE	InnoDB	NORMAL	test/t_single	MYSQLD_DATADIR/test/t_single.ibd
@@ -1845,6 +1861,7 @@ mtr/asserted_test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/asserted_test_suppre
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_ignored_global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_ignored_global_suppressions	MYSQLD_DATADIR/mtr/test_ignored_global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/innodb_backquery_snapshots	TABLESPACE	InnoDB	NORMAL	mysql/innodb_backquery_snapshots	MYSQLD_DATADIR/mysql/innodb_backquery_snapshots.ibd
 s_def	TABLESPACE	InnoDB	NORMAL	s_def	MYSQLD_DATADIR/s_def.ibd
 s_empty1	TABLESPACE	InnoDB	NORMAL	s_empty1	MYSQLD_DATADIR/s_empty1.ibd
 test/t_single	TABLESPACE	InnoDB	NORMAL	test/t_single	MYSQLD_DATADIR/test/t_single.ibd

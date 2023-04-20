@@ -1,0 +1,140 @@
+source include/have_debug.inc;
+source include/not_valgrind.inc;
+source include/not_valgrind_server.inc;
+
+disable_ps_protocol;
+call mtr.add_suppression("can not change innodb_backquery_persistent");
+call mtr.add_suppression("delete from backquery table failed");
+call mtr.add_suppression("persist readview for backquery failed");
+call mtr.add_suppression("Can not disable backquery, some views are being used");
+
+# change innodb_backquery_persistent when innodb_backquery_enable=OFF
+set global innodb_backquery_enable=OFF;
+set global innodb_backquery_persistent=ON;
+set global innodb_backquery_persistent=ON;
+set global innodb_backquery_persistent=OFF;
+set global innodb_backquery_persistent=OFF;
+
+set global innodb_backquery_enable=ON;
+
+# prepare data
+create table t1(id int primary key, c1 varchar(20));
+insert into t1 values(1,'aaa'),(2,'bbb'),(3,'ccc'),(4,'ddd'),(5,'eee');
+disable_query_log;
+sleep 2;
+let $time1 = query_get_value(select now(), now(), 1);
+sleep 1;
+update t1 set c1='abcdefg' where id=4;
+delete from t1 where id=5;
+select * from t1;
+eval select * from t1 as of timestamp '$time1';
+enable_query_log;
+
+# test set innodb_backquery_persistent
+set global innodb_backquery_persistent=OFF;
+set global innodb_backquery_persistent=ON;
+set global innodb_backquery_persistent=ON;
+set global innodb_backquery_persistent=OFF;
+
+set global debug='+d,innodb_simulate_clear_backquery_table_failed';
+error ER_WRONG_VALUE_FOR_VAR;
+set global innodb_backquery_persistent=ON;
+set global debug='-d,innodb_simulate_clear_backquery_table_failed';
+set global innodb_backquery_persistent=ON;
+show variables like 'innodb_backquery%';
+
+# wait views to be persisted to table
+sleep 3;
+set global debug='+d,innodb_simulate_write_backquery_table_failed';
+# wait write error
+sleep 3;
+--let $assert_file= $MYSQLTEST_VARDIR/log/mysqld.1.err
+--let $assert_count= 1
+--let $assert_select= persist readview for backquery failed
+--let $assert_text= persist readview for backquery should fail one time
+--source include/assert_grep.inc
+
+# test crash recovery
+SET GLOBAL innodb_log_checkpoint_now = ON;
+SET GLOBAL innodb_page_cleaner_disabled_debug = 1;
+SET GLOBAL innodb_dict_stats_disabled_debug = 1;
+SET GLOBAL innodb_master_thread_disabled_debug = 1;
+
+begin;
+insert into t1 values(9, 'fggs');
+update t1 set c1 = 'kkkk' where id=3;
+commit;
+
+select * from t1;
+
+--let $restart_parameters="restart: --innodb_backquery_enable=ON --innodb_backquery_persistent=ON"
+--source include/kill_and_restart_mysqld.inc
+
+disable_query_log;
+eval select * from t1 as of timestamp '$time1';
+enable_query_log;
+
+# test external field
+
+set global innodb_backquery_enable=OFF;
+set global innodb_backquery_enable=ON;
+set global innodb_backquery_persistent=ON;
+set global debug='+d,innodb_simulate_write_backquery_external';
+# wait fake views to flushed to table
+sleep 3;
+--let $assert_file= $MYSQLTEST_VARDIR/log/mysqld.1.err
+--let $assert_count= 1
+--let $assert_select= write fake readviews finished
+--let $assert_text= check write fake readviews finished
+--source include/assert_grep.inc
+
+--let $restart_parameters="restart: --innodb_backquery_enable=ON --innodb_backquery_persistent=ON --debug='+d,innodb_simulate_write_backquery_external'"
+--source include/restart_mysqld.inc
+sleep 1;
+--let $assert_file= $MYSQLTEST_VARDIR/log/mysqld.1.err
+--let $assert_count= 1
+--let $assert_select= read fake readviews finished
+--let $assert_text= check read fake readviews finished
+--source include/assert_grep.inc
+show variables like '%backquery%';
+
+set global innodb_backquery_enable=OFF;
+set global innodb_backquery_persistent=OFF;
+
+# test for coverage
+set global debug='+d,innodb_simulate_change_backquery_variable_failed';
+error ER_WRONG_VALUE_FOR_VAR;
+set global innodb_backquery_enable=OFF;
+error ER_WRONG_VALUE_FOR_VAR;
+set global innodb_backquery_persistent=OFF;
+error ER_WRONG_VALUE_FOR_VAR;
+set global innodb_backquery_enable=ON;
+error ER_WRONG_VALUE_FOR_VAR;
+set global innodb_backquery_persistent=ON;
+set global debug='-d,innodb_simulate_change_backquery_variable_failed';
+
+set global innodb_backquery_enable=ON;
+sleep 3;
+show variables like '%backquery';
+set global debug='+d,innodb_simulate_clear_backquery_table_failed';
+error ER_WRONG_VALUE_FOR_VAR;
+set global innodb_backquery_enable=OFF;
+set global debug='-d,innodb_simulate_clear_backquery_table_failed';
+
+set global innodb_backquery_enable=OFF;
+
+set global debug='+d,innodb_simulate_clear_backquery_table_failed';
+error ER_WRONG_VALUE_FOR_VAR;
+set global innodb_backquery_enable=ON;
+set global debug='-d,innodb_simulate_clear_backquery_table_failed';
+
+set global innodb_backquery_enable=ON;
+set global innodb_backquery_persistent=ON;
+set global debug='+d,innodb_simulate_clear_backquery_table_failed';
+sleep 3;
+set global debug='-d,innodb_simulate_clear_backquery_table_failed';
+
+set global innodb_backquery_enable=OFF;
+set global innodb_backquery_persistent=OFF;
+
+drop table t1;

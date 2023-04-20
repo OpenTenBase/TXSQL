@@ -1,0 +1,53 @@
+set global innodb_backquery_enable = ON;
+set global innodb_backquery_persistent = ON;
+create table t1(id int primary key, c1 varchar(20));
+insert into t1 values(1,'aaa'),(2,'bbb'),(3,'ccc'),(4,'ddd'),(5,'eee');
+create table externally_stored_field_table(id int, c1 text) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+insert into externally_stored_field_table values(1,repeat('a',60000)),(2,'aaaa');
+id	c1
+1	aaa
+2	bbb
+3	ccc
+4	abcdefg
+id	c1
+1	aaa
+2	bbb
+3	ccc
+4	ddd
+5	eee
+length(c1)
+4
+length(c1)
+60000
+# restart: --innodb_backquery_enable=ON --innodb_backquery_persistent=ON
+select * from t1;
+id	c1
+1	aaa
+2	bbb
+3	ccc
+4	abcdefg
+select length(c1) from externally_stored_field_table;
+length(c1)
+4
+4
+id	c1
+1	aaa
+2	bbb
+3	ccc
+4	ddd
+5	eee
+length(c1)
+60000
+# restart: --innodb_backquery_enable=ON --innodb_backquery_persistent=OFF
+select * from t1;
+id	c1
+1	aaa
+2	bbb
+3	ccc
+4	abcdefg
+set global innodb_backquery_enable = OFF;
+show variables like 'innodb_backquery_persistent';
+Variable_name	Value
+innodb_backquery_persistent	OFF
+drop table t1;
+drop table externally_stored_field_table;
