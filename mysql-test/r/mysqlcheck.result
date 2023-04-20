@@ -20,6 +20,7 @@ mysql.help_category                                OK
 mysql.help_keyword                                 OK
 mysql.help_relation                                OK
 mysql.help_topic                                   OK
+mysql.innodb_backquery_snapshots                   OK
 mysql.innodb_index_stats                           OK
 mysql.innodb_table_stats                           OK
 mysql.outline                                      OK
@@ -102,6 +103,9 @@ mysql.help_relation
 note     : Table does not support optimize, doing recreate + analyze instead
 status   : OK
 mysql.help_topic
+note     : Table does not support optimize, doing recreate + analyze instead
+status   : OK
+mysql.innodb_backquery_snapshots
 note     : Table does not support optimize, doing recreate + analyze instead
 status   : OK
 mysql.innodb_index_stats
@@ -209,6 +213,7 @@ mysql.help_category                                OK
 mysql.help_keyword                                 OK
 mysql.help_relation                                OK
 mysql.help_topic                                   OK
+mysql.innodb_backquery_snapshots                   OK
 mysql.innodb_index_stats                           OK
 mysql.innodb_table_stats                           OK
 mysql.outline                                      OK
@@ -278,6 +283,9 @@ mysql.help_relation
 note     : Table does not support optimize, doing recreate + analyze instead
 status   : OK
 mysql.help_topic
+note     : Table does not support optimize, doing recreate + analyze instead
+status   : OK
+mysql.innodb_backquery_snapshots
 note     : Table does not support optimize, doing recreate + analyze instead
 status   : OK
 mysql.innodb_index_stats

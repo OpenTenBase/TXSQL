@@ -23,6 +23,7 @@ help_category
 help_keyword
 help_relation
 help_topic
+innodb_backquery_snapshots
 innodb_index_stats
 innodb_table_stats
 outline

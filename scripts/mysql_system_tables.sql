@@ -704,3 +704,22 @@ SET @str = CONCAT("CREATE DATABASE IF NOT EXISTS ", @recycle_bin_name);
 PREPARE stmt FROM @str;
 EXECUTE stmt;
 DROP PREPARE stmt;
+
+--
+-- innodb_backquery_snapshots
+--
+
+SET @cmd = "CREATE TABLE IF NOT EXISTS
+  innodb_backquery_snapshots(
+  create_time bigint unsigned not null,
+  low_limit_id bigint unsigned not null,
+  up_limit_id bigint unsigned not null,
+  low_limit_no bigint unsigned not null,
+  trx_ids_count bigint unsigned not null,
+  trx_ids mediumblob,
+  PRIMARY KEY(create_time)
+  ) ENGINE=InnoDB CHARACTER SET utf8 COLLATE utf8_bin ROW_FORMAT=dynamic";
+SET @str = CONCAT(@cmd, " ENCRYPTION='", @is_mysql_encrypted, "'");
+PREPARE stmt FROM @str;
+EXECUTE stmt;
+DROP PREPARE stmt;

@@ -1449,6 +1449,10 @@ void srv_shutdown_exit_threads() {
       os_event_set(dict_stats_event);
     }
 
+    if (srv_thread_is_active(srv_threads.m_backquery_readview_generator)) {
+      srv_wait_backquery_threads_exit();
+    }
+
     /* Try to stop archiver threads. */
     arch_wake_threads();
 
@@ -2783,14 +2787,14 @@ void srv_start_threads_after_ddl_recovery() {
 
   DBUG_EXECUTE_IF("crash_before_purge_thread", DBUG_SUICIDE(););
 
+  srv_start_back_query_thread();
+
   /* Now the InnoDB Metadata and file system should be consistent.
   Start the Purge thread */
   srv_start_purge_threads();
 
   /* If recovered, should do write back the dynamic metadata. */
   dict_persist_to_dd_table_buffer();
-
-  srv_start_back_query_thread();
 }
 
 /** Set srv_shutdown_state to a given state and validate change is proper.
@@ -2860,6 +2864,8 @@ void srv_pre_dd_shutdown() {
     /* In read-only mode, there is no master thread. */
     ut_a(!srv_thread_is_active(srv_threads.m_master));
 
+    ut_a(!srv_thread_is_active(srv_threads.m_backquery_readview_generator));
+
     /* In read-only mode, no purge should be done, so goal of the
     SRV_SHUTDOWN_PURGE is already satisfied (no purge threads). */
     ut_a(!srv_purge_threads_active());
@@ -2926,6 +2932,13 @@ void srv_pre_dd_shutdown() {
   if (srv_thread_is_active(srv_threads.m_master)) {
     srv_wake_master_thread();
     os_event_wait(srv_threads.m_master_ready_for_dd_shutdown);
+  }
+
+  if (srv_thread_is_active(srv_threads.m_backquery_readview_generator)) {
+    /* shutdown backquery thread at SRV_SHUTDOWN_PRE_DD_AND_SYSTEM_TRANSACTIONS
+     */
+    srv_wait_backquery_threads_exit();
+    ut_a(!srv_thread_is_active(srv_threads.m_backquery_readview_generator));
   }
 
   /* Since this point we do not expect accesses to DD coming from InnoDB. */
@@ -3194,7 +3207,8 @@ void srv_shutdown() {
       std::cref(srv_threads.m_ts_alter_encrypt),
       std::cref(srv_threads.m_fts_optimize),
       std::cref(srv_threads.m_recv_writer),
-      std::cref(srv_threads.m_dict_stats)};
+      std::cref(srv_threads.m_dict_stats),
+      std::cref(srv_threads.m_backquery_readview_generator)};
 
   for (const auto &thread : threads_stopped_before_shutdown) {
     ut_a(!srv_thread_is_active(thread));

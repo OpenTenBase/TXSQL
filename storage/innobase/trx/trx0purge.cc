@@ -2496,6 +2496,12 @@ ulint trx_purge(ulint n_purge_threads, /*!< in: number of purge tasks
 
   ut_a(n_purge_threads > 0);
 
+  if (!srv_is_upgrade_mode && !backquery_manager->get_init_state()) {
+    /* return if backquery is not inited. */
+    std::this_thread::yield();
+    return 0;
+  }
+
   srv_dml_needed_delay = trx_purge_dml_delay();
 
   /* The number of tasks submitted should be completed. */
@@ -2578,6 +2584,7 @@ ulint trx_purge(ulint n_purge_threads, /*!< in: number of purge tasks
 
   /* Fetch the UNDO recs that need to be purged. */
   n_pages_handled = trx_purge_attach_undo_recs(n_purge_threads, batch_size, false);
+  backquery_manager->update_purge_trx_no(purge_sys->iter.trx_no);
   rw_lock_s_unlock(backquery_enable_lock);
   /* Do we do an asynchronous purge or not ? */
   if (n_purge_threads > 1) {
