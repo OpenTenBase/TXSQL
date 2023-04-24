@@ -14877,6 +14877,7 @@ int QUICK_SKIP_SCAN_SELECT::get_next() {
       if (result) {
         if (result == HA_ERR_END_OF_FILE) {
           is_prefix_valid = false;
+          head->file->set_end_range(nullptr, handler::RANGE_SCAN_ASC);
           continue;
         }
         goto exit;
@@ -14886,6 +14887,7 @@ int QUICK_SKIP_SCAN_SELECT::get_next() {
       if (result) {
         if (result == HA_ERR_END_OF_FILE) {
           is_prefix_valid = false;
+          head->file->set_end_range(nullptr, handler::RANGE_SCAN_ASC);
           continue;
         }
         goto exit;

@@ -1,0 +1,49 @@
+--echo #
+--echo # Bug#109145/Bug#109190: Using index for skip scan cause incorrect result
+--echo #
+drop table if exists afan_test_t;
+drop table if exists afan_test;
+
+create table afan_test_t(
+id int auto_increment primary key,
+the_date varchar(8) not null,
+prj_id varchar(120) not null,
+index index_1(the_date,prj_id));
+
+insert into afan_test_t (the_date,prj_id) values('20220101','PRJID01'),('20220101','PRJID02'),('20220101','PRJID03'),('20220101','PRJID04'),('20220101','PRJID05'),('20220101','PRJID05'),('20220101','PRJID06'),('20220101','PRJID07'),('20220101','PRJID08'),('20220101','PRJID09'),('20220101','PRJID10');
+
+insert into afan_test_t (the_date,prj_id) select the_date,prj_id from afan_test_t where prj_id = 'PRJID09';
+insert into afan_test_t (the_date,prj_id) select the_date,prj_id from afan_test_t where prj_id = 'PRJID09';
+insert into afan_test_t (the_date,prj_id) select the_date,prj_id from afan_test_t where prj_id = 'PRJID09';
+
+insert into afan_test_t (the_date,prj_id) select the_date,prj_id from afan_test_t where prj_id = 'PRJID10';
+insert into afan_test_t (the_date,prj_id) select the_date,prj_id from afan_test_t where prj_id = 'PRJID10';
+insert into afan_test_t (the_date,prj_id) select the_date,prj_id from afan_test_t where prj_id = 'PRJID10';
+insert into afan_test_t (the_date,prj_id) select the_date,prj_id from afan_test_t where prj_id = 'PRJID10';
+insert into afan_test_t (the_date,prj_id) select the_date,prj_id from afan_test_t where prj_id = 'PRJID10';
+insert into afan_test_t (the_date,prj_id) select the_date,prj_id from afan_test_t where prj_id = 'PRJID10';
+insert into afan_test_t (the_date,prj_id) select the_date,prj_id from afan_test_t where prj_id = 'PRJID10';
+
+create table afan_test like afan_test_t;
+
+insert into afan_test (the_date,prj_id) select '20220109',prj_id from afan_test_t;
+insert into afan_test (the_date,prj_id) select '20220110',prj_id from afan_test_t;
+insert into afan_test (the_date,prj_id) select '20220111',prj_id from afan_test_t;
+insert into afan_test (the_date,prj_id) select '20220112',prj_id from afan_test_t;
+insert into afan_test (the_date,prj_id) select '20220113',prj_id from afan_test_t;
+insert into afan_test (the_date,prj_id) select '20220114',prj_id from afan_test_t;
+insert into afan_test (the_date,prj_id) select '20220201',prj_id from afan_test_t;
+
+drop table if exists afan_test_t;
+
+analyze table afan_test;
+
+EXPLAIN SELECT /*+ SKIP_SCAN(afan_test index_1) */ max(the_date) from afan_test where prj_id = 'PRJID07';
+
+SELECT /*+ SKIP_SCAN(afan_test index_1) */ max(the_date) from afan_test where prj_id = 'PRJID07';
+
+delete from afan_test where the_date like '2022011%';
+
+SELECT /*+ SKIP_SCAN(afan_test index_1) */ max(the_date) from afan_test where prj_id = 'PRJID07';
+
+DROP TABLE afan_test;
