@@ -419,3 +419,8 @@ bool thd_is_unnested_single_table_stmt(const THD *thd) {
           select->get_table_list()->is_base_table() &&
           select->leaf_table_count == 1);
 }
+
+bool thd_parallel_copy_ddl(THD* thd) {
+  if (thd == nullptr) return false;
+  return thd->variables.txsql_parallel_copy_ddl;
+}
