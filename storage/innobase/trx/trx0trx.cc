@@ -2333,7 +2333,7 @@ void trx_commit_or_rollback_prepare(trx_t *trx) /*!< in/out: transaction */
         trx->lock.que_state = TRX_QUE_RUNNING;
       }
 
-      ut_a(trx->lock.n_active_thrs == 1);
+      ut_ad(thd_parallel_copy_ddl(trx->mysql_thd) || trx->lock.n_active_thrs == 1);
       return;
 
     case TRX_STATE_COMMITTED_IN_MEMORY:

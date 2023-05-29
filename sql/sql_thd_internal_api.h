@@ -321,4 +321,6 @@ bool add_auto_statistics_task(const char* db_name,
 */
 bool thd_is_unnested_single_table_stmt(const THD *thd);
 
+bool thd_parallel_copy_ddl(THD* thd);
+
 #endif  // SQL_THD_INTERNAL_API_INCLUDED
