@@ -11550,7 +11550,6 @@ int ha_innobase::general_fetch(
   if (!intrinsic) {
     ret = row_search_mvcc(buf, PAGE_CUR_UNSUPP, m_prebuilt, match_mode,
                           direction);
-
   } else {
     ret = row_search_no_mvcc(buf, PAGE_CUR_UNSUPP, m_prebuilt, match_mode,
                              direction);
@@ -17745,6 +17744,7 @@ int ha_innobase::records(ha_rows *num_rows) /*!< out: number of rows */
   ret =
       row_scan_index_for_mysql(m_prebuilt, index, max_threads, false, &n_rows);
   reset_template();
+  m_prebuilt->last_backquery_record = nullptr;
   switch (ret) {
     case DB_SUCCESS:
       break;
@@ -19618,6 +19618,12 @@ int ha_innobase::extra(enum ha_extra_function operation)
       reset_template();
       m_prebuilt->replace = 0;
       m_prebuilt->on_duplicate_key_update = 0;
+      if (m_prebuilt->backquery_heap) {
+        mem_heap_free(m_prebuilt->backquery_heap);
+        m_prebuilt->backquery_heap = nullptr;
+      }
+      m_prebuilt->backquery_up_view = nullptr;
+      m_prebuilt->last_backquery_record = nullptr;
       break;
     case HA_EXTRA_NO_KEYREAD:
       m_prebuilt->read_just_key = 0;
@@ -19679,6 +19685,13 @@ int ha_innobase::end_stmt() {
   if (m_prebuilt->compress_heap) {
     row_mysql_prebuilt_free_compress_heap(m_prebuilt);
   }
+
+  if (m_prebuilt->backquery_heap) {
+    mem_heap_free(m_prebuilt->backquery_heap);
+    m_prebuilt->backquery_heap = nullptr;
+  }
+  m_prebuilt->backquery_up_view = nullptr;
+  m_prebuilt->last_backquery_record = nullptr;
 
   m_prebuilt->end_stmt();
 
@@ -19760,6 +19773,7 @@ int ha_innobase::start_stmt(THD *thd, thr_lock_type lock_type) {
   m_prebuilt->sql_stat_start = true;
   m_prebuilt->hint_need_to_fetch_extra_cols = 0;
   reset_template();
+  m_prebuilt->last_backquery_record = nullptr;
 
   if (m_prebuilt->table->is_temporary() && m_mysql_has_locked &&
       m_prebuilt->select_lock_type == LOCK_NONE) {
@@ -19945,6 +19959,7 @@ int ha_innobase::external_lock(THD *thd, /*!< in: handle to the user thread */
   m_prebuilt->hint_need_to_fetch_extra_cols = 0;
 
   reset_template();
+  m_prebuilt->last_backquery_record = nullptr;
 
   switch (m_prebuilt->table->quiesce) {
     case QUIESCE_START:
@@ -26266,18 +26281,26 @@ static bool innobase_check_reserved_file_name(handlerton *, const char *name) {
 #endif /* !UNIV_HOTBACKUP */
 
 /* Changes from txsql start. */
-bool ha_innobase::prepare_backquery(THD *thd, time_t t) {
+bool ha_innobase::prepare_backquery(THD *thd, time_t t, bool up_info) {
   ReadView *v;
   void *temp_ptr;
   time_t real_ts;
   bool ret = false;
-  thd_get_backquery_info(thd, m_prebuilt->table->id, real_ts, temp_ptr);
+  thd_get_backquery_info(thd, m_prebuilt->table->id, real_ts, up_info,
+                         temp_ptr);
   if (!temp_ptr) {
     /* This table has not been prepared for backquery. */
     backquery_manager->get_view_for_query(t, v, real_ts);
     if (v) {
       /* Success. */
-      thd_set_backquery_info(thd, m_prebuilt->table->id, real_ts, v, false);
+      thd_set_backquery_info(thd, m_prebuilt->table->id, real_ts, v, up_info,
+                             false);
+      if (up_info) {
+        m_prebuilt->backquery_up_view = v;
+      } else {
+        m_prebuilt->backquery_up_view = nullptr;
+      }
+      m_prebuilt->last_backquery_record = nullptr;
     } else {
       ret = true;
     }
@@ -26287,13 +26310,20 @@ bool ha_innobase::prepare_backquery(THD *thd, time_t t) {
 
 static void innobase_end_backquery(THD *thd) {
   std::vector<std::pair<time_t, void *>> info;
-  thd_get_all_backquery_info(thd, info);
-  for (auto it = info.begin(); it != info.end(); it++) {
-    if (it->first != 0 && it->second) {
-      backquery_manager->release_view_for_query(it->first);
-    }
-  }
-  thd_set_backquery_info(thd, 0, 0, nullptr, true);
+  auto release_view_for_query =
+      [](std::vector<std::pair<time_t, void *>> &info) {
+        for (auto it = info.begin(); it != info.end(); it++) {
+          if (it->first != 0 && it->second) {
+            backquery_manager->release_view_for_query(it->first);
+          }
+        }
+      };
+  thd_get_all_backquery_info(thd, info, false);
+  release_view_for_query(info);
+  thd_set_backquery_info(thd, 0, 0, nullptr, false, true);
+  thd_get_all_backquery_info(thd, info, true);
+  release_view_for_query(info);
+  thd_set_backquery_info(thd, 0, 0, nullptr, true, true);
 }
 
 void buffer_pool_flush_all();

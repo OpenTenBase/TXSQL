@@ -1,0 +1,46 @@
+set @saved_innodb_backquery_enable = @@global.innodb_backquery_enable;
+set global innodb_backquery_enable = ON;
+set global innodb_compression_level = 0;
+set debug = '+d,lob_print_partial_update_hit';
+CREATE TABLE t1(id int not null primary key, c1 JSON);
+set @data_1 = repeat('abcdefghijklmnopqrstuvwxyz1234', 6006);
+set @json_doc_1 = concat('["Sven", "', @data_1, '"]');
+INSERT INTO t1 VALUES (1, @json_doc_1);
+select json_extract(c1, '$[0]') from t1;
+json_extract(c1, '$[0]')
+"Sven"
+UPDATE t1 SET c1 = JSON_SET(c1, '$[0]', 'Knut');
+select json_extract(c1, '$[0]') from t1;
+json_extract(c1, '$[0]')
+"Knut"
+UPDATE t1 SET c1 = JSON_SET(c1, '$[0]', 'Anna');
+select json_extract(c1, '$[0]') from t1;
+json_extract(c1, '$[0]')
+"Anna"
+Pattern "LOB partial update of field=\(c1\) on index=\(\`PRIMARY\`\) in table=\(test/t1\)" found
+## query1: select json_extract(c1, '$[0]') from t1 as of timestamp 'time1'
+json_extract(c1, '$[0]')
+"Sven"
+## query2: select json_extract(c1, '$[0]') from t1 as of timestamp 'time2'
+json_extract(c1, '$[0]')
+"Knut"
+## query3: select json_extract(c1, '$[0]') from t1 versions between timestamp 'time1' and 'time2'
+json_extract(c1, '$[0]')
+"Knut"
+"Sven"
+## query4: select json_extract(c1, '$[0]') from t1 versions between timestamp 'time1' and 'time2' where id=1
+json_extract(c1, '$[0]')
+"Knut"
+"Sven"
+## query5: select json_extract(c1, '$[0]') from t1 as of timestamp 'time2'
+json_extract(c1, '$[0]')
+"Knut"
+## query6: eval select json_extract(c1, '$[0]') from t1 versions between timestamp 'time1' and 'time3'
+json_extract(c1, '$[0]')
+"Anna"
+"Knut"
+"Sven"
+set global innodb_backquery_enable=@saved_innodb_backquery_enable;
+drop table t1;
+set debug = '-d,lob_print_partial_update_hit';
+set global innodb_compression_level = default;

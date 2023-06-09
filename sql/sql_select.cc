@@ -2603,12 +2603,13 @@ bool create_ref_for_key(JOIN *join, JOIN_TAB *j, Key_use *org_keyuse,
   else if (((actual_key_flags(keyinfo) & HA_NOSAME) == 0) ||
            ((actual_key_flags(keyinfo) & HA_NULL_PART_KEY) &&
             !null_rejecting_key) ||
-           keyparts != actual_key_parts(keyinfo)) {
+           keyparts != actual_key_parts(keyinfo) || table->is_version_query) {
     /* Must read with repeat */
     j->set_type(null_ref_key ? JT_REF_OR_NULL : JT_REF);
     j->ref().null_ref_key = null_ref_key;
   } else if (keyuse_uses_no_tables &&
-             !(table->file->ha_table_flags() & HA_BLOCK_CONST_TABLE)) {
+             !(table->file->ha_table_flags() & HA_BLOCK_CONST_TABLE) &&
+             !table->is_version_query) {
     /*
       This happen if we are using a constant expression in the ON part
       of an LEFT JOIN.

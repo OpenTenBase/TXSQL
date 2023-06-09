@@ -3179,6 +3179,23 @@ bool row_sel_store_mysql_rec(byte *mysql_rec, row_prebuilt_t *prebuilt,
     }
   }
 
+  /* store this record to prebuilt */
+  if (prebuilt->backquery_up_view) {
+    ut_a(rec_index->is_clustered());
+    if (prebuilt->backquery_heap == nullptr) {
+      prebuilt->backquery_heap = mem_heap_create(200, UT_LOCATION_HERE);
+    } else if (blob_heap != prebuilt->backquery_heap) {
+      mem_heap_empty(prebuilt->backquery_heap);
+    }
+    unsigned char *backquery_buf = static_cast<byte *>(
+        mem_heap_alloc(prebuilt->backquery_heap, rec_offs_size(offsets)));
+
+    prebuilt->last_backquery_record = rec_copy(backquery_buf, rec, offsets);
+    if (lob_undo) {
+      prebuilt->backquery_lob_undo.clone_from(*lob_undo);
+    }
+  }
+
   return true;
 }
 
@@ -4755,6 +4772,14 @@ dberr_t row_search_mvcc(byte *buf, page_cur_mode_t mode,
                         row_prebuilt_t *prebuilt, ulint match_mode,
                         const ulint direction) {
   DBUG_TRACE;
+
+  if (unlikely(thd_has_version_query(prebuilt->trx->mysql_thd) &&
+               prebuilt->in_version_query())) {
+    /* read previous version of last record */
+    if (prebuilt->read_previous_version(buf)) {
+      return DB_SUCCESS;
+    }
+  }
 
   dict_index_t *index = prebuilt->index;
   bool comp = dict_table_is_comp(index->table);

@@ -430,7 +430,10 @@ class PT_table_factor_table_ident : public PT_table_reference {
   const char *const opt_table_alias;
   List<Index_hint> *opt_key_definition;
   Table_sample *opt_table_sample;
-  Item *opt_backquery_timestamp;
+  /* example: versions between time1 and time2
+  time1 is up_time, time2 is low_time(time2 > time1) */
+  Item *opt_low_limit_timestamp;
+  Item *opt_up_limit_timestamp;
 
  public:
   PT_table_factor_table_ident(Table_ident *table_ident_arg,
@@ -438,13 +441,15 @@ class PT_table_factor_table_ident : public PT_table_reference {
                               const LEX_CSTRING &opt_table_alias_arg,
                               List<Index_hint> *opt_key_definition_arg,
                               Table_sample *opt_table_sample_arg,
-                              Item *opt_backquery_timestamp_arg = nullptr)
+                              Item *opt_low_limit_timestamp_arg = nullptr,
+                              Item *opt_up_limit_timestamp_arg = nullptr)
       : table_ident(table_ident_arg),
         opt_use_partition(opt_use_partition_arg),
         opt_table_alias(opt_table_alias_arg.str),
         opt_key_definition(opt_key_definition_arg),
         opt_table_sample(opt_table_sample_arg),
-        opt_backquery_timestamp(opt_backquery_timestamp_arg) {}
+        opt_low_limit_timestamp(opt_low_limit_timestamp_arg),
+        opt_up_limit_timestamp(opt_up_limit_timestamp_arg) {}
 
   bool contextualize(Parse_context *pc) override;
 };

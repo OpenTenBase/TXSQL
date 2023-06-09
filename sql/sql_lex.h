@@ -1397,7 +1397,8 @@ class Query_block {
                                 Table_sample *table_sample_arg = nullptr,
                                 LEX_STRING *option = nullptr,
                                 Parse_context *pc = nullptr,
-                                Item *backquery_timestamp = nullptr);
+                                Item *backquery_low_limit_timestamp = nullptr,
+                                Item *backquery_up_limit_timestamp = nullptr);
 
   /**
     Add item to the hidden part of select list
