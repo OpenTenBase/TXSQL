@@ -4139,6 +4139,7 @@ void TABLE::init(THD *thd, TABLE_LIST *tl) {
   }
 
   reset_fields_use_count();
+  is_version_query = false;
 }
 
 /**
@@ -4176,6 +4177,7 @@ void TABLE::reset() {
   m_parallel_workers = 0;
 #endif /* defined(HAVE_PX) */
   reset_fields_use_count();
+  is_version_query = false;
 }
 
 /**
@@ -4402,6 +4404,11 @@ bool TABLE_LIST::merge_underlying_tables(Query_block *select) {
    Reset a table reference after preparation or execution, before (re-)execution
 */
 void TABLE_LIST::reset() {
+  if (table) {
+    table->is_version_query = false;
+  }
+  backquery_low_limit_timestamp = 0;
+  backquery_up_limit_timestamp = 0;
   // Reset connection to TABLE
   if (is_base_table()) table = nullptr;
 
@@ -6331,6 +6338,11 @@ void TABLE::mark_check_constraint_columns(bool is_update) {
 }
 
 void TABLE_LIST::reinit_before_use(THD *thd) {
+  if (table) {
+    table->is_version_query = false;
+  }
+  backquery_low_limit_timestamp = 0;
+  backquery_up_limit_timestamp = 0;
   /*
     Reset old pointers to TABLEs: they are not valid since the tables
     were closed in the end of previous prepare or execute call.
@@ -8096,5 +8108,8 @@ void TABLE_LIST::process_index_for_backquery(const THD *thd, TABLE *tbl) {
   }
   /* make sure covering_keys don't include indexes disabled with a hint */
   tbl->covering_keys.intersect(tbl->keys_in_use_for_query);
+  if (this->is_version_query() && thd->has_backquery()) {
+    tbl->is_version_query = true;
+  }
 }
 /* Changes from txsql end. */

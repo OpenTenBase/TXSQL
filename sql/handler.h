@@ -7148,8 +7148,9 @@ class handler {
   friend class DsMrr_impl;
 
  public:
-  virtual bool prepare_backquery(THD *thd MY_ATTRIBUTE((unused)),
-                                 time_t t MY_ATTRIBUTE((unused))) {
+  virtual bool prepare_backquery(THD *thd [[maybe_unused]],
+                                 time_t t [[maybe_unused]],
+                                 bool up_limit [[maybe_unused]]) {
     return false;
   }
 };

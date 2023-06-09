@@ -1176,7 +1176,7 @@ class ha_innopart : public ha_innobase,
   }
 
  public:
-  bool prepare_backquery(THD *thd, time_t t) override;
+  bool prepare_backquery(THD *thd, time_t t, bool up_info) override;
 
   int parallel_copy_data_between_tables(TABLE *from, TABLE *to,
                               dd::Table *new_dd_tab, const dd::Table *old_dd_tab,

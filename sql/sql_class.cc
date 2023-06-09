@@ -913,8 +913,10 @@ THD::THD(bool enable_plugins)
   is_report_error_to_client = false;
 
   backquery_flag = false;
-  m_backquery_timestamps.clear();
-  m_backquery_info.clear();
+  m_low_limit_timestamps.clear();
+  m_up_limit_timestamps.clear();
+  m_low_limit_info.clear();
+  m_up_limit_info.clear();
 
 
   ending_internal_txn = false;
@@ -3849,23 +3851,44 @@ bool thd_is_killed(THD *thd)
   return thd->killed != THD::NOT_KILLED;
 }
 
-void THD::add_backquery_table(const std::string &key, time_t t) {
-  if (likely(t != 0)) {
-    auto it = m_backquery_timestamps.find(key);
-    if (it != m_backquery_timestamps.end()) {
-      if (it->second > t) {
-        /* Use the oldest timestamp in a single statement. */
-        it->second = t;
-      }
-    } else {
-      m_backquery_timestamps.insert(std::make_pair(key, t));
+void THD::add_low_limit_timestamp(const std::string &key,
+                                  time_t low_limit_time) {
+  my_assert(low_limit_time != 0);
+  my_assert(!key.empty());
+  auto it = m_low_limit_timestamps.find(key);
+  if (it != m_low_limit_timestamps.end()) {
+    if (it->second > low_limit_time) {
+      /* Use the oldest timestamp in a single statement. */
+      it->second = low_limit_time;
     }
+  } else {
+    m_low_limit_timestamps.insert(std::make_pair(key, low_limit_time));
   }
 }
 
-time_t THD::get_backquery_timestamp(const std::string &key) {
-  auto it = m_backquery_timestamps.find(key);
-  assert(it != m_backquery_timestamps.end());
+time_t THD::get_low_limit_timestamp(const std::string &key) const {
+  auto it = m_low_limit_timestamps.find(key);
+  my_assert(it != m_low_limit_timestamps.end());
+  return it->second;
+}
+
+void THD::add_up_limit_timestamp(const std::string &key, time_t up_limit_time) {
+  my_assert(up_limit_time != 0);
+  my_assert(!key.empty());
+  auto it = m_up_limit_timestamps.find(key);
+  if (it != m_up_limit_timestamps.end()) {
+    if (it->second > up_limit_time) {
+      /* Use the oldest timestamp in a single statement. */
+      it->second = up_limit_time;
+    }
+  } else {
+    m_up_limit_timestamps.insert(std::make_pair(key, up_limit_time));
+  }
+}
+
+time_t THD::get_up_limit_timestamp(const std::string &key) const {
+  auto it = m_up_limit_timestamps.find(key);
+  my_assert(it != m_up_limit_timestamps.end());
   return it->second;
 }
 

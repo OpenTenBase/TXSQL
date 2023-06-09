@@ -232,7 +232,8 @@ bool trx_undo_prev_version_build(const rec_t *index_rec, mtr_t *index_mtr,
                                  rec_t **old_vers, mem_heap_t *v_heap,
                                  const dtuple_t **vrow, ulint v_status,
                                  lob::undo_vers_t *lob_undo,
-                                 bool pre_purge = false, bool mc_enable = false);
+                                 bool pre_purge = false, bool mc_enable = false,
+                                 bool version_query = false);
 
 #endif /* !UNIV_HOTBACKUP */
 /** Parses a redo log record of adding an undo log record.

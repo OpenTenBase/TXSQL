@@ -391,7 +391,8 @@ Key_use *Optimize_table_order::find_best_ref(
             being matched, it is set as UNIQUE.
         --> otherwise its a NOT_UNIQUE keytype.
       */
-      if (all_key_parts_covered && (keyinfo->flags & HA_NOSAME)) {
+      if (all_key_parts_covered && (keyinfo->flags & HA_NOSAME) &&
+          !table->is_version_query) {
         if (key == table->s->primary_key &&
             table->file->primary_key_is_clustered())
           cur_keytype = CLUSTERED_PK;

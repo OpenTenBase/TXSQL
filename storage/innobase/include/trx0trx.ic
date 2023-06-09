@@ -234,7 +234,7 @@ static inline void trx_release_reference(trx_t *trx) {
 }
 
 extern void thd_get_backquery_info(THD *thd, uint64_t key, time_t &ts,
-                                   void *&ptr);
+                                   bool up_info, void *&ptr);
 extern bool thd_has_backquery(THD *thd);
 static inline ReadView *trx_get_read_view_low(const trx_t *trx,
                                               const dict_index_t *index) {
@@ -244,7 +244,8 @@ static inline ReadView *trx_get_read_view_low(const trx_t *trx,
     if (unlikely(thd_has_backquery(trx->mysql_thd) && index)) {
       time_t ts;
       void *temp_ptr;
-      thd_get_backquery_info(trx->mysql_thd, index->table->id, ts, temp_ptr);
+      thd_get_backquery_info(trx->mysql_thd, index->table->id, ts, false,
+                             temp_ptr);
       if (temp_ptr) {
         v = static_cast<ReadView *>(temp_ptr);
       }

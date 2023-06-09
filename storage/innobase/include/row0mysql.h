@@ -1064,6 +1064,15 @@ struct row_prebuilt_t {
   row_prebuilt_t &operator=(row_prebuilt_t const &) = delete;
   row_prebuilt_t &operator=(row_prebuilt_t &&) = delete;
   row_prebuilt_t(row_prebuilt_t &&) = delete;
+
+ public:
+  ReadView *backquery_up_view{nullptr};
+  const rec_t *last_backquery_record{nullptr};
+  mem_heap_t *backquery_heap{nullptr};
+  lob::undo_vers_t backquery_lob_undo;
+  bool in_version_query() const { return (backquery_up_view != nullptr); }
+  void reset_version_query_for_next();
+  bool read_previous_version(byte *buf);
 };
 
 void row_key_range_extract(KeyRangeExtract *extracter);

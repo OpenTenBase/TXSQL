@@ -2400,6 +2400,9 @@ struct TABLE {
             set or not
   */
   bool should_binlog_drop_if_temp(void) const;
+
+ public:
+  bool is_version_query{false};
 };
 
 static inline void empty_record(TABLE *table) {
@@ -3964,9 +3967,14 @@ struct TABLE_LIST {
 
 /* Changes from txsql start. */
  public:
-  time_t backquery_timestamp{0};
-  bool is_backquery() { return (backquery_timestamp != 0); }
+  time_t backquery_low_limit_timestamp{0};
+  time_t backquery_up_limit_timestamp{0};
+  bool is_backquery() { return (backquery_low_limit_timestamp != 0); }
   void process_index_for_backquery(const THD *thd, TABLE *tbl);
+  bool is_version_query() {
+    return (backquery_low_limit_timestamp != 0 &&
+            backquery_up_limit_timestamp != 0);
+  }
 /* Changes from txsql end. */
 };
 

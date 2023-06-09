@@ -5562,12 +5562,14 @@ bool JOIN::extract_const_tables() {
            1. are dependent upon other tables, or
            2. have no exact statistics, or
            3. are full-text searched
+           4. used in flashback version query
         */
         if ((table->s->system || table->file->stats.records <= 1 ||
              all_partitions_pruned_away) &&
             !tab->dependent &&                                              // 1
             (table->file->ha_table_flags() & HA_STATS_RECORDS_IS_EXACT) &&  // 2
-            !tl->is_fulltext_searched())                                    // 3
+            !tl->is_fulltext_searched() &&                                  // 3
+            !tl->is_version_query())
           mark_const_table(tab, nullptr);
         break;
     }
@@ -5721,6 +5723,7 @@ bool JOIN::extract_func_dependent_tables() {
              6. are not going to be used, typically because they are streamed
                 instead of materialized
                 (see Query_expression::can_materialize_directly_into_result()).
+             7. flashback version query
           */
           if (eq_part.is_prefix(table->key_info[key].user_defined_key_parts) &&
               !tl->is_fulltext_searched() &&                              // 1
@@ -5728,7 +5731,8 @@ bool JOIN::extract_func_dependent_tables() {
               !(tl->embedding && tl->embedding->is_sj_or_aj_nest()) &&    // 3
               !(tab->join_cond() && tab->join_cond()->is_expensive()) &&  // 4
               !(table->file->ha_table_flags() & HA_BLOCK_CONST_TABLE) &&  // 5
-              table->is_created()) {                                      // 6
+              table->is_created() &&                                      // 6
+              !tl->is_version_query()) {
             if (table->key_info[key].flags & HA_NOSAME) {
               if (const_ref == eq_part) {  // Found everything for ref.
                 ref_changed = true;

@@ -1,0 +1,58 @@
+#############################################
+#      Test for flashback version query     #
+#############################################
+disable_ps_protocol;
+set @saved_innodb_backquery_enable = @@global.innodb_backquery_enable;
+set global innodb_backquery_enable = ON;
+sleep 2;
+
+CREATE TABLE t1(
+    id   INT not null primary key,
+    name VARCHAR(35),
+    part int
+)PARTITION BY LIST (id) (
+    PARTITION r0 VALUES IN (1, 5, 9, 13, 17, 21),
+    PARTITION r1 VALUES IN (2, 6, 10, 14, 18, 22),
+    PARTITION r2 VALUES IN (3, 7, 11, 15, 19, 23),
+    PARTITION r3 VALUES IN (4, 8, 12, 16, 20, 24)
+);
+insert into t1 values(1,'a',1),(2,'a',1),(3,'bbb',2),(4,'jak',2),(5,'jone',343);
+sleep 2;
+let $time1 = query_get_value(select now(), now(), 1);
+sleep 2;
+update t1 set name='ddddc' where id=1;
+update t1 set part=3 where id=2;
+update t1 set name='eeee' where id=1;
+update t1 set name='dddggc' where id=3;
+update t1 set part=9 where id=3; 
+sleep 2;
+let $time2 = query_get_value(select now(), now(), 1);
+sleep 2;
+update t1 set id=9 where id=1;
+sleep 2;
+let $time3 = query_get_value(select now(), now(), 1);
+sleep 2;
+
+disable_query_log;
+echo ## query1: select * from t1 as of timestamp 'time1';
+eval select * from t1 as of timestamp '$time1';
+echo ## query2: select * from t1 as of timestamp 'time2';
+eval select * from t1 as of timestamp '$time2';
+echo ## query3: select * from t1 versions between timestamp 'time1' and 'time2';
+eval select * from t1 versions between timestamp '$time1' and '$time2';
+echo ## query4: select * from t1 versions between timestamp 'time1' and 'time2' where id=1;
+eval select * from t1 versions between timestamp '$time1' and '$time2' where id=1;
+echo ## query5: select * from t1 as of timestamp 'time2';
+eval select * from t1 as of timestamp '$time2';
+echo ## query6: select * from t1 versions between timestamp 'time1' and 'time2' where id=9;
+eval select * from t1 versions between timestamp '$time1' and '$time2' where id=9;
+echo ## query7: eval select * from t1 versions between timestamp 'time1' and 'time3';
+eval select * from t1 versions between timestamp '$time1' and '$time3';
+echo ## query8: eval select * from t1 versions between timestamp 'time1' and 'time3' where id=9;
+eval select * from t1 versions between timestamp '$time1' and '$time3' where id=9;
+echo ## query9: select count(*) from t1 versions between timestamp 'time1' and 'time2';
+eval select count(*) from t1 versions between timestamp '$time1' and '$time2';
+enable_query_log;
+drop table t1;
+
+set global innodb_backquery_enable=@saved_innodb_backquery_enable;

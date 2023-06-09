@@ -74,6 +74,8 @@ struct undo_data_t {
   void destroy();
 
   std::ostream &print(std::ostream &out) const;
+
+  void clone_from(const undo_data_t &);
 };
 
 inline std::ostream &operator<<(std::ostream &out, const undo_data_t &obj) {
@@ -137,6 +139,9 @@ struct undo_seq_t {
 
  private:
   std::list<undo_data_t> *m_undo_list = nullptr;
+
+ public:
+  void clone_from(const undo_seq_t &);
 };
 
 /** The list of modifications to be applied on LOBs to get older versions.
@@ -231,6 +236,9 @@ struct undo_vers_t {
  private:
   /** Maintain a list of undo_seq_t objects. */
   std::list<undo_seq_t *> *m_versions = nullptr;
+
+public:
+ void clone_from(const undo_vers_t &);
 };
 
 } /* namespace lob */

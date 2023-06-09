@@ -1752,6 +1752,10 @@ row_prebuilt_t *row_create_prebuilt(
   prebuilt->m_save_lock_btr = nullptr;
   prebuilt->key_extracter = nullptr;
 
+  prebuilt->backquery_heap = nullptr;
+  prebuilt->last_backquery_record = nullptr;
+  prebuilt->backquery_up_view = nullptr;
+
   return prebuilt;
 }
 
@@ -1835,6 +1839,14 @@ void row_prebuilt_free(row_prebuilt_t *prebuilt, bool dict_locked) {
   }
 
   prebuilt->m_lob_undo.destroy();
+
+  if (prebuilt->backquery_heap) {
+    mem_heap_free(prebuilt->backquery_heap);
+    prebuilt->backquery_heap = nullptr;
+  }
+  prebuilt->last_backquery_record = nullptr;
+  prebuilt->backquery_up_view = nullptr;
+  prebuilt->backquery_lob_undo.destroy();
 
   mem_heap_free(prebuilt->heap);
 }
@@ -5469,7 +5481,7 @@ dberr_t row_scan_index_for_mysql(row_prebuilt_t *prebuilt, dict_index_t *index,
   if (prebuilt->trx->isolation_level > TRX_ISO_READ_UNCOMMITTED &&
       prebuilt->select_lock_type == LOCK_NONE && index->is_clustered() &&
       (check_keys || prebuilt->trx->mysql_n_tables_locked == 0) &&
-      !prebuilt->ins_sel_stmt) {
+      !prebuilt->ins_sel_stmt && !prebuilt->in_version_query()) {
     auto n_threads = Parallel_reader::available_threads(max_threads, false);
 
     if (n_threads > 1) {
@@ -6013,7 +6025,8 @@ bool row_prebuilt_t::can_prefetch_records() const {
   return select_lock_type == LOCK_NONE && !m_no_prefetch &&
          !templ_contains_blob && !templ_contains_fixed_point &&
          !clust_index_was_generated && !used_in_HANDLER && !innodb_api &&
-         template_type != ROW_MYSQL_DUMMY_TEMPLATE && !in_fts_query;
+         template_type != ROW_MYSQL_DUMMY_TEMPLATE && !in_fts_query &&
+         !in_version_query();
 }
 
 bool row_prebuilt_t::skip_concurrency_ticket() const {
@@ -6262,6 +6275,97 @@ void add_orphaned_file_to_truncate_list(char *dir_path) {
   }
 
   closedir(dir);
+}
+
+void row_prebuilt_t::reset_version_query_for_next() {
+  last_backquery_record = nullptr;
+  if (backquery_heap) {
+    mem_heap_empty(backquery_heap);
+  }
+  backquery_lob_undo.reset();
+}
+
+/**
+  Read the previous version of a record stored in
+  row_prebuilt_t::last_backquery_record.
+
+  @param[buf] in/out: buffer for next row in MySQL format
+  @return bool true: success, false: no previous version
+ */
+bool row_prebuilt_t::read_previous_version(byte *buf) {
+  /* not supported if it's not a consistent read */
+  if (unlikely(last_backquery_record == nullptr ||
+               backquery_up_view == nullptr || trx->is_read_uncommitted() ||
+               select_lock_type != LOCK_NONE)) {
+    return false;
+  }
+  const rec_t *rec = last_backquery_record;
+  dict_index_t *clust_index = table->first_index();
+  ut_a(clust_index->is_clustered());
+  ulint offsets_[REC_OFFS_NORMAL_SIZE];
+  rec_offs_init(offsets_);
+  ulint *offsets = offsets_;
+  if (backquery_heap == nullptr) {
+    backquery_heap = mem_heap_create(200, UT_LOCATION_HERE);
+  }
+  /* local_heap is used to save old version */
+  mem_heap_t *local_heap = mem_heap_create(200, UT_LOCATION_HERE);
+  offsets = rec_get_offsets(rec, clust_index, offsets, ULINT_UNDEFINED,
+                            UT_LOCATION_HERE, &local_heap);
+
+  trx_id_t trx_id = row_get_rec_trx_id(rec, clust_index, offsets);
+  if (backquery_up_view->changes_visible(trx_id, clust_index->table->name)) {
+    /* last record can be seen by up_view, we should not read
+    previous version */
+    reset_version_query_for_next();
+    mem_heap_free(local_heap);
+    return false;
+  }
+
+  mtr_t mtr;
+  rec_t *old_version;
+  const dtuple_t *vrow = nullptr;
+  bool need_vrow = dict_index_has_virtual(clust_index) &&
+                   (read_just_key || m_read_virtual_key);
+
+  mtr_start(&mtr);
+  bool ret = trx_undo_prev_version_build(
+      rec, &mtr, rec, clust_index, offsets, local_heap, &old_version, nullptr,
+      need_vrow ? &vrow : nullptr, 0, &backquery_lob_undo, false, false, true);
+
+  ut_a(ret == true);
+  if (old_version == nullptr) {
+    /* no previous version */
+    ut_ad(!vrow);
+    reset_version_query_for_next();
+    mem_heap_free(local_heap);
+    mtr_commit(&mtr);
+    return false;
+  }
+  /* we have got old version, free backquery_heap */
+  mem_heap_empty(backquery_heap);
+  /* copy to backquery heap */
+  offsets = rec_get_offsets(old_version, clust_index, offsets_, ULINT_UNDEFINED,
+                            UT_LOCATION_HERE, &backquery_heap);
+  if (vrow) {
+    vrow = dtuple_copy(vrow, backquery_heap);
+    dtuple_dup_v_fld(vrow, backquery_heap);
+  }
+
+  last_backquery_record = nullptr;
+  /* record will be copyed to row_prebuilt_t::last_backquery_record */
+  ret = row_sel_store_mysql_rec(buf, this, old_version, vrow, true, clust_index,
+                                index, offsets, false, &backquery_lob_undo,
+                                backquery_heap);
+
+  /* now local_heap is not needed */
+  mem_heap_free(local_heap);
+
+  if (ret == false) {
+    reset_version_query_for_next();
+  }
+  mtr_commit(&mtr);
+  return ret;
 }
 
 /* Changes from txsql end. */

@@ -5183,30 +5183,39 @@ private:
     Key: full name of a table(db.table)
     Value: backquery timestamp
   */
-  std::unordered_map<std::string, time_t> m_backquery_timestamps;
+  std::unordered_map<std::string, time_t> m_low_limit_timestamps;
+  /**
+    Hash map for backquery at parsing stage.
+    Key: full name of a table(db.table)
+    Value: backquery up timestamp
+  */
+  std::unordered_map<std::string, time_t> m_up_limit_timestamps;
   /**
     Key: table id
     Value: pair<timestamp, readview>
   */
-  std::unordered_map<uint64_t, std::pair<time_t, void *>> m_backquery_info;
+  std::unordered_map<uint64_t, std::pair<time_t, void *>> m_low_limit_info;
+  std::unordered_map<uint64_t, std::pair<time_t, void *>> m_up_limit_info;
   /**
     Check if current statement has backquery table.
     @return true current statement has at least one backquery table.
     @return false current statement has no backquery table.
   */
-  bool has_backquery() { return backquery_flag; }
+  bool has_backquery() const { return backquery_flag; }
   /**
     Add a backquery table to m_backquery_timestamps.
     @param key full name of a table(db.table)
     @param t   timestamp
    */
-  void add_backquery_table(const std::string &key, time_t t);
+  void add_low_limit_timestamp(const std::string &key, time_t low_limit_time);
+  void add_up_limit_timestamp(const std::string &key, time_t up_limit_time);
   /**
     Get the backquery timestamp of a table.
     @param key full name of a table(db.table)
     @return time_t timestamp
    */
-  time_t get_backquery_timestamp(const std::string &key);
+  time_t get_low_limit_timestamp(const std::string &key) const;
+  time_t get_up_limit_timestamp(const std::string &key) const;
   /**
     if SBM exceeds the threshold, we cannot perform the statistics task
   */

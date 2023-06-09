@@ -1,0 +1,54 @@
+set @saved_innodb_backquery_enable = @@global.innodb_backquery_enable;
+set global innodb_backquery_enable = ON;
+create table t1(id int not null primary key, c1 int, c2 varchar(50)) engine=innodb;
+insert into t1 values(1,1, "aaaaa"),(2,2,"bbbb"),(3,3,"cccc"),(4,4,"ddddd");
+update t1 set c1=2 where id=1;
+update t1 set c1=3 where id=2;
+update t1 set c2='eeee' where id=1;
+update t1 set id=999 where id=1;
+## query1: select * from t1 as of timestamp 'time1'
+id	c1	c2
+1	1	aaaaa
+2	2	bbbb
+3	3	cccc
+4	4	ddddd
+## query2: select * from t1 as of timestamp 'time2'
+id	c1	c2
+1	2	eeee
+2	3	bbbb
+3	3	cccc
+4	4	ddddd
+## query3: select * from t1 versions between timestamp 'time1' and 'time2'
+id	c1	c2
+1	2	eeee
+1	2	aaaaa
+1	1	aaaaa
+2	3	bbbb
+2	2	bbbb
+3	3	cccc
+4	4	ddddd
+## query4: select * from t1 versions between timestamp 'time1' and 'time2' where id=1
+id	c1	c2
+1	2	eeee
+1	2	aaaaa
+1	1	aaaaa
+## query5: select * from t1 as of timestamp 'time2'
+id	c1	c2
+1	2	eeee
+2	3	bbbb
+3	3	cccc
+4	4	ddddd
+## query6: select * from t1 versions between timestamp 'time1' and 'time2' where id=999
+id	c1	c2
+## query7: eval select * from t1 versions between timestamp 'time1' and 'time3'
+id	c1	c2
+2	3	bbbb
+2	2	bbbb
+3	3	cccc
+4	4	ddddd
+999	2	eeee
+## query8: select count(*) from t1 versions between timestamp 'time1' and 'time2'
+count(*)
+7
+set global innodb_backquery_enable=@saved_innodb_backquery_enable;
+drop table t1;

@@ -1427,6 +1427,8 @@ void warn_about_deprecated_binary(THD *thd)
 %token<lexer.keyword> LZ4_SYM    1296 
 %token<lexer.keyword> ZLIB_SYM   1297 
 %token<lexer.keyword> ZSTD_SYM   1298
+/* tokens for version query */
+%token<lexer.keyword> VERSIONS_SYM 1299
 /* Changes from txsql end. */
 
 
@@ -12609,11 +12611,11 @@ single_table:
           {
             $$= NEW_PTN PT_table_factor_table_ident($1, $2, to_lex_cstring($4), $6, $5, nullptr);
           }
-        | table_ident opt_use_partition AS OF_SYM TIMESTAMP_SYM expr opt_table_sample_clause opt_key_definition
+        | table_ident opt_use_partition AS OF_SYM TIMESTAMP_SYM expr
           {
             YYTHD->backquery_flag = true;
             ITEMIZE($6, &$6);
-            $$= NEW_PTN PT_table_factor_table_ident($1, $2, NULL_CSTR, $8, $7, $6);
+            $$= NEW_PTN PT_table_factor_table_ident($1, $2, NULL_CSTR, nullptr, nullptr, $6, nullptr);
           }
         | table_ident opt_use_partition ident opt_table_sample_clause opt_key_definition
           {
@@ -12622,6 +12624,19 @@ single_table:
         | table_ident opt_use_partition opt_table_sample_clause opt_key_definition
           {
             $$= NEW_PTN PT_table_factor_table_ident($1, $2, NULL_CSTR, $4, $3, nullptr);
+          }
+        | table_ident opt_use_partition VERSIONS_SYM BETWEEN_SYM TIMESTAMP_SYM text_string AND_SYM text_string
+          {
+            THD *thd= YYTHD;
+            thd->backquery_flag= true;
+            LEX_STRING str = $6->lex_string();
+            Item *up_time = NEW_PTN Item_string(str.str, str.length, thd->charset());
+            ITEMIZE(up_time, &up_time);
+            str = $8->lex_string();
+            Item *low_time = NEW_PTN Item_string(str.str, str.length, thd->charset());
+            ITEMIZE(low_time, &low_time);
+            $$= NEW_PTN PT_table_factor_table_ident($1, $2, NULL_CSTR, nullptr,
+                                                    nullptr, low_time, up_time);
           }
         ;
 
@@ -16529,6 +16544,7 @@ ident_keywords_unambiguous:
         | VALUE_SYM
         | VARIABLES
         | VCPU_SYM
+        | VERSIONS_SYM
         | VIEW_SYM
         | VISIBLE_SYM
         | WAIT_SYM
