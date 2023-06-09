@@ -1069,6 +1069,15 @@ size_t mysql_encryption_file_write(IO_CACHE *cache, const uchar *buffer,
 
 extern void (*update_thread_stats_in_mysys_ptr)(int type, ulonglong size);
 extern void update_thread_stats_in_mysys(int type, ulonglong size);
+
+/** Abort execution if EXPR does not evaluate to nonzero.
+@param EXPR assertion expression that should hold */
+#define my_assert(EXPR)                    \
+  do {                                     \
+    if (unlikely(false == (bool)(EXPR))) { \
+      abort();                             \
+    }                                      \
+  } while (0)
 /* Changes from TXSQL end. */
 
 #endif /* _my_sys_h */

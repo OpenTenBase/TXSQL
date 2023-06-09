@@ -779,7 +779,7 @@ class ha_innobase : public handler {
   /** Sampling method */
   enum_sampling_method m_sampling_method;
 
-  bool prepare_backquery(THD *thd, time_t t) override;
+  bool prepare_backquery(THD *thd, time_t t, bool up_info) override;
 };
 
 struct trx_t;
@@ -1442,12 +1442,12 @@ after DDL
 void innobase_discard_table(THD *thd, dict_table_t *table);
 
 /* Changes from txsql start. */
-extern void thd_get_backquery_info(THD *thd, uint64_t key, time_t &ts,
-                                   void *&ptr);
-extern void thd_set_backquery_info(THD *thd, uint64_t key, time_t t, void *ptr,
-                                   bool clear);
+extern void thd_get_backquery_info(MYSQL_THD thd, uint64_t key, time_t &ts,
+                                   bool up_limit, void *&ptr);
+extern void thd_set_backquery_info(MYSQL_THD thd, uint64_t key, time_t t,
+                                   void *ptr, bool up_limit, bool clear);
 extern void thd_get_all_backquery_info(
-    THD *thd, std::vector<std::pair<time_t, void *>> &infos);
+    MYSQL_THD thd, std::vector<std::pair<time_t, void *>> &info, bool up_limit);
 extern bool thd_has_backquery(THD *thd);
 
 /** Index type of "CHECK INDEX" operation.
@@ -1467,6 +1467,9 @@ extern bool innodb_fast_ddl;
 extern bool srv_skip_dive_for_unique_key;
 extern double srv_skip_dive_threshold_pct;
 extern int srv_skip_dive_threshold_record;
+
+extern bool thd_has_version_query(MYSQL_THD thd);
+
 /* Changes from txsql end. */
 
 #endif /* ha_innodb_h */

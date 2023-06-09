@@ -1,0 +1,44 @@
+#############################################
+#      Test for flashback version query     #
+#############################################
+disable_ps_protocol;
+set @saved_innodb_backquery_enable = @@global.innodb_backquery_enable;
+set global innodb_backquery_enable = ON;
+sleep 2;
+
+create table t1(id int not null primary key, c1 int, c2 varchar(50), c3 bigint as (id + c1)) engine=innodb;
+insert into t1(id, c1, c2) values(1,1, "aaaaa"),(2,2,"bbbb"),(3,3,"cccc"),(4,4,"ddddd");
+sleep 2;
+let $time1 = query_get_value(select now(), now(), 1);
+sleep 2;
+update t1 set c1=2 where id=1;
+update t1 set c1=3 where id=2;
+update t1 set c2='eeee' where id=1;
+sleep 2;
+let $time2 = query_get_value(select now(), now(), 1);
+sleep 2;
+update t1 set id=999 where id=1;
+sleep 2;
+let $time3 = query_get_value(select now(), now(), 1);
+sleep 2;
+
+disable_query_log;
+echo ## query1: select * from t1 as of timestamp 'time1';
+eval select * from t1 as of timestamp '$time1';
+echo ## query2: select * from t1 as of timestamp 'time2';
+eval select * from t1 as of timestamp '$time2';
+echo ## query3: select * from t1 versions between timestamp 'time1' and 'time2';
+eval select * from t1 versions between timestamp '$time1' and '$time2';
+echo ## query4: select * from t1 versions between timestamp 'time1' and 'time2' where id=1;
+eval select * from t1 versions between timestamp '$time1' and '$time2' where id=1;
+echo ## query5: select * from t1 as of timestamp 'time2';
+eval select * from t1 as of timestamp '$time2';
+echo ## query6: select * from t1 versions between timestamp 'time1' and 'time2' where id=999;
+eval select * from t1 versions between timestamp '$time1' and '$time2' where id=999;
+echo ## query7: eval select * from t1 versions between timestamp 'time1' and 'time3';
+eval select * from t1 versions between timestamp '$time1' and '$time3';
+enable_query_log;
+enable_warnings;
+
+set global innodb_backquery_enable=@saved_innodb_backquery_enable;
+drop table t1;

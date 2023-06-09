@@ -689,10 +689,16 @@ unsigned int thd_get_current_thd_terminology_use_previous() {
   Changes from txsql start.
 */
 void thd_get_backquery_info(MYSQL_THD thd, uint64_t key, time_t &ts,
-                            void *&ptr) {
-  assert(thd);
-  auto it = thd->m_backquery_info.find(key);
-  if (it != thd->m_backquery_info.end()) {
+                            bool up_limit, void *&ptr) {
+  my_assert(thd);
+  std::unordered_map<uint64_t, std::pair<time_t, void *>> *backquery_info;
+  if (up_limit) {
+    backquery_info = &thd->m_up_limit_info;
+  } else {
+    backquery_info = &thd->m_low_limit_info;
+  }
+  auto it = backquery_info->find(key);
+  if (it != backquery_info->end()) {
     ts = it->second.first;
     assert(it->second.second);
     ptr = it->second.second;
@@ -705,32 +711,47 @@ void thd_get_backquery_info(MYSQL_THD thd, uint64_t key, time_t &ts,
 /* The real timestamp of backquery may be different from the specified
 timestamp. We should set it to the correct value. */
 void thd_set_backquery_info(MYSQL_THD thd, uint64_t key, time_t t, void *ptr,
-                            bool clear) {
-  assert(thd);
-  if (!clear) {
-    [[maybe_unused]] auto ret = thd->m_backquery_info.insert(
-        std::make_pair(key, std::make_pair(t, ptr)));
-    /* Must success. */
-    assert(ret.second);
+                            bool up_limit, bool clear) {
+  my_assert(thd);
+  std::unordered_map<uint64_t, std::pair<time_t, void *>> *backquery_info;
+  std::unordered_map<std::string, time_t> *backquery_timestamps;
+  if (up_limit) {
+    backquery_info = &thd->m_up_limit_info;
+    backquery_timestamps = &thd->m_up_limit_timestamps;
   } else {
-    thd->m_backquery_info.clear();
-    thd->m_backquery_timestamps.clear();
+    backquery_info = &thd->m_low_limit_info;
+    backquery_timestamps = &thd->m_low_limit_timestamps;
+  }
+  if (!clear) {
+    auto ret =
+        backquery_info->insert(std::make_pair(key, std::make_pair(t, ptr)));
+    /* Must success. */
+    my_assert(ret.second);
+  } else {
+    backquery_info->clear();
+    backquery_timestamps->clear();
   }
 }
 
 void thd_get_all_backquery_info(MYSQL_THD thd,
-                                std::vector<std::pair<time_t, void *>> &info) {
-  assert(thd);
+                                std::vector<std::pair<time_t, void *>> &info,
+                                bool up_limit) {
+  my_assert(thd);
+  std::unordered_map<uint64_t, std::pair<time_t, void *>> *backquery_info;
+  if (up_limit) {
+    backquery_info = &thd->m_up_limit_info;
+  } else {
+    backquery_info = &thd->m_low_limit_info;
+  }
   info.clear();
-  info.reserve(thd->m_backquery_info.size());
-  for (auto it = thd->m_backquery_info.begin();
-       it != thd->m_backquery_info.end(); it++) {
+  info.reserve(backquery_info->size());
+  for (auto it = backquery_info->cbegin(); it != backquery_info->cend(); it++) {
     info.push_back(it->second);
   }
 }
 
 bool thd_has_backquery(MYSQL_THD thd) {
-  if (unlikely(thd && !thd->m_backquery_info.empty())) {
+  if (unlikely(thd && !thd->m_low_limit_info.empty())) {
     return true;
   }
   return false;
@@ -759,6 +780,14 @@ void *thd_get_coordinator_trx(MYSQL_THD thd) {
   return nullptr;
 }
 #endif /* defined(HAVE_PX) */
+
+bool thd_has_version_query(MYSQL_THD thd) {
+  if (unlikely(thd_has_backquery(thd) && !thd->m_low_limit_info.empty())) {
+    return true;
+  }
+  return false;
+}
+
 /**
   Changes from txsql end.
 */

@@ -3271,7 +3271,7 @@ int ha_innopart::records(ha_rows *num_rows) {
   if (n_threads > 0 && trx->isolation_level > TRX_ISO_READ_UNCOMMITTED &&
       m_prebuilt->select_lock_type == LOCK_NONE &&
       trx->mysql_n_tables_locked == 0 && !m_prebuilt->ins_sel_stmt &&
-      n_threads > 1) {
+      n_threads > 1 && !m_prebuilt->in_version_query()) {
     trx_start_if_not_started_xa(trx, false, UT_LOCATION_HERE);
 
     /* TDSQL: init m_prebuilt->m_mc_enable */
@@ -4336,12 +4336,12 @@ DS-MRR implementation
 
 /* changes from txsql start. */
 
-bool ha_innopart::prepare_backquery(THD *thd, time_t t) {
+bool ha_innopart::prepare_backquery(THD *thd, time_t t, bool up_info) {
   dict_table_t *saved_prebuilt_table = m_prebuilt->table;
   for (auto i = m_part_info->get_first_used_partition(); i < m_tot_parts;
        i = m_part_info->get_next_used_partition(i)) {
     m_prebuilt->table = m_part_share->get_table_part(i);
-    if (ha_innobase::prepare_backquery(thd, t)) {
+    if (ha_innobase::prepare_backquery(thd, t, up_info)) {
       return true;
     }
   }

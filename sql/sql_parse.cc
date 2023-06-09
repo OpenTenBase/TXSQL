@@ -6266,12 +6266,13 @@ void THD::reset_for_next_command() {
   }
 #endif
 
-  assert(m_backquery_info.empty()); 
+  my_assert(m_low_limit_info.empty() && m_up_limit_info.empty());
   /*
     When error occured in parse stage, ha_end_backquery
     won't be called, we should clean it manually.
   */
-  m_backquery_timestamps.clear();
+  m_low_limit_timestamps.clear();
+  m_up_limit_timestamps.clear();
   backquery_flag = false;
 }
 
@@ -7045,6 +7046,8 @@ bool PT_common_table_expr::match_table_ref(TABLE_LIST *tl, bool in_self,
   return false;
 }
 
+static time_t get_backquery_timestamp(THD *thd, Item *backquery_timestamp);
+
 /**
   Add a table to list of used tables.
 
@@ -7072,9 +7075,9 @@ bool PT_common_table_expr::match_table_ref(TABLE_LIST *tl, bool in_self,
 TABLE_LIST *Query_block::add_table_to_list(
     THD *thd, Table_ident *table_name, const char *alias, ulong table_options,
     thr_lock_type lock_type, enum_mdl_type mdl_type,
-    List<Index_hint> *index_hints_arg, List<String> *partition_names, 
-    Table_sample *table_sample_arg, LEX_STRING *option, Parse_context *pc, 
-    Item *backquery_timestamp) {
+    List<Index_hint> *index_hints_arg, List<String> *partition_names,
+    Table_sample *table_sample_arg, LEX_STRING *option, Parse_context *pc,
+    Item *backquery_low_limit_timestamp, Item *backquery_up_limit_timestamp) {
   TABLE_LIST *previous_table_ref =
       nullptr; /* The table preceding the current one. */
   LEX *lex = thd->lex;
@@ -7273,41 +7276,43 @@ TABLE_LIST *Query_block::add_table_to_list(
   ptr->table_sample_arg = table_sample_arg;
   if (table_sample_arg != nullptr) sampled_table_count++;
 
-  if (unlikely(backquery_timestamp)) {
-    int warning = 0;
-    my_timeval tm;
-    char buff[120];
-    String str(buff, sizeof(buff), system_charset_info);
-    bool ts_error = false;
-    if (!backquery_timestamp->is_valid_for_backquery()) {
-      my_error(ER_NOT_SUPPORTED_YET, MYF(0),
-               "Usage of subqueries or stored "
-               "function calls as part of backquery timestmap");
+  if (unlikely(backquery_low_limit_timestamp)) {
+    ptr->backquery_low_limit_timestamp =
+        get_backquery_timestamp(thd, backquery_low_limit_timestamp);
+    if (ptr->backquery_low_limit_timestamp == 0) {
       return nullptr;
     }
-    if (!backquery_timestamp->fixed &&
-        backquery_timestamp->fix_fields(thd, &backquery_timestamp)) {
-      ts_error = true;
+    std::string key(ptr->db, ptr->db_length);
+    key.push_back('.');
+    key.append(ptr->table_name, ptr->table_name_length);
+    thd->add_low_limit_timestamp(key, ptr->backquery_low_limit_timestamp);
+  } else {
+    ptr->backquery_low_limit_timestamp = 0;
+  }
+
+  if (unlikely(backquery_up_limit_timestamp)) {
+    ptr->backquery_up_limit_timestamp =
+        get_backquery_timestamp(thd, backquery_up_limit_timestamp);
+    if (ptr->backquery_up_limit_timestamp == 0) {
+      return nullptr;
     }
-    if (!ts_error &&
-        (backquery_timestamp->get_timeval(&tm, &warning) || tm.m_tv_sec == 0)) {
-      ts_error = true;
-    }
-    if (ts_error) {
-      String *str2 = backquery_timestamp->fixed
-                         ? backquery_timestamp->val_str(&str)
+    if (ptr->backquery_low_limit_timestamp <=
+        ptr->backquery_up_limit_timestamp) {
+      char buff[120];
+      String str(buff, sizeof(buff), system_charset_info);
+      String *str2 = backquery_low_limit_timestamp->fixed
+                         ? backquery_low_limit_timestamp->val_str(&str)
                          : nullptr;
       my_error(ER_BACKQUERY_TIMESTAMP, MYF(0),
                str2 ? str2->c_ptr_safe() : "NULL", "is invalid");
       return nullptr;
     }
-    ptr->backquery_timestamp = tm.m_tv_sec;
     std::string key(ptr->db, ptr->db_length);
     key.push_back('.');
     key.append(ptr->table_name, ptr->table_name_length);
-    thd->add_backquery_table(key, ptr->backquery_timestamp);
+    thd->add_up_limit_timestamp(key, ptr->backquery_up_limit_timestamp);
   } else {
-    ptr->backquery_timestamp = 0;
+    ptr->backquery_up_limit_timestamp = 0;
   }
 
   /* Link table in global list (all used tables) */
@@ -8583,4 +8588,33 @@ bool has_column_encryption_priv(THD *thd)
   }
 
   return true;
+}
+
+static time_t get_backquery_timestamp(THD *thd, Item *backquery_timestamp) {
+  int warning = 0;
+  my_timeval tm;
+  char buff[120];
+  String str(buff, sizeof(buff), system_charset_info);
+  bool ts_error = false;
+  if (!backquery_timestamp->is_valid_for_backquery()) {
+    my_error(ER_NOT_SUPPORTED_YET, MYF(0),
+             "Usage of subqueries or stored "
+             "function calls as part of backquery timestmap");
+    return 0;
+  }
+  if (!backquery_timestamp->fixed &&
+      backquery_timestamp->fix_fields(thd, &backquery_timestamp)) {
+    ts_error = true;
+  }
+  if (backquery_timestamp->get_timeval(&tm, &warning) || tm.m_tv_sec == 0) {
+    ts_error = true;
+  }
+  if (ts_error) {
+    String *str2 =
+        backquery_timestamp->fixed ? backquery_timestamp->val_str(&str) : NULL;
+    my_error(ER_BACKQUERY_TIMESTAMP, MYF(0), str2 ? str2->c_ptr_safe() : "NULL",
+             "is invalid");
+    return 0;
+  }
+  return tm.m_tv_sec;
 }

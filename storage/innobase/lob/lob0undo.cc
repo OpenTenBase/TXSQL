@@ -90,4 +90,57 @@ void undo_data_t::destroy() {
   }
 }
 
+void undo_data_t::clone_from(const undo_data_t &oth) {
+  if (this == &oth) {
+    return;
+  }
+  this->destroy();
+  if (oth.m_old_data == nullptr) {
+    return;
+  }
+  m_page_no = oth.m_page_no;
+  m_version = oth.m_version;
+  m_offset = oth.m_offset;
+  m_length = oth.m_length;
+  m_old_data =
+      ut::new_arr_withkey<byte>(UT_NEW_THIS_FILE_PSI_KEY, ut::Count{m_length});
+  memcpy(m_old_data, oth.m_old_data, m_length);
+}
+
+void undo_seq_t::clone_from(const undo_seq_t &oth) {
+  if (this == &oth) {
+    return;
+  }
+  this->destroy();
+  if (oth.m_undo_list == nullptr) {
+    return;
+  }
+  for (auto it = oth.m_undo_list->cbegin(); it != oth.m_undo_list->cend();
+       it++) {
+    undo_data_t lob_undo_data;
+    lob_undo_data.clone_from(*it);
+    this->push_back(lob_undo_data);
+  }
+  m_field_no = oth.get_field_no();
+}
+
+void undo_vers_t::clone_from(const undo_vers_t &oth) {
+  if (this == &oth) {
+    /* itself */
+    return;
+  }
+  this->reset();
+  if (oth.m_versions == nullptr) {
+    return;
+  }
+  if (m_versions == nullptr) {
+    m_versions =
+        ut::new_withkey<std::list<undo_seq_t *>>(UT_NEW_THIS_FILE_PSI_KEY);
+  }
+  for (auto it = oth.m_versions->cbegin(); it != oth.m_versions->cend(); it++) {
+    lob::undo_seq_t *lob_seq = this->get_undo_sequence((*it)->get_field_no());
+    lob_seq->clone_from(*(*it));
+  }
+}
+
 } /* namespace lob */
