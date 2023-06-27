@@ -3976,6 +3976,8 @@ void Backquery_manager::load_data_in_table() {
   if (opt_initialize || opt_initialize_insecure || srv_is_upgrade_mode) {
     /* upgrade, initialize is not supported */
     ib::info() << "Skip load snapshots for backquery";
+    srv_backquery_enable = false;
+    srv_backquery_persistent = false;
     return;
   }
   if (!this->check_table_if_exists()) {
