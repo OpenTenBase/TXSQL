@@ -70,6 +70,10 @@ Preparing deadlock scenario for mysql.help_topic
 ROLLBACK;
 ERROR 40001: Deadlock found when trying to get lock; try restarting transaction
 ROLLBACK;
+Preparing deadlock scenario for mysql.innodb_backquery_snapshots
+ROLLBACK;
+ERROR 40001: Deadlock found when trying to get lock; try restarting transaction
+ROLLBACK;
 Preparing deadlock scenario for mysql.innodb_index_stats
 ROLLBACK;
 ERROR 40001: Deadlock found when trying to get lock; try restarting transaction

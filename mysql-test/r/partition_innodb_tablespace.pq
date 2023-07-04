@@ -55,6 +55,7 @@ mtr/asserted_test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/asserted_test_suppre
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_ignored_global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_ignored_global_suppressions	MYSQLD_DATADIR/mtr/test_ignored_global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/innodb_backquery_snapshots	TABLESPACE	InnoDB	NORMAL	mysql/innodb_backquery_snapshots	MYSQLD_DATADIR/mysql/innodb_backquery_snapshots.ibd
 test/t1#p#p0	TABLESPACE	InnoDB	NORMAL	test/t1#p#p0	MYSQL_TMP_DIR/alternate_dir/data/test/t1#p#p0.ibd
 test/t1#p#p1	TABLESPACE	InnoDB	NORMAL	test/t1#p#p1	MYSQL_TMP_DIR/alternate_dir/data2/test/t1#p#p1.ibd
 # Verifying .ibd files
@@ -103,6 +104,7 @@ mtr/asserted_test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/asserted_test_suppre
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_ignored_global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_ignored_global_suppressions	MYSQLD_DATADIR/mtr/test_ignored_global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/innodb_backquery_snapshots	TABLESPACE	InnoDB	NORMAL	mysql/innodb_backquery_snapshots	MYSQLD_DATADIR/mysql/innodb_backquery_snapshots.ibd
 test/t1#p#p0	TABLESPACE	InnoDB	NORMAL	test/t1#p#p0	MYSQL_TMP_DIR/alternate_dir/data/test/t1#p#p0.ibd
 test/t1#p#p1	TABLESPACE	InnoDB	NORMAL	test/t1#p#p1	MYSQL_TMP_DIR/alternate_dir/data2/test/t1#p#p1.ibd
 # Verifying .ibd files
@@ -140,6 +142,7 @@ mtr/asserted_test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/asserted_test_suppre
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_ignored_global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_ignored_global_suppressions	MYSQLD_DATADIR/mtr/test_ignored_global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/innodb_backquery_snapshots	TABLESPACE	InnoDB	NORMAL	mysql/innodb_backquery_snapshots	MYSQLD_DATADIR/mysql/innodb_backquery_snapshots.ibd
 test/t11#p#p0	TABLESPACE	InnoDB	NORMAL	test/t11#p#p0	MYSQL_TMP_DIR/alternate_dir/data/test/t11#p#p0.ibd
 test/t11#p#p1	TABLESPACE	InnoDB	NORMAL	test/t11#p#p1	MYSQL_TMP_DIR/alternate_dir/data2/test/t11#p#p1.ibd
 # Verifying .ibd files
@@ -186,6 +189,7 @@ mtr/asserted_test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/asserted_test_suppre
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_ignored_global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_ignored_global_suppressions	MYSQLD_DATADIR/mtr/test_ignored_global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/innodb_backquery_snapshots	TABLESPACE	InnoDB	NORMAL	mysql/innodb_backquery_snapshots	MYSQLD_DATADIR/mysql/innodb_backquery_snapshots.ibd
 test/t1#p#p0	TABLESPACE	InnoDB	NORMAL	test/t1#p#p0	MYSQL_TMP_DIR/alternate_dir/data/test/t1#p#p0.ibd
 test/t1#p#p1	TABLESPACE	InnoDB	NORMAL	test/t1#p#p1	MYSQL_TMP_DIR/alternate_dir/data2/test/t1#p#p1.ibd
 DROP TABLE t1;
@@ -270,6 +274,7 @@ mtr/asserted_test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/asserted_test_suppre
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_ignored_global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_ignored_global_suppressions	MYSQLD_DATADIR/mtr/test_ignored_global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/innodb_backquery_snapshots	TABLESPACE	InnoDB	NORMAL	mysql/innodb_backquery_snapshots	MYSQLD_DATADIR/mysql/innodb_backquery_snapshots.ibd
 test/t1#p#p0#sp#s0	TABLESPACE	InnoDB	NORMAL	test/t1#p#p0#sp#s0	MYSQL_TMP_DIR/alternate_dir/data/test/t1#p#p0#sp#s0.ibd
 test/t1#p#p0#sp#s1	TABLESPACE	InnoDB	NORMAL	test/t1#p#p0#sp#s1	MYSQL_TMP_DIR/alternate_dir/data2/test/t1#p#p0#sp#s1.ibd
 test/t1#p#p1#sp#s2	TABLESPACE	InnoDB	NORMAL	test/t1#p#p1#sp#s2	MYSQL_TMP_DIR/alternate_dir/data/test/t1#p#p1#sp#s2.ibd
@@ -360,6 +365,7 @@ mtr/asserted_test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/asserted_test_suppre
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_ignored_global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_ignored_global_suppressions	MYSQLD_DATADIR/mtr/test_ignored_global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/innodb_backquery_snapshots	TABLESPACE	InnoDB	NORMAL	mysql/innodb_backquery_snapshots	MYSQLD_DATADIR/mysql/innodb_backquery_snapshots.ibd
 test/t1#p#p0#sp#s0	TABLESPACE	InnoDB	NORMAL	test/t1#p#p0#sp#s0	MYSQL_TMP_DIR/alternate_dir/data/test/t1#p#p0#sp#s0.ibd
 test/t1#p#p0#sp#s1	TABLESPACE	InnoDB	NORMAL	test/t1#p#p0#sp#s1	MYSQL_TMP_DIR/alternate_dir/data2/test/t1#p#p0#sp#s1.ibd
 test/t1#p#p1#sp#s2	TABLESPACE	InnoDB	NORMAL	test/t1#p#p1#sp#s2	MYSQL_TMP_DIR/alternate_dir/data/test/t1#p#p1#sp#s2.ibd
@@ -511,6 +517,7 @@ mtr/asserted_test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/asserted_test_suppre
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_ignored_global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_ignored_global_suppressions	MYSQLD_DATADIR/mtr/test_ignored_global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/innodb_backquery_snapshots	TABLESPACE	InnoDB	NORMAL	mysql/innodb_backquery_snapshots	MYSQLD_DATADIR/mysql/innodb_backquery_snapshots.ibd
 test/t1#p#p0	TABLESPACE	InnoDB	NORMAL	test/t1#p#p0	MYSQL_TMP_DIR/alternate_dir/data_part/test/t1#p#p0.ibd
 test/t_file_per_table_on	TABLESPACE	InnoDB	NORMAL	test/t_file_per_table_on	MYSQLD_DATADIR/test/t_file_per_table_on.ibd
 DROP TABLE t1;

@@ -18,6 +18,7 @@ def	mysql	PRIMARY	mysql	help_category	PRIMARY KEY	YES
 def	mysql	PRIMARY	mysql	help_keyword	PRIMARY KEY	YES
 def	mysql	PRIMARY	mysql	help_relation	PRIMARY KEY	YES
 def	mysql	PRIMARY	mysql	help_topic	PRIMARY KEY	YES
+def	mysql	PRIMARY	mysql	innodb_backquery_snapshots	PRIMARY KEY	YES
 def	mysql	PRIMARY	mysql	innodb_index_stats	PRIMARY KEY	YES
 def	mysql	PRIMARY	mysql	innodb_table_stats	PRIMARY KEY	YES
 def	mysql	PRIMARY	mysql	outline	PRIMARY KEY	YES

@@ -24,6 +24,7 @@ mtr/asserted_test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/asserted_test_suppre
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_ignored_global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_ignored_global_suppressions	MYSQLD_DATADIR/mtr/test_ignored_global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/innodb_backquery_snapshots	TABLESPACE	InnoDB	NORMAL	mysql/innodb_backquery_snapshots	MYSQLD_DATADIR/mysql/innodb_backquery_snapshots.ibd
 test/t1	TABLESPACE	InnoDB	NORMAL	test/t1	MYSQLD_DATADIR/test/t1.ibd
 ALTER TABLE t1 DISCARD TABLESPACE;
 === information_schema.innodb_tables  and innodb_tablespaces ===
@@ -46,6 +47,7 @@ mtr/asserted_test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/asserted_test_suppre
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_ignored_global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_ignored_global_suppressions	MYSQLD_DATADIR/mtr/test_ignored_global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/innodb_backquery_snapshots	TABLESPACE	InnoDB	NORMAL	mysql/innodb_backquery_snapshots	MYSQLD_DATADIR/mysql/innodb_backquery_snapshots.ibd
 ALTER TABLE t1 RENAME t2;
 === information_schema.innodb_tables  and innodb_tablespaces ===
 Table Name	Tablespace	Table Flags	Columns	Row Format	Zip Size	Space Type
@@ -67,6 +69,7 @@ mtr/asserted_test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/asserted_test_suppre
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_ignored_global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_ignored_global_suppressions	MYSQLD_DATADIR/mtr/test_ignored_global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/innodb_backquery_snapshots	TABLESPACE	InnoDB	NORMAL	mysql/innodb_backquery_snapshots	MYSQLD_DATADIR/mysql/innodb_backquery_snapshots.ibd
 CREATE TABLE t1(c INT)ENGINE=myisam;
 === information_schema.innodb_tables  and innodb_tablespaces ===
 Table Name	Tablespace	Table Flags	Columns	Row Format	Zip Size	Space Type
@@ -88,6 +91,7 @@ mtr/asserted_test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/asserted_test_suppre
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_ignored_global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_ignored_global_suppressions	MYSQLD_DATADIR/mtr/test_ignored_global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/innodb_backquery_snapshots	TABLESPACE	InnoDB	NORMAL	mysql/innodb_backquery_snapshots	MYSQLD_DATADIR/mysql/innodb_backquery_snapshots.ibd
 alter table t1 engine=innodb;
 === information_schema.innodb_tables  and innodb_tablespaces ===
 Table Name	Tablespace	Table Flags	Columns	Row Format	Zip Size	Space Type
@@ -111,6 +115,7 @@ mtr/asserted_test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/asserted_test_suppre
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_ignored_global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_ignored_global_suppressions	MYSQLD_DATADIR/mtr/test_ignored_global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/innodb_backquery_snapshots	TABLESPACE	InnoDB	NORMAL	mysql/innodb_backquery_snapshots	MYSQLD_DATADIR/mysql/innodb_backquery_snapshots.ibd
 test/t1	TABLESPACE	InnoDB	NORMAL	test/t1	MYSQLD_DATADIR/test/t1.ibd
 drop table t1;
 drop table t2;
@@ -136,6 +141,7 @@ mtr/asserted_test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/asserted_test_suppre
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_ignored_global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_ignored_global_suppressions	MYSQLD_DATADIR/mtr/test_ignored_global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/innodb_backquery_snapshots	TABLESPACE	InnoDB	NORMAL	mysql/innodb_backquery_snapshots	MYSQLD_DATADIR/mysql/innodb_backquery_snapshots.ibd
 test/t1	TABLESPACE	InnoDB	NORMAL	test/t1	MYSQLD_DATADIR/test/t1.ibd
 ALTER TABLE t1 DISCARD TABLESPACE;
 === information_schema.innodb_tables  and innodb_tablespaces ===
@@ -158,6 +164,7 @@ mtr/asserted_test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/asserted_test_suppre
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_ignored_global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_ignored_global_suppressions	MYSQLD_DATADIR/mtr/test_ignored_global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/innodb_backquery_snapshots	TABLESPACE	InnoDB	NORMAL	mysql/innodb_backquery_snapshots	MYSQLD_DATADIR/mysql/innodb_backquery_snapshots.ibd
 ALTER TABLE t1 RENAME t2;
 === information_schema.innodb_tables  and innodb_tablespaces ===
 Table Name	Tablespace	Table Flags	Columns	Row Format	Zip Size	Space Type
@@ -179,6 +186,7 @@ mtr/asserted_test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/asserted_test_suppre
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_ignored_global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_ignored_global_suppressions	MYSQLD_DATADIR/mtr/test_ignored_global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/innodb_backquery_snapshots	TABLESPACE	InnoDB	NORMAL	mysql/innodb_backquery_snapshots	MYSQLD_DATADIR/mysql/innodb_backquery_snapshots.ibd
 CREATE TABLE t1(c INT)ENGINE=innodb;
 === information_schema.innodb_tables  and innodb_tablespaces ===
 Table Name	Tablespace	Table Flags	Columns	Row Format	Zip Size	Space Type
@@ -202,6 +210,7 @@ mtr/asserted_test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/asserted_test_suppre
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_ignored_global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_ignored_global_suppressions	MYSQLD_DATADIR/mtr/test_ignored_global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/innodb_backquery_snapshots	TABLESPACE	InnoDB	NORMAL	mysql/innodb_backquery_snapshots	MYSQLD_DATADIR/mysql/innodb_backquery_snapshots.ibd
 test/t1	TABLESPACE	InnoDB	NORMAL	test/t1	MYSQLD_DATADIR/test/t1.ibd
 drop table t1;
 drop table t2;
@@ -227,6 +236,7 @@ mtr/asserted_test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/asserted_test_suppre
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_ignored_global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_ignored_global_suppressions	MYSQLD_DATADIR/mtr/test_ignored_global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/innodb_backquery_snapshots	TABLESPACE	InnoDB	NORMAL	mysql/innodb_backquery_snapshots	MYSQLD_DATADIR/mysql/innodb_backquery_snapshots.ibd
 test/t1/t2	TABLESPACE	InnoDB	NORMAL	test/t1/t2	MYSQLD_DATADIR/test/t1@002ft2.ibd
 ALTER TABLE `t1/t2` DISCARD TABLESPACE;
 === information_schema.innodb_tables  and innodb_tablespaces ===
@@ -249,6 +259,7 @@ mtr/asserted_test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/asserted_test_suppre
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_ignored_global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_ignored_global_suppressions	MYSQLD_DATADIR/mtr/test_ignored_global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/innodb_backquery_snapshots	TABLESPACE	InnoDB	NORMAL	mysql/innodb_backquery_snapshots	MYSQLD_DATADIR/mysql/innodb_backquery_snapshots.ibd
 ALTER TABLE `t1/t2` RENAME `t3\t4\t5`;
 === information_schema.innodb_tables  and innodb_tablespaces ===
 Table Name	Tablespace	Table Flags	Columns	Row Format	Zip Size	Space Type
@@ -270,6 +281,7 @@ mtr/asserted_test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/asserted_test_suppre
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_ignored_global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_ignored_global_suppressions	MYSQLD_DATADIR/mtr/test_ignored_global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/innodb_backquery_snapshots	TABLESPACE	InnoDB	NORMAL	mysql/innodb_backquery_snapshots	MYSQLD_DATADIR/mysql/innodb_backquery_snapshots.ibd
 drop table `t3\t4\t5`;
 # Test Case 4:
 create database `d1/d2\d3`;
@@ -296,6 +308,7 @@ mtr/asserted_test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/asserted_test_suppre
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_ignored_global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_ignored_global_suppressions	MYSQLD_DATADIR/mtr/test_ignored_global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/innodb_backquery_snapshots	TABLESPACE	InnoDB	NORMAL	mysql/innodb_backquery_snapshots	MYSQLD_DATADIR/mysql/innodb_backquery_snapshots.ibd
 ALTER TABLE `t1/t2\t3` DISCARD TABLESPACE;
 === information_schema.innodb_tables  and innodb_tablespaces ===
 Table Name	Tablespace	Table Flags	Columns	Row Format	Zip Size	Space Type
@@ -317,6 +330,7 @@ mtr/asserted_test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/asserted_test_suppre
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_ignored_global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_ignored_global_suppressions	MYSQLD_DATADIR/mtr/test_ignored_global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/innodb_backquery_snapshots	TABLESPACE	InnoDB	NORMAL	mysql/innodb_backquery_snapshots	MYSQLD_DATADIR/mysql/innodb_backquery_snapshots.ibd
 ALTER TABLE `t1/t2\t3` RENAME `t3\t4/t5`;
 === information_schema.innodb_tables  and innodb_tablespaces ===
 Table Name	Tablespace	Table Flags	Columns	Row Format	Zip Size	Space Type
@@ -338,6 +352,7 @@ mtr/asserted_test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/asserted_test_suppre
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_ignored_global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_ignored_global_suppressions	MYSQLD_DATADIR/mtr/test_ignored_global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/innodb_backquery_snapshots	TABLESPACE	InnoDB	NORMAL	mysql/innodb_backquery_snapshots	MYSQLD_DATADIR/mysql/innodb_backquery_snapshots.ibd
 drop table `t3\t4/t5`;
 drop database `d1/d2\d3`;
 # Test Case 5:
@@ -365,6 +380,7 @@ mtr/asserted_test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/asserted_test_suppre
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_ignored_global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_ignored_global_suppressions	MYSQLD_DATADIR/mtr/test_ignored_global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/innodb_backquery_snapshots	TABLESPACE	InnoDB	NORMAL	mysql/innodb_backquery_snapshots	MYSQLD_DATADIR/mysql/innodb_backquery_snapshots.ibd
 ALTER TABLE `d1/d2\d3`.`t1/t2\t3` DISCARD TABLESPACE;
 === information_schema.innodb_tables  and innodb_tablespaces ===
 Table Name	Tablespace	Table Flags	Columns	Row Format	Zip Size	Space Type
@@ -386,6 +402,7 @@ mtr/asserted_test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/asserted_test_suppre
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_ignored_global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_ignored_global_suppressions	MYSQLD_DATADIR/mtr/test_ignored_global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/innodb_backquery_snapshots	TABLESPACE	InnoDB	NORMAL	mysql/innodb_backquery_snapshots	MYSQLD_DATADIR/mysql/innodb_backquery_snapshots.ibd
 ALTER TABLE `d1/d2\d3`.`t1/t2\t3` RENAME `d4/d5\d6`.`t3\t4/t5`;
 === information_schema.innodb_tables  and innodb_tablespaces ===
 Table Name	Tablespace	Table Flags	Columns	Row Format	Zip Size	Space Type
@@ -407,6 +424,7 @@ mtr/asserted_test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/asserted_test_suppre
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_ignored_global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_ignored_global_suppressions	MYSQLD_DATADIR/mtr/test_ignored_global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/innodb_backquery_snapshots	TABLESPACE	InnoDB	NORMAL	mysql/innodb_backquery_snapshots	MYSQLD_DATADIR/mysql/innodb_backquery_snapshots.ibd
 drop table `d4/d5\d6`.`t3\t4/t5`;
 drop database `d1/d2\d3`;
 drop database `d4/d5\d6`;
@@ -435,6 +453,7 @@ mtr/asserted_test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/asserted_test_suppre
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_ignored_global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_ignored_global_suppressions	MYSQLD_DATADIR/mtr/test_ignored_global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/innodb_backquery_snapshots	TABLESPACE	InnoDB	NORMAL	mysql/innodb_backquery_snapshots	MYSQLD_DATADIR/mysql/innodb_backquery_snapshots.ibd
 ALTER TABLE `d1/d2`.`t1/t2` DISCARD TABLESPACE;
 === information_schema.innodb_tables  and innodb_tablespaces ===
 Table Name	Tablespace	Table Flags	Columns	Row Format	Zip Size	Space Type
@@ -456,6 +475,7 @@ mtr/asserted_test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/asserted_test_suppre
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_ignored_global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_ignored_global_suppressions	MYSQLD_DATADIR/mtr/test_ignored_global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/innodb_backquery_snapshots	TABLESPACE	InnoDB	NORMAL	mysql/innodb_backquery_snapshots	MYSQLD_DATADIR/mysql/innodb_backquery_snapshots.ibd
 ALTER TABLE `d1/d2`.`t1/t2` RENAME `d1`.`d2/t1/t2`;
 === information_schema.innodb_tables  and innodb_tablespaces ===
 Table Name	Tablespace	Table Flags	Columns	Row Format	Zip Size	Space Type
@@ -477,6 +497,7 @@ mtr/asserted_test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/asserted_test_suppre
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_ignored_global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_ignored_global_suppressions	MYSQLD_DATADIR/mtr/test_ignored_global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/innodb_backquery_snapshots	TABLESPACE	InnoDB	NORMAL	mysql/innodb_backquery_snapshots	MYSQLD_DATADIR/mysql/innodb_backquery_snapshots.ibd
 drop table `d1`.`d2/t1/t2`;
 drop database `d1/d2`;
 drop database `d1`;
