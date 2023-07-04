@@ -21,6 +21,7 @@ AND	t.name LIKE 'mysql%'
         AND     t.name NOT LIKE 'mysql/ndb_binlog_index'
 	ORDER BY t.name, i.index_id;
 table_name	n_cols	table_flags	index_name	root_page	type	n_fields	merge_threshold
+mysql/innodb_backquery_snapshots	9	33	PRIMARY	4	3	8	50
 CREATE TABLE t1 (a INT KEY, b TEXT) ROW_FORMAT=REDUNDANT ENGINE=innodb;
 CREATE TABLE t2 (a INT KEY, b TEXT) ROW_FORMAT=COMPACT ENGINE=innodb;
 CREATE TABLE t3 (a INT KEY, b TEXT) ROW_FORMAT=COMPRESSED ENGINE=innodb;
@@ -54,6 +55,7 @@ mtr/asserted_test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/asserted_test_suppre
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_ignored_global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_ignored_global_suppressions	MYSQLD_DATADIR/mtr/test_ignored_global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/innodb_backquery_snapshots	TABLESPACE	InnoDB	NORMAL	mysql/innodb_backquery_snapshots	MYSQLD_DATADIR/mysql/innodb_backquery_snapshots.ibd
 test/t1	TABLESPACE	InnoDB	NORMAL	test/t1	MYSQLD_DATADIR/test/t1.ibd
 test/t2	TABLESPACE	InnoDB	NORMAL	test/t2	MYSQLD_DATADIR/test/t2.ibd
 test/t3	TABLESPACE	InnoDB	NORMAL	test/t3	MYSQLD_DATADIR/test/t3.ibd

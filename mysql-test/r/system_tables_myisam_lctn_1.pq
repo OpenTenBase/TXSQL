@@ -100,6 +100,8 @@ MYSQL.HELP_TOPIC
 ERROR
 Storage engine 'MyISAM' does not support system tables. [mysql.help_topic]
 @table_name
+MYSQL.INNODB_BACKQUERY_SNAPSHOTS
+@table_name
 MYSQL.INNODB_INDEX_STATS
 ERROR
 Specified key was too long; max key length is 1000 bytes

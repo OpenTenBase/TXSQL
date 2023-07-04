@@ -17,6 +17,7 @@ SELECT lower(name), file_size, autoextend_size from
 INFORMATION_SCHEMA.INNODB_TABLESPACES where name like '%t%';
 lower(name)	file_size	autoextend_size
 innodb_temporary	12582912	0
+mysql/innodb_backquery_snapshots	114688	0
 test/t5	114688	0
 ts1	147456	0
 # Update autoextend_size attribute both for the implicit as
@@ -28,6 +29,7 @@ SELECT lower(name), file_size, autoextend_size from
 INFORMATION_SCHEMA.INNODB_TABLESPACES where name like '%t%';
 lower(name)	file_size	autoextend_size
 innodb_temporary	12582912	0
+mysql/innodb_backquery_snapshots	114688	0
 test/t5	114688	4194304
 ts1	147456	4194304
 # Cleanup

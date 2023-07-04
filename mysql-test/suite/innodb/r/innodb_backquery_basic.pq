@@ -7,6 +7,7 @@ show variables like '%backquery%';
 Variable_name	Value
 innodb_backquery_enable	OFF
 innodb_backquery_history_limit	8000000
+innodb_backquery_persistent	OFF
 innodb_backquery_trackpoint_clean_interval	1
 innodb_backquery_trackpoint_create_interval	1
 innodb_backquery_window	86400
@@ -36,6 +37,7 @@ show variables like '%backquery%';
 Variable_name	Value
 innodb_backquery_enable	OFF
 innodb_backquery_history_limit	8000000
+innodb_backquery_persistent	OFF
 innodb_backquery_trackpoint_clean_interval	1
 innodb_backquery_trackpoint_create_interval	1
 innodb_backquery_window	86400

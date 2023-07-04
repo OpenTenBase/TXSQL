@@ -312,6 +312,7 @@ InnoDB	mtr/global_suppressions
 InnoDB	mtr/test_ignored_global_suppressions
 InnoDB	mtr/test_suppressions
 InnoDB	mysql
+InnoDB	mysql/innodb_backquery_snapshots
 InnoDB	sys/sys_config
 InnoDB	test/tab3#p#p0
 InnoDB	test/tab3#p#p1
