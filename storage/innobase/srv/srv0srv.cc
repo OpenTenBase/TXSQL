@@ -3840,6 +3840,11 @@ void srv_backquery_thread() {
     rw_lock_s_lock(backquery_enable_lock, UT_LOCATION_HERE);
     backquery_enable = srv_backquery_enable;
     if (backquery_enable == false) {
+      /* clear status */
+      if (export_vars.innodb_backquery_up_time != 0 ||
+          export_vars.innodb_backquery_low_time != 0) {
+        backquery_manager->update_status();
+      }
       rw_lock_s_unlock(backquery_enable_lock);
       continue;
     }
@@ -4394,6 +4399,12 @@ void Backquery_manager::update_status_no_lock() {
 void Backquery_manager::update_purge_trx_no(trx_id_t trx_no) {
   this->current_purge_trx_no.store(trx_no,
                                    std::memory_order::memory_order_relaxed);
+}
+
+void show_persistent_backquery_counts(THD *thd, SHOW_VAR *var, char *buff) {
+  var->type = SHOW_LONGLONG;
+  var->value = buff;
+  *(longlong *)buff = srv_backquery_persistent ? 1 : 0;
 }
 
 /**
