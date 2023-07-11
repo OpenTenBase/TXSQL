@@ -1,0 +1,45 @@
+disable_ps_protocol;
+
+connect (tencent_conn, localhost, tencentroot,'',,$MASTER_MYPORT);
+
+set global innodb_backquery_enable=ON;
+echo Ensure that some messages get logged to the error log file;
+let $assert_file= $MYSQLTEST_VARDIR/log/mysqld.1.err;
+let $assert_match= TXSQL: backquery is enabled.;
+let $assert_select= TXSQL;
+let $assert_text= TXSQL: backquery is enabled.;
+source include/assert_grep.inc;
+
+set global innodb_backquery_enable=OFF;
+let $assert_file= $MYSQLTEST_VARDIR/log/mysqld.1.err;
+let $assert_match= TXSQL: backquery is disabled.;
+let $assert_select= TXSQL.;
+let $assert_text= TXSQL: backquery is disabled.;
+source include/assert_grep.inc;
+
+let $flashback_query_counts = query_get_value(show status like "Cdb_flashback_query_counts", Value, 1);
+let $assert_text = flashback_query_counts = 0;
+let $assert_cond = $flashback_query_counts = 0;
+source include/assert.inc;
+
+create table t1(id int, c1 int);
+let $time1 = query_get_value(select now(), now(), 1);
+disable_query_log;
+disable_result_log;
+error ER_BACKQUERY_TIMESTAMP;
+eval select * from t1 as of timestamp '$time1';
+enable_result_log;
+enable_query_log;
+
+let $flashback_query_counts = query_get_value(show status like "Cdb_flashback_query_counts", Value, 1);
+let $assert_text = flashback_query_counts = 1;
+let $assert_cond = $flashback_query_counts = 1;
+source include/assert.inc;
+
+connection tencent_conn;
+set global innodb_backquery_persistent=ON;
+show global status like '%txsql_persistent_flashback_query_counts';
+set global innodb_backquery_persistent=OFF;
+show global status like '%txsql_persistent_flashback_query_counts';
+
+drop table if exists t1;
