@@ -1480,6 +1480,8 @@ extern uint srv_page_hash_cell_factor;
 extern uint64_t srv_i_s_cache_min_idle_us;
 #endif
 void srv_wait_backquery_threads_exit();
+
+void show_persistent_backquery_counts(THD *thd, SHOW_VAR *var, char *buff);
 /**
  Changes from txsql end.
 */

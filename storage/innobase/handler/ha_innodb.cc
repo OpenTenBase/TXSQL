@@ -1405,6 +1405,8 @@ static SHOW_VAR innodb_status_variables[] = {
     {"tlog_file_write",
       (char*) &export_vars.innodb_tlog_file_write, SHOW_LONG,
       SHOW_SCOPE_GLOBAL},
+    {"txsql_persistent_flashback_query_counts",
+      (char*)&show_persistent_backquery_counts, SHOW_FUNC, SHOW_SCOPE_GLOBAL},
     /* Changes from txsql end. */
     {NullS, NullS, SHOW_LONG, SHOW_SCOPE_GLOBAL}};
 
