@@ -321,3 +321,7 @@ not_tlsv13.inc
 
 # skip tests which require thread_pool_have_transactions_limit in configs which # don't have it
 have_max_transactions_limit.inc
+
+# 33. Skip tests on platforms that don't support the FIDO plugins
+have_fido_plugin.inc
+have_webauthn_plugin.inc
