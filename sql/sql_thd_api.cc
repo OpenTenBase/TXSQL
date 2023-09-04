@@ -751,8 +751,10 @@ void thd_get_all_backquery_info(MYSQL_THD thd,
 }
 
 bool thd_has_backquery(MYSQL_THD thd) {
-  if (unlikely(thd && !thd->m_low_limit_info.empty())) {
-    return true;
+  if (likely(thd)) {
+    if (unlikely(!thd->m_low_limit_info.empty())) {
+      return true;
+    }
   }
   return false;
 }

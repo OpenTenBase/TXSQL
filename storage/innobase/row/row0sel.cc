@@ -4888,7 +4888,7 @@ dberr_t row_search_mvcc(byte *buf, page_cur_mode_t mode,
 
   const auto record_buffer = row_sel_get_record_buffer(prebuilt);
 
-  if (prebuilt->key_extracter != nullptr) {
+  if (unlikely(prebuilt->key_extracter != nullptr)) {
     ut_a(prebuilt->used_in_HANDLER);
     KeyRangeExtract *extracter = prebuilt->key_extracter;
     if (extracter->m_scanned == false) {

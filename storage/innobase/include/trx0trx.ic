@@ -241,7 +241,7 @@ static inline ReadView *trx_get_read_view_low(const trx_t *trx,
   ReadView *v = nullptr;
   if (trx->view_assigned) {
     v = trx->read_view;
-    if (unlikely(thd_has_backquery(trx->mysql_thd) && index)) {
+    if (unlikely(thd_has_backquery(trx->mysql_thd) && likely(index))) {
       time_t ts;
       void *temp_ptr;
       thd_get_backquery_info(trx->mysql_thd, index->table->id, ts, false,
