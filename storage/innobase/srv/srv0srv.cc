@@ -4244,9 +4244,9 @@ bool Backquery_manager::persist_view(trx_t *trx) {
     ut_ad((trx_ids_ptr == nullptr && length == UNIV_SQL_NULL) ||
           (trx_ids_ptr && length != 0 && length != UNIV_SQL_NULL));
     pars_info_add_ull_literal(pinfo, "create_time", it->first);
-    pars_info_add_ull_literal(pinfo, "low_limit_id", r->m_low_limit_id);
-    pars_info_add_ull_literal(pinfo, "up_limit_id", r->m_up_limit_id);
-    pars_info_add_ull_literal(pinfo, "low_limit_no", r->m_low_limit_no);
+    pars_info_add_ull_literal(pinfo, "low_limit_id", r->low_limit_id());
+    pars_info_add_ull_literal(pinfo, "up_limit_id", r->up_limit_id());
+    pars_info_add_ull_literal(pinfo, "low_limit_no", r->low_limit_no());
     pars_info_add_ull_literal(pinfo, "trx_ids_count", trx_ids_count);
     pars_info_add_literal(pinfo, "trx_ids", trx_ids_ptr, length, DATA_BLOB, 0);
     err = que_eval_sql(pinfo, sql, trx);
