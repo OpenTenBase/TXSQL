@@ -735,7 +735,7 @@ class Item_func : public Item_result_field {
 
   longlong val_int_from_real();
 
-  bool is_valid_for_backquery() const override;
+  bool is_invalid_for_backquery(uchar *arg [[maybe_unused]]) override;
 };
 
 class Item_real_func : public Item_func {

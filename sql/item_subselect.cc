@@ -3624,11 +3624,12 @@ void subselect_hash_sj_engine::print(const THD *thd, String *str,
         STRING_WITH_LEN("<the access method for lookups is not yet created>"));
 }
 
-bool Item_subselect::is_valid_for_backquery() const {
+bool Item_subselect::is_invalid_for_backquery(uchar *arg
+                                              [[maybe_unused]]) {
   for (auto s = unit->first_query_block(); s; s = s->next_query_block()) {
     if (s->table_list.size()) {
-      return false;
+      return true;
     }
   }
-  return true;
+  return false;
 }
