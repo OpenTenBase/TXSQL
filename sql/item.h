@@ -3495,7 +3495,9 @@ class Item : public Parse_tree_node {
   virtual void allow_array_cast() {}
 
   /* Whether the item is an valid timestamp for flashback query. */
-  virtual bool is_valid_for_backquery() const { return true; }
+  virtual bool is_invalid_for_backquery(uchar *arg [[maybe_unused]]) {
+    return false;
+  }
 };
 
 /**
@@ -4395,6 +4397,11 @@ class Item_field : public Item_ident {
              select list item.
   */
   virtual bool is_asterisk() const { return false; }
+
+  virtual bool is_invalid_for_backquery(uchar *arg
+                                        [[maybe_unused]]) override {
+    return true;
+  }
 };
 
 /**

@@ -17,6 +17,7 @@ id	c1
 3	3
 4	4
 ## subselect
-ERROR 42000: This version of MySQL doesn't yet support 'Usage of subqueries or stored function calls as part of backquery timestmap'
+ERROR 42000: This version of MySQL doesn't yet support 'Invalid timestmap'
+ERROR 42000: This version of MySQL doesn't yet support 'Invalid timestmap'
 set global innodb_backquery_enable=@saved_innodb_backquery_enable;
 drop table if exists t1;
