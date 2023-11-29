@@ -10280,11 +10280,23 @@ longlong Item_func_internal_is_enabled_role::val_int() {
 }
 
 /* Changes from TXSQL start. */
-bool Item_func::is_valid_for_backquery() const {
-  if (functype() == Functype::FUNC_SP) {
-    return false;
+bool Item_func::is_invalid_for_backquery(uchar *arg [[maybe_unused]]) {
+  bool ret = true;
+  /* supported functions:
+    now()
+    date_sub()
+    date_add()
+    corresponding testcase: innodb_backquery_timestamp.test
+  */
+  switch (functype()) {
+    case Functype::DATEADD_FUNC:
+    case Functype::NOW_FUNC:
+      ret = false;
+      break;
+    default:
+      break;
   }
-  return true;
+  return ret;
 }
 
 /*

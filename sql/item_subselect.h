@@ -272,7 +272,7 @@ class Item_subselect : public Item_result_field {
   uint unit_cols() const;
 
  public:
-  bool is_valid_for_backquery() const override;
+  bool is_invalid_for_backquery(uchar *arg [[maybe_unused]]) override;
 };
 
 /* single value subselect */

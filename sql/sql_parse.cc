@@ -8596,10 +8596,9 @@ static time_t get_backquery_timestamp(THD *thd, Item *backquery_timestamp) {
   char buff[120];
   String str(buff, sizeof(buff), system_charset_info);
   bool ts_error = false;
-  if (!backquery_timestamp->is_valid_for_backquery()) {
-    my_error(ER_NOT_SUPPORTED_YET, MYF(0),
-             "Usage of subqueries or stored "
-             "function calls as part of backquery timestmap");
+  if (backquery_timestamp->walk(&Item::is_invalid_for_backquery,
+                                enum_walk::PREFIX, nullptr)) {
+    my_error(ER_NOT_SUPPORTED_YET, MYF(0), "Invalid timestmap");
     return 0;
   }
   if (!backquery_timestamp->fixed &&

@@ -19,6 +19,8 @@ select * from t1 as of timestamp date_sub(now(), interval 1 second);
 echo ## subselect;
 error ER_NOT_SUPPORTED_YET;
 select * from t1 as of timestamp (select id from t1);
+error ER_NOT_SUPPORTED_YET;
+select * from t1 as of timestamp (id);
 enable_query_log;
 #cleanup
 set global innodb_backquery_enable=@saved_innodb_backquery_enable;
