@@ -4374,14 +4374,21 @@ bool Backquery_manager::change_persist_state(bool state) {
 bool Backquery_manager::check_table_if_exists() {
   THD *thd = current_thd;
   MDL_ticket *ticket = nullptr;
+  int error = 0;
   dict_table_t *backquery_views = dd_table_open_on_name(
-      thd, &ticket, BACKQUERY_TABLE_NAME, false, DICT_ERR_IGNORE_ALL);
+      thd, &ticket, BACKQUERY_TABLE_NAME, false, DICT_ERR_IGNORE_NONE, &error);
   if (backquery_views == nullptr) {
     ut_a(ticket == nullptr);
     return false;
   }
   ut_a(ticket != nullptr);
   dd_table_close(backquery_views, thd, &ticket, false);
+  if (error != 0) {
+    ib::error()
+        << "[TXSQL] Backquery_manager::check_table_if_exists failed, error: "
+        << error;
+    return false;
+  }
   return true;
 }
 
