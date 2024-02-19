@@ -331,6 +331,10 @@ static void set_thd_stage_info(MYSQL_THD thd, const PSI_stage_info *new_stage,
                                const unsigned int calling_line) {
   if (thd == nullptr) thd = current_thd;
 
+  if (thd->is_doing_parallel_copy_data) {
+    return;
+  }
+
   thd->enter_stage(new_stage, old_stage, calling_func, calling_file,
                    calling_line);
 }

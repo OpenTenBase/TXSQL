@@ -2005,9 +2005,13 @@ int ha_innobase::parallel_copy_data_between_tables(
   };
   err = reader.add_scan(trx, config, process_row);
 
+  thd_start_parallel_copy_data(thd);
+
   if (err == DB_SUCCESS) {
     err = reader.run(num_threads);
   }
+
+  thd_end_parallel_copy_data(thd);
 
   found = total_recs.load();
 
