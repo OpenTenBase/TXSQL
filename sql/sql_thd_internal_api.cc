@@ -424,3 +424,12 @@ bool thd_parallel_copy_ddl(THD* thd) {
   if (thd == nullptr) return false;
   return thd->variables.txsql_parallel_copy_ddl;
 }
+
+void thd_start_parallel_copy_data(THD *thd) {
+  thd->is_doing_parallel_copy_data = true;
+}
+
+void thd_end_parallel_copy_data(THD *thd) {
+  thd->is_doing_parallel_copy_data = false;
+}
+
