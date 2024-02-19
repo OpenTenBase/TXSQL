@@ -323,4 +323,8 @@ bool thd_is_unnested_single_table_stmt(const THD *thd);
 
 bool thd_parallel_copy_ddl(THD* thd);
 
+void thd_start_parallel_copy_data(THD *thd);
+
+void thd_end_parallel_copy_data(THD *thd);
+
 #endif  // SQL_THD_INTERNAL_API_INCLUDED
