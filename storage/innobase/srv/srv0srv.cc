@@ -3532,6 +3532,16 @@ bool srv_stats_skip_adjustment_for_primary_key = false;
 
 bool srv_log_dummy_cache = false;
 
+static bool check_read_only() {
+  bool is_read_only = srv_read_only_mode;
+#ifdef HAVE_NCDB
+  if (ncdb_slave_mode()) {
+    is_read_only = true;
+  }
+#endif
+  return is_read_only;
+}
+
 Backquery_manager::Backquery_manager() {
   total_ref = 0;
   inited = false;
@@ -3726,6 +3736,9 @@ bool Backquery_manager::disable() {
   if (this->get_init_state() == false) {
     return false;
   }
+  if (check_read_only()) {
+    return false;
+  }
   bool disabled = false;
   int ret = 0;
   bool clean_table = false;
@@ -3761,6 +3774,10 @@ bool Backquery_manager::enable() {
   if (this->get_init_state() == false) {
     return false;
   }
+  if (check_read_only()) {
+    return false;
+  }
+
   rw_lock_x_lock(backquery_enable_lock, UT_LOCATION_HERE);
   std::lock_guard<std::mutex> lock_persist(persistent_mtx);
   std::lock_guard<std::mutex> lock(mtx);
@@ -3839,7 +3856,7 @@ void srv_backquery_thread() {
     bool backquery_enable;
     rw_lock_s_lock(backquery_enable_lock, UT_LOCATION_HERE);
     backquery_enable = srv_backquery_enable;
-    if (backquery_enable == false) {
+    if (backquery_enable == false || check_read_only()) {
       /* clear status */
       if (export_vars.innodb_backquery_up_time != 0 ||
           export_vars.innodb_backquery_low_time != 0) {
@@ -3978,6 +3995,14 @@ void Backquery_manager::clean_and_persist(bool try_clean, bool try_persist,
 }
 
 void Backquery_manager::load_data_in_table() {
+#ifdef HAVE_NCDB
+  if (ncdb_slave_mode()) {
+    srv_backquery_persistent = false;
+    srv_backquery_enable = false;
+    ib::info() << "[TXSQL] backquery is not supported for ncdb slave";
+    return;
+  }
+#endif
   if (opt_initialize || opt_initialize_insecure || srv_is_upgrade_mode) {
     /* upgrade, initialize is not supported */
     ib::info() << "Skip load snapshots for backquery";
@@ -3995,6 +4020,10 @@ void Backquery_manager::load_data_in_table() {
     1. backquery is disabled or
     2. backquery_persistent is disabled
     */
+    if (check_read_only()) {
+      ib::info() << "[TXSQL] Skip clean data in " << BACKQUERY_TABLE_NAME;
+      return;
+    }
     ib::info() << "clean data in " << BACKQUERY_TABLE_NAME;
     bool ret =
         this->clear_data_in_table(nullptr, std::numeric_limits<time_t>::max());
@@ -4338,6 +4367,9 @@ bool Backquery_manager::clear_data_in_table(trx_t *trx, time_t t) {
 bool Backquery_manager::change_persist_state(bool state) {
   DBUG_EXECUTE_IF("innodb_simulate_change_backquery_variable_failed",
                   { return false; });
+  if (check_read_only()) {
+    return false;
+  }
   std::lock_guard<std::mutex> lock(persistent_mtx);
   bool backquery_table_exists = this->check_table_if_exists();
   if (state) {
