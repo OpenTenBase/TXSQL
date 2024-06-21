@@ -1025,6 +1025,8 @@ ulonglong cdb_page_cache_cleaning_window = 16 * 1024 * 1024;
 bool cdb_page_cache_cleaning_redo = true;
 bool cdb_page_cache_cleaning_binlog = true;
 
+PSI_mutex_key key_LOCK_push_warning;
+
 #define mysqld_charset &my_charset_latin1
 #define mysqld_default_locale_name "en_US"
 
@@ -4020,7 +4022,7 @@ void my_message_sql(uint error, const char *str, myf MyFlags) {
     assert(strncmp(str, "MyISAM table", 12) == 0);
     error = ER_UNKNOWN_ERROR;
   } else if (error == ER_SYNC_TIMEOUT ) {
-    /* TDSQL: In order to maintain compatibility, the error 
+    /* TDSQL: In order to maintain compatibility, the error
        code must be the same as ER_XA_RBTIMEOUT. */
     error = ER_XA_RBTIMEOUT;
   }
@@ -4686,9 +4688,9 @@ SHOW_VAR com_status_vars[] = {
      (char*) offsetof(System_status_var,
                       com_stat[(uint) SQLCOM_SHOW_CDB_SQL_FILTERS]),
      SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
-    {"show_cdb_outline_info", 
-     (char*) offsetof(System_status_var, 
-                      com_stat[(uint) SQLCOM_SHOW_OUTLINE_INFO]),       
+    {"show_cdb_outline_info",
+     (char*) offsetof(System_status_var,
+                      com_stat[(uint) SQLCOM_SHOW_OUTLINE_INFO]),
      SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
     {"show_auto_stats_task_status",
      (char*) offsetof(System_status_var,
@@ -4697,7 +4699,7 @@ SHOW_VAR com_status_vars[] = {
     {"show_auto_stats_node_status",
      (char*) offsetof(System_status_var,
                       com_stat[(uint) SQLCOM_SHOW_STATS_NODE]),
-     SHOW_LONG_STATUS, SHOW_SCOPE_ALL}, 
+     SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
     {"shutdown",
      (char *)offsetof(System_status_var, com_stat[(uint)SQLCOM_SHUTDOWN]),
      SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
@@ -12385,7 +12387,7 @@ static void delete_dictionary_tablespace() {
   dd::upgrade_57::Upgrade_status().remove();
 }
 
-static bool init_outline_builder_to_memory() 
+static bool init_outline_builder_to_memory()
 {
   THD *thd;
   bool return_val = false;
@@ -12426,11 +12428,11 @@ static bool init_outline_builder_to_memory()
                       strlen(get_field(&mem, table_list.table->field[2])));
     op.m_outline_query.assign(get_field(&mem, table_list.table->field[3]),
                        strlen(get_field(&mem, table_list.table->field[3])));
-    if (cdb_outline_builder.construct_param_positions(thd, op)) 
+    if (cdb_outline_builder.construct_param_positions(thd, op))
        break;
     if (cdb_outline_loader.load_outline_info(digest_hash, op))
        break;
-  }                           
+  }
   iterator.reset();
   // table_list.table->m_needs_reopen = true;
 
