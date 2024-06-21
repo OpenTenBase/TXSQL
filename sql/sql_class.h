@@ -1827,6 +1827,8 @@ class THD : public MDL_context_owner,
  public:
   bool is_doing_parallel_copy_data = false;
 
+  mysql_mutex_t LOCK_push_warning;
+
  private:
   /**
     Type of current query: COM_STMT_PREPARE, COM_QUERY, etc.
