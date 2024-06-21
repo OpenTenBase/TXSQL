@@ -499,4 +499,23 @@ ALTER TABLE t1 encryption='Y';
 --let $count_after = query_get_value(SELECT COUNT(*) FROM t1 WHERE c2 < 4000, COUNT(*), 1)
 assert($count_before == $count_after);
 
+--echo
+--echo #Case : test raise error
+--echo
+DROP TABLE t1;
+CREATE TABLE t1(a varchar(5));
+--let $row_count=5000
+--disable_query_log
+while ($row_count)
+{
+  --eval INSERT INTO t1 VALUES ('kkk');
+  dec $row_count;
+}
+--enable_query_log
+--error 1292
+ALTER TABLE t1 MODIFY COLUMN a DATETIME NOT NULL, ALGORITHM=COPY;
+
+--echo
+--echo #Clear environment
+--echo
 DROP TABLE t1;

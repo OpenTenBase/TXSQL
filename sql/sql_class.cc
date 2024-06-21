@@ -825,6 +825,7 @@ THD::THD(bool enable_plugins)
   mysql_mutex_init(key_LOCK_current_cond, &LOCK_current_cond,
                    MY_MUTEX_INIT_FAST);
   mysql_cond_init(key_COND_thr_lock, &COND_thr_lock);
+  mysql_mutex_init(key_LOCK_push_warning, &LOCK_push_warning, MY_MUTEX_INIT_FAST);
 
   mysql_mutex_init(key_LOCK_thd_done, &m_thd_lock_done, MY_MUTEX_INIT_FAST);
   mysql_cond_init(key_COND_thd_done, &m_thd_stage_cond_commit_order);
@@ -1068,9 +1069,18 @@ Sql_condition *THD::raise_condition(uint sql_errno, const char *sqlstate,
                                     const char *msg, bool fatal_error) {
   DBUG_TRACE;
 
+  if (is_doing_parallel_copy_data) {
+    mysql_mutex_lock(&LOCK_push_warning);
+  }
+
   if (!(variables.option_bits & OPTION_SQL_NOTES) &&
-      (level == Sql_condition::SL_NOTE))
+      (level == Sql_condition::SL_NOTE)) {
+    if (is_doing_parallel_copy_data) {
+      mysql_mutex_unlock(&LOCK_push_warning);
+    }
     return nullptr;
+  }
+
 
   assert(sql_errno != 0);
   if (sql_errno == 0) /* Safety in release build */
@@ -1085,7 +1095,12 @@ Sql_condition *THD::raise_condition(uint sql_errno, const char *sqlstate,
   }
 
   MYSQL_LOG_ERROR(sql_errno, PSI_ERROR_OPERATION_RAISED);
-  if (handle_condition(sql_errno, sqlstate, &level, msg)) return nullptr;
+  if (handle_condition(sql_errno, sqlstate, &level, msg)) {
+    if (is_doing_parallel_copy_data) {
+      mysql_mutex_unlock(&LOCK_push_warning);
+    }
+    return nullptr;
+  }
 
   Diagnostics_area *da = get_stmt_da();
   if (level == Sql_condition::SL_ERROR) {
@@ -1118,6 +1133,9 @@ Sql_condition *THD::raise_condition(uint sql_errno, const char *sqlstate,
         (sql_errno == EE_OUTOFMEMORY || sql_errno == ER_OUTOFMEMORY ||
          sql_errno == ER_STD_BAD_ALLOC_ERROR))) {
     cond = da->push_warning(this, sql_errno, sqlstate, level, msg);
+  }
+  if (is_doing_parallel_copy_data) {
+    mysql_mutex_unlock(&LOCK_push_warning);
   }
   return cond;
 }
@@ -1542,6 +1560,7 @@ THD::~THD() {
   mysql_mutex_destroy(&LOCK_thd_security_ctx);
   mysql_mutex_destroy(&LOCK_current_cond);
   mysql_mutex_destroy(&LOCK_group_replication_connection_mutex);
+  mysql_mutex_destroy(&LOCK_push_warning);
 
   mysql_cond_destroy(&COND_thr_lock);
   mysql_mutex_destroy(&m_thd_lock_done);

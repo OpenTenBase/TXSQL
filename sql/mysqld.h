@@ -81,6 +81,8 @@ extern int mysql_admin_tool_set_priority(ulonglong os_thread_id, int priority);
 extern my_thread_os_id_t admin_listener_os_thread_id;
 extern bool admin_tool_valid;
 
+extern PSI_mutex_key key_LOCK_push_warning;
+
 class Rpl_global_filter;
 class Rpl_acf_configuration_handler;
 class Source_IO_monitor;
