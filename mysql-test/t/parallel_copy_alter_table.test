@@ -116,7 +116,7 @@ drop table t1;
 
 --echo 
 --echo 
---echo #Case 11: parallel copy ddl doesn't support partition table now
+--echo #Case 11: Test partition table
 CREATE TABLE t1 (a INT NOT NULL, b INT NOT NULL)
 PARTITION BY KEY (a) PARTITIONS 2;
 INSERT INTO t1 VALUES (0,1), (0,2);
@@ -189,11 +189,11 @@ partition by range columns(a)
   partition p2 values less than ('c'),
   partition p3 values less than ('d'));
 insert into t1 values ('A'),('a'),('B'),('b'),('C'),('c');
-select * from t1 where a > 'B' collate latin1_bin;
-select * from t1 where a <> 'B' collate latin1_bin;
+select * from t1 where a > 'B' collate latin1_bin order by a;
+select * from t1 where a <> 'B' collate latin1_bin order by a;
 alter table t1 remove partitioning;
-select * from t1 where a > 'B' collate latin1_bin;
-select * from t1 where a <> 'B' collate latin1_bin;
+select * from t1 where a > 'B' collate latin1_bin order by a;
+select * from t1 where a <> 'B' collate latin1_bin order by a;
 drop table t1;
 
 --echo 
@@ -466,7 +466,7 @@ SET SESSION txsql_parallel_copy_ddl=ON;
 
 --echo 
 --echo 
---echo #Case : test parallel copy ddl with a large amount of data
+--echo #Case 30: test parallel copy ddl with a large amount of data
 CREATE TABLE t1 (c1 char(127) PRIMARY KEY, c2 int, c3 char(127)) ENGINE=INNODB;
 let row_count=5000;
 --disable_query_log
@@ -516,6 +516,202 @@ while ($row_count)
 ALTER TABLE t1 MODIFY COLUMN a DATETIME NOT NULL, ALGORITHM=COPY;
 
 --echo
+--echo #Case : test when innodb_parallel_read_threads = 1
+--echo
+DROP TABLE t1;
+CREATE TABLE t1(a INT, b INT);
+INSERT INTO t1 VALUES(1, 10), (2, 20), (3, 30);
+SET SESSION txsql_parallel_copy_ddl=ON;
+SET SESSION innodb_parallel_read_threads=1;
+ALTER TABLE t1 ENGINE=INNODB, ALGORITHM=COPY;
+SELECT * FROM t1 ORDER BY a;
+
+--echo
 --echo #Clear environment
 --echo
 DROP TABLE t1;
+
+
+SET SESSION innodb_parallel_read_threads=16;
+
+--echo 
+--echo 
+--echo #Case 31: Test partition table with datetime
+CREATE TABLE t1 (c1 INT, c2 DATETIME NOT NULL) PARTITION BY KEY(c1) PARTITIONS 4;
+INSERT INTO t1 VALUES(1, '2000-01-01');
+INSERT INTO t1 VALUES(1001, '2001-01-01');
+INSERT INTO t1 VALUES(2001, '2002-01-01');
+ALTER TABLE t1 ADD COLUMN c3 DATETIME, ALGORITHM= COPY;
+ALTER TABLE t1 MODIFY c2 DATETIME NOT NULL FIRST, ALGORITHM= COPY;
+SELECT * FROM t1;
+DROP TABLE t1;
+
+--echo 
+--echo 
+--echo #Case 32: Test partition table change column to different name
+CREATE TABLE `t1` (
+  `a` INT DEFAULT NULL,
+  `b` VARCHAR(30) DEFAULT NULL,
+  `c` DOUBLE DEFAULT NULL
+) PARTITION BY KEY(a) PARTITIONS 3;
+INSERT INTO t1 VALUES(1, 'abcd', 1.234);
+ALTER TABLE t1 RENAME COLUMN b TO c, CHANGE COLUMN c d FLOAT;
+SELECT * FROM t1;
+DROP TABLE t1;
+
+--echo 
+--echo 
+--echo #Case 32: Test alter table engine=innodb 
+CREATE TABLE t1 (
+  a int PRIMARY KEY,
+  b VARCHAR(6),
+  INDEX b3(b(3))
+) PARTITION BY KEY(a) PARTITIONS 4;
+INSERT INTO t1 VALUES(1,'foo'),(2,'foobar');
+SELECT * FROM t1 WHERE b LIKE 'foob%';
+ALTER TABLE t1 ENGINE=INNODB, ALGORITHM=COPY;
+SELECT * FROM t1 WHERE b LIKE 'foob%';
+DROP TABLE t1;
+
+--echo
+--echo
+--echo #Case 32: Test alter table subpartition
+CREATE TABLE t1(a int primary key, b int)
+PARTITION BY RANGE (a)
+SUBPARTITION BY HASH (a) SUBPARTITIONS 2
+(
+ PARTITION p0 VALUES LESS THAN (10)
+ (SUBPARTITION sp0,
+  SUBPARTITION sp1),
+ PARTITION p1 VALUES LESS THAN (20)
+ (SUBPARTITION sp2,
+  SUBPARTITION sp3),
+ PARTITION p2 VALUES LESS THAN (30)
+ (SUBPARTITION sp4,
+  SUBPARTITION sp5)
+);
+delimiter |;
+drop procedure if exists insert_t;
+create procedure insert_t(in num int)
+begin
+declare i int default 0;
+set autocommit=0;
+repeat
+insert into t1 values(i, i);
+set i=i+1;
+until i=num
+end repeat;
+commit;
+set autocommit=1;
+end |
+delimiter ;|
+CALL insert_t(29);
+ALTER TABLE t1 ENGINE=INNODB, ALGORITHM=COPY;
+DROP TABLE t1;
+
+--echo 
+--echo 
+--echo #Case 33: Test parallel copy ddl with a large amount of data with partition table
+CREATE TABLE t1 (c1 char(127) PRIMARY KEY, c2 int, c3 char(127)) 
+PARTITION BY KEY(c1) PARTITIONS 4;
+let row_count=5000;
+--disable_query_log
+while ($row_count)
+{
+  --let $c2=`select 1 + floor(rand()*10000 % 10000)`
+  --eval INSERT INTO t1 VALUES (LPAD($row_count, 127, 0), $c2, LPAD($row_count, 127, 0));
+  dec $row_count;
+}
+--enable_query_log
+--let $count_before = query_get_value(SELECT COUNT(*) FROM t1 WHERE c2 < 4000, COUNT(*), 1)
+
+set session innodb_parallel_read_threads=16;
+ALTER TABLE t1 change column c2 c2 bigint, change column c3 c3 int, drop primary key, add index idx(c2);
+
+SHOW CREATE TABLE t1;
+
+--let $count_after = query_get_value(SELECT COUNT(*) FROM t1 WHERE c2 < 4000, COUNT(*), 1)
+assert($count_before == $count_after);
+
+set session innodb_parallel_read_threads=8;
+ALTER TABLE t1 change column c2 c2 char(10);
+
+ALTER TABLE t1 change column c2 c2 bigint;
+--let $count_after = query_get_value(SELECT COUNT(*) FROM t1 WHERE c2 < 4000, COUNT(*), 1)
+assert($count_before == $count_after);
+
+set session innodb_parallel_read_threads=5;
+ALTER TABLE t1 encryption='Y';
+--let $count_after = query_get_value(SELECT COUNT(*) FROM t1 WHERE c2 < 4000, COUNT(*), 1)
+assert($count_before == $count_after);
+
+DROP TABLE t1;
+
+--echo
+--echo
+--echo #Case 33: Test foreign key
+CREATE TABLE t1 (id BIGINT PRIMARY KEY, a VARCHAR(255));
+CREATE TABLE t2 (id BIGINT, fid BIGINT, b VARCHAR(255));
+INSERT INTO t1 VALUES(1, 'aaa'), (2, 'bbb');
+INSERT INTO t2 VALUES(1001, 1, 'abcde'), (1002, 2, 'efghi');
+ALTER TABLE t2 ADD FOREIGN KEY fk_t2_fid_t1_id (fid) REFERENCES t1 (id);
+SELECT * FROM t2;
+DROP TABLE t2;
+CREATE TABLE t2 (id BIGINT, fid BIGINT, b VARCHAR(255));
+INSERT INTO t2 VALUES(1001, 1, 'abcde'), (1002, 3, 'efghi');
+--disable_result_log
+--error 1452
+ALTER TABLE t2 ADD FOREIGN KEY fk_t2_fid_t1_id (fid) REFERENCES t1 (id);
+--enable_result_log
+DROP TABLE t2;
+CREATE TABLE t2 (id BIGINT, fid BIGINT, b VARCHAR(255))
+PARTITION BY KEY (id) PARTITIONS 4;
+INSERT INTO t2 VALUES(1001, 1, 'abcde'), (1002, 2, 'efghi');
+--error 1506
+ALTER TABLE t2 ADD FOREIGN KEY fk_t2_fid_t1_id (fid) REFERENCES t1 (id);
+DROP TABLE t1, t2;
+
+--echo
+--echo
+--echo #Case 33: Checksum table
+SET SESSION txsql_parallel_copy_ddl=OFF;
+CREATE TABLE t1 (c1 char(127) PRIMARY KEY, c2 int, c3 char(127))
+PARTITION BY KEY(c1) PARTITIONS 4;
+let row_count=5000;
+--disable_query_log
+while ($row_count)
+{
+  --let $c2=`select 1 + floor(rand()*10000 % 10000)`
+  --eval INSERT INTO t1 VALUES (LPAD($row_count, 127, 0), $c2, LPAD($row_count, 127, 0));
+  dec $row_count;
+}
+--enable_query_log
+CREATE TABLE t2 LIKE t1;
+INSERT INTO t2 SELECT * FROM t1;
+
+ALTER TABLE t1 change column c2 c2 bigint, change column c3 c3 int, drop primary key, add index idx(c2);
+--let $sum11 =  query_get_value(CHECKSUM TABLE t1, Checksum, 1)
+ALTER TABLE t1 change column c2 c2 char(10);
+--let $sum12 =  query_get_value(CHECKSUM TABLE t1, Checksum, 1)
+ALTER TABLE t1 change column c2 c2 bigint;
+--let $sum13 =  query_get_value(CHECKSUM TABLE t1, Checksum, 1)
+ALTER TABLE t1 encryption='Y';
+--let $sum14 =  query_get_value(CHECKSUM TABLE t1, Checksum, 1)
+
+SET SESSION txsql_parallel_copy_ddl=ON;
+SET SESSION innodb_parallel_read_threads=16;
+ALTER TABLE t2 change column c2 c2 bigint, change column c3 c3 int, drop primary key, add index idx(c2);
+--let $sum21 =  query_get_value(CHECKSUM TABLE t2, Checksum, 1)
+ALTER TABLE t2 change column c2 c2 char(10);
+--let $sum22 =  query_get_value(CHECKSUM TABLE t2, Checksum, 1)
+ALTER TABLE t2 change column c2 c2 bigint;
+--let $sum23 =  query_get_value(CHECKSUM TABLE t2, Checksum, 1)
+ALTER TABLE t2 encryption='Y';
+--let $sum24 =  query_get_value(CHECKSUM TABLE t2, Checksum, 1)
+assert($sum11 == $sum21);
+assert($sum12 == $sum22);
+assert($sum13 == $sum23);
+assert($sum14 == $sum24);
+
+DROP TABLE t1, t2;
+DROP PROCEDURE insert_t;

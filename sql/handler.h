@@ -3608,7 +3608,7 @@ class Alter_inplace_info {
 
 class Alter_copy_info {
 public:
-  Alter_copy_info() : handler_ctx(nullptr) {}
+  Alter_copy_info() : handler_ctx(nullptr), fallback(false) {}
 
   ~Alter_copy_info() {}
   /**
@@ -3618,6 +3618,9 @@ public:
      @see copy_alter_handler_ctx for information about object lifecycle.
   */
   copy_alter_handler_ctx *handler_ctx;
+
+  // Whether need fallback from parallel copy ddl to normal way.
+  bool fallback;
 };
 
 struct HA_CHECK_OPT {

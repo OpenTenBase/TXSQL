@@ -18706,9 +18706,8 @@ static bool check_if_can_use_parallel_copy_ddl(THD *thd, TABLE *from, TABLE *to,
           to->file->table_type(), "InnoDB") == 0
       && !alter_ctx->is_tmp_table()
       && order == nullptr && !is_auto_inc
-      && (!from->part_info && !to->part_info)
-      && table_def->foreign_keys()->empty()
-      && const_cast<dd::Table *>(old_table_def)->foreign_keys()->empty()
+      && (table_def && table_def->foreign_keys()->empty())
+      && (old_table_def && old_table_def->foreign_keys().empty())
       && !is_multi_value) {
     return true;
   }
@@ -18944,14 +18943,25 @@ static int copy_data_between_tables(
                                            alter_ctx->get_tmp_path());
 
       error = from->file->ha_parallel_copy_data_between_tables(from, to, table_def,
-                                                              old_table_def,
-                                                              &ha_copy_alter_info,
-                                                              create, found_count);
+                                                               old_table_def,
+                                                               &ha_copy_alter_info,
+                                                               create, found_count);
+
+      if (ha_copy_alter_info.fallback) {
+        if (iterator->Init()) {
+          error= 1;
+          goto err;
+        }
+        thd->get_stmt_da()->reset_current_row_for_condition();
+        goto fallback;
+      }
+
       mysql_stage_set_work_completed(psi, found_count);
       thd->get_stmt_da()->set_current_row_for_condition(found_count);
     }
   }
   else {
+fallback:
     while (!(error = iterator->Read())) {
       if (thd->killed) {
         thd->send_kill_message();
