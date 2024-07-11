@@ -1177,5 +1177,10 @@ class ha_innopart : public ha_innobase,
 
  public:
   bool prepare_backquery(THD *thd, time_t t) override;
+
+  int parallel_copy_data_between_tables(TABLE *from, TABLE *to,
+                              dd::Table *new_dd_tab, const dd::Table *old_dd_tab,
+                              Alter_copy_info *ha_copy_alter_info,
+                              List<Create_field> &create, ulong &found) override;
 };
 #endif /* ha_innopart_h */

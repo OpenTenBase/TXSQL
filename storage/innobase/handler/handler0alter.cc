@@ -376,15 +376,18 @@ struct ha_innobase_copy_ctx_t {
     to_table->column_bitmaps_set_no_signal(&to_table->s->all_set,
                                              &to_table->s->all_set);
 
-    from_prebuilt = row_create_prebuilt(old_inno_table, from->s->reclength);
-    from_prebuilt->default_rec = from->s->default_values;
-    ut_ad(from_prebuilt->default_rec);
+    from_prebuilt = nullptr;
+    if (old_inno_table) {
+      from_prebuilt = row_create_prebuilt(old_inno_table, from->s->reclength);
+      from_prebuilt->default_rec = from->s->default_values;
+      ut_ad(from_prebuilt->default_rec);
 
-    from_prebuilt->trx = old_prebuilt->trx;
+      from_prebuilt->trx = old_prebuilt->trx;
 
-    from_prebuilt->m_mysql_table = from;
+      from_prebuilt->m_mysql_table = from;
 
-    build_copy_template(from_prebuilt, true, from_table);
+      build_copy_template(from_prebuilt, true, from_table);
+    }
 
     to_table->next_number_field = to_table->found_next_number_field;
 
@@ -462,8 +465,10 @@ struct ha_innobase_copy_ctx_t {
     mem_heap_free(copy_heap);
 
     /* Do not close the table. */
-    from_prebuilt->table = nullptr;
-    row_prebuilt_free(from_prebuilt, false);
+    if (from_prebuilt) {
+      from_prebuilt->table = nullptr;
+      row_prebuilt_free(from_prebuilt, false);
+    }
 
     destroy_array(copy, to_table->s->fields);
 
@@ -1837,9 +1842,13 @@ int ha_innobase::parallel_copy_data_between_tables(
 
   num_threads = Parallel_reader::available_threads(num_threads, false);
 
-  if (num_threads == 0) {
+  if (num_threads <= 1)
+  {
     mem_heap_free(heap);
-    ib::error(ER_IB_MSG_1004) << "No enough parallel reader threads.";
+    if (num_threads == 0) {
+      ib::warn() << "No enough parallel reader threads.";
+    }
+    ha_copy_alter_info->fallback = true;
     return (DB_INTERRUPTED);
   }
 
@@ -10883,6 +10892,175 @@ enum_alter_inplace_result ha_innopart::check_if_supported_inplace_alter(
   set_partition(0);
   return ha_innobase::check_if_supported_inplace_alter(altered_table,
                                                        ha_alter_info);
+}
+
+int ha_innopart::parallel_copy_data_between_tables(
+    TABLE *from, TABLE *to, dd::Table *new_dd_tab, const dd::Table *old_dd_tab,
+    Alter_copy_info *ha_copy_alter_info, List<Create_field> &create,
+    ulong &found) {
+
+  if (dict_table_is_discarded(m_prebuilt->table)) {
+    return (HA_ERR_NO_SUCH_TABLE);
+  }
+
+  int ret = 0;
+  THD *thd = current_thd;
+  copy_alter_handler_ctx *ctx = ha_copy_alter_info->handler_ctx;
+
+  void *scan_ctx;
+  size_t num_threads;
+
+  if ((ret = parallel_scan_init(scan_ctx, &num_threads, true))) {
+    return ret;
+  }
+
+  sql_print_information(
+      "[TXSQL] parallel_threads=%u, "
+      "sql=%s.",
+      num_threads, thd->query().str);
+
+  bool auto_increment_field_copied = 0;
+
+  ha_innobase_copy_ctx_t **ctx_array =
+      ut::new_arr_withkey<ha_innobase_copy_ctx_t *>(UT_NEW_THIS_FILE_PSI_KEY,
+                                                    ut::Count{num_threads});
+
+  for (size_t i = 0; i < num_threads; i++) {
+    ctx_array[i] =
+        ut::new_withkey<ha_innobase_copy_ctx_t>(UT_NEW_THIS_FILE_PSI_KEY);
+    ctx_array[i]->init(nullptr, from, to, m_prebuilt, thd, new_dd_tab,
+                       old_dd_tab, ctx, create, auto_increment_field_copied);
+  }
+
+  Parallel_reader_adapter::Init_fn init_fn =
+      [&thd](void *cookie, ulong ncols, ulong row_len, const ulong *col_offsets,
+         const ulong *null_byte_offsets,
+         const ulong *null_bitmasks) -> bool {
+    current_thd = thd;
+    return false;
+  };
+
+  std::atomic<uint64_t> total_recs{0};
+
+  Parallel_reader_adapter::Load_fn load_fn =
+      [&auto_increment_field_copied, &total_recs](void *cookie, uint nrows, void *rowdata,
+         uint64_t partition_id) -> bool {
+    int error;
+
+    THD *thd = current_thd;
+
+    ha_innobase_copy_ctx_t *ctx = static_cast<ha_innobase_copy_ctx_t *>(cookie);
+
+    Copy_field *copy = ctx->copy;
+    Copy_field *copy_end = ctx->copy_end;
+
+    Field **gen_fields = ctx->gen_fields;
+    Field **gen_fields_end = ctx->gen_fields_end;
+
+    TABLE *from_table = ctx->from_table;
+    TABLE *to_table = ctx->to_table;
+
+    byte *buffer = static_cast<byte *>(rowdata);
+
+    for (uint i = 0; i < nrows; i++) {
+      byte *mysql_rec = buffer + from_table->s->reclength * i;
+
+      memcpy(from_table->record[0], mysql_rec, from_table->s->reclength);
+
+      innobase_rec_reset(to_table);
+
+      if (to_table->next_number_field) {
+        if (auto_increment_field_copied)
+          to_table->autoinc_field_has_explicit_non_null_value = true;
+        else
+          to_table->next_number_field->reset();
+      }
+
+      for (Copy_field *copy_ptr = copy; copy_ptr != copy_end; copy_ptr++) {
+        copy_ptr->invoke_do_copy();
+      }
+
+      if (thd->is_error()) {
+        return true;
+      }
+
+      for (auto ptr = gen_fields; ptr != gen_fields_end; ptr++) {
+        Item *expr_item;
+        if ((*ptr)->is_gcol()) {
+          expr_item = (*ptr)->gcol_info->expr_item;
+        } else {
+          assert((*ptr)->has_insert_default_general_value_expression());
+          expr_item = (*ptr)->m_default_val_expr->expr_item;
+        }
+        expr_item->save_in_field(*ptr, false);
+        if (thd->is_error()) {
+          return true;
+        }
+      }
+      // store the check constraint result error code
+      if (invoke_table_check_constraints(thd, to_table)) {
+        return true;
+      }
+
+      if (thd->is_killed()) {
+        thd->send_kill_message();
+        return true;
+      }
+
+      error = to_table->file->ha_write_row(to_table->record[0]);
+
+      to_table->autoinc_field_has_explicit_non_null_value = false;
+
+      if (error) {
+        if (!to_table->file->is_ignorable_error(error)) {
+          /* Not a duplicate key error. */
+          to_table->file->print_error(error, MYF(0));
+        } else {
+          /* Report duplicate key error. */
+          uint key_nr = to_table->file->get_dup_key(error);
+          if ((int)key_nr >= 0) {
+            const char *err_msg = ER_THD(thd, ER_DUP_ENTRY_WITH_KEY_NAME);
+            if (key_nr == 0 &&
+                (to_table->key_info[0].key_part[0].field->is_flag_set(
+                    AUTO_INCREMENT_FLAG)))
+              err_msg = ER_THD(thd, ER_DUP_ENTRY_AUTOINCREMENT_CASE);
+            print_keydup_error(
+                to_table,
+                key_nr == MAX_KEY ? nullptr : &to_table->key_info[key_nr],
+                err_msg, MYF(0), from_table->s->table_name.str);
+          } else
+            to_table->file->print_error(error, MYF(0));
+        }
+        return true;
+      }
+
+      total_recs++;
+    }
+
+    return false;
+  };
+
+  Parallel_reader_adapter::End_fn end_fn = [](void *cookie) {};
+
+  if ((ret = parallel_scan(scan_ctx, reinterpret_cast<void **>(ctx_array), init_fn, load_fn, end_fn))) {
+    goto error;
+  }
+
+  parallel_scan_end(scan_ctx);
+
+  found = total_recs.load();
+
+error:
+  if (ctx_array) {
+    for (size_t i = 0; i < num_threads; i++) {
+      ctx_array[i]->destroy();
+      ut::delete_(ctx_array[i]);
+    }
+    ut::delete_arr(ctx_array);
+    ctx_array = nullptr;
+  }
+
+  return ret;
 }
 
 /** Prepare in-place ALTER for table.
