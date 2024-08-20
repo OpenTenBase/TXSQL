@@ -49,7 +49,10 @@ SET(MYISAMMRG_SOURCES
 # As MyISAM is not maintained anymore, it is not worth fixing these,
 # so we turn off the warning instead.
 IF(MY_COMPILER_IS_GNU)
-  ADD_COMPILE_FLAGS(${MYISAMMRG_SOURCES} COMPILE_FLAGS "-Wno-class-memaccess")
+  MY_CHECK_CXX_COMPILER_WARNING("error=class-memaccess" HAS_WARN_FLAG)
+  IF(HAS_WARN_FLAG)
+    ADD_COMPILE_FLAGS(${MYISAMMRG_SOURCES} COMPILE_FLAGS "-Wno-class-memaccess")
+  ENDIF()
 ENDIF()
 
 MYSQL_ADD_PLUGIN(myisammrg ${MYISAMMRG_SOURCES} STORAGE_ENGINE MANDATORY)

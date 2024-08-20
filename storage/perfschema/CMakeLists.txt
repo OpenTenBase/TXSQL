@@ -314,6 +314,15 @@ IF(WITH_UNIT_TESTS)
   ADD_SUBDIRECTORY(unittest)
 ENDIF()
 
+IF(MY_COMPILER_IS_GNU)
+  MY_CHECK_CXX_COMPILER_WARNING("error=class-memaccess" HAS_WARN_FLAG)
+  IF(HAS_WARN_FLAG)
+    ADD_COMPILE_FLAGS(
+      ${PERFSCHEMA_SOURCES}
+      COMPILE_FLAGS "-Wno-class-memaccess")
+  ENDIF()
+ENDIF()
+
 # Only disable threads when building without *any* instrumentation,
 # as other instrumentations have a dependency on threads.
 OPTION(DISABLE_PSI_THREAD "Exclude the performance schema thread instrumentation" OFF)
@@ -355,4 +364,3 @@ MARK_AS_ADVANCED(DISABLE_PSI_MEMORY)
 MARK_AS_ADVANCED(DISABLE_PSI_TRANSACTION)
 MARK_AS_ADVANCED(DISABLE_PSI_ERROR)
 MARK_AS_ADVANCED(DISABLE_PSI_DATA_LOCK)
-

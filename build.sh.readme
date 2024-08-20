@@ -1,6 +1,6 @@
 命令格式:
 build.sh [-b <boost_dir>] [-d <dest_dir>] [-s <server_suffix>] [-t debug|release]
-         [-B 1|0] [-v 1|0] [-D 1|0|default] [-K 1|0]
+         [-B 1|0] [-v 1|0] [-D 1|0|default]
          [--asan | --msan | --tsan | --ubsan]
 
 参数说明：
@@ -11,9 +11,7 @@ build.sh [-b <boost_dir>] [-d <dest_dir>] [-s <server_suffix>] [-t debug|release
 -v     是否带valgrind。默认为0，不打开valgrind。
 -B     设置是否进行build。默认为1。
 -D     设置是否WITH_DEBUG。默认不设置。
--K     设置是否编译keyring_kms插件
 --asan 设置是打开AddressSanitizer。默认关闭。
 --msan 设置是否打开MemorySanitizer。默认关闭。
 --tsan 设置是否打开ThreadSanitizer。默认关闭。
 --ubsan设置是否打开Undefined Behavior Sanitizer。默认关闭。
-

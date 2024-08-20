@@ -536,7 +536,6 @@ The documentation is based on the source files such as:
 */
 /* clang-format on */
 
-#include "commdefine.h"
 #include "compile_time.h"
 
 #include "sql/mysqld.h"

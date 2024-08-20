@@ -667,7 +667,6 @@ SET(SQL_SOURCE
   ${CONF_SOURCES}
   ${SQL_SHARED_SOURCES}
   ${SQL_HEADERS}
-  ../extra/lz4/xxhash.c
   ../libmysql/errmsg.cc
   ../sql-common/client.cc
   ../sql-common/client_plugin.cc
@@ -700,6 +699,10 @@ SET(SQL_SOURCE
   srv_session_info_service.cc
   srv_session_service.cc
   )
+
+SET(LZ4_SOURCE
+  ../extra/lz4/xxhash.c
+)
 
 IF(NOT WIN32)
   LIST(APPEND SQL_SOURCE mysqld_daemon.cc)
@@ -752,6 +755,15 @@ IF(MY_COMPILER_IS_GNU
   ENDIF()
 ENDIF()
 
+IF(MY_COMPILER_IS_GNU)
+  MY_CHECK_CXX_COMPILER_WARNING("error=class-memaccess" HAS_WARN_FLAG)
+  IF(HAS_WARN_FLAG)
+    ADD_COMPILE_FLAGS(
+      ${SQL_SOURCE}
+      COMPILE_FLAGS "-Wno-class-memaccess")
+  ENDIF()
+ENDIF()
+
 # Force optimization of (large) MYSQLparse function in MSVC
 IF(WIN32 AND NOT WIN32_CLANG)
   ADD_COMPILE_FLAGS(
@@ -777,7 +789,7 @@ IF(HAVE_NO_BUILTIN_MEMCMP)
   )
 ENDIF()
 
-ADD_LIBRARY(sql_main STATIC ${SQL_SOURCE})
+ADD_LIBRARY(sql_main STATIC ${SQL_SOURCE} ${LZ4_SOURCE})
 ADD_DEPENDENCIES(sql_main GenServerSource)
 ADD_DEPENDENCIES(sql_main GenDigestServerSource)
 ADD_DEPENDENCIES(sql_main GenBootstrapPriv)
@@ -873,6 +885,15 @@ ADD_LIBRARY(binlog STATIC ${BINLOG_SOURCE})
 TARGET_LINK_LIBRARIES(binlog binlogevents_static)
 TARGET_LINK_LIBRARIES(binlog rpl)
 
+IF(MY_COMPILER_IS_GNU)
+  MY_CHECK_CXX_COMPILER_WARNING("error=class-memaccess" HAS_WARN_FLAG)
+  IF(HAS_WARN_FLAG)
+    ADD_COMPILE_FLAGS(
+      ${BINLOG_SOURCE}
+      COMPILE_FLAGS "-Wno-class-memaccess")
+  ENDIF()
+ENDIF()
+
 SET (RPL_SOURCE rpl_handler.cc rpl_tblmap.cc rpl_context.cc)
 ADD_DEPENDENCIES(binlog GenError)
 ADD_LIBRARY(rpl STATIC ${RPL_SOURCE})
@@ -883,6 +904,15 @@ ADD_DEPENDENCIES(rpl GenError)
 ADD_LIBRARY(master STATIC ${MASTER_SOURCE})
 ADD_DEPENDENCIES(master GenError)
 TARGET_LINK_LIBRARIES(master binlog sql_main)
+
+IF(MY_COMPILER_IS_GNU)
+  MY_CHECK_CXX_COMPILER_WARNING("error=class-memaccess" HAS_WARN_FLAG)
+  IF(HAS_WARN_FLAG)
+    ADD_COMPILE_FLAGS(
+      ${MASTER_SOURCE}
+      COMPILE_FLAGS "-Wno-class-memaccess")
+  ENDIF()
+ENDIF()
 
 SET (SLAVE_SOURCE
   dynamic_ids.cc
@@ -911,6 +941,15 @@ SET (SLAVE_SOURCE
 ADD_LIBRARY(slave STATIC ${SLAVE_SOURCE})
 ADD_DEPENDENCIES(slave GenError)
 TARGET_LINK_LIBRARIES(slave binlog sql_main)
+
+IF(MY_COMPILER_IS_GNU)
+  MY_CHECK_CXX_COMPILER_WARNING("error=class-memaccess" HAS_WARN_FLAG)
+  IF(HAS_WARN_FLAG)
+    ADD_COMPILE_FLAGS(
+      ${SLAVE_SOURCE}
+      COMPILE_FLAGS "-Wno-class-memaccess")
+  ENDIF()
+ENDIF()
 
 # All these libraries depend on each other.
 TARGET_LINK_LIBRARIES(sql_main rpl master slave binlog)
