@@ -13,16 +13,16 @@ create table t1(a int primary key, name varchar(4096));
 include/sync_slave_sql_with_master.inc
 include/stop_slave.inc
 show binary logs;
-Log_name	File_size	Encrypted	Algorithm
-#	#	No	No
+Log_name	File_size	Encrypted
+#	#	No
 insert into t1 values (1,repeat('k', 4096));
 ERROR XA106: The transaction is in doubt. Please check whether the transaction has been committed.
 [connection master]
 commit tdsql_timeout_trxs;
 show binary logs;
-Log_name	File_size	Encrypted	Algorithm
-#	#	No	No
-#	#	No	No
+Log_name	File_size	Encrypted
+#	#	No
+#	#	No
 include/start_slave.inc
 drop table t1;
 set global sqlasyn = 0;

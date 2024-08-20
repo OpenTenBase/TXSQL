@@ -13,6 +13,6 @@ n_rows
 10000
 select n_rows from mysql.innodb_table_stats where table_name='t';
 n_rows
-11500
+10500
 drop table t;
 set global txsql_recalc_table_stats_after_manual_close=off;

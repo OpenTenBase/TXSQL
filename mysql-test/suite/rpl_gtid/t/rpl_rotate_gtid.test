@@ -20,6 +20,7 @@
 # Test should run only on debug build
 source include/have_debug.inc;
 source include/have_debug_sync.inc;
+CALL mtr.add_suppression("The transaction owned GTID is already in the gtid_executed table");
 
 
 --echo # Preparing the relaylog
