@@ -3007,9 +3007,6 @@ void row_sel_field_store_in_mysql_format_func(
     if (UNIV_LIKELY_NULL(prebuilt->encryption_heap))
       mem_heap_empty(prebuilt->encryption_heap);
 
-    if (UNIV_LIKELY_NULL(prebuilt->compress_heap)) {
-      mem_heap_empty(prebuilt->compress_heap);
-    }
 
     /* Reassign the clustered index field no. */
     if (clust_templ_for_sec) {
