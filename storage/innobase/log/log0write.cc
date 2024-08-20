@@ -2642,16 +2642,14 @@ bool log_read_encryption() {
       return (false);
     }
 
-    /* redo only use SM4 encryption algorithm */
     if (Encryption::decode_encryption_info(
-            key, iv, log_block_buf + LOG_HEADER_CREATOR_END, true, Encryption::SM4)) {
+            key, iv, log_block_buf + LOG_HEADER_CREATOR_END, true)) {
       /* If redo log encryption is enabled, set the
       space flag. Otherwise, we just fill the encryption
       information to space object for decrypting old
       redo log blocks. */
       fsp_flags_set_encryption(space->flags);
-      fsp_flags_set_encryption_algorithm(space->flags, static_cast<uint32_t>(Encryption::SM4));
-      err = fil_set_encryption(space->id, Encryption::SM4, key, iv);
+      err = fil_set_encryption(space->id, Encryption::AES, key, iv);
 
       if (err == DB_SUCCESS) {
         ut_free(log_block_buf_ptr);
@@ -2683,7 +2681,7 @@ bool log_file_header_fill_encryption(byte *buf, byte *key, byte *iv,
   byte encryption_info[ENCRYPTION_INFO_SIZE];
 
   if (!Encryption::fill_encryption_info(key, iv, encryption_info, is_boot,
-                                        encrypt_key, Encryption::SM4)) {
+                                        encrypt_key)) {
     return (false);
   }
 

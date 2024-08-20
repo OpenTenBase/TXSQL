@@ -416,7 +416,7 @@ dberr_t Datafile::validate_to_dd(space_id_t space_id, uint32_t flags,
 
   if (m_space_id == space_id &&
       !((m_flags ^ flags) & ~(FSP_FLAGS_MASK_DATA_DIR | FSP_FLAGS_MASK_SHARED |
-                              FSP_FLAGS_MASK_SDI | FSP_FLAGS_MASK_ENCRYPT_ALGORITHM))) {
+                              FSP_FLAGS_MASK_SDI))) {
     /* Datafile matches the tablespace expected. */
     return (DB_SUCCESS);
   }
@@ -429,9 +429,8 @@ dberr_t Datafile::validate_to_dd(space_id_t space_id, uint32_t flags,
   NONE unless there is a crash before Encryption is finished. */
   if (m_encryption_op_in_progress == ENCRYPTION &&
       !((m_flags ^ flags) &
-        ~(FSP_FLAGS_MASK_ENCRYPTION | FSP_FLAGS_MASK_ENCRYPT_ALGORITHM |
-          FSP_FLAGS_MASK_DATA_DIR | FSP_FLAGS_MASK_SHARED |
-          FSP_FLAGS_MASK_SDI))) {
+        ~(FSP_FLAGS_MASK_ENCRYPTION | FSP_FLAGS_MASK_DATA_DIR |
+          FSP_FLAGS_MASK_SHARED | FSP_FLAGS_MASK_SDI))) {
     return (DB_SUCCESS);
   }
 

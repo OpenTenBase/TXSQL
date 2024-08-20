@@ -5160,7 +5160,6 @@ bool dd_process_dd_indexes_rec_simple(mem_heap_t *heap, const rec_t *rec,
 @param[in,out]  is_encrypted    true if tablespace is encrypted
 @param[in,out]  state           space state
 @param[in]      dd_spaces       dict_table_t obj of mysql.tablespaces
-@param[in,out]  encrypt_algorithm
 @return true if data is retrived */
 bool dd_process_dd_tablespaces_rec(mem_heap_t *heap, const rec_t *rec,
                                    space_id_t *space_id, char **name,
@@ -6147,8 +6146,7 @@ bool dd_tablespace_update_cache(THD *thd) {
 
       /* Exclude Encryption flag as (un)encryption operation might be
       rolling forward in background thread. */
-      ut_ad(!((space->flags ^ flags) & ~(FSP_FLAGS_MASK_ENCRYPTION |
-                                           FSP_FLAGS_MASK_ENCRYPT_ALGORITHM)));
+      ut_ad(!((space->flags ^ flags) & ~(FSP_FLAGS_MASK_ENCRYPTION)));
 
       fil_space_update_name(space, space_name);
 
@@ -6213,31 +6211,4 @@ bool dd_is_table_in_encrypted_tablespace(const dict_table_t *table) {
     return false;
   }
 }
-
-Encryption::Type dd_get_encrypted_tablespace_algorithm(const dict_table_t *table) {
-  uint32_t algorithm = 0;
-  fil_space_t *space = fil_space_get(table->space);
-  if (space != NULL) {
-    algorithm = FSP_FLAGS_GET_ENCRYPT_ALGORITHM(space->flags);
-  } else {
-    THD *thd = current_thd;
-    dd::cache::Dictionary_client *client = dd::get_dd_client(thd);
-    dd::cache::Dictionary_client::Auto_releaser releaser(client);
-    dd::Tablespace *dd_space = nullptr;
-
-    if (!client->acquire_uncached_uncommitted<dd::Tablespace>(
-            table->dd_space_id, &dd_space) &&
-        dd_space != nullptr) {
-      uint32 flags;
-      dd_space->se_private_data().get(dd_space_key_strings[DD_SPACE_FLAGS],
-                                      &flags);
-
-      algorithm = FSP_FLAGS_GET_ENCRYPT_ALGORITHM(flags);
-    }
-  }
-
-  return (Encryption::type_is_valid(algorithm) ?
-        static_cast<Encryption::Type>(algorithm) : Encryption::AES);
-}
-
 #endif /* !UNIV_HOTBACKUP */

@@ -744,12 +744,12 @@ bool Clone_Snapshot::encrypt_key_in_log_header(byte *log_header,
 
   /* Get log Encryption Key and IV. */
   auto success = Encryption::decode_encryption_info(
-      &encryption_key[0], &encryption_iv[0], encryption_info, false, Encryption::SM4);
+      &encryption_key[0], &encryption_iv[0], encryption_info, false);
 
   if (success) {
     /* Encrypt with master key and fill encryption information. */
     success = Encryption::fill_encryption_info(
-        &encryption_key[0], &encryption_iv[0], encryption_info, false, true, Encryption::SM4);
+        &encryption_key[0], &encryption_iv[0], encryption_info, false, true);
   }
   return (success);
 }
@@ -766,14 +766,14 @@ bool Clone_Snapshot::encrypt_key_in_header(const page_size_t &page_size,
 
   /* Get tablespace Encryption Key and IV. */
   auto success = Encryption::decode_encryption_info(
-      &encryption_key[0], &encryption_iv[0], encryption_info, false, Encryption::SM4);
+      &encryption_key[0], &encryption_iv[0], encryption_info, false);
   if (!success) {
     return (false);
   }
 
   /* Encrypt with master key and fill encryption information. */
   success = Encryption::fill_encryption_info(
-      &encryption_key[0], &encryption_iv[0], encryption_info, false, true, Encryption::SM4);
+      &encryption_key[0], &encryption_iv[0], encryption_info, false, true);
   if (!success) {
     return (false);
   }
@@ -794,7 +794,7 @@ void Clone_Snapshot::decrypt_key_in_header(fil_space_t *space,
 
   /* Get tablespace encryption information. */
   Encryption::fill_encryption_info(space->encryption_key, space->encryption_iv,
-                                   encryption_info, false, false, Encryption::SM4);
+                                   encryption_info, false, false);
 
   /* Set encryption information in page. */
   auto offset = fsp_header_get_encryption_offset(page_size);

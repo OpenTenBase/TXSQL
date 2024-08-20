@@ -624,8 +624,6 @@ static const uint CLONE_DESC_FILE_FLAG_ZLIB = 1;
 static const uint CLONE_DESC_FILE_FLAG_LZ4 = 2;
 /** Clone File Flag: Encryption type AES */
 static const uint CLONE_DESC_FILE_FLAG_AES = 3;
-/** Clone File Flag: Encryption type SM4 */
-static const uint CLONE_DESC_FILE_FLAG_SM4 = 4;
 
 /** File Metadata: Tablespace ID in 4 bytes */
 static const uint CLONE_FILE_SPACE_ID_OFFSET = CLONE_FILE_FLAGS_OFFSET + 2;
@@ -692,9 +690,6 @@ void Clone_Desc_File_MetaData::serialize(byte *&desc_file, uint &len,
   if (m_file_meta.m_encrypt_type == Encryption::AES) {
     DESC_SET_FLAG(file_flags, CLONE_DESC_FILE_FLAG_AES);
   }
-  if (m_file_meta.m_encrypt_type == Encryption::SM4) {
-    DESC_SET_FLAG(file_flags, CLONE_DESC_FILE_FLAG_SM4);
-  }
   mach_write_to_2(desc_file + CLONE_FILE_FLAGS_OFFSET, file_flags);
 
   mach_write_to_4(desc_file + CLONE_FILE_SPACE_ID_OFFSET,
@@ -758,9 +753,6 @@ bool Clone_Desc_File_MetaData::deserialize(const byte *desc_file,
   if (DESC_CHECK_FLAG(file_flags, CLONE_DESC_FILE_FLAG_AES)) {
     m_file_meta.m_encrypt_type = Encryption::AES;
   }
-  if (DESC_CHECK_FLAG(file_flags, CLONE_DESC_FILE_FLAG_SM4)) {
-    m_file_meta.m_encrypt_type = Encryption::SM4;
-  } 
 
   m_file_meta.m_space_id =
       mach_read_from_4(desc_file + CLONE_FILE_SPACE_ID_OFFSET);

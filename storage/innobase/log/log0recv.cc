@@ -3446,16 +3446,14 @@ bool meb_read_log_encryption(IORequest &encryption_request,
              ENCRYPTION_MAGIC_SIZE) == 0) {
     encryption_request = IORequestLogRead;
 
-    /* redo only use SM4 encryption algorithm */
     if (Encryption::decode_encryption_info(
-            key, iv, log_block_buf + LOG_HEADER_CREATOR_END, true, Encryption::SM4)) {
+            key, iv, log_block_buf + LOG_HEADER_CREATOR_END, true)) {
       /* If redo log encryption is enabled, set the
       space flag. Otherwise, we just fill the encryption
       information to space object for decrypting old
       redo log blocks. */
       space->flags |= FSP_FLAGS_MASK_ENCRYPTION;
-      fsp_flags_set_encryption_algorithm(space->flags, static_cast<uint32_t>(Encryption::SM4));
-      err = fil_set_encryption(space->id, Encryption::SM4, key, iv);
+      err = fil_set_encryption(space->id, Encryption::AES, key, iv);
 
       if (err == DB_SUCCESS) {
         ib::info(ER_IB_MSG_1239) << "Read redo log encryption"
@@ -3470,7 +3468,7 @@ bool meb_read_log_encryption(IORequest &encryption_request,
       encryption_request.encryption_key(
           space->encryption_key, space->encryption_klen, space->encryption_iv);
 
-      encryption_request.encryption_algorithm(Encryption::SM4);
+      encryption_request.encryption_algorithm(Encryption::AES);
     } else {
       ut_free(log_block_buf_ptr);
       ib::error(ER_IB_MSG_1241) << "Cannot read the encryption"

@@ -514,16 +514,6 @@ static TYPELIB innodb_table_drop_mode_typelib = {
     array_elements(innodb_table_drop_mode_names) - 1,
     "innodb_table_drop_mode_typelib", innodb_table_drop_mode_names, NULL};
 
-/** Possible values for system variable "innodb_encrypt_algorithm". */
-static const char *innodb_encrypt_algorithm_names[] = {
-    "NONE", "AES", "SM4", NullS};
-
-/** Used to define an enumerate type of the system variable
-innodb_table_drop_mode. */
-static TYPELIB innodb_encrypt_algorithm_typelib = {
-    array_elements(innodb_encrypt_algorithm_names) - 1,
-    "innodb_encrypt_algorithm_typelib", innodb_encrypt_algorithm_names, NULL};
-
 
 /** Retrieve the FTS Relevance Ranking result for doc with doc_id
 of m_prebuilt->fts_doc_id
@@ -5087,8 +5077,7 @@ static bool dd_open_hardcoded(space_id_t space_id, const char *filename) {
 
     if (strstr(space->files.front().name, filename) != 0 &&
         /* Ignore encryption flag as it might have changed */
-        !((space->flags ^ predefined_flags) &
-        ~(FSP_FLAGS_MASK_ENCRYPTION | FSP_FLAGS_MASK_ENCRYPT_ALGORITHM))) {
+        !((space->flags ^ predefined_flags) & ~(FSP_FLAGS_MASK_ENCRYPTION))) {
       fil_space_open_if_needed(space);
 
     } else {
@@ -20830,33 +20819,6 @@ static int validate_innodb_redo_log_encrypt(THD *thd, SYS_VAR *var, void *save,
   return (0);
 }
 
-/** Validte innodb_encrypt_algorithm parameter.
-@param[in]  thd       thread handle
-@param[in]  var       system variable
-@param[out] save      immediate result for update function
-@param[in]  value     incoming string
-@return  0 on success, 1 on failure. */
-static int innodb_encrypt_algorithm_validate(THD *thd, SYS_VAR *var,
-                                              void *save,
-                                              struct st_mysql_value *value) {
-  ut_a(save != nullptr);
-  ut_a(value != nullptr);
-
-  char buff[STRING_BUFFER_USUAL_SIZE];
-  int len = sizeof(buff);
-  const char *encrypt_alg = value->val_str(value, buff, &len);
-
-  int type = find_type(encrypt_alg, &innodb_encrypt_algorithm_typelib,
-                       FIND_TYPE_NO_PREFIX);
-  /* set "none" is invalid */
-  if (type <= 1) {
-    return 1;
-  }
-
-  *reinterpret_cast<ulong *>(save) = static_cast<ulong>(type - 1);
-  return 0;
-}
-
 /** Update the number of rollback segments per tablespace when the
 system variable innodb_rollback_segments is changed.
 This function is registered as a callback with MySQL.
@@ -22820,12 +22782,6 @@ static MYSQL_SYSVAR_BOOL(redo_log_encrypt, srv_redo_log_encrypt,
                          "Enable or disable Encryption of REDO tablespace.",
                          validate_innodb_redo_log_encrypt, nullptr, FALSE);
 
-static MYSQL_SYSVAR_ENUM(
-    encrypt_algorithm, srv_encrypt_algorithm,
-    PLUGIN_VAR_OPCMDARG,
-    "Encrypt algorithm for transparent data encryption.",
-    innodb_encrypt_algorithm_validate, nullptr, Encryption::AES, &innodb_encrypt_algorithm_typelib);
-
 static MYSQL_SYSVAR_BOOL(
     print_ddl_logs, srv_print_ddl_logs, PLUGIN_VAR_OPCMDARG,
     "Print all DDl logs to MySQL error log (off by default)", NULL, NULL,
@@ -23189,7 +23145,6 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(default_row_format),
     MYSQL_SYSVAR(redo_log_archive_dirs),
     MYSQL_SYSVAR(redo_log_encrypt),
-    MYSQL_SYSVAR(encrypt_algorithm),
     MYSQL_SYSVAR(print_ddl_logs),
     MYSQL_SYSVAR(temp_tablespace_fast_cleanup),
 #ifdef UNIV_DEBUG

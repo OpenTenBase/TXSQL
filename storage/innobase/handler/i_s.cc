@@ -6644,12 +6644,6 @@ static ST_FIELD_INFO innodb_tablespaces_fields_info[] = {
      STRUCT_FLD(field_flags, MY_I_S_MAYBE_NULL), STRUCT_FLD(old_name, ""),
      STRUCT_FLD(open_method, 0)},
 
-#define INNODB_TABLESPACES_ENCRYPT_ALGORITHM 14
-    {STRUCT_FLD(field_name, "ENCRYPT_ALGORITHM"), STRUCT_FLD(field_length, 3),
-     STRUCT_FLD(field_type, MYSQL_TYPE_STRING), STRUCT_FLD(value, 0),
-     STRUCT_FLD(field_flags, MY_I_S_MAYBE_NULL), STRUCT_FLD(old_name, ""),
-     STRUCT_FLD(open_method, 0)},
-
     END_OF_ST_FIELD_INFO
 
 };
@@ -6665,7 +6659,6 @@ collected by scanning INNODB_TABLESPACESS table.
 @param[in]      is_encrypted    true if tablespace is encrypted
 @param[in]      state           tablespace state
 @param[in,out]  table_to_fill   fill this table
-@param[in]      encrypt_algorithm
 @return 0 on success */
 static int i_s_dict_fill_innodb_tablespaces(
     THD *thd, space_id_t space_id, const char *name, uint32_t flags,
@@ -6722,11 +6715,6 @@ static int i_s_dict_fill_innodb_tablespaces(
 
   OK(field_store_string(fields[INNODB_TABLESPACES_ENCRYPTION],
                         is_encrypted ? "Y" : "N"));
-
-  if (is_encrypted) {
-    OK(field_store_string(fields[INNODB_TABLESPACES_ENCRYPT_ALGORITHM],
-      Encryption::algorithm_string(fsp_flags_get_encryption_algorithm(flags))));
-  }
 
   OK(field_store_string(fields[INNODB_TABLESPACES_ROW_FORMAT], row_format));
 

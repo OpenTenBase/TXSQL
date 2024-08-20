@@ -32,7 +32,6 @@ this program; if not, write to the Free Software Foundation, Inc.,
 
 #include <errno.h>
 #include <my_aes.h>
-#include <my_sm4.h>
 
 #include "dict0dd.h"
 #include "fsp0sysspace.h"
@@ -521,7 +520,7 @@ static MY_ATTRIBUTE((warn_unused_result)) dberr_t
 @return DB_SUCCESS or error code. */
 static MY_ATTRIBUTE((nonnull, warn_unused_result)) dberr_t
     row_quiesce_write_transfer_key(const dict_table_t *table, FILE *file,
-                                   THD *thd, Encryption::Type algorithm) {
+                                   THD *thd) {
   byte key_size[sizeof(ib_uint32_t)];
   byte row[ENCRYPTION_KEY_LEN * 3];
   byte *ptr = row;
@@ -552,36 +551,15 @@ static MY_ATTRIBUTE((nonnull, warn_unused_result)) dberr_t
   ptr += ENCRYPTION_KEY_LEN;
 
   /* Encrypt tablespace key. */
-  switch (algorithm) {
-    case Encryption::AES: {
-      elen = my_aes_encrypt(
-          reinterpret_cast<unsigned char *>(table->encryption_key),
-          ENCRYPTION_KEY_LEN, ptr, reinterpret_cast<unsigned char *>(transfer_key),
-          ENCRYPTION_KEY_LEN, my_aes_256_ecb, NULL, false);
+  elen = my_aes_encrypt(
+      reinterpret_cast<unsigned char *>(table->encryption_key),
+      ENCRYPTION_KEY_LEN, ptr, reinterpret_cast<unsigned char *>(transfer_key),
+      ENCRYPTION_KEY_LEN, my_aes_256_ecb, NULL, false);
 
-      if (elen == MY_AES_BAD_DATA) {
-        ib_senderrf(thd, IB_LOG_LEVEL_WARN, ER_IO_WRITE_ERROR, errno,
-                    strerror(errno), "while encrypt tablespace key.");
-        return (DB_ERROR);
-      }
-      break;
-    }
-
-    case Encryption::SM4: {
-      int cipher_len = -1;
-      int ret = my_sm4_encrypt(
-          reinterpret_cast<unsigned char *>(table->encryption_key),
-          ENCRYPTION_KEY_LEN, ptr, &cipher_len,
-          reinterpret_cast<unsigned char *>(transfer_key), nullptr, false);
-      if (ret < 0 || cipher_len != ENCRYPTION_KEY_LEN) {
-        ib_senderrf(thd, IB_LOG_LEVEL_WARN, ER_IO_WRITE_ERROR, errno,
-                  strerror(errno), "while encrypt tablespace key.");
-        return (DB_ERROR);
-      }
-      break;
-    }
-    default:
-      return (DB_IO_ERROR);
+  if (elen == MY_AES_BAD_DATA) {
+    ib_senderrf(thd, IB_LOG_LEVEL_WARN, ER_IO_WRITE_ERROR, errno,
+                strerror(errno), "while encrypt tablespace key.");
+    return (DB_ERROR);
   }
 
   /* Write encrypted tablespace key */
@@ -594,37 +572,15 @@ static MY_ATTRIBUTE((nonnull, warn_unused_result)) dberr_t
   ptr += ENCRYPTION_KEY_LEN;
 
   /* Encrypt tablespace iv. */
-  switch (algorithm) {
-    case Encryption::AES: {
-      elen = my_aes_encrypt(reinterpret_cast<unsigned char *>(table->encryption_iv),
-                            ENCRYPTION_KEY_LEN, ptr,
-                            reinterpret_cast<unsigned char *>(transfer_key),
-                            ENCRYPTION_KEY_LEN, my_aes_256_ecb, NULL, false);
+  elen = my_aes_encrypt(reinterpret_cast<unsigned char *>(table->encryption_iv),
+                        ENCRYPTION_KEY_LEN, ptr,
+                        reinterpret_cast<unsigned char *>(transfer_key),
+                        ENCRYPTION_KEY_LEN, my_aes_256_ecb, NULL, false);
 
-      if (elen == MY_AES_BAD_DATA) {
-        ib_senderrf(thd, IB_LOG_LEVEL_WARN, ER_IO_WRITE_ERROR, errno,
-                    strerror(errno), "while encrypt tablespace iv.");
-        return (DB_ERROR);
-      }
-      break;
-    }
-
-    case Encryption::SM4: {
-      int cipher_len = -1;
-      int ret = my_sm4_encrypt(
-          reinterpret_cast<unsigned char *>(table->encryption_iv),
-          ENCRYPTION_KEY_LEN, ptr, &cipher_len,
-          reinterpret_cast<unsigned char *>(transfer_key), nullptr, false);
-      if (ret < 0 || cipher_len != ENCRYPTION_KEY_LEN) {
-        ib_senderrf(thd, IB_LOG_LEVEL_WARN, ER_IO_WRITE_ERROR, errno,
-                  strerror(errno), "while encrypt tablespace iv.");
-        return (DB_ERROR);
-      }
-      break;
-    }
-
-    default:
-      return (DB_IO_ERROR);
+  if (elen == MY_AES_BAD_DATA) {
+    ib_senderrf(thd, IB_LOG_LEVEL_WARN, ER_IO_WRITE_ERROR, errno,
+                strerror(errno), "while encrypt tablespace iv.");
+    return (DB_ERROR);
   }
 
   /* Write encrypted tablespace iv */
@@ -646,7 +602,6 @@ static MY_ATTRIBUTE((nonnull, warn_unused_result)) dberr_t
     row_quiesce_write_cfp(dict_table_t *table, THD *thd) {
   dberr_t err;
   char name[OS_FILE_MAX_PATH];
-  Encryption::Type algorithm = Encryption::AES;
 
   /* If table is not encrypted, return. */
   if (!dd_is_table_in_encrypted_tablespace(table)) {
@@ -672,7 +627,6 @@ static MY_ATTRIBUTE((nonnull, warn_unused_result)) dberr_t
 
     fil_space_t *space = fil_space_get(table->space);
     ut_ad(space != NULL && FSP_FLAGS_GET_ENCRYPTION(space->flags));
-    algorithm = fsp_flags_get_encryption_algorithm(space->flags);
 
     memcpy(table->encryption_key, space->encryption_key, ENCRYPTION_KEY_LEN);
     memcpy(table->encryption_iv, space->encryption_iv, ENCRYPTION_KEY_LEN);
@@ -691,7 +645,7 @@ static MY_ATTRIBUTE((nonnull, warn_unused_result)) dberr_t
 
     err = DB_IO_ERROR;
   } else {
-    err = row_quiesce_write_transfer_key(table, file, thd, algorithm);
+    err = row_quiesce_write_transfer_key(table, file, thd);
 
     if (fflush(file) != 0) {
       char msg[BUFSIZ];
