@@ -201,6 +201,7 @@ uint32_t fsp_flags_init(const page_size_t &page_size, bool atomic_blobs,
 
   if (is_encrypted) {
     flags |= FSP_FLAGS_MASK_ENCRYPTION;
+    flags |= srv_encrypt_algorithm << FSP_FLAGS_POS_ENCRYPT_ALGORITHM;
   }
 
   return (flags);
@@ -328,7 +329,6 @@ inline bool fsp_flags_is_valid(uint32_t flags) {
   bool is_shared = FSP_FLAGS_GET_SHARED(flags);
   bool is_temp = FSP_FLAGS_GET_TEMPORARY(flags);
   bool is_encryption = FSP_FLAGS_GET_ENCRYPTION(flags);
-  bool sm4_algorithm = FSP_FLAGS_GET_SM4_ALGORITHM(flags);
 
   ulint unused = FSP_FLAGS_GET_UNUSED(flags);
 
@@ -380,12 +380,7 @@ inline bool fsp_flags_is_valid(uint32_t flags) {
     return (false);
   }
 
-  /* Only encryption table has sm4 algorithm */
-  if (sm4_algorithm && !is_encryption) {
-    return false;
-  }
-
-#if FSP_FLAGS_POS_UNUSED != 16
+#if FSP_FLAGS_POS_UNUSED != 17
 #error You have added a new FSP_FLAG without adding a validation check.
 #endif
 
@@ -458,34 +453,17 @@ uint32 fsp_header_get_space_version(const page_t *page) {
   return (version);
 }
 
-/** Set ENCRYPTION bit in tablespace flags */
-UNIV_INLINE void fsp_flags_set_encryption(uint32_t &flags, uint32_t alg) {
-  flags |= FSP_FLAGS_MASK_ENCRYPTION;
-  if (static_cast<Encryption::Type>(alg) == Encryption::SM4) {
-    flags |= FSP_FLAGS_MASK_SM4_ALGORITHM;
-  }
+inline void fsp_flags_set_encryption_algorithm(uint32_t &flags, uint32_t alg) {
+  flags |= alg << FSP_FLAGS_POS_ENCRYPT_ALGORITHM;
 }
 
-/** Set ENCRYPTION bit in tablespace flags */
-UNIV_INLINE void fsp_flags_unset_encryption(uint32_t &flags) {
-  flags &= ~(FSP_FLAGS_MASK_ENCRYPTION | FSP_FLAGS_MASK_SM4_ALGORITHM);
-}
-
-inline void fsp_flags_init_encryption_algorithm_from_flags(uint32_t &flags, uint32_t from_flags) {
-  if (FSP_FLAGS_GET_SM4_ALGORITHM(from_flags)) {
-    flags |= FSP_FLAGS_MASK_SM4_ALGORITHM;
-  }
+inline void fsp_flags_unset_encryption_algorithm(uint32_t &flags) {
+  flags &= ~FSP_FLAGS_MASK_ENCRYPT_ALGORITHM;
 }
 
 /** Old version server doesn't have the encryption algorithm in tablespace flags */
 inline Encryption::Type fsp_flags_get_encryption_algorithm(uint32_t flags) {
-  if (FSP_FLAGS_GET_ENCRYPTION(flags)) {
-    if (!FSP_FLAGS_GET_SM4_ALGORITHM(flags)) {
-      return Encryption::AES;
-    } else {
-      return Encryption::SM4;
-    }
-  } else {
-    return Encryption::NONE;
-  }
+  uint32_t algorithm = FSP_FLAGS_GET_ENCRYPT_ALGORITHM(flags);
+  return (Encryption::type_is_valid(algorithm) ?
+        static_cast<Encryption::Type>(algorithm) : Encryption::AES);
 }

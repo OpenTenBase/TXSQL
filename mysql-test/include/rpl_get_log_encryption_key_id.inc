@@ -87,7 +87,7 @@ perl;
           print RFILE "Error: unable to read encrypted header version number" or die "Error writing to $result_file: $!";
           last;
         }
-        if ($version cmp "\x01" && $version cmp "\x04")
+        if ($version cmp "\x01")
         {
           print RFILE "Error: unexpected encryption header version number" or die "Error writing to $result_file: $!";
           last;

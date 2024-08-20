@@ -32,7 +32,6 @@
 #ifdef MYSQL_SERVER
 #include "libbinlogevents/include/byteorder.h"
 #include "my_aes.h"
-#include "my_sm4.h"
 #include "my_rnd.h"
 #include "mysql/components/services/log_builtins.h"
 #include "mysql/service_mysql_keyring.h"
@@ -206,9 +205,8 @@ bool Rpl_encryption::recover_master_key() {
   if (m_master_key_seqno != 0) {
     m_master_key.m_id =
         Rpl_encryption_header::seqno_to_key_id(m_master_key_seqno);
-    m_master_key.m_type = get_key_type();
     auto master_key =
-        get_key(m_master_key.m_id, m_master_key.m_type);
+        get_key(m_master_key.m_id, Rpl_encryption_header::get_key_type());
     m_master_key.m_value.assign(master_key.second);
     /* No keyring error */
     if (master_key.first == Keyring_status::KEYRING_ERROR_FETCHING) goto err1;
@@ -269,9 +267,8 @@ bool Rpl_encryption::recover_master_key() {
 
     std::string new_master_key_id =
         Rpl_encryption_header::seqno_to_key_id(new_master_key_seqno.second);
-    std::string new_master_key_type = get_key_type();
     auto new_master_key =
-        get_key(new_master_key_id, new_master_key_type);
+        get_key(new_master_key_id, Rpl_encryption_header::get_key_type());
 
     /* keyring error */
     if (new_master_key.first == Keyring_status::KEYRING_ERROR_FETCHING ||
@@ -288,7 +285,6 @@ bool Rpl_encryption::recover_master_key() {
     if (new_master_key.first == Keyring_status::SUCCESS) {
       m_master_key.m_id = new_master_key_id;
       m_master_key.m_value.assign(new_master_key.second);
-      m_master_key.m_type = new_master_key_type;
       if (new_master_key_seqno.second > m_master_key_seqno &&
           new_master_key_seqno.second > old_master_key_seqno.second) {
         if (m_master_key_seqno > 0) {
@@ -363,7 +359,6 @@ const Rpl_encryption::Rpl_encryption_key Rpl_encryption::get_master_key() {
   /* A master key shall already exists when this function is called */
   DBUG_ASSERT(!m_master_key.m_id.empty());
   DBUG_ASSERT(!m_master_key.m_value.empty());
-  DBUG_ASSERT(!m_master_key.m_type.empty());
   return m_master_key;
 }
 
@@ -451,8 +446,7 @@ bool Rpl_encryption::is_enabled() {
   res = m_enabled &&                    // The option is enabled
         m_master_key_recovered &&       // Master key was recovered
         !m_master_key.m_id.empty() &&   // Master key ID is not empty
-        !m_master_key.m_value.empty() &&  // Master key value is not empty
-        !m_master_key.m_type.empty();   // Master key type is not empty
+        !m_master_key.m_value.empty();  // Master key value is not empty
   return res;
 }
 
@@ -462,9 +456,7 @@ const bool &Rpl_encryption::get_master_key_rotation_at_startup_var() {
   return m_rotate_at_startup;
 }
 
-const ulong &Rpl_encryption::get_algorithm_var() {
-  return m_type;
-}
+const char *Rpl_encryption::SEQNO_KEY_TYPE = "AES";
 
 std::tuple<Rpl_encryption::Keyring_status, void *, size_t>
 Rpl_encryption::fetch_key_from_keyring(const std::string &key_id,
@@ -489,22 +481,12 @@ Rpl_encryption::fetch_key_from_keyring(const std::string &key_id,
     } else {
       DBUG_EXECUTE_IF("corrupt_replication_encryption_key_type",
                       { retrieved_key_type[0] = 0; });
-      if ((key_type.compare(Rpl_encryption_header_v1::KEY_TYPE) != 0 &&
-          key_type.compare(Rpl_encryption_header_v4::KEY_TYPE) != 0) ||
-          (memcmp(retrieved_key_type, Rpl_encryption_header_v1::KEY_TYPE,
-                  strlen(Rpl_encryption_header_v1::KEY_TYPE)) != 0 &&
-           memcmp(retrieved_key_type, Rpl_encryption_header_v4::KEY_TYPE,
-                  strlen(Rpl_encryption_header_v4::KEY_TYPE)) != 0))
+      if (key_type.compare(retrieved_key_type) != 0)
         error = Keyring_status::UNEXPECTED_KEY_TYPE;
     }
   }
 
-  if (retrieved_key_type) {
-    /* if the input key type is not the same with retrieved, return the stored type */
-    if (key_type.compare(retrieved_key_type) != 0)
-      const_cast<std::string&>(key_type) = retrieved_key_type;
-    my_free(retrieved_key_type);
-  }
+  if (retrieved_key_type) my_free(retrieved_key_type);
 
   auto result = std::make_tuple(error, key, key_len);
   return result;
@@ -532,7 +514,7 @@ bool Rpl_encryption::purge_unused_keys() {
   while (new_last_purged_seqno < m_master_key_seqno) {
     std::string key_id =
         Rpl_encryption_header::seqno_to_key_id(new_last_purged_seqno);
-    auto key = get_key(key_id, get_key_type());
+    auto key = get_key(key_id, Rpl_encryption_header::get_key_type());
     if (DBUG_EVALUATE_IF("fail_to_get_key_from_keyring", true, false))
       key.first = Keyring_status::KEYRING_ERROR_FETCHING;
     /* keyring error */
@@ -566,7 +548,7 @@ bool Rpl_encryption::purge_unused_keys() {
       "verify_unusable_encryption_keys_are_purged",
       for (uint32_t seqno = 1; seqno < m_master_key_seqno; seqno++) {
         std::string key_id = Rpl_encryption_header::seqno_to_key_id(seqno);
-        auto key = get_key(key_id, get_key_type());
+        auto key = get_key(key_id, Rpl_encryption_header::get_key_type());
         DBUG_ASSERT(key.first == Keyring_status::KEY_NOT_FOUND);
       });
 
@@ -602,7 +584,7 @@ bool Rpl_encryption::rotate_master_key(Key_rotation_step step,
         std::string candidate_key_id =
             Rpl_encryption_header::seqno_to_key_id(new_master_key_seqno);
         auto pair =
-            get_key(candidate_key_id, get_key_type());
+            get_key(candidate_key_id, Rpl_encryption_header::get_key_type());
         /* If unable to check if the key already exists */
         if ((pair.first != Keyring_status::KEY_NOT_FOUND &&
              pair.first != Keyring_status::SUCCESS) ||
@@ -747,7 +729,7 @@ void Rpl_encryption::rotate_logs(THD *thd) {
 std::pair<Rpl_encryption::Keyring_status, uint32_t>
 Rpl_encryption::get_seqno_from_keyring(std::string key_id) {
   DBUG_TRACE;
-  auto fetched_key = get_key(key_id, get_seqno_key_type(), SEQNO_KEY_LENGTH);
+  auto fetched_key = get_key(key_id, SEQNO_KEY_TYPE, SEQNO_KEY_LENGTH);
   uint32_t seqno = 0;
   if (fetched_key.first == Keyring_status::SUCCESS) {
     const void *key = fetched_key.second.c_str();
@@ -763,7 +745,7 @@ bool Rpl_encryption::set_seqno_on_keyring(std::string key_id, uint32_t seqno) {
   int4store(key, seqno);
   DBUG_PRINT("debug", ("key_id= '%s'. seqno= %u", key_id.c_str(), seqno));
 #ifdef DBUG_OFF
-  if (my_key_store(key_id.c_str(), get_seqno_key_type(), nullptr, key,
+  if (my_key_store(key_id.c_str(), SEQNO_KEY_TYPE, nullptr, key,
                    SEQNO_KEY_LENGTH)) {
 #else
   if ((DBUG_EVALUATE_IF("rpl_encryption_first_time_enable_1", true, false) &&
@@ -782,7 +764,7 @@ bool Rpl_encryption::set_seqno_on_keyring(std::string key_id, uint32_t seqno) {
       (DBUG_EVALUATE_IF("fail_to_set_last_purged_master_key_seqno_on_keyring",
                         true, false) &&
        key_id.compare(get_last_purged_master_key_seqno_key_id()) == 0) ||
-      my_key_store(key_id.c_str(), get_seqno_key_type(), nullptr, key,
+      my_key_store(key_id.c_str(), SEQNO_KEY_TYPE, nullptr, key,
                    SEQNO_KEY_LENGTH)) {
 #endif
     report_keyring_error(Keyring_status::KEYRING_ERROR_STORING);
@@ -919,10 +901,9 @@ bool Rpl_encryption::generate_master_key_on_keyring(uint32 seqno) {
   DBUG_TRACE;
 
   std::string key_id = Rpl_encryption_header_v1::seqno_to_key_id(seqno);
-  std::string key_type = get_key_type();
 
   /* Check if the key already exists */
-  auto pair = get_key(key_id, key_type);
+  auto pair = get_key(key_id, Rpl_encryption_header_v1::KEY_TYPE);
   /* If unable to check if the key already exists */
   if (pair.first == Keyring_status::KEYRING_ERROR_FETCHING) {
     Rpl_encryption::report_keyring_error(pair.first);
@@ -938,7 +919,7 @@ bool Rpl_encryption::generate_master_key_on_keyring(uint32 seqno) {
   /* Generate the new key */
   if (DBUG_EVALUATE_IF("rpl_encryption_first_time_enable_2", true, false) ||
       DBUG_EVALUATE_IF("fail_to_generate_key_on_keyring", true, false) ||
-      my_key_generate(key_id.c_str(), key_type.c_str(),
+      my_key_generate(key_id.c_str(), Rpl_encryption_header_v1::KEY_TYPE,
                       nullptr, Rpl_encryption_header_v1::KEY_LENGTH) != 0) {
     Rpl_encryption::report_keyring_error(
         Keyring_status::KEYRING_ERROR_GENERATING);
@@ -946,7 +927,7 @@ bool Rpl_encryption::generate_master_key_on_keyring(uint32 seqno) {
   }
 
   /* Fetch the new generated key from keyring again */
-  pair = Rpl_encryption::get_key(key_id, key_type,
+  pair = Rpl_encryption::get_key(key_id, Rpl_encryption_header_v1::KEY_TYPE,
                                  Rpl_encryption_header_v1::KEY_LENGTH);
   if (pair.first != Keyring_status::SUCCESS) {
     Rpl_encryption::report_keyring_error(pair.first);
@@ -956,48 +937,8 @@ bool Rpl_encryption::generate_master_key_on_keyring(uint32 seqno) {
   /* Store the generated key as the new master key */
   m_master_key.m_id = key_id;
   m_master_key.m_value.assign(pair.second);
-  m_master_key.m_type = key_type;
 
   return false;
-}
-
-const char *Rpl_encryption::get_key_type() {
-  switch (static_cast<Algorithm>(m_type)) {
-    case Algorithm::SM4:
-      return Rpl_encryption_header_v4::KEY_TYPE;
-    default:
-      return Rpl_encryption_header_v1::KEY_TYPE;
-  }
-}
-
-std::unique_ptr<Rpl_encryption_header>
-Rpl_encryption::get_new_default_header() {
-  DBUG_TRACE;
-  switch (static_cast<Algorithm>(m_type)) {
-    case Algorithm::SM4: {
-      std::unique_ptr<Rpl_encryption_header> header(new Rpl_encryption_header_v4);
-      return header;
-    }
-    default: {
-      std::unique_ptr<Rpl_encryption_header> header(new Rpl_encryption_header_v1);
-      return header;
-    }
-  }
-}
-
-std::unique_ptr<Rpl_encryption_header>
-Rpl_encryption::get_new_header(char version) {
-  DBUG_TRACE;
-  switch (version) {
-    case Rpl_encryption_header::V4: {
-      std::unique_ptr<Rpl_encryption_header> header(new Rpl_encryption_header_v4);
-      return header;
-    }
-    default: {
-      std::unique_ptr<Rpl_encryption_header> header(new Rpl_encryption_header_v1);
-      return header;
-    }
-  }
 }
 
 #endif  // MYSQL_SERVER
@@ -1035,18 +976,10 @@ std::unique_ptr<Rpl_encryption_header> Rpl_encryption_header::get_header(
   if (read_len == VERSION_SIZE) {
     DBUG_PRINT("debug", ("encryption header version= %d", version));
     switch (version) {
-      case V1: {
+      case 1: {
         std::unique_ptr<Rpl_encryption_header> header_v1(
             new Rpl_encryption_header_v1);
         header = std::move(header_v1);
-        res = header->deserialize(istream);
-        if (res) header.reset(nullptr);
-        break;
-      }
-      case V4: {
-        std::unique_ptr<Rpl_encryption_header> header_v4(
-            new Rpl_encryption_header_v4);
-        header = std::move(header_v4);
         res = header->deserialize(istream);
         if (res) header.reset(nullptr);
         break;
@@ -1062,6 +995,13 @@ std::unique_ptr<Rpl_encryption_header> Rpl_encryption_header::get_header(
   return header;
 }
 
+std::unique_ptr<Rpl_encryption_header>
+Rpl_encryption_header::get_new_default_header() {
+  DBUG_TRACE;
+  std::unique_ptr<Rpl_encryption_header> header(new Rpl_encryption_header_v1);
+  return header;
+}
+
 std::string Rpl_encryption_header::key_id_prefix() {
   return Rpl_encryption_header_v1::key_id_prefix();
 }
@@ -1072,6 +1012,10 @@ std::string Rpl_encryption_header::seqno_to_key_id(uint32_t seqno) {
 
 std::string Rpl_encryption_header::key_id_with_suffix(const char *suffix) {
   return Rpl_encryption_header_v1::key_id_with_suffix(suffix);
+}
+
+const char *Rpl_encryption_header::get_key_type() {
+  return Rpl_encryption_header_v1::KEY_TYPE;
 }
 
 const char *Rpl_encryption_header_v1::KEY_TYPE = "AES";
@@ -1211,34 +1155,21 @@ Key_string Rpl_encryption_header_v1::decrypt_file_password() {
   Key_string file_password;
 #ifdef MYSQL_SERVER
   if (!m_key_id.empty()) {
-    std::string key_type = KEY_TYPE;
     auto error_and_key =
-        Rpl_encryption::get_key(m_key_id, key_type, KEY_LENGTH);
+        Rpl_encryption::get_key(m_key_id, KEY_TYPE, KEY_LENGTH);
 
     if (error_and_key.first != Rpl_encryption::Keyring_status::SUCCESS) {
       Rpl_encryption::report_keyring_error(error_and_key.first,
                                            m_key_id.c_str());
     } else if (!error_and_key.second.empty()) {
       unsigned char buffer[Aes_ctr::PASSWORD_LENGTH];
-      /* decrypt the password according to the master key type */
-      if (key_type.compare(Rpl_encryption_header_v1::KEY_TYPE) == 0) {
-        if (my_aes_decrypt(m_encrypted_password.data(),
+
+      if (my_aes_decrypt(m_encrypted_password.data(),
                          m_encrypted_password.length(), buffer,
                          error_and_key.second.data(),
                          error_and_key.second.length(), my_aes_256_cbc,
                          m_iv.data(), false) != MY_AES_BAD_DATA)
         file_password.append(buffer, Aes_ctr::PASSWORD_LENGTH);
-      } else if (key_type.compare(Rpl_encryption_header_v4::KEY_TYPE) == 0) {
-        int password_len = -1;
-        int ret = my_sm4_decrypt(const_cast<unsigned char*>(m_encrypted_password.data()),
-                           m_encrypted_password.length(), buffer, &password_len,
-                           const_cast<unsigned char*>(error_and_key.second.data()),
-                           const_cast<unsigned char*>(m_iv.data()), false);
-        if (0 == ret && password_len == static_cast<int>(m_encrypted_password.length()))
-          file_password.append(buffer, Sm4_ctr::PASSWORD_LENGTH);
-      } else {
-        DBUG_ASSERT(0);
-      }
     }
   }
 #endif
@@ -1271,27 +1202,14 @@ bool Rpl_encryption_header_v1::encrypt_file_password(Key_string password_str) {
   error = my_rand_buffer(iv, Aes_ctr::AES_BLOCK_SIZE);
   m_iv = Key_string(iv, sizeof(iv));
 
-  /* Encrypt password according to key type of master key */
+  /* Encrypt password */
   if (!error) {
-    if (master_key.m_type.compare(Rpl_encryption_header_v1::KEY_TYPE) == 0) {
-      error = (my_aes_encrypt(password_str.data(), password_str.length(),
-                              encrypted_password, master_key.m_value.data(),
-                              master_key.m_value.length(), my_aes_256_cbc, iv,
-                              false) == MY_AES_BAD_DATA);
-      m_encrypted_password =
-          Key_string(encrypted_password, sizeof(encrypted_password));
-    } else if (master_key.m_type.compare(Rpl_encryption_header_v4::KEY_TYPE) == 0) {
-      int password_len = -1;
-      int ret = my_sm4_encrypt(const_cast<unsigned char*>(password_str.data()),
-                               password_str.length(), encrypted_password, &password_len,
-                               const_cast<unsigned char*>(master_key.m_value.data()), iv, false);
-      error = (ret < 0 || password_len != static_cast<int>(password_str.length()));
-      m_encrypted_password =
-          Key_string(encrypted_password, sizeof(encrypted_password));
-    } else {
-      DBUG_ASSERT(0);
-      error = 1;
-    }
+    error = (my_aes_encrypt(password_str.data(), password_str.length(),
+                            encrypted_password, master_key.m_value.data(),
+                            master_key.m_value.length(), my_aes_256_cbc, iv,
+                            false) == MY_AES_BAD_DATA);
+    m_encrypted_password =
+        Key_string(encrypted_password, sizeof(encrypted_password));
   }
 
   return error;
@@ -1343,249 +1261,4 @@ std::string Rpl_encryption_header_v1::key_id_with_suffix(
   ostr << key_id_prefix() << "_" << suffix;
 #endif
   return ostr.str();
-}
-
-const char *Rpl_encryption_header_v4::KEY_TYPE = "SM4";
-const char *Rpl_encryption_header_v4::KEY_ID_PREFIX = "MySQLReplicationKey";
-
-Rpl_encryption_header_v4::~Rpl_encryption_header_v4() { DBUG_TRACE; }
-
-bool Rpl_encryption_header_v4::serialize(Basic_ostream *ostream) {
-  unsigned char header[HEADER_SIZE]{0};
-  unsigned char *ptr = nullptr;
-
-  memcpy(header, ENCRYPTION_MAGIC, ENCRYPTION_MAGIC_SIZE);
-  header[VERSION_OFFSET] = m_version;
-
-  DBUG_ASSERT(m_key_id.length() < 255);
-  ptr = header + OPTIONAL_FIELD_OFFSET;
-  *ptr++ = KEY_ID;
-  *ptr++ = m_key_id.length();
-  memcpy(ptr, m_key_id.data(), m_key_id.length());
-  ptr += m_key_id.length();
-
-  DBUG_ASSERT(m_encrypted_password.length() == PASSWORD_FIELD_SIZE);
-  *ptr++ = ENCRYPTED_FILE_PASSWORD;
-  memcpy(ptr, m_encrypted_password.data(), m_encrypted_password.length());
-  ptr += PASSWORD_FIELD_SIZE;
-
-  DBUG_ASSERT(m_iv.length() == IV_FIELD_SIZE);
-  *ptr++ = IV_FOR_FILE_PASSWORD;
-  memcpy(ptr, m_iv.data(), m_iv.length());
-
-  bool res = DBUG_EVALUATE_IF("fail_to_serialize_encryption_header", true,
-                              ostream->write(header, HEADER_SIZE));
-  return res;
-}
-
-bool Rpl_encryption_header_v4::deserialize(Basic_istream *istream) {
-  DBUG_TRACE;
-  unsigned char header[HEADER_SIZE];
-  ssize_t read_len = 0;
-
-  // This is called after reading the MAGIC + version.
-  const int read_offset = ENCRYPTION_MAGIC_SIZE + VERSION_SIZE;
-  read_len = istream->read(header + read_offset, HEADER_SIZE - (read_offset));
-
-  DBUG_EXECUTE_IF("force_incomplete_encryption_header", { --read_len; });
-  if (read_len < HEADER_SIZE - read_offset) {
-    throw_encryption_header_error("Header is incomplete");
-    return true;
-  }
-
-  m_key_id.clear();
-  m_encrypted_password.clear();
-  m_iv.clear();
-
-  const char *header_buffer = reinterpret_cast<char *>(header);
-  binary_log::Event_reader reader(header_buffer, HEADER_SIZE);
-  reader.go_to(OPTIONAL_FIELD_OFFSET);
-  uint8_t field_type = 0;
-
-  DBUG_EXECUTE_IF("corrupt_encryption_header_unknown_field_type",
-                  { header[OPTIONAL_FIELD_OFFSET] = 255; });
-
-  while (!reader.has_error()) {
-    field_type = reader.read<uint8_t>();
-    switch (field_type) {
-      case 0:
-        /* End of fields */
-        break;
-      case KEY_ID: {
-        uint8_t length = reader.read<uint8_t>();
-        DBUG_EXECUTE_IF("corrupt_encryption_header_read_above_header_size",
-                        { reader.go_to(HEADER_SIZE - 1); });
-        if (!reader.has_error()) {
-          const char *key_ptr = reader.ptr(length);
-          if (!reader.has_error()) m_key_id.assign(key_ptr, length);
-        }
-        break;
-      }
-      case ENCRYPTED_FILE_PASSWORD: {
-        const unsigned char *password_ptr =
-            reinterpret_cast<const unsigned char *>(
-                reader.ptr(PASSWORD_FIELD_SIZE));
-        if (!reader.has_error())
-          m_encrypted_password.assign(password_ptr, PASSWORD_FIELD_SIZE);
-        break;
-      }
-      case IV_FOR_FILE_PASSWORD: {
-        const unsigned char *iv_ptr =
-            reinterpret_cast<const unsigned char *>(reader.ptr(IV_FIELD_SIZE));
-        if (!reader.has_error()) m_iv.assign(iv_ptr, IV_FIELD_SIZE);
-        break;
-      }
-      default:
-        throw_encryption_header_error("Unknown field type");
-        return true;
-    }
-    if (field_type == 0) break;
-  }
-
-  DBUG_EXECUTE_IF("corrupt_encryption_header_missing_key_id",
-                  { m_key_id.clear(); });
-  DBUG_EXECUTE_IF("corrupt_encryption_header_missing_password",
-                  { m_encrypted_password.clear(); });
-  DBUG_EXECUTE_IF("corrupt_encryption_header_missing_iv", { m_iv.clear(); });
-
-  bool res = false;
-
-  if (reader.has_error()) {
-    /* Error deserializing header fields */
-    throw_encryption_header_error("Header is corrupted");
-    res = true;
-  } else {
-    if (m_key_id.empty()) {
-      throw_encryption_header_error(
-          "Header is missing the replication encryption key ID");
-      res = true;
-    } else if (m_encrypted_password.empty()) {
-      throw_encryption_header_error("Header is missing the encrypted password");
-      res = true;
-    } else if (m_iv.empty()) {
-      throw_encryption_header_error("Header is missing the IV");
-      res = true;
-    }
-  }
-
-  return res;
-}
-
-char Rpl_encryption_header_v4::get_version() const { return m_version; }
-
-int Rpl_encryption_header_v4::get_header_size() {
-  return Rpl_encryption_header_v4::HEADER_SIZE;
-}
-
-Key_string Rpl_encryption_header_v4::decrypt_file_password() {
-  DBUG_TRACE;
-  Key_string file_password;
-#ifdef MYSQL_SERVER
-  if (!m_key_id.empty()) {
-    std::string key_type = KEY_TYPE;
-    auto error_and_key =
-        Rpl_encryption::get_key(m_key_id, key_type, KEY_LENGTH);
-
-    if (error_and_key.first != Rpl_encryption::Keyring_status::SUCCESS) {
-      Rpl_encryption::report_keyring_error(error_and_key.first,
-                                           m_key_id.c_str());
-    } else if (!error_and_key.second.empty()) {
-      unsigned char buffer[Aes_ctr::PASSWORD_LENGTH];
-      /* decrypt the password according to the master key type */
-      if (key_type.compare(Rpl_encryption_header_v1::KEY_TYPE) == 0) {
-        if (my_aes_decrypt(m_encrypted_password.data(),
-                         m_encrypted_password.length(), buffer,
-                         error_and_key.second.data(),
-                         error_and_key.second.length(), my_aes_256_cbc,
-                         m_iv.data(), false) != MY_AES_BAD_DATA)
-        file_password.append(buffer, Aes_ctr::PASSWORD_LENGTH);
-      } else if (key_type.compare(Rpl_encryption_header_v4::KEY_TYPE) == 0) {
-        int password_len = -1;
-        int ret = my_sm4_decrypt(const_cast<unsigned char*>(m_encrypted_password.data()),
-                           m_encrypted_password.length(), buffer, &password_len,
-                           const_cast<unsigned char*>(error_and_key.second.data()),
-                           const_cast<unsigned char*>(m_iv.data()), false);
-        if (0 == ret && password_len == static_cast<int>(m_encrypted_password.length()))
-          file_password.append(buffer, Sm4_ctr::PASSWORD_LENGTH);
-      } else {
-        DBUG_ASSERT(0);
-      }
-    }
-  }
-#endif
-  return file_password;
-}
-
-std::unique_ptr<Stream_cipher> Rpl_encryption_header_v4::get_encryptor() {
-  return Sm4_ctr::get_encryptor();
-}
-
-std::unique_ptr<Stream_cipher> Rpl_encryption_header_v4::get_decryptor() {
-  return Sm4_ctr::get_decryptor();
-}
-
-#ifdef MYSQL_SERVER
-bool Rpl_encryption_header_v4::encrypt_file_password(Key_string password_str) {
-  DBUG_TRACE;
-  bool error = false;
-  unsigned char encrypted_password[Sm4_ctr::PASSWORD_LENGTH];
-  unsigned char iv[Sm4_ctr::SM4_BLOCK_SIZE];
-
-  Rpl_encryption::Rpl_encryption_key master_key =
-      rpl_encryption.get_master_key();
-
-  /* Get the master key id */
-  DBUG_ASSERT(master_key.m_id.length() > 0);
-  m_key_id = master_key.m_id;
-
-  /* Generate iv, it is a random string. */
-  error = my_rand_buffer(iv, Sm4_ctr::SM4_BLOCK_SIZE);
-  m_iv = Key_string(iv, sizeof(iv));
-
-  /* Encrypt password according to key type of master key */
-  if (!error) {
-    if (master_key.m_type.compare(Rpl_encryption_header_v1::KEY_TYPE) == 0) {
-      error = (my_aes_encrypt(password_str.data(), password_str.length(),
-                              encrypted_password, master_key.m_value.data(),
-                              master_key.m_value.length(), my_aes_256_cbc, iv,
-                              false) == MY_AES_BAD_DATA);
-      m_encrypted_password =
-          Key_string(encrypted_password, sizeof(encrypted_password));
-    } else if (master_key.m_type.compare(Rpl_encryption_header_v4::KEY_TYPE) == 0) {
-      int password_len = -1;
-      int ret = my_sm4_encrypt(const_cast<unsigned char*>(password_str.data()),
-                               password_str.length(), encrypted_password, &password_len,
-                               const_cast<unsigned char*>(master_key.m_value.data()), iv, false);
-      error = (ret < 0 || password_len != static_cast<int>(password_str.length()));
-      m_encrypted_password =
-          Key_string(encrypted_password, sizeof(encrypted_password));
-    } else {
-      DBUG_ASSERT(0);
-      error = 1;
-    }
-  }
-
-  return error;
-}
-#endif
-
-Key_string Rpl_encryption_header_v4::generate_new_file_password() {
-  Key_string password_str;
-#ifdef MYSQL_SERVER
-  unsigned char password[Sm4_ctr::PASSWORD_LENGTH];
-  bool error = false;
-
-  /* Generate password, it is a random string. */
-  error = my_rand_buffer(password, sizeof(password));
-  if (!error) {
-    password_str.append(password, sizeof(password));
-  }
-
-  if (error || encrypt_file_password(password_str) ||
-      DBUG_EVALUATE_IF("fail_to_generate_new_file_password", true, false)) {
-    Key_string empty_password;
-    return empty_password;
-  }
-#endif
-  return password_str;
 }

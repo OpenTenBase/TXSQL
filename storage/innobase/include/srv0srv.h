@@ -439,7 +439,7 @@ extern char *srv_log_group_home_dir;
 extern bool srv_redo_log_encrypt;
 
 /** Encrypt algorithm for transparent data encryption */
-extern ulong srv_encryption_algorithm;
+extern ulong srv_encrypt_algorithm;
 
 /* Maximum number of redo files of a cloned DB. */
 #define SRV_N_LOG_FILES_CLONE_MAX 1000

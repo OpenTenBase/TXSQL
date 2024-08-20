@@ -742,17 +742,14 @@ bool Clone_Snapshot::encrypt_key_in_log_header(byte *log_header,
 
   auto encryption_info = log_header + offset;
 
-  /* Get log Encryption Key and IV and ENCRYPTION ALGORITHM. */
-  Encryption::Type tablespace_algorithm = Encryption::AES;
+  /* Get log Encryption Key and IV. */
   auto success = Encryption::decode_encryption_info(
-      &encryption_key[0], &encryption_iv[0], encryption_info,
-      false, tablespace_algorithm);
+      &encryption_key[0], &encryption_iv[0], encryption_info, false, Encryption::SM4);
 
   if (success) {
     /* Encrypt with master key and fill encryption information. */
     success = Encryption::fill_encryption_info(
-        &encryption_key[0], &encryption_iv[0], encryption_info, false, true,
-        tablespace_algorithm);
+        &encryption_key[0], &encryption_iv[0], encryption_info, false, true, Encryption::SM4);
   }
   return (success);
 }
@@ -767,19 +764,16 @@ bool Clone_Snapshot::encrypt_key_in_header(const page_size_t &page_size,
 
   auto encryption_info = page_data + offset;
 
-  /* Get tablespace Encryption Key and IV and encryption algorithm. */
-  Encryption::Type tablespace_algorithm = Encryption::AES;
+  /* Get tablespace Encryption Key and IV. */
   auto success = Encryption::decode_encryption_info(
-      &encryption_key[0], &encryption_iv[0], encryption_info,
-      false, tablespace_algorithm);
+      &encryption_key[0], &encryption_iv[0], encryption_info, false, Encryption::SM4);
   if (!success) {
     return (false);
   }
 
   /* Encrypt with master key and fill encryption information. */
   success = Encryption::fill_encryption_info(
-      &encryption_key[0], &encryption_iv[0], encryption_info, false, true,
-      tablespace_algorithm);
+      &encryption_key[0], &encryption_iv[0], encryption_info, false, true, Encryption::SM4);
   if (!success) {
     return (false);
   }
@@ -799,10 +793,8 @@ void Clone_Snapshot::decrypt_key_in_header(fil_space_t *space,
   byte encryption_info[ENCRYPTION_INFO_SIZE];
 
   /* Get tablespace encryption information. */
-  ut_ad(Encryption::type_is_valid(space->encryption_type));
   Encryption::fill_encryption_info(space->encryption_key, space->encryption_iv,
-                                   encryption_info, false, false,
-                                   space->encryption_type);
+                                   encryption_info, false, false, Encryption::SM4);
 
   /* Set encryption information in page. */
   auto offset = fsp_header_get_encryption_offset(page_size);

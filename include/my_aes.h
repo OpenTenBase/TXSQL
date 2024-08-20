@@ -56,12 +56,11 @@ enum my_aes_opmode {
   my_aes_256_cfb128,
   my_aes_128_ofb,
   my_aes_192_ofb,
-  my_aes_256_ofb,
-  my_sm4_128_cbc /* this mode can use aes_128_ecb & sm4_128_cbc */
+  my_aes_256_ofb
 };
 
 #define MY_AES_BEGIN my_aes_128_ecb
-#define MY_AES_END my_sm4_128_cbc
+#define MY_AES_END my_aes_256_ofb
 
 /* If bad data discovered during decoding */
 #define MY_AES_BAD_DATA -1

@@ -526,7 +526,7 @@ static MY_ATTRIBUTE((nonnull, warn_unused_result)) dberr_t
   byte row[ENCRYPTION_KEY_LEN * 3];
   byte *ptr = row;
   byte *transfer_key = ptr;
-  int elen;
+  lint elen;
 
   ut_ad(table->encryption_key != NULL && table->encryption_iv != NULL);
 
@@ -552,14 +552,36 @@ static MY_ATTRIBUTE((nonnull, warn_unused_result)) dberr_t
   ptr += ENCRYPTION_KEY_LEN;
 
   /* Encrypt tablespace key. */
-  if (Encryption::encrypt_low(algorithm,
-                              reinterpret_cast<unsigned char *>(table->encryption_key),
-                              ENCRYPTION_KEY_LEN, ptr, &elen,
-                              reinterpret_cast<unsigned char *>(transfer_key),
-                              ENCRYPTION_KEY_LEN, my_aes_256_ecb, NULL)) {
-    ib_senderrf(thd, IB_LOG_LEVEL_WARN, ER_IO_WRITE_ERROR, errno,
+  switch (algorithm) {
+    case Encryption::AES: {
+      elen = my_aes_encrypt(
+          reinterpret_cast<unsigned char *>(table->encryption_key),
+          ENCRYPTION_KEY_LEN, ptr, reinterpret_cast<unsigned char *>(transfer_key),
+          ENCRYPTION_KEY_LEN, my_aes_256_ecb, NULL, false);
+
+      if (elen == MY_AES_BAD_DATA) {
+        ib_senderrf(thd, IB_LOG_LEVEL_WARN, ER_IO_WRITE_ERROR, errno,
                     strerror(errno), "while encrypt tablespace key.");
-    return (DB_ERROR);
+        return (DB_ERROR);
+      }
+      break;
+    }
+
+    case Encryption::SM4: {
+      int cipher_len = -1;
+      int ret = my_sm4_encrypt(
+          reinterpret_cast<unsigned char *>(table->encryption_key),
+          ENCRYPTION_KEY_LEN, ptr, &cipher_len,
+          reinterpret_cast<unsigned char *>(transfer_key), nullptr, false);
+      if (ret < 0 || cipher_len != ENCRYPTION_KEY_LEN) {
+        ib_senderrf(thd, IB_LOG_LEVEL_WARN, ER_IO_WRITE_ERROR, errno,
+                  strerror(errno), "while encrypt tablespace key.");
+        return (DB_ERROR);
+      }
+      break;
+    }
+    default:
+      return (DB_IO_ERROR);
   }
 
   /* Write encrypted tablespace key */
@@ -572,15 +594,38 @@ static MY_ATTRIBUTE((nonnull, warn_unused_result)) dberr_t
   ptr += ENCRYPTION_KEY_LEN;
 
   /* Encrypt tablespace iv. */
-  if (Encryption::encrypt_low(algorithm,
-                              reinterpret_cast<unsigned char *>(table->encryption_iv),
-                              ENCRYPTION_KEY_LEN, ptr, &elen,
-                              reinterpret_cast<unsigned char *>(transfer_key),
-                              ENCRYPTION_KEY_LEN, my_aes_256_ecb, NULL)) {
-     ib_senderrf(thd, IB_LOG_LEVEL_WARN, ER_IO_WRITE_ERROR, errno,
-                 strerror(errno), "while encrypt tablespace iv.");
-     return (DB_ERROR);
-   }
+  switch (algorithm) {
+    case Encryption::AES: {
+      elen = my_aes_encrypt(reinterpret_cast<unsigned char *>(table->encryption_iv),
+                            ENCRYPTION_KEY_LEN, ptr,
+                            reinterpret_cast<unsigned char *>(transfer_key),
+                            ENCRYPTION_KEY_LEN, my_aes_256_ecb, NULL, false);
+
+      if (elen == MY_AES_BAD_DATA) {
+        ib_senderrf(thd, IB_LOG_LEVEL_WARN, ER_IO_WRITE_ERROR, errno,
+                    strerror(errno), "while encrypt tablespace iv.");
+        return (DB_ERROR);
+      }
+      break;
+    }
+
+    case Encryption::SM4: {
+      int cipher_len = -1;
+      int ret = my_sm4_encrypt(
+          reinterpret_cast<unsigned char *>(table->encryption_iv),
+          ENCRYPTION_KEY_LEN, ptr, &cipher_len,
+          reinterpret_cast<unsigned char *>(transfer_key), nullptr, false);
+      if (ret < 0 || cipher_len != ENCRYPTION_KEY_LEN) {
+        ib_senderrf(thd, IB_LOG_LEVEL_WARN, ER_IO_WRITE_ERROR, errno,
+                  strerror(errno), "while encrypt tablespace iv.");
+        return (DB_ERROR);
+      }
+      break;
+    }
+
+    default:
+      return (DB_IO_ERROR);
+  }
 
   /* Write encrypted tablespace iv */
   if (fwrite(ptr, 1, ENCRYPTION_KEY_LEN, file) != ENCRYPTION_KEY_LEN) {
@@ -627,8 +672,7 @@ static MY_ATTRIBUTE((nonnull, warn_unused_result)) dberr_t
 
     fil_space_t *space = fil_space_get(table->space);
     ut_ad(space != NULL && FSP_FLAGS_GET_ENCRYPTION(space->flags));
-    ut_ad(fsp_flags_get_encryption_algorithm(space->flags) == space->encryption_type);
-    algorithm = space->encryption_type;
+    algorithm = fsp_flags_get_encryption_algorithm(space->flags);
 
     memcpy(table->encryption_key, space->encryption_key, ENCRYPTION_KEY_LEN);
     memcpy(table->encryption_iv, space->encryption_iv, ENCRYPTION_KEY_LEN);

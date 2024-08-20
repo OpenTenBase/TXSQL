@@ -416,7 +416,7 @@ dberr_t Datafile::validate_to_dd(space_id_t space_id, uint32_t flags,
 
   if (m_space_id == space_id &&
       !((m_flags ^ flags) & ~(FSP_FLAGS_MASK_DATA_DIR | FSP_FLAGS_MASK_SHARED |
-                              FSP_FLAGS_MASK_SDI | FSP_FLAGS_MASK_SM4_ALGORITHM))) {
+                              FSP_FLAGS_MASK_SDI | FSP_FLAGS_MASK_ENCRYPT_ALGORITHM))) {
     /* Datafile matches the tablespace expected. */
     return (DB_SUCCESS);
   }
@@ -429,7 +429,7 @@ dberr_t Datafile::validate_to_dd(space_id_t space_id, uint32_t flags,
   NONE unless there is a crash before Encryption is finished. */
   if (m_encryption_op_in_progress == ENCRYPTION &&
       !((m_flags ^ flags) &
-        ~(FSP_FLAGS_MASK_ENCRYPTION | FSP_FLAGS_MASK_SM4_ALGORITHM |
+        ~(FSP_FLAGS_MASK_ENCRYPTION | FSP_FLAGS_MASK_ENCRYPT_ALGORITHM |
           FSP_FLAGS_MASK_DATA_DIR | FSP_FLAGS_MASK_SHARED |
           FSP_FLAGS_MASK_SDI))) {
     return (DB_SUCCESS);
@@ -660,8 +660,7 @@ dberr_t Datafile::validate_first_page(space_id_t space_id, lsn_t *flush_lsn,
 #endif
 
     if (!fsp_header_get_encryption_key(m_flags, m_encryption_key,
-                                       m_encryption_iv, m_first_page, m_encryption_type) ||
-        (!Encryption::type_is_valid(m_encryption_type))) {
+                                       m_encryption_iv, m_first_page)) {
       ib::error(ER_IB_MSG_401)
           << "Encryption information in datafile: " << m_filepath
           << " can't be decrypted, please confirm the "
@@ -673,7 +672,6 @@ dberr_t Datafile::validate_first_page(space_id_t space_id, lsn_t *flush_lsn,
       ut_free(m_encryption_iv);
       m_encryption_key = NULL;
       m_encryption_iv = NULL;
-      m_encryption_type = Encryption::NONE;
       return (DB_INVALID_ENCRYPTION_META);
     } else {
       ib::info(ER_IB_MSG_402) << "Read encryption metadata from " << m_filepath
@@ -687,7 +685,6 @@ dberr_t Datafile::validate_first_page(space_id_t space_id, lsn_t *flush_lsn,
       ut_free(m_encryption_iv);
       m_encryption_key = NULL;
       m_encryption_iv = NULL;
-      m_encryption_type = Encryption::NONE;
     }
   }
 #ifndef UNIV_HOTBACKUP

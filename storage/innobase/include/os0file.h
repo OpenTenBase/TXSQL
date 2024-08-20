@@ -45,7 +45,6 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA
 #include "my_io.h"
 #include "os/file.h"
 #include "univ.i"
-#include "my_aes.h" /* my_aes_opmode */
 
 #ifndef _WIN32
 #include <dirent.h>
@@ -244,10 +243,6 @@ static const char ENCRYPTION_KEY_MAGIC_V2[] = "lCB";
 information version. */
 static const char ENCRYPTION_KEY_MAGIC_V3[] = "lCC";
 
-/** Encryption magic bytes
-Use SM4 for tablespace data */
-static const char ENCRYPTION_KEY_MAGIC_V8[] = "lCH";
-
 /** Encryption master key prifix */
 static const char ENCRYPTION_MASTER_KEY_PRIFIX[] = "INNODBKey";
 
@@ -287,13 +282,6 @@ static const uint ENCRYPTION_PROGRESS_INFO_SIZE = sizeof(uint);
 #define ENCRYPTION_IN_PROGRESS (1 << 0)
 #define UNENCRYPTION_IN_PROGRESS (1 << 1)
 
-inline bool encryption_version_is_new(const void *header) {
-  return (memcmp(header, ENCRYPTION_KEY_MAGIC_V3,
-                 ENCRYPTION_MAGIC_SIZE) == 0 ||
-          memcmp(header, ENCRYPTION_KEY_MAGIC_V8,
-                 ENCRYPTION_MAGIC_SIZE) == 0);
-}
-
 class IORequest;
 
 /** Encryption algorithm. */
@@ -309,13 +297,7 @@ struct Encryption {
 
     /** Use SM4 */
     SM4 = 2,
-
-    UNDEFINE_ALGORITHM = 3,
   };
-
-  static const char *s_encryption_algorithm_names[];
-
-  static const std::map<std::string, Type> s_string_with_algorithm;
 
   /** Encryption information format version */
   enum Version {
@@ -328,10 +310,6 @@ struct Encryption {
 
     /** Version in > 8.0.4 */
     ENCRYPTION_VERSION_3 = 2,
-
-    /** Support SM4 encryption algorithm
-    Use SM4 to encrypt tablespace data*/
-    ENCRYPTION_VERSION_8 = 7,
   };
 
   /** Default constructor */
@@ -394,12 +372,7 @@ struct Encryption {
   /** Convert to a "string".
   @param[in]      type            The encryption type
   @return the string representation of algorithm */
-  static const char *algorithm_to_string(Type type) MY_ATTRIBUTE((warn_unused_result));
-
-  /** Convsert to algorithm type
-  @param[in]   key_type        the type string
-  @return the encryption type */
-  static Type string_to_algorithm(const char *key_type);
+  static const char *algorithm_string(Type type) MY_ATTRIBUTE((warn_unused_result));
 
   /** Check if the string is "empty" or "none".
   @param[in]      algorithm       Encryption algorithm to check
@@ -419,14 +392,12 @@ struct Encryption {
   @param[in]	srv_uuid	uuid of server instance
   @param[in,out]	master_key	master key */
   static void get_master_key(ulint master_key_id, char *srv_uuid,
-                             byte **master_key, Type *algorithm);
+                             byte **master_key);
 
-  /** Get current master key and key id and algorithm.
+  /** Get current master key and key id.
   @param[in,out]	master_key_id	master key id
-  @param[in,out]	master_key	master key
-  @param[in,out]        algorithm       master key algorithm */
-  static void get_master_key(ulint *master_key_id, byte **master_key,
-                             Type *algorithm);
+  @param[in,out]	master_key	master key */
+  static void get_master_key(ulint *master_key_id, byte **master_key);
 
   /** Fill the encryption information.
   @param[in]		key		encryption key
@@ -436,8 +407,7 @@ struct Encryption {
   @param[in]		encrypt_key	encrypt with master key
   @return true if success. */
   static bool fill_encryption_info(byte *key, byte *iv, byte *encrypt_info,
-                                   bool is_boot, bool encrypt_key,
-                                   Type space_algorithm);
+                                   bool is_boot, bool encrypt_key, Type algorithm);
 
   /** Get master key from encryption information
   @param[in]	encrypt_info	encryption information
@@ -449,7 +419,7 @@ struct Encryption {
   if can't get the master key. */
   static byte *get_master_key_from_info(byte *encrypt_info, Version version,
                                         uint32_t *m_key_id, char *srv_uuid,
-                                        byte **master_key, Type *key_algorithm);
+                                        byte **master_key);
 
   /** Decoding the encryption info from the first page of a tablespace.
   @param[in,out]	key		key
@@ -458,7 +428,7 @@ struct Encryption {
   @param[in]		decrypt_key	decrypt key using master key
   @return true if success */
   static bool decode_encryption_info(byte *key, byte *iv, byte *encryption_info,
-                                     bool decrypt_key, Type &space_algorithm);
+                                     bool decrypt_key, Type algorithm);
 
   /** Check the type in tablespace flags
   @param[in] algorithm
@@ -466,20 +436,6 @@ struct Encryption {
   static bool type_is_valid(uint32_t algorithm) {
     return (static_cast<Type>(algorithm) == AES || static_cast<Type>(algorithm) == SM4);
   }
-
-  /** Encrypt data according to the algorithm type */
-  static bool encrypt_low(Type algorithm, const unsigned char *source,
-                          uint32 source_length, unsigned char *dest,
-                          int *dest_length, const unsigned char *key,
-                          uint32 key_length, enum my_aes_opmode mode,
-                          const unsigned char *iv);
-
-  /** Decrypt data according to given type */
-  static bool decrypt_low(Type algorithm, const unsigned char *source,
-                          uint32 source_length, unsigned char *dest,
-                          int *dest_length, const unsigned char *key,
-                          uint32 key_length, enum my_aes_opmode mode,
-                          const unsigned char *iv);
 
   /** Encrypt the redo log block.
   @param[in]	type		IORequest

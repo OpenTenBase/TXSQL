@@ -86,8 +86,6 @@
 */
 #ifdef MYSQL_SERVER
 
-class Rpl_encryption_header;
-
 /**
   The Rpl_encryption class is the container for the binlog encryption feature
   generic and server instance functions.
@@ -97,7 +95,6 @@ class Rpl_encryption {
   struct Rpl_encryption_key {
     std::string m_id;
     Key_string m_value;
-    std::string m_type;
   };
 
   Rpl_encryption() = default;
@@ -117,38 +114,6 @@ class Rpl_encryption {
     KEYRING_ERROR_STORING = 7,
     KEYRING_ERROR_REMOVING = 8,
   };
-
-  /**
-   Support configure the binlog encryption algorithm.
-   Now only two algorithms can be used.
-  */
-  enum class Algorithm {
-    NONE = 0,
-    AES = 1,
-    SM4 = 2,
-  };
-
-  void set_algorithm(Algorithm alg) {
-    m_type = static_cast<ulong>(alg);
-  }
-
-  Algorithm get_algorithm() {
-    return static_cast<Algorithm>(m_type);
-  }
-
-  const char *get_seqno_key_type() {
-    switch (static_cast<Algorithm>(m_type)) {
-      case Algorithm::SM4: {
-        return "SM4";
-        break;
-      }
-      /* others are aes */
-      default: {
-        return "AES";
-        break;
-      }
-    }
-  }
   /**
     A wrapper function to throw a binlog encryption keyring error.
     The wrapper will decide if the error will be reported to the client session
@@ -286,7 +251,6 @@ class Rpl_encryption {
   bool is_enabled();
   const bool &get_enabled_var();
   const bool &get_master_key_rotation_at_startup_var();
-  const ulong &get_algorithm_var();
   /**
     Purge unused master keys from Keyring.
 
@@ -306,26 +270,9 @@ class Rpl_encryption {
   bool rotate_master_key(Key_rotation_step step = Key_rotation_step::START,
                          uint32_t new_master_key_seqno = 0);
 
-  const char *get_key_type();
-
-  /**
-    Generate a new replication encryption header based on the default
-    replication encrypted log file header version.
-
-    @return A Rpl_encryption_header of default version.
-  */
-  std::unique_ptr<Rpl_encryption_header> get_new_default_header();
-
-  /**
-    Generate a new replication encryption header based on the header before.
-
-    @return A Rpl_encryption_header of given version.
-  */
-  std::unique_ptr<Rpl_encryption_header> get_new_header(char version);
-
  private:
-  /* Set the encryption algorithm, it's the memory that store the system variable */
-  ulong m_type = static_cast<ulong>(Algorithm::AES);
+  /* Define the keyring key type for keys storing sequence numbers */
+  static const char *SEQNO_KEY_TYPE;
   /* Define the keyring key length for keys storing sequence numbers */
   static const int SEQNO_KEY_LENGTH = 16;
   /*
@@ -617,12 +564,6 @@ class Rpl_encryption_header {
   static const int ENCRYPTION_MAGIC_SIZE = 4;
   /* The magic for an encrypted replication log file */
   static const char *ENCRYPTION_MAGIC;
-  /* Size of the version field in the header */
-  static const int VERSION_SIZE = 1;
-
-  static const char V1 = 1;
-
-  static const char V4 = 4;
 
   virtual ~Rpl_encryption_header();
 
@@ -639,7 +580,13 @@ class Rpl_encryption_header {
   */
   static std::unique_ptr<Rpl_encryption_header> get_header(
       Basic_istream *istream);
+  /**
+    Generate a new replication encryption header based on the default
+    replication encrypted log file header version.
 
+    @return A Rpl_encryption_header of default version.
+  */
+  static std::unique_ptr<Rpl_encryption_header> get_new_default_header();
   /**
     Serialize the header into an output stream.
 
@@ -729,17 +676,24 @@ class Rpl_encryption_header {
     @return A key ID with a suffix.
   */
   static std::string key_id_with_suffix(const char *suffix);
+  /**
+    Return the default header version encryption key type.
+
+    @return The encrypted key type.
+  */
+  static const char *get_key_type();
 
  protected:
   /* Offset of the version field in the header */
   static const int VERSION_OFFSET = ENCRYPTION_MAGIC_SIZE;
-
+  /* Size of the version field in the header */
+  static const int VERSION_SIZE = 1;
   /* Offset of the optional header fields in the header */
   static const int OPTIONAL_FIELD_OFFSET = VERSION_OFFSET + VERSION_SIZE;
 
  private:
   /* The default header version for new headers */
-  static const char m_default_version = V1;
+  static const char m_default_version = 1;
 };
 
 /**
@@ -856,57 +810,7 @@ class Rpl_encryption_header_v1 : public Rpl_encryption_header {
     IV_FOR_FILE_PASSWORD = 3
   };
   /* This header implementation version */
-  char m_version = V1;
-  /* The key ID of the keyring key that encrypted the password */
-  std::string m_key_id;
-  /* The encrypted file password */
-  Key_string m_encrypted_password;
-  /* The IV used to encrypt/decrypt the file password */
-  Key_string m_iv;
-};
-
-/**
-  @class Rpl_encryption_header_v4
-
-  The same with Rpl_encryption_header_v1 except the encryption algorithm
-  v4 use sm4_ctr instead of aes_ctr
-*/
-
-class Rpl_encryption_header_v4 : public Rpl_encryption_header {
- public:
-  static const char *KEY_TYPE;
-  static const int KEY_LENGTH = 32;
-  static const int HEADER_SIZE = 512;
-  static const int IV_FIELD_SIZE = 16;
-  static const int PASSWORD_FIELD_SIZE = 32;
-
-  Rpl_encryption_header_v4() = default;
-
-  ~Rpl_encryption_header_v4() override;
-
-  bool serialize(Basic_ostream *ostream) override;
-  bool deserialize(Basic_istream *istream) override;
-  char get_version() const override;
-  int get_header_size() override;
-  Key_string decrypt_file_password() override;
-  std::unique_ptr<Stream_cipher> get_encryptor() override;
-  std::unique_ptr<Stream_cipher> get_decryptor() override;
-  Key_string generate_new_file_password() override;
-#ifdef MYSQL_SERVER
-  bool encrypt_file_password(Key_string password_str) override;
-#endif
-
- private:
-  /* The prefix for key IDs */
-  static const char *KEY_ID_PREFIX;
-  /* Expected field types */
-  enum Field_type {
-    KEY_ID = 1,
-    ENCRYPTED_FILE_PASSWORD = 2,
-    IV_FOR_FILE_PASSWORD = 3
-  };
-  /* This header implementation version */
-  char m_version = V4;
+  char m_version = 1;
   /* The key ID of the keyring key that encrypted the password */
   std::string m_key_id;
   /* The encrypted file password */

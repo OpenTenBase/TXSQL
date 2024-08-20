@@ -514,11 +514,11 @@ int Sm4CbcEncrypt(unsigned char *source,int sourceLength,
 
 	EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
 	EVP_EncryptInit(ctx, cipher, key, iv);
-	if (!EVP_CIPHER_CTX_set_padding(ctx, padding))
-	{
-		printf("set no padding failed\n");
-		return ( -1 );
-	}
+        if (!EVP_CIPHER_CTX_set_padding(ctx, padding))
+        {
+          printf("set no padding failed\n");
+          return ( -1 );
+        }
 	EVP_EncryptUpdate(ctx, cipherText, &clen, source, sourceLength);
 	EVP_EncryptFinal_ex(ctx, cipherText + clen, &tmplen);
 	clen += tmplen;

@@ -245,8 +245,7 @@ void Arch_Log_Sys::update_header(byte *header, lsn_t checkpoint_lsn) {
   byte *iv = redo_space->encryption_iv;
   dest = header + LOG_ENCRYPTION;
 
-  log_file_header_fill_encryption(dest, key, iv, false,
-                                  false, redo_space->encryption_type);
+  log_file_header_fill_encryption(dest, key, iv, false, false);
 }
 
 /** Start redo log archiving.

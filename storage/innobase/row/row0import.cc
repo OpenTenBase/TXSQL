@@ -1335,9 +1335,8 @@ dberr_t row_import::match_schema(THD *thd,
     }
   }
 
-  if (dd_is_table_in_encrypted_tablespace(m_table) &&
-      FSP_FLAGS_GET_ENCRYPTION(m_space_flags)) {
-    /* Can't import the tables have different encryption algorithm */
+  /* Can't import the tables have different encryption algorithm */
+  if (Encryption::type_is_valid(FSP_FLAGS_GET_ENCRYPT_ALGORITHM(m_space_flags))) {
     if (dd_get_encrypted_tablespace_algorithm(m_table) !=
                             fsp_flags_get_encryption_algorithm(m_space_flags)) {
       ib_errf(thd, IB_LOG_LEVEL_ERROR, ER_TABLE_SCHEMA_MISMATCH,
@@ -3371,7 +3370,7 @@ static dberr_t row_import_read_encryption_data(dict_table_t *table, FILE *file,
   byte transfer_key[ENCRYPTION_KEY_LEN];
   byte encryption_key[ENCRYPTION_KEY_LEN];
   byte encryption_iv[ENCRYPTION_KEY_LEN];
-  int elen;
+  lint elen;
 
   if (fread(&row, 1, sizeof(row), file) != sizeof(row)) {
     ib_senderrf(thd, IB_LOG_LEVEL_ERROR, ER_IO_READ_ERROR, errno,
@@ -3425,22 +3424,59 @@ static dberr_t row_import_read_encryption_data(dict_table_t *table, FILE *file,
   dict_sys->size += new_size - old_size;
 
   /* Decrypt tablespace key and iv. */
-  if (Encryption::decrypt_low(algorithm, encryption_key, ENCRYPTION_KEY_LEN,
-                              table->encryption_key, &elen, transfer_key,
-                              ENCRYPTION_KEY_LEN, my_aes_256_ecb, NULL)) {
-    ib_senderrf(thd, IB_LOG_LEVEL_ERROR, ER_IO_READ_ERROR, errno,
-                strerror(errno), "while decrypt encryption key.");
+  switch (algorithm) {
+    case Encryption::AES: {
+      elen = my_aes_decrypt(encryption_key, ENCRYPTION_KEY_LEN,
+                            table->encryption_key, transfer_key, ENCRYPTION_KEY_LEN,
+                            my_aes_256_ecb, NULL, false);
 
-    return (DB_IO_ERROR);
-  }
+      if (elen == MY_AES_BAD_DATA) {
+        ib_senderrf(thd, IB_LOG_LEVEL_ERROR, ER_IO_READ_ERROR, errno,
+                    strerror(errno), "while decrypt encryption key.");
 
-  if (Encryption::decrypt_low(algorithm, encryption_iv, ENCRYPTION_KEY_LEN,
-                              table->encryption_iv, &elen, transfer_key,
-                              ENCRYPTION_KEY_LEN, my_aes_256_ecb, NULL)) {
-    ib_senderrf(thd, IB_LOG_LEVEL_ERROR, ER_IO_READ_ERROR, errno,
-                strerror(errno), "while decrypt encryption iv.");
+        return (DB_IO_ERROR);
+      }
 
-    return (DB_IO_ERROR);
+      elen = my_aes_decrypt(encryption_iv, ENCRYPTION_KEY_LEN, table->encryption_iv,
+                            transfer_key, ENCRYPTION_KEY_LEN, my_aes_256_ecb, NULL,
+                            false);
+
+      if (elen == MY_AES_BAD_DATA) {
+        ib_senderrf(thd, IB_LOG_LEVEL_ERROR, ER_IO_READ_ERROR, errno,
+                    strerror(errno), "while decrypt encryption iv.");
+
+        return (DB_IO_ERROR);
+      }
+      break;
+    }
+
+    case Encryption::SM4: {
+      int plain_len = -1;
+      int ret = my_sm4_decrypt(encryption_key, ENCRYPTION_KEY_LEN,
+                            table->encryption_key, &plain_len, transfer_key,
+                            nullptr, false);
+
+      if (ret < 0 || plain_len != ENCRYPTION_KEY_LEN) {
+        ib_senderrf(thd, IB_LOG_LEVEL_ERROR, ER_IO_READ_ERROR, errno,
+                    strerror(errno), "while decrypt encryption key.");
+
+        return (DB_IO_ERROR);
+      }
+
+      ret = my_sm4_decrypt(encryption_iv, ENCRYPTION_KEY_LEN, table->encryption_iv,
+                            &plain_len, transfer_key, nullptr, false);
+
+      if (ret < 0 || plain_len != ENCRYPTION_KEY_LEN) {
+        ib_senderrf(thd, IB_LOG_LEVEL_ERROR, ER_IO_READ_ERROR, errno,
+                    strerror(errno), "while decrypt encryption iv.");
+
+        return (DB_IO_ERROR);
+      }
+      break;
+    }
+
+    default:
+      return (DB_IO_ERROR);
   }
 
   return (DB_SUCCESS);
@@ -3751,8 +3787,9 @@ dberr_t row_import_for_mysql(dict_table_t *table, dd::Table *table_def,
 
   uint32_t fsp_flags = dict_tf_to_fsp_flags(table->flags);
   if (table->encryption_key != NULL) {
-    fsp_flags_set_encryption(fsp_flags, static_cast<uint32_t>(Encryption::AES));
-    fsp_flags_init_encryption_algorithm_from_flags(fsp_flags, cfg.m_space_flags);
+    fsp_flags_set_encryption(fsp_flags);
+    fsp_flags_set_encryption_algorithm(fsp_flags,
+        FSP_FLAGS_GET_ENCRYPT_ALGORITHM(cfg.m_space_flags));
   }
 
   std::string tablespace_name;

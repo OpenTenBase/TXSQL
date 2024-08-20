@@ -204,7 +204,7 @@ bool IO_CACHE_binlog_cache_storage::enable_encryption() {
 
   if (rpl_encryption.is_enabled()) {
     std::unique_ptr<Rpl_encryption_header> header =
-        rpl_encryption.get_new_default_header();
+        Rpl_encryption_header::get_new_default_header();
     const Key_string password_str = header->generate_new_file_password();
 
     std::unique_ptr<Stream_cipher> encryptor = header->get_encryptor();
@@ -279,7 +279,7 @@ Binlog_encryption_ostream::~Binlog_encryption_ostream() { close(); }
 bool Binlog_encryption_ostream::open(
     std::unique_ptr<Truncatable_ostream> down_ostream) {
   DBUG_ASSERT(down_ostream != nullptr);
-  m_header = rpl_encryption.get_new_default_header();
+  m_header = Rpl_encryption_header::get_new_default_header();
   const Key_string password_str = m_header->generate_new_file_password();
   if (password_str.empty()) return true;
   m_encryptor.reset(nullptr);
@@ -330,9 +330,8 @@ std::pair<bool, std::string> Binlog_encryption_ostream::reencrypt() {
     error_message.assign("failed to reset the file out stream");
     return std::make_pair(true, error_message);
   }
-  char version = m_header->get_version();
   m_header.reset(nullptr);
-  m_header = rpl_encryption.get_new_header(version);
+  m_header = Rpl_encryption_header::get_new_default_header();
   if (m_header->encrypt_file_password(password_str) ||
       DBUG_EVALUATE_IF("fail_to_encrypt_file_password", true, false)) {
     error_message.assign(
@@ -410,8 +409,4 @@ bool Binlog_encryption_ostream::sync() { return m_down_ostream->sync(); }
 
 int Binlog_encryption_ostream::get_header_size() {
   return m_header->get_header_size();
-}
-
-uint8_t Binlog_encryption_ostream::get_header_version() {
-  return m_header->get_version();
 }

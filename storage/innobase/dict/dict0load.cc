@@ -1507,9 +1507,9 @@ space_id_t dict_check_sys_tables(bool validate) {
 
     /* Check that the .ibd file exists. */
     uint32_t fsp_flags = dict_tf_to_fsp_flags(flags);
-    /* Set tablespace encryption flag and default algorithm */
+    /* Set tablespace encryption flag */
     if (flags2 & DICT_TF2_ENCRYPTION_FILE_PER_TABLE) {
-      fsp_flags_set_encryption(fsp_flags, static_cast<uint32_t>(Encryption::AES));
+      fsp_flags_set_encryption(fsp_flags);
     }
 
     dberr_t err =
@@ -2242,9 +2242,9 @@ void dict_load_tablespace(dict_table_t *table, mem_heap_t *heap,
   /* Try to open the tablespace.  We set the 2nd param (fix_dict) to
   false because we do not have an x-lock on dict_operation_lock */
   uint32_t fsp_flags = dict_tf_to_fsp_flags(table->flags);
-  /* Set tablespace encryption flag with the default algorithm*/
+  /* Set tablespace encryption flag */
   if (DICT_TF2_FLAG_IS_SET(table, DICT_TF2_ENCRYPTION_FILE_PER_TABLE)) {
-    fsp_flags_set_encryption(fsp_flags, static_cast<uint32_t>(Encryption::AES));
+    fsp_flags_set_encryption(fsp_flags);
   }
 
   /* This dict_load_tablespace() is only used on old 5.7 database during
