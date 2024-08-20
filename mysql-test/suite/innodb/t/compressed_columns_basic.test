@@ -429,3 +429,64 @@ CREATE TABLE t1 (c1 VARBINARY(5) COLUMN_FORMAT COMPRESSED) ENGINE=InnoDB;
 ALTER TABLE t1 ADD c2 CHAR(10) FIRST;
 INSERT INTO t1 VALUES(0,11111);
 DROP TABLE t1;
+
+--echo #
+--echo # Bug issue#1518 compresse blob free heap bug
+--echo #
+
+SET GLOBAL innodb_min_column_compress_length = 1;
+
+CREATE TABLE `col_compress1` (
+`id` int NOT NULL AUTO_INCREMENT,
+`col_varchar` varchar(255) /*!80022 COMPRESSED ALGORITHM=ZLIB */ DEFAULT 'varchar_columnaaaaabbbbbccccc',
+`col_varbinary` varbinary(255) /*!80022 COMPRESSED ALGORITHM=ZLIB */ DEFAULT 'varbinary_columnaaaaabbbbbccccc',
+`col_tinyblob` tinyblob /*!80022 COMPRESSED ALGORITHM=ZLIB */,
+`col_mediumblob` mediumblob /*!80022 COMPRESSED ALGORITHM=ZLIB */,
+`col_blob` blob /*!80022 COMPRESSED ALGORITHM=ZLIB */,
+`col_longblob` longblob /*!80022 COMPRESSED ALGORITHM=ZLIB */,
+`col_tinytext` tinytext /*!80022 COMPRESSED ALGORITHM=ZLIB */,
+`col_mediumtext` mediumtext /*!80022 COMPRESSED ALGORITHM=ZLIB */,
+`col_text` text /*!80022 COMPRESSED ALGORITHM=ZLIB */,
+`col_longtext` longtext /*!80022 COMPRESSED ALGORITHM=ZLIB */,
+`col_json` json /*!80022 COMPRESSED ALGORITHM=ZLIB */ DEFAULT NULL,
+PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=1002;
+
+INSERT INTO col_compress1 VALUES 
+(1001,'abcdefghijklmnopqrstuvwxyzABCDEFGHIJ啊阿埃>挨哎唉哀皑癌蔼矮艾KLMNOPQRSTUVWXYZ0123456789!@#$%^&*abc碍爱隘鞍氨安俺按暗岸胺案',
+'abcdefghijklmnopqrstuvw啊阿埃挨哎唉哀xyzABCDEFGHIJKLMNOPQRST皑癌蔼矮艾碍爱隘',
+'abcdefghijklmnopqrstuvwxyzA啊阿埃挨哎唉哀皑癌BCDEFGHIJKLMNOPQRSTUVWXYZ01蔼矮艾碍爱隘鞍氨安',
+'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ012345678啊阿埃挨哎唉哀皑癌蔼矮艾碍爱隘鞍氨安俺按9
+!@#$%^&*abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ暗岸胺案肮昂盎凹敖熬翱袄傲奥懊澳芭捌扒叭',
+'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRST啊阿埃挨哎唉哀皑癌蔼矮艾碍爱隘UVWXYZ0123456789!@#$%^&*abcdefghijklmnopqrstuvw鞍氨安俺按暗岸胺案肮昂盎凹敖熬翱',
+'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123啊阿埃挨哎唉哀皑癌蔼矮艾碍爱隘鞍氨
+安456789!@#$%^&*abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ俺按暗岸胺案肮昂盎凹敖熬翱袄傲奥懊澳芭',
+'abcdefghijklmnopqrstuvwxyzA啊阿埃挨哎唉哀皑癌BCDEFGHIJKLMNOPQRSTUVWXYZ012蔼矮艾碍爱隘鞍氨安',
+'abcdefghijklmnopqrstuvwx啊阿埃挨哎唉哀皑yzABCDEFGHIJKLMNOPQRSTUVW癌蔼矮艾碍爱隘鞍',
+'abcdefghijklmnop啊阿埃挨哎qrstuvwxyzABCDEFG唉哀皑癌蔼矮',
+'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQR啊阿埃挨哎唉哀皑癌蔼矮艾碍爱STUVWXYZ0123456789!@#$%^&*abcdefghijklmnopqrs隘鞍氨安俺按暗岸胺案肮昂盎凹敖',
+'{\"key_0\": \"4092196619\", \"key_1\": \"9498253770\", \"key_2\": \"7844555836\", \"key_3\": \"7497657238\", \"key_4\": \"6776890143\", 
+\"key_5\": \"4748119599\", \"key_6\": \"7884453552\", \"key_7\": \"3269203856\", \"key_8\": \"8200776478\", \"key_9\": \"1536659817\", 
+\"key_10\": \"8303541107\", \"key_11\": \"8620459145\", \"key_12\": \"2851246775\", \"key_13\": \"5907220761\", \"key_14\": \"0114612178\", 
+\"key_15\": \"8739063082\", \"key_16\": \"5135810508\", \"key_17\": \"3972092994\", \"key_18\": \"2216259864\", \"key_19\": \"8552632056\", 
+\"key_20\": \"2533632090\", \"key_21\": \"4751478304\", \"key_22\": \"1371594488\", \"key_23\": \"6935895504\", \"key_24\": \"3795362665\", 
+\"key_25\": \"5638838421\", \"key_26\": \"8685413962\", \"key_27\": \"1142940613\", \"key_28\": \"6611162437\", \"key_29\": \"7814855780\", 
+\"key_30\": \"2797715785\", \"key_31\": \"4717629994\", \"key_32\": \"1708550312\", \"key_33\": \"8845848033\", \"key_34\": \"6131889006\", 
+\"key_35\": \"7401906955\", \"key_36\": \"7615307979\", \"key_37\": \"9701896248\", \"key_38\": \"6690866528\", \"key_39\": \"4812011891\", 
+\"key_40\": \"6833598289\", \"key_41\": \"7799643064\", \"key_42\": \"9906332853\", \"key_43\": \"6424750190\", \"key_44\": \"9479189693\", 
+\"key_45\": \"5540540987\", \"key_46\": \"1483812525\", \"key_47\": \"8399618192\", \"key_48\": \"0441694157\", \"key_49\": \"3384890443\", 
+\"key_50\": \"8355068400\", \"key_51\": \"1197712803\", \"key_52\": \"7058073002\", \"key_53\": \"2588539223\", \"key_54\": \"4824871485\", 
+\"key_55\": \"3355594857\", \"key_56\": \"7629977897\", \"key_57\": \"8453583314\", \"key_58\": \"5666893954\", \"key_59\": \"7268205520\", 
+\"key_60\": \"7290668398\", \"key_61\": \"0744762049\", \"key_62\": \"9614034887\", \"key_63\": \"3450903932\", \"key_64\": \"2562458497\", 
+\"key_65\": \"6210122826\", \"key_66\": \"2746372659\", \"key_67\": \"8583157278\", \"key_68\": \"3924555449\", \"key_69\": \"6688060801\", 
+\"key_70\": \"3270361775\", \"key_71\": \"9105998746\", \"key_72\": \"2807366073\", \"key_73\": \"3365782244\", \"key_74\": \"5722155614\", 
+\"key_75\": \"4539418662\", \"key_76\": \"0607207467\", \"key_77\": \"8193911800\", \"key_78\": \"9726187890\", \"key_79\": \"4545785968\", 
+\"key_80\": \"3921422978\", \"key_81\": \"2065863769\", \"key_82\": \"4905837869\", \"key_83\": \"4082476229\", \"key_84\": \"1498886667\", 
+\"key_85\": \"0462485216\", \"key_86\": \"2024355615\", \"key_87\": \"1690968133\", \"key_88\": \"3292731941\", \"key_89\": \"7094345233\", 
+\"key_90\": \"8588988711\", \"key_91\": \"5990845512\", \"key_92\": \"9663122362\", \"key_93\": \"2951971697\", \"key_94\": \"7994735356\", 
+\"key_95\": \"0341549135\", \"key_96\": \"4238814469\"}');
+
+select * from col_compress1;
+
+drop table col_compress1; 
+SET GLOBAL innodb_min_column_compress_length = @saved_innodb_min_column_compress_length;

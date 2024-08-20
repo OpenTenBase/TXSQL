@@ -835,7 +835,7 @@ do_not_compress:
   column_set_compress_header(ptr, false, 0,
                              ZLIB_COL_COMP);
   ptr += zip_column_header_length;
-  memcpy(ptr, data, *len);
+  memcpy(ptr, data, original_len);
   *len = original_len + zip_column_header_length;
   return buf;
 }

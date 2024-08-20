@@ -19676,6 +19676,10 @@ int ha_innobase::end_stmt() {
     row_mysql_prebuilt_free_blob_heap(m_prebuilt);
   }
 
+  if (m_prebuilt->compress_heap) {
+    row_mysql_prebuilt_free_compress_heap(m_prebuilt);
+  }
+
   m_prebuilt->end_stmt();
 
   reset_template();

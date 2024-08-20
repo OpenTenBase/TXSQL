@@ -253,3 +253,151 @@ id	LEFT(a, 30)	LENGTH(a)
 1	barbarbarbarbarbarbarbarbarbar	750
 3	xyzxyzxyzxyzxyzxyzxyzxyzxyzxyz	900
 DROP TABLE t1;
+CREATE TABLE t1_json(
+id INT AUTO_INCREMENT PRIMARY KEY,
+json_column JSON COMPRESSED ALGORITHM = ZLIB
+);
+INSERT INTO t1_json (json_column) VALUES
+('{"key": "value 0"}'),
+('{"key": "value 1"}'),
+('{"key": "value 2"}'),
+('{"key": "value 3"}'),
+('{"key": "value 4"}'),
+('{"key": "value 5"}'),
+('{"key": "value 6"}'),
+('{"key": "value 7"}'),
+('{"key": "value 8"}'),
+('{"key": "value 9"}');
+SELECT * FROM t1_json;
+id	json_column
+1	{"key": "value 0"}
+2	{"key": "value 1"}
+3	{"key": "value 2"}
+4	{"key": "value 3"}
+5	{"key": "value 4"}
+6	{"key": "value 5"}
+7	{"key": "value 6"}
+8	{"key": "value 7"}
+9	{"key": "value 8"}
+10	{"key": "value 9"}
+ALTER TABLE t1_json MODIFY json_column JSON COMPRESSED ALGORITHM = LZ4, ALGORITHM=INSTANT;
+ERROR 0A000: ALGORITHM=INSTANT is not supported. Reason: Need to rebuild the table to change column type. Try ALGORITHM=COPY/INPLACE.
+ALTER TABLE t1_json MODIFY json_column JSON COMPRESSED ALGORITHM = LZ4;
+SELECT * FROM t1_json;
+id	json_column
+1	{"key": "value 0"}
+2	{"key": "value 1"}
+3	{"key": "value 2"}
+4	{"key": "value 3"}
+5	{"key": "value 4"}
+6	{"key": "value 5"}
+7	{"key": "value 6"}
+8	{"key": "value 7"}
+9	{"key": "value 8"}
+10	{"key": "value 9"}
+ALTER TABLE t1_json MODIFY json_column JSON COMPRESSED ALGORITHM = ZLIB, ALGORITHM=INSTANT;
+ERROR 0A000: ALGORITHM=INSTANT is not supported. Reason: Need to rebuild the table to change column type. Try ALGORITHM=COPY/INPLACE.
+ALTER TABLE t1_json MODIFY json_column JSON COMPRESSED ALGORITHM = ZLIB;
+SELECT * FROM t1_json;
+id	json_column
+1	{"key": "value 0"}
+2	{"key": "value 1"}
+3	{"key": "value 2"}
+4	{"key": "value 3"}
+5	{"key": "value 4"}
+6	{"key": "value 5"}
+7	{"key": "value 6"}
+8	{"key": "value 7"}
+9	{"key": "value 8"}
+10	{"key": "value 9"}
+ALTER TABLE t1_json MODIFY json_column JSON COMPRESSED ALGORITHM = ZSTD, ALGORITHM=INSTANT;
+ERROR 0A000: ALGORITHM=INSTANT is not supported. Reason: Need to rebuild the table to change column type. Try ALGORITHM=COPY/INPLACE.
+ALTER TABLE t1_json MODIFY json_column JSON COMPRESSED ALGORITHM = ZSTD;
+SELECT * FROM t1_json;
+id	json_column
+1	{"key": "value 0"}
+2	{"key": "value 1"}
+3	{"key": "value 2"}
+4	{"key": "value 3"}
+5	{"key": "value 4"}
+6	{"key": "value 5"}
+7	{"key": "value 6"}
+8	{"key": "value 7"}
+9	{"key": "value 8"}
+10	{"key": "value 9"}
+ALTER TABLE t1_json MODIFY json_column JSON COMPRESSED ALGORITHM = LZ4, ALGORITHM=INSTANT;
+ERROR 0A000: ALGORITHM=INSTANT is not supported. Reason: Need to rebuild the table to change column type. Try ALGORITHM=COPY/INPLACE.
+ALTER TABLE t1_json MODIFY json_column JSON COMPRESSED ALGORITHM = LZ4;
+SELECT * FROM t1_json;
+id	json_column
+1	{"key": "value 0"}
+2	{"key": "value 1"}
+3	{"key": "value 2"}
+4	{"key": "value 3"}
+5	{"key": "value 4"}
+6	{"key": "value 5"}
+7	{"key": "value 6"}
+8	{"key": "value 7"}
+9	{"key": "value 8"}
+10	{"key": "value 9"}
+ALTER TABLE t1_json MODIFY json_column JSON COMPRESSED ALGORITHM = ZSTD, ALGORITHM=INSTANT;
+ERROR 0A000: ALGORITHM=INSTANT is not supported. Reason: Need to rebuild the table to change column type. Try ALGORITHM=COPY/INPLACE.
+ALTER TABLE t1_json MODIFY json_column JSON COMPRESSED ALGORITHM = ZSTD;
+SELECT * FROM t1_json;
+id	json_column
+1	{"key": "value 0"}
+2	{"key": "value 1"}
+3	{"key": "value 2"}
+4	{"key": "value 3"}
+5	{"key": "value 4"}
+6	{"key": "value 5"}
+7	{"key": "value 6"}
+8	{"key": "value 7"}
+9	{"key": "value 8"}
+10	{"key": "value 9"}
+ALTER TABLE t1_json MODIFY json_column JSON COMPRESSED ALGORITHM = ZLIB, ALGORITHM=INSTANT;
+ERROR 0A000: ALGORITHM=INSTANT is not supported. Reason: Need to rebuild the table to change column type. Try ALGORITHM=COPY/INPLACE.
+ALTER TABLE t1_json MODIFY json_column JSON COMPRESSED ALGORITHM = ZLIB;
+SELECT * FROM t1_json;
+id	json_column
+1	{"key": "value 0"}
+2	{"key": "value 1"}
+3	{"key": "value 2"}
+4	{"key": "value 3"}
+5	{"key": "value 4"}
+6	{"key": "value 5"}
+7	{"key": "value 6"}
+8	{"key": "value 7"}
+9	{"key": "value 8"}
+10	{"key": "value 9"}
+ALTER TABLE t1_json MODIFY json_column JSON, ALGORITHM=INSTANT;
+ERROR 0A000: ALGORITHM=INSTANT is not supported. Reason: Need to rebuild the table to change column type. Try ALGORITHM=COPY/INPLACE.
+ALTER TABLE t1_json MODIFY json_column JSON;
+SELECT * FROM t1_json;
+id	json_column
+1	{"key": "value 0"}
+2	{"key": "value 1"}
+3	{"key": "value 2"}
+4	{"key": "value 3"}
+5	{"key": "value 4"}
+6	{"key": "value 5"}
+7	{"key": "value 6"}
+8	{"key": "value 7"}
+9	{"key": "value 8"}
+10	{"key": "value 9"}
+ALTER TABLE t1_json MODIFY json_column JSON COMPRESSED ALGORITHM = ZLIB, ALGORITHM=INSTANT;
+ERROR 0A000: ALGORITHM=INSTANT is not supported. Reason: Need to rebuild the table to change column type. Try ALGORITHM=COPY/INPLACE.
+ALTER TABLE t1_json MODIFY json_column JSON COMPRESSED ALGORITHM = ZLIB;
+SELECT * FROM t1_json;
+id	json_column
+1	{"key": "value 0"}
+2	{"key": "value 1"}
+3	{"key": "value 2"}
+4	{"key": "value 3"}
+5	{"key": "value 4"}
+6	{"key": "value 5"}
+7	{"key": "value 6"}
+8	{"key": "value 7"}
+9	{"key": "value 8"}
+10	{"key": "value 9"}
+drop table t1_json;
