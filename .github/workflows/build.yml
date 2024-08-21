@@ -1,0 +1,47 @@
+name: build CI
+
+on:
+  push:
+    branches: [ "8.0" ]
+  pull_request:
+    branches: [ "8.0" ]
+
+jobs:
+  build:
+
+    runs-on:  ubuntu-latest
+    env:
+        ACTIONS_RUNNER_FORCE_ACTIONS_NODE_VERSION: node16
+        ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+    strategy:
+        matrix:
+            include:
+                - image: centos:7
+                  run: |
+                    sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/*.repo
+                    sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/*.repo
+                    sed -i 's|baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/*.repo
+                    yum install -y kernel-devel kernel gcc make elfutils-libelf-devel
+    container:
+        image: ${{ matrix.image }}
+        options: --security-opt seccomp=unconfined
+
+    steps:
+        - run: cat /etc/os-release
+        - name: prepare
+          run: ${{ matrix.run }}
+        - uses: actions/checkout@v3
+        - name: build test
+          run: |
+            yum install -y git ncurses-devel bison libaio-devel openssl openssl-devel cyrus-sasl-devel openldap-devel libtirpc-devel which
+            yum install -y centos-release-scl
+            sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-SCLo*.repo
+            sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-SCLo-scl-rh.repo
+            sed -i 's|# baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-SCLo-scl.repo
+            yum install -y epel-release && yum install -y cmake3 gtest
+            yum install -y devtoolset-10-gcc devtoolset-10-gcc-c++ devtoolset-10-binutils
+            source /opt/rh/devtoolset-10/enable
+            gcc --version
+            curl -o depend/boost_1_70_0.tar.gz https://archives.boost.io/release/1.70.0/source/boost_1_70_0.tar.gz
+            tar xzf depend/boost_1_70_0.tar.gz -C depend
+            ./build.sh -b depend/boost_1_70_0 -D 1
