@@ -34,7 +34,7 @@ jobs:
         - uses: actions/checkout@v3
         - name: prepare necessary dependences
           run: |
-            yum install -y git ncurses-devel bison libaio-devel openssl openssl-devel cyrus-sasl-devel openldap-devel libtirpc-devel which
+            yum install -y git ncurses-devel bison libaio-devel openssl openssl-devel cyrus-sasl-devel openldap-devel libtirpc-devel which expect
             yum install -y centos-release-scl
             sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-SCLo*.repo
             sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-SCLo-scl-rh.repo
