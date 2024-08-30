@@ -23,6 +23,7 @@ source_downloads
 #compile temporary dirs and files
 bld
 mysql_install
+bld-debug
 
 #will automatic unzip from depend/boost_1_70_0.tgz
 depend/boost_1_70_0
