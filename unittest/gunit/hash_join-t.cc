@@ -20,8 +20,10 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <optional>
 #include <random>
 #include <unordered_set>
 #include <vector>
@@ -48,6 +50,10 @@
 #include "unittest/gunit/test_utils.h"
 
 using pack_rows::TableCollection;
+using std::nullopt;
+using std::optional;
+using std::vector;
+using testing::UnorderedElementsAre;
 
 namespace hash_join_unittest {
 
@@ -273,6 +279,30 @@ class HashJoinTestHelper {
   }
 
   HashJoinTestHelper(Server_initializer *initializer,
+                     vector<optional<int>> left_dataset,
+                     vector<optional<int>> right_dataset,
+                     bool is_nullable) {
+    m_left_table_field.reset(new (&m_mem_root) Mock_field_long(
+        "column1", is_nullable, false));
+    m_left_table.reset(new (&m_mem_root) Fake_TABLE(m_left_table_field.get()));
+
+    m_right_table_field.reset(new (&m_mem_root) Mock_field_long(
+        "column1", is_nullable, false));
+    m_right_table.reset(new (&m_mem_root)
+                            Fake_TABLE(m_right_table_field.get()));
+    SetupFakeTables(initializer);
+
+    left_iterator.reset(new (&m_mem_root) FakeIntegerIterator(
+        initializer->thd(), m_left_table.get(),
+        down_cast<Field_long *>(m_left_table->field[0]),
+        std::move(left_dataset)));
+    right_iterator.reset(new (&m_mem_root) FakeIntegerIterator(
+        initializer->thd(), m_right_table.get(),
+        down_cast<Field_long *>(m_right_table->field[0]),
+        std::move(right_dataset)));
+  }
+
+  HashJoinTestHelper(Server_initializer *initializer,
                      const vector<std::string> &left_dataset,
                      const vector<std::string> &right_dataset)
       : extra_conditions(*THR_MALLOC) {
@@ -348,6 +378,21 @@ class HashJoinTestHelper {
   unique_ptr_destroy_only<Field> m_left_table_field;
   unique_ptr_destroy_only<Field> m_right_table_field;
 };
+
+static vector<optional<int>> CollectIntResults(HashJoinIterator *iterator,
+                                               Field *field) {
+  vector<optional<int>> results;
+  int error;
+  while ((error = iterator->Read()) == 0) {
+    if (field->is_null()) {
+      results.emplace_back(nullopt);
+    } else {
+      results.emplace_back(field->val_int());
+    }
+  }
+  EXPECT_EQ(-1, error);  // EOF
+  return results;
+}
 
 TEST(HashJoinTest, InnerJoinIntOneToOneMatch) {
   my_testing::Server_initializer initializer;
@@ -751,6 +796,54 @@ TEST(HashJoinTest, AntiJoinInt) {
   EXPECT_EQ(-1, hash_join_iterator.Read());
 
   initializer.TearDown();
+}
+
+// Test that antijoin works correctly when the hash table spills to disk.
+TEST(HashJoinTest, AntiJoinIntSpillToDisk) {
+  my_testing::Server_initializer initializer;
+  initializer.SetUp();
+
+  vector<optional<int>> probe_data = {
+      1, 2, 3, 4, 1998, 1999, 2000, 2001, -1, -2, nullopt, nullopt, 2, 3, 4};
+
+  vector<optional<int>> build_data;
+  build_data.emplace_back(nullopt);
+  for (int i = 0; i < 1000; ++i) {
+    build_data.emplace_back(i * 2);
+  }
+
+  HashJoinTestHelper test_helper{&initializer, build_data, probe_data,
+                                 /*is_nullable=*/true};
+
+  // The iterator will execute something that is equivalent to the query
+  // "SELECT * FROM probe_data WHERE a NOT IN (SELECT b FROM build_data);"
+  // We set max_memory_available so low that build_data doesn't fit in the join
+  // buffer and spills to disk.
+  HashJoinIterator hash_join_iterator{initializer.thd(),
+                                      std::move(test_helper.left_iterator),
+                                      test_helper.left_tables(),
+                                      static_cast<double>(build_data.size()),
+                                      std::move(test_helper.right_iterator),
+                                      test_helper.right_tables(),
+                                      /*store_rowids=*/false,
+                                      /*tables_to_get_rowid_for=*/0,
+                                      /*max_memory_available=*/128,
+                                      {*test_helper.join_condition},
+                                      /*allow_spill_to_disk=*/true,
+                                      JoinType::ANTI,
+                                      test_helper.extra_conditions,
+                                      /*probe_input_batch_mode=*/false,
+                                      /*hash_table_generation=*/nullptr};
+
+  ASSERT_FALSE(hash_join_iterator.Init());
+
+  EXPECT_GT(hash_join_iterator.ChunkCount(), 0)
+      << "The hash table didn't spill to disk.";
+
+  EXPECT_THAT(CollectIntResults(&hash_join_iterator,
+                                test_helper.right_qep_tab->table()->field[0]),
+              UnorderedElementsAre(nullopt, nullopt, -1, -2, 1, 3, 3, 1999,
+                                   2000, 2001));
 }
 
 TEST(HashJoinTest, LeftHashJoinInt) {
