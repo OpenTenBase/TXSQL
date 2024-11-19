@@ -1879,6 +1879,8 @@ int ha_innobase::parallel_copy_data_between_tables(
   std::atomic<uint64_t> total_recs{0};
   std::atomic<dberr_t> global_err{DB_SUCCESS};
 
+  const char *origin_stack = thd->thread_stack;
+
   auto process_row = [&](const Parallel_reader::Ctx *ctx) {
     int error;
     const rec_t *mrec = ctx->m_rec;
@@ -2021,6 +2023,7 @@ int ha_innobase::parallel_copy_data_between_tables(
   }
 
   thd_end_parallel_copy_data(thd);
+  thd->thread_stack = origin_stack;
 
   found = total_recs.load();
 
@@ -10941,12 +10944,16 @@ int ha_innopart::parallel_copy_data_between_tables(
 
   std::atomic<uint64_t> total_recs{0};
 
+  const char *origin_stack = thd->thread_stack;
+
   Parallel_reader_adapter::Load_fn load_fn =
       [&auto_increment_field_copied, &total_recs](void *cookie, uint nrows, void *rowdata,
          uint64_t partition_id) -> bool {
     int error;
 
     THD *thd = current_thd;
+    char my_stack;
+    thd->thread_stack = &my_stack;  // remember where our stack is
 
     ha_innobase_copy_ctx_t *ctx = static_cast<ha_innobase_copy_ctx_t *>(cookie);
 
@@ -11041,9 +11048,14 @@ int ha_innopart::parallel_copy_data_between_tables(
 
   Parallel_reader_adapter::End_fn end_fn = [](void *cookie) {};
 
+  thd_start_parallel_copy_data(thd);
+
   if ((ret = parallel_scan(scan_ctx, reinterpret_cast<void **>(ctx_array), init_fn, load_fn, end_fn))) {
     goto error;
   }
+
+  thd_end_parallel_copy_data(thd);
+  thd->thread_stack = origin_stack;
 
   parallel_scan_end(scan_ctx);
 
