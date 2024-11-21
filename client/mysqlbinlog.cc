@@ -3118,7 +3118,7 @@ static Exit_status dump_multiple_logs(int argc, char **argv) {
   DBUG_TRACE;
   Exit_status rc = OK_CONTINUE;
 
-  PRINT_EVENT_INFO print_event_info;
+  PRINT_EVENT_INFO print_event_info(opt_flashback);
   if (!print_event_info.init_ok()) return ERROR_STOP;
   /*
      Set safe delimiter, to dump things
