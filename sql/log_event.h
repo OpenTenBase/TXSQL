@@ -463,7 +463,7 @@ struct PRINT_EVENT_INFO {
   bool thread_id_printed;
   uint8_t default_table_encryption;
 
-  PRINT_EVENT_INFO();
+  PRINT_EVENT_INFO(bool use_full_io = false);
 
   ~PRINT_EVENT_INFO() {
     close_cached_file(&head_cache);
