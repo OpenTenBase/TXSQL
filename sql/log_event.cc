@@ -14891,7 +14891,7 @@ bool Transaction_payload_log_event::ends_group() const { return true; }
   *incorrect*, i.e., values that cannot occur in an event.  This way,
   they will always be printed for the first event.
 */
-PRINT_EVENT_INFO::PRINT_EVENT_INFO()
+PRINT_EVENT_INFO::PRINT_EVENT_INFO(bool use_full_io)
     : flags2_inited(false),
       sql_mode_inited(false),
       sql_mode(0),
@@ -14919,7 +14919,8 @@ PRINT_EVENT_INFO::PRINT_EVENT_INFO()
   memset(time_zone_str, 0, sizeof(time_zone_str));
   delimiter[0] = ';';
   delimiter[1] = 0;
-  myf const flags = MYF(MY_WME | MY_NABP);
+  myf const flags = (!use_full_io) ? MYF(MY_WME | MY_NABP)
+                                   : MYF(MY_WME | MY_NABP | MY_FULL_IO);
   open_cached_file(&head_cache, nullptr, nullptr, 0, flags);
   open_cached_file(&body_cache, nullptr, nullptr, 0, flags);
   open_cached_file(&footer_cache, nullptr, nullptr, 0, flags);
