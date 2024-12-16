@@ -11055,14 +11055,13 @@ int ha_innopart::parallel_copy_data_between_tables(
     goto error;
   }
 
-  thd_end_parallel_copy_data(thd);
-  thd->thread_stack = origin_stack;
-
-  parallel_scan_end(scan_ctx);
-
   found = total_recs.load();
 
 error:
+  thd_end_parallel_copy_data(thd);
+  thd->thread_stack = origin_stack;
+  parallel_scan_end(scan_ctx);
+
   if (ctx_array) {
     for (size_t i = 0; i < num_threads; i++) {
       ctx_array[i]->destroy();
