@@ -467,16 +467,6 @@ static int check_connection(THD *thd) {
     */
 
     DBUG_EXECUTE_IF("vio_peer_addr_error", { peer_rc = 1; });
-    DBUG_EXECUTE_IF("vio_peer_addr_fake_ipv4", {
-      struct sockaddr *sa = (sockaddr *)&net->vio->remote;
-      sa->sa_family = AF_INET;
-      struct in_addr *ip4 = &((struct sockaddr_in *)sa)->sin_addr;
-      /* See RFC 5737, 192.0.2.0/24 is reserved. */
-      const char *fake = "192.0.2.4";
-      ip4->s_addr = inet_addr(fake);
-      strcpy(ip, fake);
-      peer_rc = 0;
-    });
 
     DBUG_EXECUTE_IF("vio_peer_addr_fake_ipv6", {
       struct sockaddr_in6 *sa = (sockaddr_in6 *)&net->vio->remote;

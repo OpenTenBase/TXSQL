@@ -35,7 +35,6 @@ Usage: `basename $0` [-b <boost_dir>] [-d <dest_dir>] [-s <server_suffix>] [-t d
   -D                      With or without debug [for debug sync etc]. 
                           Default: 1 for Debug, 0 for RelWithDebInfo.
 
-  -K                      With or without KMS. Default: $kms_action.
 
   --asan                  Turn on ASAN
 
@@ -117,13 +116,6 @@ parse_options() {
       shift
       build_action=`get_option_value "$1"`
     ;;
-    -K=*)
-      kms_action=`get_option_value "$1"`
-    ;;
-    -K)
-      shift
-      kms_action=`get_option_value "$1"`
-    ;;
     -D=*)
       debug=`get_option_value "$1"`
     ;;
@@ -202,11 +194,6 @@ check_options() {
     exit 1
   fi
 
-  if [ x"$kms_action" != x"1" -a x"$kms_action" != x"0" ]; then
-    echo "Invalid kms_action value, it must be 1 or 0."
-    exit 1
-  fi
-
   if [ x"$build_type" = x"debug" ]; then
     cmake_build_type="Debug"
   elif [ x"$build_type" = x"release" ]; then
@@ -247,7 +234,6 @@ dump_options() {
   echo "build_type=$build_type"
   echo "boost_dir=$boost_dir"
   echo "build_action=$build_action"
-  echo "kms_action=$kms_action"
   echo "dest_dir=$dest_dir"
   echo "server_suffix=$server_suffix"
   echo "valgrind=$valgrind"
@@ -283,7 +269,6 @@ server_suffix="txsql"
 boost_dir="$pwd/"
 tsmdir="$pwd/extra/TencentSM/TencentSM-1.7.3-2"
 build_action=1
-kms_action=1
 valgrind=0      # Default, turn-ed off
 debug=default   # Default, which means value not set.
 asan=0
@@ -390,7 +375,6 @@ if [ $optimize -eq 0 ];then
     -DWITH_EXTRA_CHARSETS=all                   \
     -DWITH_SSL=bundled                           \
     -DWITH_CURL=system                          \
-    -DWITH_KMS=$kms_action                      \
     -DWITH_ENTERPRISE_ENCRYPTION=1              \
     -DWITH_SSL_PATH=/usr/local/ssl              \
     -DWITH_ZLIB=bundled                         \
@@ -439,7 +423,6 @@ else
     -DWITH_EXTRA_CHARSETS=all                   \
     -DWITH_SSL=bundled                           \
     -DWITH_CURL=system                          \
-    -DWITH_KMS=$kms_action                      \
     -DWITH_ENTERPRISE_ENCRYPTION=1              \
     -DWITH_SSL_PATH=/usr/local/ssl              \
     -DWITH_ZLIB=bundled                         \

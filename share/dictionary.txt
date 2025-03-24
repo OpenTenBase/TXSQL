@@ -1484,7 +1484,6 @@ hotrod
 hudson
 hummer
 huskies
-idiot
 iforget
 iloveu
 impact
@@ -2037,7 +2036,6 @@ blahblah
 blink182
 123qwe
 trinity
-passw0rd
 google
 looking
 spirit

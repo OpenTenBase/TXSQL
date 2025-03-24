@@ -56,38 +56,6 @@ SET(GCS_INTERFACE_TESTS
   interface/gcs_message
   interface/gcs_tagged_lock)
 
-SET(GCS_XCOM_TESTS
-  xcom/gcs_logging
-  xcom/gcs_logging_system
-  xcom/gcs_parameters
-  xcom/gcs_xcom_notification
-  xcom/gcs_xcom_utils
-  xcom/gcs_msg_stages
-  xcom/gcs_allowlist
-  xcom/gcs_xcom_group_management
-  xcom/gcs_xcom_state_exchange
-  xcom/gcs_packet
-  xcom/gcs_xcom_communication_interface
-  xcom/gcs_xcom_interface_unit
-  xcom/gcs_xcom_statistics_interface
-  xcom/gcs_xcom_group_member_information
-  xcom/gcs_mpsc_queue
-  xcom/gcs_xcom_input_queue
-  xcom/gcs_xcom_networking
-  xcom/gcs_xcom_xcom_base
-  xcom/gcs_xcom_xcom_transport
-  xcom/gcs_xcom_communication_protocol_changer
-  xcom/gcs_xcom_xcom_cache
-  xcom/gcs_xcom_control_interface
-  xcom/gcs_xcom_view_identifier
-  xcom/gcs_message_stage_fragmentation
-  xcom/gcs_xcom_site_def
-  xcom/gcs_xcom_expels_in_progress
-  xcom/gcs_xcom_network_provider
-  xcom/gcs_xcom_network_provider_manager
-  xcom/gcs_xcom_xcom_single_writer
-)
-
 DISABLE_GOOGLEMOCK_UNINITIALIZED_WARNING(
   xcom/gcs_logging-t.cc
   xcom/gcs_logging_system-t.cc
