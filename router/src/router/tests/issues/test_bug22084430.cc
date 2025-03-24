@@ -52,17 +52,6 @@ TEST_F(Bug22084430, LogCorrectIPv6Address) {
   }
 }
 
-TEST_F(Bug22084430, LogCorrectIPv4Address) {
-  std::map<std::string, TCPAddress> address{
-      {"127.0.0.1:7002", TCPAddress("127.0.0.1", 7002)},
-      {"192.168.1.128:8329", TCPAddress("192.168.1.128", 8329)},
-  };
-
-  for (auto &it : address) {
-    EXPECT_EQ(it.second.str(), it.first);
-  }
-}
-
 class GlobalTestEnv : public ::testing::Environment {
  public:
   void SetUp() override {

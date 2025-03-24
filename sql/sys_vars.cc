@@ -1077,12 +1077,7 @@ static Sys_var_charptr Sys_my_bind_addr(
     " In case more than one address is specified in a"
     " comma-separated list, wildcard values are not allowed."
     " Every address can have optional network namespace separated"
-    " by the delimiter / from the address value. E.g., the following value"
-    " 192.168.1.1/red,172.16.1.1/green,193.168.1.1 specifies three IP"
-    " addresses to listen for incoming TCP connections two of that have"
-    " to be placed in corresponding namespaces: the address 192.168.1.1"
-    " must be placed into the namespace red and the address 172.16.1.1"
-    " must be placed into the namespace green. Using of network namespace"
+    " by the delimiter / from the address value. Using of network namespace"
     " requires its support from underlying Operating System. Attempt to specify"
     " a network namespace for a platform that doesn't support it results in"
     " error during socket creation.",
@@ -1095,9 +1090,7 @@ static Sys_var_charptr Sys_admin_addr(
     " address, IPv6 address, or host name. Wildcard values *, ::, 0.0.0.0"
     " are not allowed. Address value can have following optional network"
     " namespace separated by the delimiter / from the address value."
-    " E.g., the following value 192.168.1.1/red specifies IP addresses to"
-    " listen for incoming TCP connections that have to be placed into"
-    " the namespace 'red'. Using of network namespace requires its support"
+    " Using of network namespace requires its support"
     " from underlying Operating System. Attempt to specify a network namespace"
     " for a platform that doesn't support it results in error during socket"
     " creation.",
@@ -8055,52 +8048,6 @@ static Sys_var_uint Sys_threshold_of_interesting_order_for_merge_join (
     SESSION_VAR(threshold_of_interesting_order_for_merge_join),
     CMD_LINE(OPT_ARG), VALID_RANGE(0, UINT_MAX32), DEFAULT(10), BLOCK_SIZE(1),
     NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(nullptr));
-
-static bool check_cdb_sql_filter_syntax(sys_var *,
-                                        THD *thd MY_ATTRIBUTE((unused)),
-                                        set_var *var) {
-  if (cdb_sql_filter_manager.handle_rule(var->save_result.string_value.str,
-                                         true)) {
-    my_error(ER_CDB_SQL_FILTER_WRONG_VALUE, MYF(0),
-             cdb_sql_filter_manager.get_errmsg());
-    var->save_result.string_value.str = const_cast<char *>("");
-    var->save_result.string_value.length = 0;
-    return true;
-  }
-  return false;
-}
-
-static bool update_cdb_sql_filter(sys_var *self, THD *thd, enum_var_type type) {
-  if (cdb_sql_filter_manager.handle_rule(sql_filter_command)) {
-    my_error(ER_CDB_SQL_FILTER_WRONG_VALUE, MYF(0),
-             cdb_sql_filter_manager.get_errmsg());
-    return true;
-  }
-  return false;
-}
-
-static Sys_var_charptr Sys_cdb_sql_filter(
-    "cdb_sql_filter", "Add one filter rule or delete one",
-    GLOBAL_VAR(sql_filter_command),
-    CMD_LINE(REQUIRED_ARG), IN_FS_CHARSET, DEFAULT(0), NO_MUTEX_GUARD,
-    NOT_IN_BINLOG, ON_CHECK(check_cdb_sql_filter_syntax), ON_UPDATE(update_cdb_sql_filter));
-
-static Sys_var_charptr Sys_cdb_sql_filter_seperator(
-    "cdb_sql_filter_seperator",
-    "seperator in sql filter rule,"
-    "only the first character of this var is seperator."
-    "If var length is 0, ',' is default seperator"
-    "See Cdb_Sql_Filter_Manager::get_seperator",
-    READ_ONLY
-        GLOBAL_VAR(cdb_sql_filter_manager.cdb_sql_filter_seperator),
-    CMD_LINE(REQUIRED_ARG), IN_FS_CHARSET, DEFAULT(","), NO_MUTEX_GUARD,
-    NOT_IN_BINLOG);
-
-static Sys_var_bool Sys_cdb_sql_filter_enable(
-    "cdb_sql_filter_enable", "set to ON if cdb_sql_filter_enable",
-    GLOBAL_VAR(cdb_sql_filter_manager.cdb_sql_filter_enable),
-    CMD_LINE(OPT_ARG), DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG,
-    ON_CHECK(nullptr), ON_UPDATE(nullptr));
 
 static Sys_var_enum Sys_cdb_role(
     "cdb_role",

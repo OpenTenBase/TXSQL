@@ -781,7 +781,6 @@ INCLUDE(lz4)
 INCLUDE(icu)
 INCLUDE(libevent)
 INCLUDE(ssl)
-INCLUDE(tencentSM)
 INCLUDE(sasl)
 INCLUDE(ldap)
 INCLUDE(kerberos)
@@ -1825,8 +1824,6 @@ IF(WITH_CUSTOM_LIBRARIES)
   ENDFOREACH()
 ENDIF()
 
-# TencentSM
-MYSQL_CHECK_TENCENTSM()
 
 # Add system/custom openssl.
 MYSQL_CHECK_SSL()

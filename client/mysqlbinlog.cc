@@ -73,7 +73,6 @@
 #include "welcome_copyright_notice.h"  // ORACLE_WELCOME_COPYRIGHT_NOTICE
 #include <boost/algorithm/string/split.hpp>
 #include <boost/algorithm/string/trim.hpp>
-#include "mysqlbinlog_keyring/mysqlbinlog_keyring.h"
 
 #include <tuple>
 
@@ -785,7 +784,6 @@ static int port = 0;
 static uint my_end_arg;
 static const char *sock = nullptr;
 static char *opt_plugin_dir = nullptr, *opt_default_auth = nullptr;
-char *opt_encrypt_key_file = nullptr;
 
 #if defined(_WIN32)
 static char *shared_memory_base_name = nullptr;
@@ -2217,9 +2215,6 @@ static struct my_option my_long_options[] = {
      nullptr, GET_PASSWORD, OPT_ARG, 0, 0, 0, nullptr, 0, nullptr},
     {"plugin_dir", OPT_PLUGIN_DIR, "Directory for client-side plugins.",
      &opt_plugin_dir, &opt_plugin_dir, nullptr, GET_STR, REQUIRED_ARG, 0, 0, 0,
-     nullptr, 0, nullptr},
-    {"encrypt-key-file", OPT_ENCRYPT_KET_FILE, "Keyring file with encrypt information.",
-     &opt_encrypt_key_file, &opt_encrypt_key_file, nullptr, GET_STR, REQUIRED_ARG, 0, 0, 0,
      nullptr, 0, nullptr},
     {"port", 'P',
      "Port number to use for connection or 0 for default to, in "
@@ -4034,14 +4029,6 @@ int main(int argc, char **argv) {
     load_processor.init_by_dir_name(dirname_for_local_load);
   else
     load_processor.init_by_cur_dir();
-
-  if (opt_encrypt_key_file != nullptr) {
-    if (init_mysqlbinlog_key(std::string(opt_encrypt_key_file))) {
-      error("Could not open keyring file '%s' or could not get master key.",
-            opt_encrypt_key_file);
-      /*todo: return or coninue */
-    }
-  }
 
   if (!raw_mode) {
     fprintf(

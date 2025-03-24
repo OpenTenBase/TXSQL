@@ -40,10 +40,42 @@ void Hex2Str(const unsigned char *sSrc, unsigned char *sDest, int nSrcLen) {
   return;
 }
 
-void print_bytes(const unsigned char *beg, const unsigned char *end) {
-	const unsigned char *pbeg = beg, *pend = end;
-    while (pbeg != pend) fprintf(stderr,"%02x", (unsigned)*pbeg++);
-    fprintf(stderr,"\n");
+EVP_PKEY *Getpkey(int curve_id, uint8_t *pubKey, uint8_t *priKey, int flag) {
+  BIGNUM *r = BN_new();
+  BIGNUM *x = BN_new();
+  BIGNUM *y = BN_new();
+
+  EC_KEY *eckey = EC_KEY_new_by_curve_name(curve_id);
+  EVP_PKEY *pkey = EVP_PKEY_new();
+  EVP_PKEY_set1_EC_KEY(pkey, eckey);
+
+  if (flag & 2) {
+    x = BN_bin2bn(pubKey, 32, x);
+    y = BN_bin2bn(pubKey + 32, 32, y);
+    EC_POINT *point =
+        EC_POINT_new(EC_KEY_get0_group(EVP_PKEY_get0_EC_KEY(pkey)));
+    if (point == NULL) {
+      return NULL;
+    }
+    if (!EC_POINT_set_affine_coordinates_GFp(
+            EC_KEY_get0_group(EVP_PKEY_get0_EC_KEY(pkey)), point, x, y, NULL)) {
+      return NULL;
+    }
+    if (!EC_KEY_set_public_key(EVP_PKEY_get0_EC_KEY(pkey), point)) {
+      return NULL;
+    }
+  }
+  if (flag & 1) {
+    r = BN_bin2bn(priKey, 32, r);
+    EC_KEY_set_private_key(EVP_PKEY_get0_EC_KEY(pkey), r);
+  }
+
+  BN_free(r);
+  BN_free(x);
+  BN_free(y);
+  EC_KEY_free(eckey);
+
+  return pkey;
 }
 
 int Sm3Hmac(unsigned char *data, int dataLen, unsigned char *hmac, int *hmacLen,
@@ -95,7 +127,7 @@ int Sm3Digest(unsigned char *data, int dataLen, unsigned char *digest,
   return 0;
 }
 
-int Sm4CbcEncrypt(unsigned char *source, int sourceLength,
+int Sm4CbcEncrypt(const unsigned char *source, int sourceLength,
                   unsigned char *cipherText, int *cipherLength,
                   unsigned char *key, unsigned char *iv, bool padding) {
   if (source == NULL || sourceLength <= 0) {
@@ -132,7 +164,7 @@ int Sm4CbcEncrypt(unsigned char *source, int sourceLength,
   return 0;
 }
 
-int Sm4CbcDecrypt(unsigned char *source, int sourceLength,
+int Sm4CbcDecrypt(const unsigned char *source, int sourceLength,
                   unsigned char *plainText, int *plainTextLength,
                   unsigned char *key, unsigned char *iv, bool padding) {
   if (source == NULL || sourceLength <= 0) {
@@ -168,4 +200,3 @@ int Sm4CbcDecrypt(unsigned char *source, int sourceLength,
 
   return 0;
 }
-

@@ -43,18 +43,20 @@
 void print_bytes(const unsigned char *beg, const unsigned char *end);
 
 void Hex2Str( const unsigned char *sSrc,  unsigned char *sDest, int nSrcLen );
+int Sm2GetKey(unsigned char *pubKey,unsigned char *priKey);
+
+EVP_PKEY *Getpkey(int curve_id, uint8_t *pubKey, uint8_t *priKey, int flag);
 
 int Sm3Digest(unsigned char *data,int dataLen,unsigned char *digest,int *digestLen);
 
 int Sm3Hmac(unsigned char *data,int dataLen,unsigned char *hmac,int *hmacLen,
 				unsigned char *hmacKey,int keyLen);
 
-int Sm4CbcEncrypt(unsigned char *source,int sourceLength,
+int Sm4CbcEncrypt(const unsigned char *source,int sourceLength,
 				unsigned char *cipherText,int *cipherLength,
 				unsigned char *key,unsigned char *iv, bool padding = true);
 
-int Sm4CbcDecrypt(unsigned char *source,int sourceLength,
+int Sm4CbcDecrypt(const unsigned char *source,int sourceLength,
 				unsigned char *plainText,int *plainTextLength,
 				unsigned char *key,unsigned char *iv, bool padding = true);
 #endif /* SM_ENCRYPT_INCLUDED */
-

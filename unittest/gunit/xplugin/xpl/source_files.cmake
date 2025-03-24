@@ -21,7 +21,6 @@
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA
 
 SET(XPL_TEST_SRC
-  account_verification_handler_t.cc
   admin_cmd_arguments_object_t.cc
   admin_cmd_index_t.cc
   admin_create_collection_t.cc

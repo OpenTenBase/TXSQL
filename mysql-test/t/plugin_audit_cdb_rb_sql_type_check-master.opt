@@ -1,4 +1,0 @@
-$AUDIT_CDB_OPT
- --tencent-root-cnf=$MYSQL_TEST_DIR/tmy.conf
- --plugin-load-add=audit_cdb.so
- --audit_cdb_log_basename='my_audit_log_file'

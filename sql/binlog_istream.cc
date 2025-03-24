@@ -145,11 +145,6 @@ bool Basic_binlog_ifile::read_binlog_magic() {
   */
   if (memcmp(magic, Rpl_encryption_header::ENCRYPTION_MAGIC,
              Rpl_encryption_header::ENCRYPTION_MAGIC_SIZE) == 0) {
-#ifdef CLIENT_DECRYPT
-    if (opt_encrypt_key_file == nullptr)
-      return m_error->set_type(
-          Binlog_read_error::READ_ENCRYPTED_LOG_FILE_IS_NOT_SUPPORTED);
-#endif
 
 #if defined (MYSQL_SERVER) || defined (CLIENT_DECRYPT)
     std::unique_ptr<Binlog_encryption_istream> encryption_istream{
