@@ -1793,6 +1793,14 @@ void parallel_reader_copy_dbug_keyword_list(CODE_STATE **dst_ptr,
   if (dst->stack == &init_settings) {
     PushState(dst);
     assert(dst->stack->keywords == nullptr);
+    native_rw_rdlock(&THR_LOCK_init_settings);
+
+    dst->stack->out_file = stderr;
+    dst->stack->functions = ListCopy(init_settings.functions);
+    dst->stack->p_functions = ListCopy(init_settings.p_functions);
+    dst->stack->processes = ListCopy(init_settings.processes);
+
+    native_rw_unlock(&THR_LOCK_init_settings);
 
     dst->stack->keywords = ListCopy(src->stack->keywords);
     dst->stack->flags |= DEBUG_ON;
