@@ -143,7 +143,7 @@ void CUdpServer::loopdealreq() {
                 fprintf(stderr, "recvfrom received %d bytes, equals to message buffer size(%d), "
                         "from int ip:%u, data may be truncated.",
                          ret, recvlen, from.sin_addr.s_addr);
-            strncpy(fromaddr, inet_ntoa(from.sin_addr), 24);
+            strncpy(fromaddr, inet_ntoa(from.sin_addr), strlen(fromaddr));
             do_request(recvbuf, ret, fromaddr);
         } else {
             fprintf(stderr, "recvfrom ret:%d<=0,errno:%d,errstr:%s,from int ip:%u",
