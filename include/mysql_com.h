@@ -196,11 +196,8 @@
 #define NOT_SECONDARY_FLAG (1 << 29)
 /** Field is explicitly marked as invisible by the user. */
 #define FIELD_IS_INVISIBLE (1 << 30)
-/** Field is masked */
-#define FIELD_IS_MASK (1UL << 31)
-
 /** Field is compressed */
-#define FIELD_FLAGS_COL_COMPRESS_FORMAT_MASK (1UL << 32)
+#define FIELD_FLAGS_COL_COMPRESS_FORMAT_MASK (1UL << 31)
 
 /** Flags in type_flags2 */
 #define FIELD_FLAGS_COL_ENCRYPTION_ALGO 0 /* Field column compression algorithm, bit 0-2 */

@@ -5552,24 +5552,6 @@ String *Item_func_internal_get_dd_column_extra::val_str(String *str) {
       if (oss.str().length()) oss << " ";
       oss << "NOT SECONDARY";
     }
-
-    if (p->exists("is_mask")) {
-      bool is_mask = false;
-      p->get("is_mask", &is_mask);
-      if (is_mask) {
-        if (oss.str().length()) oss << " ";
-        oss << "Mask";
-        uint64_t mask_start = 0;
-        uint64_t mask_end = 0;
-        p->get("mask_start", &mask_start);
-        p->get("mask_end", &mask_end);
-
-        if (mask_end != 0) {
-          oss << "(" << mask_start << "-" << mask_end << ")";
-        }
-      }
-    }
-
   }
 
   // Print the column visibility attribute for tables.
@@ -6007,4 +5989,4 @@ String *Item_func_get_dd_column_private_data::val_str(String *str) {
 
   return str;
 }
-/* Changes from TXSQL end. */
+

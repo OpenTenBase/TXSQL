@@ -2261,16 +2261,6 @@ bool store_create_info(THD *thd, TABLE_LIST *table_list, String *packet,
     if (field->is_hidden_by_user())
       packet->append(STRING_WITH_LEN(" /*!80023 INVISIBLE */"));
 
-    if (field->is_mask) {
-      packet->append(STRING_WITH_LEN(" MASK"));
-
-      if (field->mask_end_pos != 0) {
-        std::string mask_scope = "(" + std::to_string(field->mask_start_pos)
-                                + "-" + std::to_string(field->mask_end_pos) + ")";
-        packet->append(STRING_WITH_LEN(mask_scope.c_str()));
-      }
-    }
-
     if (field->comment.length) {
       packet->append(STRING_WITH_LEN(" COMMENT "));
       append_unescaped(packet, field->comment.str, field->comment.length);

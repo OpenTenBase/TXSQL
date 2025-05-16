@@ -4069,23 +4069,6 @@ class PT_alter_table_column_visibility final : public PT_alter_table_action {
   Alter_column m_alter_column;
 };
 
-class PT_alter_table_column_mask final : public PT_alter_table_action {
-  typedef PT_alter_table_action super;
-
- public:
-  PT_alter_table_column_mask(const char *col_name, bool is_masked, uint64_t start_pos, uint64_t end_pos)
-      : super(Alter_info::ALTER_COLUMN_MASK),
-        m_alter_column(col_name, is_masked, start_pos, end_pos) {}
-
-  bool contextualize(Table_ddl_parse_context *pc) override {
-    return (super::contextualize(pc) ||
-            pc->alter_info->alter_list.push_back(&m_alter_column));
-  }
-
- private:
-  Alter_column m_alter_column;
-};
-
 class PT_alter_table_index_visible final : public PT_alter_table_action {
   typedef PT_alter_table_action super;
 

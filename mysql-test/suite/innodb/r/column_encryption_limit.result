@@ -59,7 +59,7 @@ ERROR HY000: illegal user can not write encryption column 'c2'
 delete from t1 where c1=1;
 delete from t1 where c2='a';
 Warnings:
-Warning	4148	illegal user or without master key can only read encrypted data of the encrypted column 'c2'
+Warning	4530	illegal user or without master key can only read encrypted data of the encrypted column 'c2'
 set global cdb_column_encryption_whitelist = '';
 Warnings:
 Warning	1287	'@@cdb_column_encryption_whitelist' is deprecated and will be removed in a future release. Please use txsql_column_encryption_whitelist instead.

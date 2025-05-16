@@ -108,8 +108,6 @@ class PT_column_attr_base : public Parse_tree_node_tmpl<Column_parse_context> {
     return false;
   }
 
-  virtual void apply_mask_scope(uint64_t*, uint64_t*) const {}
-
   /**
     Check for the [NOT] ENFORCED characteristic.
 
@@ -548,28 +546,6 @@ class PT_column_visibility_attr : public PT_column_attr_base {
   const bool m_is_visible;
 };
 
-class PT_column_mask_attr : public PT_column_attr_base {
-  public:
-    explicit PT_column_mask_attr(bool is_masked, uint64_t start_pos, uint64_t end_pos)
-      : m_is_mask(is_masked),
-        m_start_pos(start_pos),
-        m_end_pos(end_pos){}
-    void apply_type_flags(unsigned long *type_flags) const override {
-      *type_flags &= ~FIELD_IS_MASK;
-      if (m_is_mask) *type_flags |= FIELD_IS_MASK;
-    }
-
-    void apply_mask_scope(uint64_t *start_pos, uint64_t *end_pos) const override  {
-      *start_pos = m_start_pos;
-      *end_pos = m_end_pos;
-    }
-
-  private:
-    const bool m_is_mask;
-    const uint64_t m_start_pos;
-    const uint64_t m_end_pos;
-};
-
 // Type nodes:
 
 /**
@@ -950,9 +926,6 @@ class PT_field_def_base : public Parse_tree_node {
   // List of column check constraint's specification.
   Sql_check_constraint_spec_list *check_const_spec_list{nullptr};
 
-  uint64_t mask_start_pos{0};
-  uint64_t mask_end_pos{0};
-
  protected:
   PT_type *type_node;
 
@@ -1001,7 +974,6 @@ class PT_field_def_base : public Parse_tree_node {
         attr->apply_gen_default_value(&default_val_info);
         attr->apply_on_update_value(&on_update_value);
         attr->apply_srid_modifier(&m_srid);
-        attr->apply_mask_scope(&mask_start_pos, &mask_end_pos);
         if (attr->apply_collation(pc, &charset, &has_explicit_collation))
           return true;
         if (attr->add_check_constraints(check_const_spec_list)) return true;

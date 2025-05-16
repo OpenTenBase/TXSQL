@@ -3040,11 +3040,6 @@ struct HA_CREATE_INFO {
   */
   bool m_hidden{false};
 
-  bool is_mask {false};
-
-  uint64_t mask_start_pos{0};
-  uint64_t mask_end_pos{0};
-
   /*
     A flag to indicate if this table should be created but not committed at
     the end of statement.
@@ -3369,9 +3364,6 @@ class Alter_inplace_info {
 
   // Alter column visibility.
   static const HA_ALTER_FLAGS ALTER_COLUMN_VISIBILITY = 1ULL << 49;
-
-  // alter column masking or not
-  static const HA_ALTER_FLAGS ALTER_COLUMN_MASK = 1ULL << 50;
 
   /**
     Create options (like MAX_ROWS) for the new version of table.

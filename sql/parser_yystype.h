@@ -529,12 +529,6 @@ union YYSTYPE {
   Mem_root_array_YY<PT_base_index_option *> index_options;
   Mem_root_array_YY<LEX_STRING> lex_str_list;
   bool visibility;
-  
-  struct {
-    uint64_t mask_start;
-    uint64_t mask_end;
-  } mask_scope_st;
-  bool masked;
   PT_with_clause *with_clause;
   PT_with_list *with_list;
   PT_common_table_expr *common_table_expr;

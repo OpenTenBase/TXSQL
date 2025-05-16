@@ -5852,13 +5852,6 @@ bool Item_field::fix_fields(THD *thd, Item **reference) {
       return true;
     }
 
-    if (thd->lex->current_query_block()->resolve_place == Query_block::RESOLVE_CONDITION
-        && from_field->is_mask
-        && !thd->can_read_mask()) {
-      my_error(ER_MASKED_COLUMN_NOT_IN_WHERE, MYF(0), from_field->field_name);
-      return true;
-    }
-
     // Not view reference, not outer reference; need to set properties:
     set_field(from_field);
   } else if (thd->mark_used_columns != MARK_COLUMNS_NONE) {

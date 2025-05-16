@@ -1374,59 +1374,59 @@ void warn_about_deprecated_binary(THD *thd)
 /* Changes from txsql start. */
 %token<lexer.keyword> THREADPOOL_SYM 1250
 %token<lexer.keyword> DETAIL 1252
-%token<lexer.keyword> SQL_CDB_FILTER_SYM 1259
-%token<lexer.keyword> MASK_SYM 1260
-%token<lexer.keyword> UNMASK_SYM 1261
-%token<lexer.keyword> AES128_SYM 1262
-%token<lexer.keyword> AES192_SYM 1263
-%token<lexer.keyword> AES256_SYM 1264
-%token<lexer.keyword> SM4_SYM 1265
-%token<lexer.keyword> TABLESAMPLE_SYM 1266
-%token<lexer.keyword> BERNOULLI_SYM 1267
-%token<lexer.keyword> OUTLINE_SYM 1269                     /* MYSQL */
-%token<lexer.keyword> OUTLINE_INFO_SYM 1270                /* MYSQL */
-%token<lexer.keyword> CDB_OUTLINE_INFO_SYM 1271            /* MYSQL */
-/* Tokens for sequence */
-%token<lexer.keyword> TDSQL_CACHE_SYM 1273
-%token<lexer.keyword> TDSQL_CYCLE_SYM 1274
-%token<lexer.keyword> TDSQL_MAXVALUE_SYM 1275
-%token<lexer.keyword> TDSQL_MINVALUE_SYM 1276
-%token<lexer.keyword> TDSQL_NOCACHE_SYM 1277
-%token<lexer.keyword> TDSQL_NOCYCLE_SYM 1278
-%token<lexer.keyword> TDSQL_NOMAXVALUE_SYM 1279
-%token<lexer.keyword> TDSQL_NOMINVALUE_SYM 1280
-%token<lexer.keyword> TDSQL_NOORDER_SYM 1281
-%token<lexer.keyword> TDSQL_INCREMENT_SYM 1282
-%token<lexer.keyword> TDSQL_ORDER_SYM 1283
-%token<lexer.keyword> TDSQL_SEQUENCE_SYM 1284
-%token<lexer.keyword> CYCLE_SYM  1285
-%token<lexer.keyword> MINVALUE_SYM 1286
-%token<lexer.keyword> NOCACHE_SYM 1287
-%token<lexer.keyword> NOCYCLE_SYM 1288
-%token<lexer.keyword> NOMAXVALUE_SYM 1289
-%token<lexer.keyword> NOMINVALUE_SYM 1290
-%token<lexer.keyword> NOORDER_SYM  1291
-%token<lexer.keyword> INCREMENT_SYM 1292
-%token<lexer.keyword> SEQUENCE_SYM 1293
-%token<lexer.keyword> TDSQL_SETVAL_SYM 1294 /*TDSQL*/
-%token<lexer.keyword> CLEAR_SYM 1295
-%token<lexer.keyword> STATISTICS_TASKS_SYM 1296
-%token<lexer.keyword> STATISTICS_NODE_SYM 1297
-%token TXSQL_RETURNING_SYM 1298
-%token TDSQL_TLOG_SYM 1299
-%token TDSQL_WITHGTS_SYM 1300            /* TDSQL */
+%token<lexer.keyword> SQL_CDB_FILTER_SYM 1253
+%token<lexer.keyword> AES128_SYM 1254
+%token<lexer.keyword> AES192_SYM 1255
+%token<lexer.keyword> AES256_SYM 1256
+%token<lexer.keyword> SM4_SYM 1257
+%token<lexer.keyword> TABLESAMPLE_SYM 1258
+%token<lexer.keyword> BERNOULLI_SYM 1259
 
-%token<lexer.keyword> RECYCLE_BIN_SYM 1301
-%token<lexer.keyword> RECYCLE_NAME_SYM 1302
-%token<lexer.keyword> PARALLEL 1303                        /* MYSQL */
-%token<lexer.keyword> ACK_SYM  1304                     /* TDSQL */
+%token<lexer.keyword> OUTLINE_SYM 1260                     /* MYSQL */
+%token<lexer.keyword> OUTLINE_INFO_SYM 1261                /* MYSQL */
+%token<lexer.keyword> CDB_OUTLINE_INFO_SYM 1262            /* MYSQL */
+%token<lexer.keyword> UNFROZEN_SYM 1263                    /* TXSQL */
+/* Tokens for sequence */
+%token<lexer.keyword> TDSQL_CACHE_SYM 1264
+%token<lexer.keyword> TDSQL_CYCLE_SYM 1265
+%token<lexer.keyword> TDSQL_MAXVALUE_SYM 1266
+%token<lexer.keyword> TDSQL_MINVALUE_SYM 1267
+%token<lexer.keyword> TDSQL_NOCACHE_SYM 1268
+%token<lexer.keyword> TDSQL_NOCYCLE_SYM 1269
+%token<lexer.keyword> TDSQL_NOMAXVALUE_SYM 1270
+%token<lexer.keyword> TDSQL_NOMINVALUE_SYM 1271
+%token<lexer.keyword> TDSQL_NOORDER_SYM 1272
+%token<lexer.keyword> TDSQL_INCREMENT_SYM 1273
+%token<lexer.keyword> TDSQL_ORDER_SYM 1274
+%token<lexer.keyword> TDSQL_SEQUENCE_SYM 1275
+%token<lexer.keyword> CYCLE_SYM  1276
+%token<lexer.keyword> MINVALUE_SYM 1277
+%token<lexer.keyword> NOCACHE_SYM 1278
+%token<lexer.keyword> NOCYCLE_SYM 1279
+%token<lexer.keyword> NOMAXVALUE_SYM 1280
+%token<lexer.keyword> NOMINVALUE_SYM 1281
+%token<lexer.keyword> NOORDER_SYM  1282
+%token<lexer.keyword> INCREMENT_SYM 1283
+%token<lexer.keyword> SEQUENCE_SYM 1284
+%token<lexer.keyword> TDSQL_SETVAL_SYM 1285 /*TDSQL*/
+%token<lexer.keyword> CLEAR_SYM 1286
+%token<lexer.keyword> STATISTICS_TASKS_SYM 1287
+%token<lexer.keyword> STATISTICS_NODE_SYM 1288
+%token TXSQL_RETURNING_SYM 1289
+%token TDSQL_TLOG_SYM 1290
+%token TDSQL_WITHGTS_SYM 1291            /* TDSQL */
+
+%token<lexer.keyword> RECYCLE_BIN_SYM 1292
+%token<lexer.keyword> RECYCLE_NAME_SYM 1293
+%token<lexer.keyword> PARALLEL 1294                        /* MYSQL */
+%token<lexer.keyword> ACK_SYM  1295                     /* TDSQL */
 
 /*
   Tokens for compressed column
 */
-%token<lexer.keyword> LZ4_SYM    1305 
-%token<lexer.keyword> ZLIB_SYM   1306 
-%token<lexer.keyword> ZSTD_SYM   1307
+%token<lexer.keyword> LZ4_SYM    1296 
+%token<lexer.keyword> ZLIB_SYM   1297 
+%token<lexer.keyword> ZSTD_SYM   1298
 /* Changes from txsql end. */
 
 
@@ -2050,8 +2050,6 @@ void warn_about_deprecated_binary(THD *thd)
 %type <index_name_and_type> opt_index_name_and_type
 
 %type <visibility> visibility
-%type <masked> masked
-%type <mask_scope_st> masked_scope
 
 %type <with_clause> with_clause opt_with_clause
 %type <with_list> with_list
@@ -7858,10 +7856,6 @@ column_attribute:
           {
             $$ = NEW_PTN PT_column_visibility_attr($1);
           }
-        | masked masked_scope
-          {
-            $$ = NEW_PTN PT_column_mask_attr($1, $2.mask_start, $2.mask_end);
-          }
         ;
 
 encryption_column_algorithm:
@@ -8328,20 +8322,6 @@ index_type_clause:
 visibility:
           VISIBLE_SYM { $$= true; }
         | INVISIBLE_SYM { $$= false; }
-        ;
-
-masked:
-          MASK_SYM { $$ = true; }
-        | UNMASK_SYM { $$ = false; }
-        ;
-
-masked_scope:
-        /* empty */ {$$.mask_start = 0; $$.mask_end = 0; }
-        | '(' real_ulong_num '-' real_ulong_num ')'
-        {
-          $$.mask_start = $2;
-          $$.mask_end = $4;
-        }
         ;
 
 index_type:
@@ -9369,10 +9349,6 @@ alter_list_item:
         | ALTER INDEX_SYM ident visibility
           {
             $$= NEW_PTN PT_alter_table_index_visible($3.str, $4);
-          }
-        | ALTER opt_column ident SET_SYM masked masked_scope
-          {
-            $$ = NEW_PTN PT_alter_table_column_mask($3.str, $5, $6.mask_start, $6.mask_end);
           }
         | ALTER CHECK_SYM ident constraint_enforcement
           {
@@ -16272,9 +16248,6 @@ ident_keywords_unambiguous:
         | LOCKS_SYM
         | LOGFILE_SYM
         | LOGS_SYM
-        | LZ4_SYM
-        | MASK_SYM
-        | UNMASK_SYM
         | MASTER_AUTO_POSITION_SYM
         | MASTER_COMPRESSION_ALGORITHM_SYM
         | MASTER_CONNECT_RETRY_SYM

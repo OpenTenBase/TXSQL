@@ -144,8 +144,7 @@ static const Alter_inplace_info::HA_ALTER_FLAGS INNOBASE_INPLACE_IGNORE =
     Alter_inplace_info::ADD_CHECK_CONSTRAINT |
     Alter_inplace_info::DROP_CHECK_CONSTRAINT |
     Alter_inplace_info::SUSPEND_CHECK_CONSTRAINT |
-    Alter_inplace_info::ALTER_COLUMN_VISIBILITY |
-    Alter_inplace_info::ALTER_COLUMN_MASK;
+    Alter_inplace_info::ALTER_COLUMN_VISIBILITY;
 
 /** Operation allowed with ALGORITHM=INSTANT */
 static const Alter_inplace_info::HA_ALTER_FLAGS INNOBASE_INSTANT_ALLOWED =

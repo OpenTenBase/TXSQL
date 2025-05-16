@@ -856,7 +856,6 @@ bool check_some_access(THD *thd, ulong want_access, TABLE_LIST *table);
 bool has_full_view_routine_access(THD *thd, const char *db,
                                   const char *definer_user,
                                   const char *definer_host);
-bool has_mask_data_access(THD *thd);
 bool has_partial_view_routine_access(THD *thd, const char *db,
                                      const char *routine_name, bool is_proc);
 bool check_access(THD *thd, ulong want_access, const char *db, ulong *save_priv,

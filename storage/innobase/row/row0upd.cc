@@ -2939,8 +2939,7 @@ func_exit:
   entries */
 
   row_upd_store_row(node, thr_get_trx(thr)->mysql_thd,
-                    thr->prebuilt ? thr->prebuilt->m_mysql_table : nullptr,
-                    thr->prebuilt);
+                    thr->prebuilt ? thr->prebuilt->m_mysql_table : nullptr,thr->prebuilt);
 
   /* Mark the clustered index record deleted; we do not have to check
   locks, because we assume that we have an x-lock on the record */
@@ -3081,8 +3080,7 @@ func_exit:
   }
 
   row_upd_store_row(node, trx->mysql_thd,
-                    thr->prebuilt ? thr->prebuilt->m_mysql_table : nullptr,
-                    thr->prebuilt);
+                    thr->prebuilt ? thr->prebuilt->m_mysql_table : nullptr,thr->prebuilt);
 
   if (row_upd_changes_ord_field_binary(index, node->update, thr, node->row,
                                        node->ext, nullptr)) {

@@ -57,7 +57,6 @@
 #include "pfs_statement_provider.h"
 #include "rpl_source.h"  // unregister_slave
 #include "sql/auth/sql_security_ctx.h"
-#include "sql/auth/auth_common.h"
 #include "sql/binlog.h"
 #include "sql/check_stack.h"
 #include "sql/conn_handler/connection_handler_manager.h"  // Connection_handler_manager
@@ -910,7 +909,6 @@ THD::THD(bool enable_plugins)
   m_backquery_timestamps.clear();
   m_backquery_info.clear();
 
-  read_mask = READ_MASK_UNINIT;
 
   ending_internal_txn = false;
   stored_seq_cache_version = 0;
@@ -927,19 +925,6 @@ void THD::copy_table_access_properties(THD *thd) {
   variables.option_bits = thd->variables.option_bits & OPTION_BIN_LOG;
   skip_readonly_check = thd->skip_readonly_check;
   tx_isolation = thd->tx_isolation;
-
-}
-
-bool THD::can_read_mask() {
-  if (read_mask == READ_MASK_UNINIT) {
-    if (has_mask_data_access(this)) {
-      read_mask = READ_MASK_CAN_READ;
-    } else {
-      read_mask = READ_MASK_NOT_READ;
-    }
-  }
-
-  return (read_mask == READ_MASK_CAN_READ);
 }
 
 void THD::set_transaction(Transaction_ctx *transaction_ctx) {

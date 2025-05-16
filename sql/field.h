@@ -846,12 +846,6 @@ private:
   */
   void set_hidden(dd::Column::enum_hidden_type hidden) { m_hidden = hidden; }
 
-  bool is_mask{false};
-
-  uint64_t mask_start_pos{0};
-
-  uint64_t mask_end_pos{0};
-
   /// @returns the hidden type for this field.
   dd::Column::enum_hidden_type hidden() const { return m_hidden; }
 
