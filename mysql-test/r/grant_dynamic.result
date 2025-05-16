@@ -50,7 +50,6 @@ root	localhost	INNODB_REDO_LOG_ARCHIVE	Y
 root	localhost	INNODB_REDO_LOG_ENABLE	Y
 root	localhost	PASSWORDLESS_USER_ADMIN	Y
 root	localhost	PERSIST_RO_VARIABLES_ADMIN	Y
-root	localhost	READ_MASK	Y
 root	localhost	REPLICATION_APPLIER	Y
 root	localhost	REPLICATION_SLAVE_ADMIN	Y
 root	localhost	RESOURCE_GROUP_ADMIN	Y
@@ -111,7 +110,6 @@ root	localhost	INNODB_REDO_LOG_ARCHIVE	Y
 root	localhost	INNODB_REDO_LOG_ENABLE	Y
 root	localhost	PASSWORDLESS_USER_ADMIN	Y
 root	localhost	PERSIST_RO_VARIABLES_ADMIN	Y
-root	localhost	READ_MASK	Y
 root	localhost	REPLICATION_APPLIER	Y
 root	localhost	REPLICATION_SLAVE_ADMIN	Y
 root	localhost	RESOURCE_GROUP_ADMIN	Y
@@ -171,7 +169,6 @@ root	localhost	INNODB_REDO_LOG_ARCHIVE	Y
 root	localhost	INNODB_REDO_LOG_ENABLE	Y
 root	localhost	PASSWORDLESS_USER_ADMIN	Y
 root	localhost	PERSIST_RO_VARIABLES_ADMIN	Y
-root	localhost	READ_MASK	Y
 root	localhost	REPLICATION_APPLIER	Y
 root	localhost	REPLICATION_SLAVE_ADMIN	Y
 root	localhost	RESOURCE_GROUP_ADMIN	Y
@@ -244,7 +241,6 @@ root	localhost	INNODB_REDO_LOG_ARCHIVE	Y
 root	localhost	INNODB_REDO_LOG_ENABLE	Y
 root	localhost	PASSWORDLESS_USER_ADMIN	Y
 root	localhost	PERSIST_RO_VARIABLES_ADMIN	Y
-root	localhost	READ_MASK	Y
 root	localhost	REPLICATION_APPLIER	Y
 root	localhost	REPLICATION_SLAVE_ADMIN	Y
 root	localhost	RESOURCE_GROUP_ADMIN	Y
@@ -309,7 +305,6 @@ root	localhost	INNODB_REDO_LOG_ARCHIVE	Y
 root	localhost	INNODB_REDO_LOG_ENABLE	Y
 root	localhost	PASSWORDLESS_USER_ADMIN	Y
 root	localhost	PERSIST_RO_VARIABLES_ADMIN	Y
-root	localhost	READ_MASK	Y
 root	localhost	REPLICATION_APPLIER	Y
 root	localhost	REPLICATION_SLAVE_ADMIN	Y
 root	localhost	RESOURCE_GROUP_ADMIN	Y
@@ -369,7 +364,6 @@ root	localhost	INNODB_REDO_LOG_ARCHIVE	Y
 root	localhost	INNODB_REDO_LOG_ENABLE	Y
 root	localhost	PASSWORDLESS_USER_ADMIN	Y
 root	localhost	PERSIST_RO_VARIABLES_ADMIN	Y
-root	localhost	READ_MASK	Y
 root	localhost	REPLICATION_APPLIER	Y
 root	localhost	REPLICATION_SLAVE_ADMIN	Y
 root	localhost	RESOURCE_GROUP_ADMIN	Y
@@ -452,7 +446,6 @@ root	localhost	INNODB_REDO_LOG_ARCHIVE	Y
 root	localhost	INNODB_REDO_LOG_ENABLE	Y
 root	localhost	PASSWORDLESS_USER_ADMIN	Y
 root	localhost	PERSIST_RO_VARIABLES_ADMIN	Y
-root	localhost	READ_MASK	Y
 root	localhost	REPLICATION_APPLIER	Y
 root	localhost	REPLICATION_SLAVE_ADMIN	Y
 root	localhost	RESOURCE_GROUP_ADMIN	Y
@@ -526,7 +519,6 @@ root	localhost	INNODB_REDO_LOG_ARCHIVE	Y
 root	localhost	INNODB_REDO_LOG_ENABLE	Y
 root	localhost	PASSWORDLESS_USER_ADMIN	Y
 root	localhost	PERSIST_RO_VARIABLES_ADMIN	Y
-root	localhost	READ_MASK	Y
 root	localhost	REPLICATION_APPLIER	Y
 root	localhost	REPLICATION_SLAVE_ADMIN	Y
 root	localhost	RESOURCE_GROUP_ADMIN	Y
@@ -608,7 +600,6 @@ root	localhost	INNODB_REDO_LOG_ARCHIVE	Y
 root	localhost	INNODB_REDO_LOG_ENABLE	Y
 root	localhost	PASSWORDLESS_USER_ADMIN	Y
 root	localhost	PERSIST_RO_VARIABLES_ADMIN	Y
-root	localhost	READ_MASK	Y
 root	localhost	REPLICATION_APPLIER	Y
 root	localhost	REPLICATION_SLAVE_ADMIN	Y
 root	localhost	RESOURCE_GROUP_ADMIN	Y
@@ -1014,7 +1005,6 @@ PASSWORDLESS_USER_ADMIN	Server Admin
 PERSIST_RO_VARIABLES_ADMIN	Server Admin	
 Process	Server Admin	To view the plain text of currently executing queries
 Proxy	Server Admin	To make proxy user possible
-READ_MASK	Server Admin	
 REPLICATION_APPLIER	Server Admin	
 REPLICATION_SLAVE_ADMIN	Server Admin	
 RESOURCE_GROUP_ADMIN	Server Admin	

@@ -392,30 +392,30 @@ Warning	1287	'@@cdb_column_encryption_whitelist' is deprecated and will be remov
 select * from t1 where c1='数' or c2 ='据' or c3='库' or c4='系' or c5='统';
 c1	c2	c3	c4	c5
 Warnings:
-Warning	4148	illegal user or without master key can only read encrypted data of the encrypted column 'c1'
-Warning	4148	illegal user or without master key can only read encrypted data of the encrypted column 'c2'
-Warning	4148	illegal user or without master key can only read encrypted data of the encrypted column 'c3'
-Warning	4148	illegal user or without master key can only read encrypted data of the encrypted column 'c4'
-Warning	4148	illegal user or without master key can only read encrypted data of the encrypted column 'c5'
+Warning	4530	illegal user or without master key can only read encrypted data of the encrypted column 'c1'
+Warning	4530	illegal user or without master key can only read encrypted data of the encrypted column 'c2'
+Warning	4530	illegal user or without master key can only read encrypted data of the encrypted column 'c3'
+Warning	4530	illegal user or without master key can only read encrypted data of the encrypted column 'c4'
+Warning	4530	illegal user or without master key can only read encrypted data of the encrypted column 'c5'
 select '数'=c1, '据'=c2, '库'=c3, '系'=c4, '统'=c5 from t1 where length(c1)=3;
 '数'=c1	'据'=c2	'库'=c3	'系'=c4	'统'=c5
 0	0	0	0	0
 Warnings:
-Warning	4148	illegal user or without master key can only read encrypted data of the encrypted column 'c1'
-Warning	4148	illegal user or without master key can only read encrypted data of the encrypted column 'c2'
-Warning	4148	illegal user or without master key can only read encrypted data of the encrypted column 'c3'
-Warning	4148	illegal user or without master key can only read encrypted data of the encrypted column 'c4'
-Warning	4148	illegal user or without master key can only read encrypted data of the encrypted column 'c5'
+Warning	4530	illegal user or without master key can only read encrypted data of the encrypted column 'c1'
+Warning	4530	illegal user or without master key can only read encrypted data of the encrypted column 'c2'
+Warning	4530	illegal user or without master key can only read encrypted data of the encrypted column 'c3'
+Warning	4530	illegal user or without master key can only read encrypted data of the encrypted column 'c4'
+Warning	4530	illegal user or without master key can only read encrypted data of the encrypted column 'c5'
 select length(c1), length(c2), length(c3), length(c4), length(c5) from t1;
 length(c1)	length(c2)	length(c3)	length(c4)	length(c5)
 1	1	1	1	1
 3	3	3	3	3
 Warnings:
-Warning	4148	illegal user or without master key can only read encrypted data of the encrypted column 'c1'
-Warning	4148	illegal user or without master key can only read encrypted data of the encrypted column 'c2'
-Warning	4148	illegal user or without master key can only read encrypted data of the encrypted column 'c3'
-Warning	4148	illegal user or without master key can only read encrypted data of the encrypted column 'c4'
-Warning	4148	illegal user or without master key can only read encrypted data of the encrypted column 'c5'
+Warning	4530	illegal user or without master key can only read encrypted data of the encrypted column 'c1'
+Warning	4530	illegal user or without master key can only read encrypted data of the encrypted column 'c2'
+Warning	4530	illegal user or without master key can only read encrypted data of the encrypted column 'c3'
+Warning	4530	illegal user or without master key can only read encrypted data of the encrypted column 'c4'
+Warning	4530	illegal user or without master key can only read encrypted data of the encrypted column 'c5'
 select c1, length(c1), length(c2) from tc order by c1 limit 10;
 c1	length(c1)	length(c2)
 1	1	255
@@ -429,7 +429,7 @@ c1	length(c1)	length(c2)
 9	1	255
 10	2	255
 Warnings:
-Warning	4148	illegal user or without master key can only read encrypted data of the encrypted column 'c2'
+Warning	4530	illegal user or without master key can only read encrypted data of the encrypted column 'c2'
 select count(*) from tc where c1=1;
 count(*)
 1
@@ -437,12 +437,12 @@ select count(*) from tc where c2=repeat('a',255);
 count(*)
 0
 Warnings:
-Warning	4148	illegal user or without master key can only read encrypted data of the encrypted column 'c2'
+Warning	4530	illegal user or without master key can only read encrypted data of the encrypted column 'c2'
 select c2=repeat('a',255) from tc where c1=1;
 c2=repeat('a',255)
 0
 Warnings:
-Warning	4148	illegal user or without master key can only read encrypted data of the encrypted column 'c2'
+Warning	4530	illegal user or without master key can only read encrypted data of the encrypted column 'c2'
 set global cdb_column_encryption_whitelist = 'tencentroot';
 Warnings:
 Warning	1287	'@@cdb_column_encryption_whitelist' is deprecated and will be removed in a future release. Please use txsql_column_encryption_whitelist instead.

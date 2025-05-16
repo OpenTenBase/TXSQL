@@ -9806,11 +9806,6 @@ ER_CREATE_SELECT_WITH_GIPK_DISALLOWED_IN_SBR
 ER_DA_EXPIRE_LOGS_DAYS_IGNORED
   eng "The option expire_logs_days cannot be used together with option binlog_expire_logs_seconds. To set one, first unset the other by setting it to 0."
 
-ER_CAN_NOT_CREATE_WITH_MASK
-  eng "Can not create the column %s with MASK attribute"
-
-ER_MASKED_COLUMN_NOT_IN_WHERE
-  eng  "Can not use masked column %s as where clause"
 
 ER_KEY_LEN_NOT_LEGAL
         eng "The key length is not legal and its length must be no greater than %d bytes."

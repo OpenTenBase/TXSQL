@@ -2156,23 +2156,6 @@ void thd_set_lock_wait_time(THD *thd,
   }
 }
 
-bool thd_can_read_mask(THD *thd) {
-  if (!thd) {
-    /* For transaction without thd, always can read masked data */
-    return true;
-  }
-
-  if (!(thd_sql_command(thd) == SQLCOM_SELECT
-        || thd_sql_command(thd) == SQLCOM_INSERT_SELECT
-        || thd_sql_command(thd) == SQLCOM_REPLACE_SELECT)) {
-    /** We allow DML on masked data, but don't allow to read it */
-    return true;
-  }
-
-  /* The session has READ_MASK privilege */
-  return thd->can_read_mask();
-}
-
 const char *thd_innodb_tmpdir(THD *thd) {
 #ifdef UNIV_DEBUG
   if (thd != nullptr) {
@@ -7189,9 +7172,6 @@ static void innobase_vcol_build_templ(const TABLE *table,
   templ->mbmaxlen = col->get_mbmaxlen();
   templ->is_unsigned = col->prtype & DATA_UNSIGNED;
 
-  templ->is_mask = field->is_mask;
-  templ->mask_start_pos = field->mask_start_pos;
-  templ->mask_end_pos = field->mask_end_pos;
   templ->col_encryption_algorithm = field->encryption_col_algo;
   templ->is_encryption = (field->column_format() == COLUMN_FORMAT_TYPE_ENCRYPTION);
 
@@ -8750,9 +8730,6 @@ static mysql_row_templ_t *build_template_field(
   templ->mbmaxlen = col->get_mbmaxlen();
   templ->is_unsigned = col->prtype & DATA_UNSIGNED;
 
-  templ->is_mask = field->is_mask;
-  templ->mask_start_pos = field->mask_start_pos;
-  templ->mask_end_pos = field->mask_end_pos;
   templ->col_encryption_algorithm = field->encryption_col_algo;
 
   templ->col_comp_algorithm = field->comp_col_algo;
@@ -25702,7 +25679,7 @@ dfield_t *innobase_get_computed_value(
     } else {
       row_sel_field_store_in_mysql_format(
           mysql_rec + templ->mysql_col_offset, templ, 0, index,
-          templ->clust_rec_field_no, (const byte *)data, len, prebuilt,
+          templ->clust_rec_field_no, (const byte *)data, len, prebuilt, 
           ULINT_UNDEFINED, *local_heap);
 
       if (templ->mysql_null_bit_mask) {

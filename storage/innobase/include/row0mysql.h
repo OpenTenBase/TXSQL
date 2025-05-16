@@ -576,9 +576,6 @@ struct mysql_row_templ_t {
   ulint is_virtual;             /*!< if a column is a virtual column */
   ulint is_multi_val;           /*!< if a column is a Multi-Value Array virtual
                                 column */
-  bool is_mask;                 /*!< if column maybe masked */
-  uint64_t mask_start_pos;
-  uint64_t mask_end_pos;
   ulint col_encryption_algorithm;/*!< algorithm for columns with ecnryption format */
   ulint is_encryption;          /*!< if column format is ecncrypted */
   ulint col_comp_algorithm;     /*!< algorithm for columns with compressed format */

@@ -71,7 +71,6 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "trx0trx.h"
 #include "trx0undo.h"
 #include "ut0new.h"
-#include "ut0ut.h"
 
 #include "mysql/plugin.h"
 
@@ -2491,32 +2490,6 @@ void row_sel_store_row_id_to_prebuilt(
   ut_memcpy(prebuilt->row_id, data, len);
 }
 
-const char* MYSQL_MASK_DATA = "***";
-const ulong MYSQL_MASK_DATA_LEN = 3;
-static void row_partial_mask_data(const byte *data,  ulint len,
-    uint64_t start_pos, uint64_t end_pos) {
-
-  /* For string, mask part of it */
-  ut_a(end_pos >= start_pos);
-  /* count from 1 */
-  ut_a(start_pos > 0);
-  
-  if (len < start_pos) {
-    /* do nothing */
-    return;
-  }
-  
-  byte* start = const_cast<byte*>(data + start_pos - 1);
-  if (len < end_pos) {
-    end_pos = len;
-  }
-
-  size_t n_bytes = end_pos - start_pos + 1;
-
-  memset(start, '*', n_bytes);
-}
-
-
 /** Stores a non-SQL-NULL field in the MySQL format. The counterpart of this
 function is row_mysql_store_col_in_innobase_format() in row0mysql.cc.
 @param[in,out] dest             buffer where to store; NOTE
@@ -2554,14 +2527,6 @@ void row_sel_field_store_in_mysql_format_func(
   UNIV_MEM_ASSERT_RW(data, len);
   UNIV_MEM_ASSERT_W(dest, templ->mysql_col_len);
   UNIV_MEM_INVALID(dest, templ->mysql_col_len);
-
-  bool is_mask = templ->is_mask;
-  if (is_mask && prebuilt && prebuilt->trx &&
-      !thd_can_read_mask(prebuilt->trx->mysql_thd)) {
-    /* It needs converting data to masked value  */
-  } else {
-    is_mask = false;
-  }
 
   switch (templ->type) {
     const byte *field_end;
@@ -2634,38 +2599,16 @@ void row_sel_field_store_in_mysql_format_func(
             (byte)(dest[templ->mysql_col_len - 1] ^ 128);
       }
 
-      if (is_mask) {
-        /* First byte is convert to zero, then we set data
-        to zero directly. */
-        memset(dest, '\0', len);
-      }
-
       ut_ad(templ->mysql_col_len == len ||
             (field == nullptr ||
              (field && field->col->old_mtype != DATA_MTYPE_MAX)));
 
       break;
+
     case DATA_VARCHAR:
     case DATA_VARMYSQL:
     case DATA_BINARY:
-      if ((templ->type == DATA_VARCHAR || templ->type == DATA_VARMYSQL) && 
-        is_mask && templ->mask_start_pos == 0) {
-        len = std::min(mysql_col_len, MYSQL_MASK_DATA_LEN);
-        dest = row_mysql_store_true_var_len(dest, len, templ->mysql_length_bytes);
-        memcpy(dest, MYSQL_MASK_DATA, len);
-        break;
-      } //fall through
-
       field_end = dest + mysql_col_len;
-      if (is_mask) {
-        if (templ->type == DATA_BINARY) {
-          /* binary value, such as decimal, we rewrite it to zero */
-          ut_memcpy(dest, "\0", 1);
-          len = 0;
-        } else {
-          row_partial_mask_data(data, len, templ->mask_start_pos, templ->mask_end_pos);
-        }
-      }
 
       if (templ->mysql_type == DATA_MYSQL_TRUE_VARCHAR) {
         if (field && ((templ->mysql_col_len > len &&
@@ -2759,21 +2702,9 @@ void row_sel_field_store_in_mysql_format_func(
       break;
 
     case DATA_BLOB:
-      /* Store a pointer to the BLOB buffer to dest: the BLOB was
-      already copied to the buffer in row_sel_store_mysql_rec */
-      if (is_mask && templ->mask_start_pos == 0) {
-        memset(dest, '\0', templ->mysql_col_len);
-        mach_write_to_n_little_endian(dest, templ->mysql_col_len - 8, MYSQL_MASK_DATA_LEN);
-        memcpy(dest +  templ->mysql_col_len - 8, &MYSQL_MASK_DATA, sizeof MYSQL_MASK_DATA);
-        break;
-      }
-
-      if (is_mask) {
-        row_partial_mask_data(data, len, templ->mask_start_pos, templ->mask_end_pos);
-      }
-
+  
       row_mysql_store_blob_ref(dest, templ->mysql_col_len, data, len,
-                               templ->is_compressed, prebuilt, extra_comp_heap);
+                              templ->is_compressed, prebuilt, extra_comp_heap);
       break;
 
     case DATA_POINT:
@@ -2784,17 +2715,7 @@ void row_sel_field_store_in_mysql_format_func(
       break;
 
     case DATA_MYSQL:
-      if (is_mask) {
-        if (templ->mask_start_pos == 0) {
-          len = std::min(mysql_col_len, MYSQL_MASK_DATA_LEN);
-          memcpy(dest, MYSQL_MASK_DATA, len);
-        } else {
-          row_partial_mask_data(data, len, templ->mask_start_pos, templ->mask_end_pos);
-          memcpy(dest, data, len);
-        }
-      } else {
-        memcpy(dest, data, len);
-      }
+      memcpy(dest, data, len);
 
       ut_ad(mysql_col_len >= len);
       ut_ad(templ->mbmaxlen >= templ->mbminlen);
@@ -2827,8 +2748,7 @@ void row_sel_field_store_in_mysql_format_func(
           (field->col->old_mtype == DATA_VARMYSQL &&
            field->col->old_len >= len) ||
           len * templ->mbmaxlen >= mysql_col_len ||
-          (field_no == templ->icp_rec_field_no && field->prefix_len > 0) ||
-          is_mask);
+          (field_no == templ->icp_rec_field_no && field->prefix_len > 0));
       ut_ad(templ->is_virtual || !(field->prefix_len % templ->mbmaxlen));
 
       /* Pad with spaces. This undoes the stripping
@@ -2882,27 +2802,22 @@ void row_sel_field_store_in_mysql_format_func(
                  ? 1
                  : (templ->mysql_col_len == len ||
                     field->col->old_mtype != DATA_MTYPE_MAX)));
-      if (is_mask) {
-        /* For masked value, print zero */
-        memcpy(dest, "\0", 1);
-      } else {
-        memcpy(dest, data, len);
-        if (templ->mysql_col_len > len && field &&
-            field->col->old_mtype != DATA_MTYPE_MAX) {
-          ut_ad(field->col->old_mtype == DATA_CHAR ||
-                field->col->old_mtype == DATA_VARCHAR ||
-                field->col->old_mtype == DATA_BINARY ||
-                field->col->old_mtype == DATA_FIXBINARY);
-          if (field->col->mtype == DATA_CHAR &&
-              (field->col->old_mtype == DATA_CHAR ||
-               field->col->old_mtype == DATA_VARCHAR)) {
-            row_mysql_pad_col(templ->mbminlen, dest + len,
-                              templ->mysql_col_len - len);
-          } else if (field->col->mtype == DATA_FIXBINARY &&
-                     (field->col->old_mtype == DATA_BINARY ||
-                      field->col->old_mtype == DATA_FIXBINARY)) {
-            memset(dest + len, 0x0, templ->mysql_col_len - len);
-          }
+      memcpy(dest, data, len);
+      if (templ->mysql_col_len > len && field &&
+          field->col->old_mtype != DATA_MTYPE_MAX) {
+        ut_ad(field->col->old_mtype == DATA_CHAR ||
+              field->col->old_mtype == DATA_VARCHAR ||
+              field->col->old_mtype == DATA_BINARY ||
+              field->col->old_mtype == DATA_FIXBINARY);
+        if (field->col->mtype == DATA_CHAR &&
+            (field->col->old_mtype == DATA_CHAR ||
+              field->col->old_mtype == DATA_VARCHAR)) {
+          row_mysql_pad_col(templ->mbminlen, dest + len,
+                            templ->mysql_col_len - len);
+        } else if (field->col->mtype == DATA_FIXBINARY &&
+                    (field->col->old_mtype == DATA_BINARY ||
+                    field->col->old_mtype == DATA_FIXBINARY)) {
+          memset(dest + len, 0x0, templ->mysql_col_len - len);
         }
       }
   }
@@ -3034,7 +2949,7 @@ void row_sel_field_store_in_mysql_format_func(
 
     row_sel_field_store_in_mysql_format(mysql_rec + templ->mysql_col_offset,
                                         templ, 0, rec_index, field_no, data, len, 
-                                        prebuilt, ULINT_UNDEFINED);
+                                        prebuilt,ULINT_UNDEFINED);
 
     if (heap != blob_heap) {
       mem_heap_free(heap);

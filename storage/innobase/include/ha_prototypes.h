@@ -228,7 +228,6 @@ the global innodb_lock_wait_timeout */
 void thd_set_lock_wait_time(THD *thd,
                             std::chrono::steady_clock::duration value);
 
-bool thd_can_read_mask(THD *thd);
 /** Get the value of innodb_tmpdir.
 @param[in] thd  thread handle, or nullptr to query the global innodb_tmpdir.
 @return nullptr if innodb_tmpdir="" */
