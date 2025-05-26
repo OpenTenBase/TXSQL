@@ -82,6 +82,7 @@ extern my_thread_os_id_t admin_listener_os_thread_id;
 extern bool admin_tool_valid;
 
 extern PSI_mutex_key key_LOCK_push_warning;
+extern PSI_mutex_key key_LOCK_internal_handler;
 
 class Rpl_global_filter;
 class Rpl_acf_configuration_handler;
