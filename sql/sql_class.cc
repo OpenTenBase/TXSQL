@@ -826,6 +826,7 @@ THD::THD(bool enable_plugins)
                    MY_MUTEX_INIT_FAST);
   mysql_cond_init(key_COND_thr_lock, &COND_thr_lock);
   mysql_mutex_init(key_LOCK_push_warning, &LOCK_push_warning, MY_MUTEX_INIT_FAST);
+  mysql_mutex_init(key_LOCK_internal_handler, &LOCK_internal_handler, MY_MUTEX_INIT_FAST);
 
   mysql_mutex_init(key_LOCK_thd_done, &m_thd_lock_done, MY_MUTEX_INIT_FAST);
   mysql_cond_init(key_COND_thd_done, &m_thd_stage_cond_commit_order);
@@ -969,30 +970,63 @@ bool THD::set_db(const LEX_CSTRING &new_db) {
 }
 
 void THD::push_internal_handler(Internal_error_handler *handler) {
+  if (is_doing_parallel_copy_data) {
+    mysql_mutex_lock(&LOCK_internal_handler);
+  }
+
   if (m_internal_handler) {
     handler->m_prev_internal_handler = m_internal_handler;
     m_internal_handler = handler;
   } else
     m_internal_handler = handler;
+
+  if (is_doing_parallel_copy_data) {
+    mysql_mutex_unlock(&LOCK_internal_handler);
+  }
 }
 
 bool THD::handle_condition(uint sql_errno, const char *sqlstate,
                            Sql_condition::enum_severity_level *level,
                            const char *msg) {
-  if (!m_internal_handler) return false;
+  if (is_doing_parallel_copy_data) {
+    mysql_mutex_lock(&LOCK_internal_handler);
+  }
+
+  if (!m_internal_handler) {
+    if (is_doing_parallel_copy_data) {
+      mysql_mutex_unlock(&LOCK_internal_handler);
+    }
+    return false;
+  }
 
   for (Internal_error_handler *error_handler = m_internal_handler;
        error_handler; error_handler = error_handler->m_prev_internal_handler) {
-    if (error_handler->handle_condition(this, sql_errno, sqlstate, level, msg))
+    if (error_handler->handle_condition(this, sql_errno, sqlstate, level, msg)) {
+      if (is_doing_parallel_copy_data) {
+        mysql_mutex_unlock(&LOCK_internal_handler);
+      }
       return true;
+    }
+  }
+  if (is_doing_parallel_copy_data) {
+    mysql_mutex_unlock(&LOCK_internal_handler);
   }
   return false;
 }
 
 Internal_error_handler *THD::pop_internal_handler() {
+  if (is_doing_parallel_copy_data) {
+    mysql_mutex_lock(&LOCK_internal_handler);
+  }
+
   assert(m_internal_handler != nullptr);
   Internal_error_handler *popped_handler = m_internal_handler;
   m_internal_handler = m_internal_handler->m_prev_internal_handler;
+
+  if (is_doing_parallel_copy_data) {
+    mysql_mutex_unlock(&LOCK_internal_handler);
+  }
+
   return popped_handler;
 }
 
@@ -1068,6 +1102,8 @@ Sql_condition *THD::raise_condition(uint sql_errno, const char *sqlstate,
                                     Sql_condition::enum_severity_level level,
                                     const char *msg, bool fatal_error) {
   DBUG_TRACE;
+
+  DBUG_EXECUTE_IF("thd_raise_condition_block", sleep(2););
 
   if (is_doing_parallel_copy_data) {
     mysql_mutex_lock(&LOCK_push_warning);
@@ -1561,6 +1597,7 @@ THD::~THD() {
   mysql_mutex_destroy(&LOCK_current_cond);
   mysql_mutex_destroy(&LOCK_group_replication_connection_mutex);
   mysql_mutex_destroy(&LOCK_push_warning);
+  mysql_mutex_destroy(&LOCK_internal_handler);
 
   mysql_cond_destroy(&COND_thr_lock);
   mysql_mutex_destroy(&m_thd_lock_done);

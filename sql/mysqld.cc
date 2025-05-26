@@ -1026,6 +1026,7 @@ bool cdb_page_cache_cleaning_redo = true;
 bool cdb_page_cache_cleaning_binlog = true;
 
 PSI_mutex_key key_LOCK_push_warning;
+PSI_mutex_key key_LOCK_internal_handler;
 
 #define mysqld_charset &my_charset_latin1
 #define mysqld_default_locale_name "en_US"
