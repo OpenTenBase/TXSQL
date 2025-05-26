@@ -1829,6 +1829,8 @@ class THD : public MDL_context_owner,
 
   mysql_mutex_t LOCK_push_warning;
 
+  mysql_mutex_t LOCK_internal_handler;
+
  private:
   /**
     Type of current query: COM_STMT_PREPARE, COM_QUERY, etc.
