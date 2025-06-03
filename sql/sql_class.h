@@ -5118,6 +5118,14 @@ private:
     return variables.net_wait_timeout;
   }
 
+  /* for threadpool use */
+  struct st_my_thread_var* mysys_var;
+
+  void set_local_or_admin_connection(bool unix) {
+    m_is_local_or_admin_conn = unix;
+  }
+  bool is_local_or_admin_connection() const { return m_is_local_or_admin_conn; }
+
   bool is_semisync_ack_error;
   bool volatile is_report_error_to_client;
 

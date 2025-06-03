@@ -1,19 +1,26 @@
 --source include/have_debug.inc
 
---echo === check the system variabels for tencentroot only ===
+create user 'testuser'@'localhost';
+connect (testuser, localhost, testuser,'', );
+connection testuser;
+
+--echo === check the system variabels for root only ===
+--error ER_SPECIFIC_ACCESS_DENIED_ERROR
 select @@innodb_async_drop_tmp_dir;
---error ER_UNKNOWN_SYSTEM_VARIABLE
+--error ER_SPECIFIC_ACCESS_DENIED_ERROR
 set global innodb_async_drop_tmp_dir= @@global.datadir;
---error ER_UNKNOWN_SYSTEM_VARIABLE
+--error ER_SPECIFIC_ACCESS_DENIED_ERROR
 set global innodb_table_drop_mode= 'async_drop';
---error ER_UNKNOWN_SYSTEM_VARIABLE
+--error ER_SPECIFIC_ACCESS_DENIED_ERROR
 set global innodb_async_truncate_size = 256;
---error ER_UNKNOWN_SYSTEM_VARIABLE
+--error ER_SPECIFIC_ACCESS_DENIED_ERROR
 set global innodb_async_table_size = 4096;
 
---echo #connect user=tencentroot
-connect (con_tencentroot, localhost, tencentroot,'', );
---connection con_tencentroot
+--echo #connect user=root
+connect (con_root, localhost, root,'', );
+--connection con_root
+disconnect testuser;
+drop user 'testuser'@'localhost';
 
 let $MYSQLD_TMPDIR = `select @@global.datadir`;
 let $MYSQLD_DATADIR = `select @@global.datadir`;
@@ -138,7 +145,7 @@ show status like "%async_drop_table%counts%";
 --exec fallocate -l 2m $DROP_TMPDIR/._test_at.trh.1
 --exec fallocate -l 2m $DROP_TMPDIR/._test_bt.trh.1
 --replace_result $DROP_TMPDIR DROP_TMPDIR
---let $restart_parameters=restart:--tencent-root-cnf=tmy.conf --innodb-table-drop-mode=async_drop --innodb-async-drop-tmp-dir=$DROP_TMPDIR
+--let $restart_parameters=restart: --innodb-table-drop-mode=async_drop --innodb-async-drop-tmp-dir=$DROP_TMPDIR
 --source include/restart_mysqld.inc
 --sleep 3
 --echo here should NOT see trash file

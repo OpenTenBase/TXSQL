@@ -1299,6 +1299,7 @@ void init_sql_command_flags() {
   sql_command_flags[SQLCOM_HELP] |= CF_ALLOW_PROTOCOL_PLUGIN;
   sql_command_flags[SQLCOM_CREATE_USER] |= CF_ALLOW_PROTOCOL_PLUGIN;
   sql_command_flags[SQLCOM_SHOW_OUTLINE_INFO] |= CF_ALLOW_PROTOCOL_PLUGIN;
+  sql_command_flags[SQLCOM_DROP_USER] |= CF_ALLOW_PROTOCOL_PLUGIN;
   sql_command_flags[SQLCOM_RENAME_USER] |= CF_ALLOW_PROTOCOL_PLUGIN;
   sql_command_flags[SQLCOM_REVOKE_ALL] |= CF_ALLOW_PROTOCOL_PLUGIN;
   sql_command_flags[SQLCOM_CHECKSUM] |= CF_ALLOW_PROTOCOL_PLUGIN;
@@ -4907,10 +4908,6 @@ int mysql_execute_command(THD *thd, bool first_level) {
       */
       lex->no_write_to_binlog = true;
 
-      /* Reset master is disallowed to users without super privileges. */
-      if ((lex->type & REFRESH_MASTER) && check_global_access(thd, SUPER_ACL))
-        goto error;
-
       if ((lex->type & REFRESH_PERSIST) && (lex->option_type == OPT_PERSIST)) {
         Persisted_variables_cache *pv =
             Persisted_variables_cache::get_instance();
@@ -7700,7 +7697,7 @@ class Kill_non_super_conn : public Do_THD_Impl {
 };
 
 /**
-  Tencentroot & system thread should always have access privileges.
+  System thread should always have access privileges.
 
   @param thd
   @return true means should access while false failed to access.

@@ -1,5 +1,5 @@
 connect (con1,localhost,root,,);
-connect (con2,127.0.0.1, tencentroot, '', '', $MASTER_MYPORT);
+connect (con2,127.0.0.1, root, '', '', $MASTER_MYPORT);
 connect (con3,localhost,root,,);
 
 connection default;

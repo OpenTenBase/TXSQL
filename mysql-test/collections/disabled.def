@@ -132,3 +132,5 @@ rpl.sqlasync_delay_rotate_binlog : BUG#00000000 TDSQL ONLY
 main.loaddata_special : BUG#00000000 Fail in autotest.sh
 auth_sec.host_sort : BUG#00000000 Fail in autotest.sh
 auth_sec.keyring_file_data_qa : BUG#00000000 Fail in autotest.sh
+rpl.sqlasync_wait_slave_hosts : BUG#00000000 TDSQL ONLY
+rpl.dcn_switch                : BUG#00000000 TDSQL ONLY

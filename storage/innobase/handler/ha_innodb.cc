@@ -24862,36 +24862,37 @@ static void innodb_table_drop_mode_update(THD *thd, SYS_VAR *var,
 }
 
 static MYSQL_SYSVAR_ULONG(
-    async_truncate_size, srv_async_truncate_size, PLUGIN_VAR_OPCMDARG,
+    async_truncate_size, srv_async_truncate_size,
+    PLUGIN_VAR_OPCMDARG | PLUGIN_VAR_SENSITIVE,
     "MBs of file to be truncated each time in background.",
-    innodb_async_truncate_size_validate, nullptr,
-    128,                                            /* Default setting */
-    ASYNC_TRUNCATE_SIZE_MIN,                        /* Minimum value */
-    ASYNC_TRUNCATE_SIZE_MAX, 0);                    /* Maximum value */
+    innodb_async_truncate_size_validate, nullptr, 128, /* Default setting */
+    ASYNC_TRUNCATE_SIZE_MIN,                           /* Minimum value */
+    ASYNC_TRUNCATE_SIZE_MAX, 0);                       /* Maximum value */
 
 static MYSQL_SYSVAR_ULONG(
-    async_table_size, srv_async_table_size, PLUGIN_VAR_OPCMDARG,
+    async_table_size, srv_async_table_size,
+    PLUGIN_VAR_OPCMDARG | PLUGIN_VAR_SENSITIVE,
     "Threshold for the difinition of big table, units MBs.",
     innodb_async_table_size_validate, nullptr, 2048, /* Default setting */
     ASYNC_TABLE_SIZE_MIN,                            /* Minimum value */
     ASYNC_TABLE_SIZE_MAX, 0);                        /* Maximum value */
 
-
 static MYSQL_SYSVAR_STR(
     async_drop_tmp_dir, srv_async_drop_tmp_dir,
-    PLUGIN_VAR_OPCMDARG | PLUGIN_VAR_MEMALLOC,
+    PLUGIN_VAR_OPCMDARG | PLUGIN_VAR_MEMALLOC | PLUGIN_VAR_SENSITIVE,
     "Directory to store temp files of asynchronously dropped tables.",
     innodb_async_drop_tmp_dir_validate, innodb_async_drop_tmp_dir_update, NULL);
 
 static MYSQL_SYSVAR_ENUM(
-    table_drop_mode, srv_table_drop_mode, PLUGIN_VAR_OPCMDARG,
+    table_drop_mode, srv_table_drop_mode,
+    PLUGIN_VAR_OPCMDARG | PLUGIN_VAR_SENSITIVE,
     "Innodb table-drop mode. If set to SYNC_DROP, innodb will finish dropping "
     "table before DROP TABLE ends. If set to RENAME_ONLY, innodb will only "
     "rename *.ibd file to innodb_async_drop_tmp_dir. If set to ASYNC_DROP "
     "innodb will rename *.ibd to innodb_async_drop_tmp_dir and drop it "
-    "asynchronously in background.", innodb_table_drop_mode_validate,
-    innodb_table_drop_mode_update, SRV_SYNC_DROP,
-    &innodb_table_drop_mode_typelib);
+    "asynchronously in background.",
+    innodb_table_drop_mode_validate, innodb_table_drop_mode_update,
+    SRV_SYNC_DROP, &innodb_table_drop_mode_typelib);
 
 static MYSQL_SYSVAR_BOOL(log_dummy_cache, srv_log_dummy_cache,
                          PLUGIN_VAR_NOCMDARG | PLUGIN_VAR_READONLY,

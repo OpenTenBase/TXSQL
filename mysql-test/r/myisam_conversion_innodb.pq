@@ -1,7 +1,7 @@
 DROP TABLE IF EXISTS t1,t2,t3,t4;
 DROP DATABASE IF EXISTS mysqltest;
 CREATE DATABASE mysqltest;
-#connect user=tencentroot
+#connect user=root
 #connect user=root
 SET @save_myisam_conversion_innodb=@@myisam_conversion_innodb;
 SET @save_tencent_myisam_conversion_innodb=@@tencent_myisam_conversion_innodb;
@@ -295,7 +295,7 @@ ALTER TABLE t3 ENGINE=MyISAM;
 Warnings:
 Warning	1266	Using storage engine InnoDB for table 't3'
 DROP TABLE IF EXISTS t1,t2,t3;
-"myisam_conversion_innodb=TRY & connection con_tencentroot"
+"myisam_conversion_innodb=TRY & connection con_root"
 SET GLOBAL myisam_conversion_innodb=TRY;
 SET GLOBAL tencent_myisam_conversion_innodb=OFF;
 CREATE TABLE t1 (
@@ -374,7 +374,7 @@ t4	CREATE TABLE `t4` (
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=FIXED
 DROP TABLE IF EXISTS t1,t2,t3,t4;
 "# Test 1.3 tencent root create table test unit "
-"tencent_myisam_conversion_innodb=OFF & connection con_tencentroot"
+"tencent_myisam_conversion_innodb=OFF & connection con_root"
 SET GLOBAL tencent_myisam_conversion_innodb=OFF;
 CREATE TABLE t1 (
 col1 int NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -399,7 +399,7 @@ t2	CREATE TABLE `t2` (
   PRIMARY KEY (`col1`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 DROP TABLE IF EXISTS t1,t2;
-"tencent_myisam_conversion_innodb=ON & connection con_tencentroot"
+"tencent_myisam_conversion_innodb=ON & connection con_root"
 SET GLOBAL tencent_myisam_conversion_innodb=ON;
 CREATE TABLE t1 (
 col1 int NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -428,7 +428,7 @@ col1 varchar(4768) NOT NULL PRIMARY KEY
 )ENGINE=MyISAM;
 ERROR 42000: Specified key was too long; max key length is 3072 bytes
 DROP TABLE IF EXISTS t1,t2;
-"tencent_myisam_conversion_innodb=WARN & connection con_tencentroot"
+"tencent_myisam_conversion_innodb=WARN & connection con_root"
 SET GLOBAL tencent_myisam_conversion_innodb=WARN;
 CREATE TABLE t1 (
 col1 int NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -459,7 +459,7 @@ col1 varchar(4768) NOT NULL PRIMARY KEY
 )ENGINE=MyISAM;
 ERROR 42000: Specified key was too long; max key length is 3072 bytes
 DROP TABLE IF EXISTS t1,t2;
-"tencent_myisam_conversion_innodb=TRY & connection con_tencentroot"
+"tencent_myisam_conversion_innodb=TRY & connection con_root"
 SET GLOBAL tencent_myisam_conversion_innodb=TRY;
 CREATE TABLE t1 (
 col1 int NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -508,7 +508,7 @@ t4	CREATE TABLE `t4` (
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=FIXED
 DROP TABLE IF EXISTS t1,t2,t3,t4;
 "# Test 1.4 tencent root alter table test unit "
-"tencent_myisam_conversion_innodb=OFF & connection con_tencentroot"
+"tencent_myisam_conversion_innodb=OFF & connection con_root"
 SET GLOBAL tencent_myisam_conversion_innodb=OFF;
 CREATE TABLE t1 (
 col1 int NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -550,7 +550,7 @@ t2	CREATE TABLE `t2` (
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 DROP TABLE IF EXISTS t1,t2;
 "---------- alter table tencent_myisam_conversion_innodb=WARN -----------------"
-"tencent_myisam_conversion_innodb=OFF & connection con_tencentroot"
+"tencent_myisam_conversion_innodb=OFF & connection con_root"
 SET GLOBAL tencent_myisam_conversion_innodb=OFF;
 CREATE TABLE t1 (
 col1 int NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -583,7 +583,7 @@ t3	CREATE TABLE `t3` (
   `col1` varchar(250) NOT NULL,
   PRIMARY KEY (`col1`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
-"tencent_myisam_conversion_innodb=ON & connection con_tencentroot"
+"tencent_myisam_conversion_innodb=ON & connection con_root"
 SET GLOBAL tencent_myisam_conversion_innodb=ON;
 ALTER TABLE t1 ENGINE=MyISAM;
 SHOW CREATE TABLE t1;
@@ -609,7 +609,7 @@ t3	CREATE TABLE `t3` (
   PRIMARY KEY (`col1`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 DROP TABLE IF EXISTS t1,t2,t3;
-"tencent_myisam_conversion_innodb=OFF & connection con_tencentroot"
+"tencent_myisam_conversion_innodb=OFF & connection con_root"
 SET GLOBAL tencent_myisam_conversion_innodb=OFF;
 CREATE TABLE t1 (
 col1 int NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -642,7 +642,7 @@ t3	CREATE TABLE `t3` (
   `col1` varchar(250) NOT NULL,
   PRIMARY KEY (`col1`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
-"tencent_myisam_conversion_innodb=WARN & connection con_tencentroot"
+"tencent_myisam_conversion_innodb=WARN & connection con_root"
 SET GLOBAL tencent_myisam_conversion_innodb=WARN;
 ALTER TABLE t1 ENGINE=MyISAM;
 Warnings:
@@ -669,7 +669,7 @@ Warnings:
 Warning	1266	Using storage engine InnoDB for table 't3'
 DROP TABLE IF EXISTS t1,t2,t3;
 "----------alter table tencent_myisam_conversion_innodb=TRY-----------------"
-"tencent_myisam_conversion_innodb=OFF & connection con_tencentroot"
+"tencent_myisam_conversion_innodb=OFF & connection con_root"
 SET GLOBAL tencent_myisam_conversion_innodb=OFF;
 CREATE TABLE t1 (
 col1 int NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -713,7 +713,7 @@ t4	CREATE TABLE `t4` (
   `col2` varchar(30) NOT NULL,
   PRIMARY KEY (`col1`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=FIXED
-"tencent_myisam_conversion_innodb=TRY & connection con_tencentroot"
+"tencent_myisam_conversion_innodb=TRY & connection con_root"
 SET GLOBAL tencent_myisam_conversion_innodb=TRY;
 ALTER TABLE t1 ENGINE=MyISAM;
 SHOW CREATE TABLE t1;

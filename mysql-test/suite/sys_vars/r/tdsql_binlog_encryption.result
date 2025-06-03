@@ -44,7 +44,7 @@ ALTER INSTANCE ROTATE BINLOG MASTER KEY;
 ERROR 42000: Access denied; you need (at least one of) the SUPER or BINLOG_ENCRYPTION_ADMIN privilege(s) for this operation
 GRANT SYSTEM_VARIABLES_ADMIN ON *.* TO user1@'%';
 SET GLOBAL binlog_encryption=ON;
-ERROR 42000: Access denied; you need (at least one of) the SUPER privilege(s) for this operation
+ERROR 42000: Access denied; you need (at least one of) the SUPER or BINLOG_ENCRYPTION_ADMIN privilege(s) for this operation
 ALTER INSTANCE ROTATE BINLOG MASTER KEY;
 ERROR 42000: Access denied; you need (at least one of) the SUPER or BINLOG_ENCRYPTION_ADMIN privilege(s) for this operation
 GRANT ALL ON *.* TO user1@'%' with grant option;

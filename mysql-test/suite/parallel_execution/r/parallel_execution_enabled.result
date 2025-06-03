@@ -25,7 +25,7 @@ set @saved_txsql_parallel_execution_enabled = @@txsql_parallel_execution_enabled
 SHOW VARIABLES LIKE "%txsql_parallel_execution_enabled%";
 Variable_name	Value
 
-# 1.2 only tencentroot can see/set this switch
+# 1.2 only root can see/set this switch
 SHOW VARIABLES LIKE "%txsql_parallel_execution_enabled%";
 Variable_name	Value
 txsql_parallel_execution_enabled	ON

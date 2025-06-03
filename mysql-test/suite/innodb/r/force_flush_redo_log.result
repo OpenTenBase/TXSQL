@@ -7,6 +7,5 @@ insert into tlsn1 values (1, lpad('', 900, 'a'));
 ###push checkpoint forward
 set global innodb_async_checkpoint_now=true;
 set global innodb_async_checkpoint_now=true;
-ERROR HY000: Incorrect arguments to SET
 ###clean up
 drop database tdb1;

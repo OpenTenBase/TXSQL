@@ -20,10 +20,7 @@ The following options may be given as the first argument:
  be an IPv4 address, IPv6 address, or host name. Wildcard
  values *, ::, 0.0.0.0 are not allowed. Address value can
  have following optional network namespace separated by
- the delimiter / from the address value. E.g., the
- following value 192.168.1.1/red specifies IP addresses to
- listen for incoming TCP connections that have to be
- placed into the namespace 'red'. Using of network
+ the delimiter / from the address value. Using of network
  namespace requires its support from underlying Operating
  System. Attempt to specify a network namespace for a
  platform that doesn't support it results in error during
@@ -45,14 +42,6 @@ The following options may be given as the first argument:
  --admin-ssl-crlpath=name 
  --admin-ssl-key=name 
  --admin-tls-ciphersuites=name 
- --admin-username-prefix=name 
- User name prefixed with this string is treated as admin
- user
- --allow-access-dd-tables 
- allow current user to access the dd tables
- --allow-rollback-last-query 
- Allow to rollback last query of the transaction by
- ROLLBACK LAST QUERY
  --allow-suspicious-udfs 
  Allows use of UDFs consisting of only one symbol xxx()
  without corresponding xxx_init() or xxx_deinit(). That
@@ -115,17 +104,10 @@ The following options may be given as the first argument:
  comma-separated list, wildcard values are not allowed.
  Every address can have optional network namespace
  separated by the delimiter / from the address value.
- E.g., the following value
- 192.168.1.1/red,172.16.1.1/green,193.168.1.1 specifies
- three IP addresses to listen for incoming TCP connections
- two of that have to be placed in corresponding
- namespaces: the address 192.168.1.1 must be placed into
- the namespace red and the address 172.16.1.1 must be
- placed into the namespace green. Using of network
- namespace requires its support from underlying Operating
- System. Attempt to specify a network namespace for a
- platform that doesn't support it results in error during
- socket creation.
+ Using of network namespace requires its support from
+ underlying Operating System. Attempt to specify a network
+ namespace for a platform that doesn't support it results
+ in error during socket creation.
  --binlog-cache-size=# 
  The size of the transactional cache for updates to
  transactional engines for the binary log. If you often
@@ -283,45 +265,24 @@ The following options may be given as the first argument:
  --caching-sha2-password-public-key-path=name 
  A fully qualified path to the public RSA key used for
  authentication.
- --cdb-admin-port-allow-for-normal-user 
- Whether ordinary users can log in to the admin port
- switch
- (Defaults to on; use --skip-cdb-admin-port-allow-for-normal-user to disable.)
- --cdb-audit-action-enabled 
- audit switch
- --cdb-audit-truncat-sql-len[=#] 
- Audit sql text truncate length 
  --cdb-auto-statistics-enabled 
  Enable auto statistics for histogram.
  --cdb-column-encryption-whitelist=name 
- allows user to access column encryption data,if set 0 or
- empty string means no priv limit 
+ This option is deprecated. Use
+ txsql_column_encryption_whitelist instead.
  --cdb-compressed-histogram-enabled 
  Enable to use compressed histogram, which consists of
  most common values and equi-height buckets for other
  values.
  --cdb-convert-memory-to-innodb 
  memory storage convert innodb
- --cdb-enable-key-rotate 
- Whether enable key roate (default ON).
- (Defaults to on; use --skip-cdb-enable-key-rotate to disable.)
  --cdb-enable-lock-statistics 
  Enable lock statistics
- --cdb-enable-precise-memory-usage 
- Enable precise memory usage calculation 
- (Defaults to on; use --skip-cdb-enable-precise-memory-usage to disable.)
  --cdb-enable-resource-statistics 
  enable_resource_statistics.
  (Defaults to on; use --skip-cdb-enable-resource-statistics to disable.)
  --cdb-fire-wall-enabled 
  CDB fire wall switch. Can be ON/OFF.
- --cdb-forbid-mysql-write 
- only tencentroot can modify mysql schema when this value
- is true
- --cdb-forbid-system-database-write 
- only tencentroot can modify information_schema,
- performance_schema and sys database when this value is
- true 
  --cdb-hash-scan-index-selection-enabled 
  Enalbe hash_scan_index_selection
  --cdb-hash-scan-max-agg-event-size[=#] 
@@ -339,8 +300,6 @@ The following options may be given as the first argument:
  --cdb-kill-idle-trans-timeout[=#] 
  The number of seconds the server waits for next command
  on an active transaction before closing it
- --cdb-kill-user-extra=name 
- Kill any session except tencentroot user
  --cdb-lock-connect-detect-enabled 
  Enable connection check when transaction is blocked by
  row lock. Default is TRUE
@@ -351,7 +310,8 @@ The following options may be given as the first argument:
  performance when prefetching a large number of records on
  an index. 0 means turn off the limit.
  --cdb-more-gtid-feature-supported 
- Gtid supported in trans and nontrans mode!
+ Gtid supported in trans and nontrans mode! Can not be
+ used when cdb_optimize_gtid_lock is ON.
  --cdb-opt-outline-enabled 
  outline switch
  --cdb-optimize-gtid-lock 
@@ -368,39 +328,6 @@ The following options may be given as the first argument:
  --cdb-optimize-ps-priv-check 
  This option is deprecated. Use txsql_simplify_priv_check
  instead.
- --cdb-plan-cache    Plan cache switch. When cdb_plan_cache turns on, some SQL
- execution plan will be saved and optimize once. Currently
- it works on some limited prepare statement. 
- --cdb-plan-cache-stats 
- Statistics of plan cache hit info. When
- cdb_plan_cache_stats turns on, THD level statistics can
- be showed.
- --cdb-pt-filter     Swither of filter pt operation. If turning off, all the
- events include pt special event will be send to secondary
- backup instance.
- (Defaults to on; use --skip-cdb-pt-filter to disable.)
- --cdb-pt-table-checksum 
- Flag this session's binnlog will be treaded specially.
- After settingthis variables. All the binlog generated by
- this session, their threadid will be set to 0xFFFFFFFF.
- AND these binlog will be ignored laterly when sending to
- user diy slave.
- --cdb-pt-white-list-user[=name] 
- White list of users who will recieve all the events  from
- primary.
- --cdb-query-memory-log-enabled 
- Enable query memory log.
- --cdb-query-memory-log-threshold[=#] 
- Threshold to log query memory usage
- --cdb-query-memory-profile-enabled 
- Print query memory profile for queries exceed memory
- limit of cdb_query_memory_log_threshold.
- --cdb-query-memory-profile-max-stage-num[=#] 
- Max recorded stages of query memory profile
- --cdb-query-memory-stack-enabled 
- Print stackframe at the timepoint ofmax query memory
- usage. (THIS WILL HEAVILY IMPACT PERFORMANCE! DO NOT
- ENABLEIF YOU DON'T KNOW WHAT YOU ARE DOING!)
  --cdb-recycle-bin-db-not-visible 
  This option is deprecated. Use
  txsql_recycle_bin_db_not_visible instead.
@@ -429,41 +356,12 @@ The following options may be given as the first argument:
  an HA group, and it does not serve user requests.
  Changing the role requires stopping or reconnecting the
  replication channel.
- --cdb-session-var-privilege-check-enabled 
- Enable SESSION_VARIABLES_ADMIN privilege check for some
- session variables which may cause replication problems,
- including sql_mode, unique_checks. Default is OFF, when
- it's ON, only users with SUPER or SYSTEM_VARIABLES_ADMIN
- or SESSION_VARIABLES_ADMIN privileges can change these
- variables.
  --cdb-skip-event-scheduler 
  Enable the event scheduler.Possible values are ON,OFF
- --cdb-sql-filter=name 
- Add one filter rule or delete one
- --cdb-sql-filter-enable 
- set to ON if cdb_sql_filter_enable
- --cdb-sql-filter-seperator=name 
- seperator in sql filter rule,only the first character of
- this var is seperator.If var length is 0, ',' is default
- seperatorSee Cdb_Sql_Filter_Manager::get_seperator
  --cdb-sql-statistics 
  sql statistics switch.
  --cdb-sql-statistics-info-threshold=# 
  cdb_sql_statistics_info threshold in the map.
- --cdb-tencentroot-audit-action-enabled 
- tencentroot audit switch
- --cdb-tencentroot-slow-log-enabled 
- Enable to log tencentroot's slow query.
- --cdb-working-mode-default[=name] 
- cdb_working_mode value to assign when mysqld works.
- CDB_WORKMODE_OFFLINE means don't accept any requests,
- CDB_WORKMODE_READONLY means just accept read requests,
- CDB_WORKMODE_READWRITE means accept requests as usual.
- users with super privilege will be handled uninfluential 
- --cdb-working-mode-enabled 
- switching on and off for mysqld workmode 
- --cdb-workmode-life-interval[=#] 
- life circle for cdb work mode.
  --character-set-client-handshake 
  Don't ignore client side character set value sent during
  handshake.
@@ -489,9 +387,6 @@ The following options may be given as the first argument:
  --concurrent-insert[=name] 
  Use concurrent insert with MyISAM. Possible values are
  NEVER, AUTO, ALWAYS
- --conn-wait-no-timeout 
- For proxy support temp table keep the connection of temp
- table
  --connect-timeout=# The number of seconds the mysqld server is waiting for a
  connect packet before responding with 'Bad handshake'
  --connection-memory-chunk-size=# 
@@ -610,40 +505,9 @@ The following options may be given as the first argument:
  With this option enabled you can run myisamchk to test
  (not repair) tables while the MySQL server is running.
  Disable with --skip-external-locking.
- --extra-max-connections=# 
- The number of connections on extra-port
  --flush             Flush MyISAM tables to disk between SQL commands
  --flush-time=#      A dedicated thread is created to flush all tables at the
  given interval
- --forbid-remote-change-master 
- Forbid change master by user with SUPER_ACL
- --forbid-remote-change-sql-log-bin 
- Forbid modifying sql_log_bin from tcp/ip connections,
- only allow so for unix socket connections.
- --forbid-remote-drop-meta 
- Forbid dropping database mysql, information_schema,
- performance_schema, sys, sysdb, xa, or its tables or rows
- in such tables for clients not connected from local unix
- socket.
- --forbid-remote-install-plugin 
- Forbid installing plugins for clients not connected from
- local unix socket.
- --forbid-remote-stop-server 
- Forbid remote user from SHUTDOWN or RESTART server
- --forbid-server-path-remote-access 
- Forbid accessing server path from remote tcp/ip
- connection.
- --forbid-server-path-remote-change 
- Forbid modifying server path variables from remote tcp/ip
- connection.
- --freeze-transaction-enable 
- After set to ON, block the newly started transaction,
- while waiting for the write transaction that is currently
- active to commit
- --freeze-wait-timeout-sec=# 
- After the session is frozen, wait for more than specified
- second without being notified, automatically wake up and
- report an error.
  --ft-boolean-syntax=name 
  List of operators for MATCH ... AGAINST ( ... IN BOOLEAN
  MODE)
@@ -713,9 +577,6 @@ The following options may be given as the first argument:
  without a GTID to be replicated and executed on all
  servers, and finally set all servers to GTID_MODE = ON.
  -?, --help          Display this help and exit.
- --hidden-sensitive-variable 
- hidde sensitive variable so remote user with super_acl
- can't change them.
  --histogram-generation-max-mem-size=# 
  Maximum amount of memory available for generating
  histograms
@@ -1044,10 +905,6 @@ The following options may be given as the first argument:
  Number of seconds to wait for a block to be written to a
  connection before aborting the write
  -n, --new           Use very new possible "unsafe" functions
- --new-connection-action-when-resource-group-overrun[=name] 
- New connection action when resource group overrun
- happens, reject: Reject the connection, move-to-default:
- Add to default resource group
  --no-dd-upgrade     Abort restart if automatic upgrade or downgrade of the
  data dictionary is needed. Deprecated option. Use
  --upgrade=NONE instead.
@@ -1363,8 +1220,6 @@ The following options may be given as the first argument:
  --print-identified-with-as-hex 
  SHOW CREATE USER will print the AS clause as HEX if it
  contains non-prinable characters
- --print-proxy-info-for-processlist 
- print more information of proxy in processlist.
  --profiling-history-size=# 
  Limit of query profiling memory
  --protocol-compression-algorithms=name 
@@ -1377,14 +1232,6 @@ The following options may be given as the first argument:
  both client and server support it; otherwise it picks
  zstd if both support it; otherwise it picks uncompressed
  if both support it; otherwise it fails.
- --proxy-protocol-networks=name 
- Enable proxy protocol for these source networks. The
- syntax is a comma separated list of IPv4 and IPv6
- networks. If the network doesn't contain mask, it is
- considered to be a single host. "*" represents all
- networks and must the only directive on the line. String
- "localhost" represents non-TCP local connections (Unix
- domain socket, Windows named pipe or shared memory).
  --query-alloc-block-size=# 
  Allocation block size for query parsing and execution
  --query-prealloc-size=# 
@@ -1392,6 +1239,9 @@ The following options may be given as the first argument:
  --range-alloc-block-size=# 
  Allocation block size for storing ranges during
  optimization
+ --range-estimation-by-histogram 
+ This option is deprecated. Use
+ txsql_range_estimation_by_histogram instead.
  --range-optimizer-max-mem-size=# 
  Maximum amount of memory used by the range optimizer to
  allocate predicates during range analysis. The larger the
@@ -1433,12 +1283,6 @@ The following options may be given as the first argument:
  --regexp-time-limit=# 
  Timeout for regular expressions matches, in steps of the
  match engine, typically on the order of milliseconds.
- --reject-rw-mysql-user-sys-users 
- Reject inserting/updating/deleting/fetching mysql.user
- rows whose 'user' field starts with
- opt_admin_username_prefix from normal users.Rejected
- insert will return error , but all other operations will
- be silently ignored with such rows.
  --reject-table-no-pk 
  When set, tables must be created with a primary key, and
  an existing primary key cannot be removed with 'ALTER
@@ -1642,17 +1486,6 @@ The following options may be given as the first argument:
  When this option is enabled, connections attempted using
  insecure transport will be rejected.  Secure transports
  are SSL/TLS, Unix socket or Shared Memory (on Windows).
- --reserved-connection-count[=#] 
- Reserve more connections for tencent root user, default
- is 20. 
- --resource-group-iops-control-timeunit[=#] 
- The time unit to collect IOPS, in milliseconds
- --resource-group-iops-wait-counts[=#] 
- Maximum number of waits when resource group IO exceeds
- the limit
- --resource-group-iops-wait-timeunit[=#] 
- The time unit to wait each time when the resource group
- IO exceeds the limit, in milliseconds
  --rpl-read-size=#   The size for reads done from the binlog and relay log. It
  must be a multiple of 4kb. Making it larger might help
  with IO stalls while reading these files when they are
@@ -1698,9 +1531,6 @@ The following options may be given as the first argument:
  Controls the amount of global transaction ids to be
  included in the response packet sent by the
  server.(Default: OFF).
- --session-track-lock 
- Track changes to flush table with read lock and lock
- table for update etc.
  --session-track-schema 
  Track changes to the 'default schema'.
  (Defaults to on; use --skip-session-track-schema to disable.)
@@ -1717,8 +1547,6 @@ The following options may be given as the first argument:
  characteristics (isolation level, read only/read write,
  snapshot - but not any work done / data modified within
  the transaction).
- --session-track-udf-var 
- Track changes of setting user defined variables.
  --sha256-password-proxy-users 
  If set to FALSE (the default), then the sha256_password
  authentication plugin will not signal for authenticated
@@ -1840,6 +1668,7 @@ The following options may be given as the first argument:
  --sporadic-binlog-dump-fail 
  Option used by mysql-test for debugging and testing of
  replication.
+ --sql-auto-is-null  sql_auto_is_null
  --sql-generate-invisible-primary-key 
  When set, if a table is created without a primary key
  then server generates invisible auto-increment column as
@@ -1850,6 +1679,18 @@ The following options may be given as the first argument:
  When set, tables must be created with a primary key, and
  an existing primary key cannot be removed with 'ALTER
  TABLE'. Attempts to do so will result in an error.
+ --sql-safe-updates  sql_safe_updates
+ --statement-outline-apply-verbose 
+ Output more information when applying statement outline
+ rules
+ --statement-outline-enable-apply 
+ Enable statement outline apply if true in current session
+ (Defaults to on; use --skip-statement-outline-enable-apply to disable.)
+ --statement-outline-enabled 
+ Enable statement outline if true
+ (Defaults to on; use --skip-statement-outline-enabled to disable.)
+ --statement-outline-partitions=# 
+ How many partitions of statement outline rule maps.
  --stored-program-cache=# 
  The soft upper limit for number of cached stored routines
  for one connection.
@@ -1897,15 +1738,8 @@ The following options may be given as the first argument:
  --tc-heuristic-recover=name 
  Decision to use in heuristic recover process. Possible
  values are OFF, COMMIT or ROLLBACK.
- --tdsql-allow-access-internal-table 
- allow current user to access tdsql internal table
- --tdsql-buffer-pool-optimize-pct=# 
- use this variable to limit the innodb buffer pool real
- size
  --tdsql-compat-oracle-mode 
  Keep tdsql compatible with oracle if it's set.
- --tdsql-forbid-write 
- tdsql forbid write if set, is not the same with read_only
  --tdsql-hide-partitions[=name] 
  TDSQL: Partitions to disable, effective for partitions of
  all partitioned tables on the DB instance. Specifiy as
@@ -1924,22 +1758,7 @@ The following options may be given as the first argument:
  deprecated and will be removed in a future release.
  (Defaults to on; use --skip-temptable-use-mmap to disable.)
  --tencent-myisam-conversion-innodb=name 
- control tencentroot/system user, myisam conversion innodb
- mode, can be ON/OFF/WARN/TRY
- --tencent-reserved-connection=# 
- Reserve more connections for tencent root user, default
- is 20. 
- --tencent-root-cnf=name 
- File specify configuration of tencent root account
- --tencent-root-connected=# 
- The number of tencentroot connections on normal port
- --tencent-root-limit=name 
- Limit the number of simultaneous login of tencentroot
- account
- --tencent-root-user=name 
- Users of tencent root account
- --tencent-root-whitelist=name 
- White list which can login MySQL remotely
+ Eliminated parameters
  --terminology-use-previous=name 
  Make monitoring tables and statements use the identifiers
  that were in use before they were changed in a given
@@ -2030,17 +1849,21 @@ The following options may be given as the first argument:
  This option is used to let the server know when to
  extract the write set which will be used for various
  purposes. 
+ --txsql-check-thd-in-bottom-half 
+ Whether to check thd valid or not in bottom half of
+ sqlasync 
+ --txsql-column-encryption-whitelist=name 
+ allows user to access column encryption data,if set 0 or
+ empty string means no priv limit 
  --txsql-compute-query-time-for-slow-logging[=#] 
  Compute query time for slow logging by measuring from
  query reception(2) or query start(1) or after locking(0)
  to end time.
- --txsql-disable-gtid-in-undo 
- Do not record GTID in undo log header which cause
- performance degradation. If set to ON, clone statement is
- not allowed.
+ --txsql-disable-sqlasyn 
+ A session only variable to disable strong synchroniaztion
+ if set
  --txsql-extend-slow-log-level=# 
  Control the level of extended information in slow log.
- --txsql-found-rows  Sets the total size of the transactional cache
  --txsql-load-data-local-strict-mode 
  Whether to emit errors (or warnings) in strict mode when
  executing LOAD DATA LOCAL INFILE statement
@@ -2048,6 +1871,9 @@ The following options may be given as the first argument:
  Specify the maximum number of worker threads for parallel
  execution on the server. A zero value disables parallel
  execution for any statement.
+ --txsql-optimize-ps-priv-check 
+ This option is deprecated. Use txsql_simplify_priv_check
+ instead.
  --txsql-optimizer-context-max-mem-size[=#] 
  Maximum amount of memory used by the optimizer context to
  cache the values of table stats, index dive during
@@ -2112,9 +1938,6 @@ The following options may be given as the first argument:
  --txsql-recycle-scheduler-interval=# 
  Schedule interval time of each check whether exists table
  to be purged in recycle bin database.
- --txsql-root-user-mode=name 
- What kind of root user mode used.
- --txsql-row-count   Sets the total size of the transactional cache
  --txsql-simplify-priv-check 
  Enable to optimize privilege checking for prepared
  statement and stored procedure.
@@ -2123,7 +1946,6 @@ The following options may be given as the first argument:
  just received unfinish's trx,it will check whether has
  new binlog events(for txsql_slave_wait_group_done
  seconds)
- --txsql-use-db      Sets current database by session variable
  --updatable-views-with-limit=name 
  YES = Don't issue an error message (warning only) if a
  VIEW without presence of a key of the underlying table is
@@ -2180,9 +2002,6 @@ admin-ssl-crl (No default value)
 admin-ssl-crlpath (No default value)
 admin-ssl-key (No default value)
 admin-tls-ciphersuites (No default value)
-admin-username-prefix tdsqlsys_
-allow-access-dd-tables FALSE
-allow-rollback-last-query FALSE
 allow-suspicious-udfs FALSE
 authentication-policy *,,
 auto-increment-increment 1
@@ -2228,26 +2047,18 @@ bulk-insert-buffer-size 8388608
 caching-sha2-password-digest-rounds 5000
 caching-sha2-password-private-key-path private_key.pem
 caching-sha2-password-public-key-path public_key.pem
-cdb-admin-port-allow-for-normal-user TRUE
-cdb-audit-action-enabled FALSE
-cdb-audit-truncat-sql-len 1024
 cdb-auto-statistics-enabled FALSE
 cdb-column-encryption-whitelist (No default value)
 cdb-compressed-histogram-enabled FALSE
 cdb-convert-memory-to-innodb FALSE
-cdb-enable-key-rotate TRUE
 cdb-enable-lock-statistics FALSE
-cdb-enable-precise-memory-usage TRUE
 cdb-enable-resource-statistics TRUE
 cdb-fire-wall-enabled FALSE
-cdb-forbid-mysql-write FALSE
-cdb-forbid-system-database-write FALSE
 cdb-hash-scan-index-selection-enabled FALSE
 cdb-hash-scan-max-agg-event-size 0
 cdb-instance-mode READWRITE
 cdb-instant-modify-column-enabled FALSE
 cdb-kill-idle-trans-timeout 0
-cdb-kill-user-extra (No default value)
 cdb-lock-connect-detect-enabled TRUE
 cdb-max-prefetch-rows 0
 cdb-more-gtid-feature-supported FALSE
@@ -2257,34 +2068,15 @@ cdb-optimize-large-trans-binlog FALSE
 cdb-optimize-large-trans-binlog-aver-affected-rows-threshold 10000
 cdb-optimize-large-trans-binlog-last-affected-rows-threshold 10000
 cdb-optimize-ps-priv-check FALSE
-cdb-plan-cache FALSE
-cdb-plan-cache-stats FALSE
-cdb-pt-filter TRUE
-cdb-pt-table-checksum FALSE
-cdb-pt-white-list-user 
-cdb-query-memory-log-enabled FALSE
-cdb-query-memory-log-threshold 1073741824
-cdb-query-memory-profile-enabled FALSE
-cdb-query-memory-profile-max-stage-num 100
-cdb-query-memory-stack-enabled FALSE
 cdb-recycle-bin-db-not-visible TRUE
 cdb-recycle-bin-enabled FALSE
 cdb-recycle-bin-retention 604800
 cdb-recycle-scheduler-interval 0
 cdb-replica-host-detection TRUE
 cdb-role CDB_ROLE_UNKNOWN
-cdb-session-var-privilege-check-enabled FALSE
 cdb-skip-event-scheduler FALSE
-cdb-sql-filter (No default value)
-cdb-sql-filter-enable FALSE
-cdb-sql-filter-seperator ,
 cdb-sql-statistics FALSE
 cdb-sql-statistics-info-threshold 10000
-cdb-tencentroot-audit-action-enabled FALSE
-cdb-tencentroot-slow-log-enabled FALSE
-cdb-working-mode-default READWRITE
-cdb-working-mode-enabled FALSE
-cdb-workmode-life-interval 10
 character-set-client-handshake TRUE
 character-set-filesystem binary
 character-set-server utf8mb4
@@ -2294,7 +2086,6 @@ chroot (No default value)
 collation-server utf8mb4_0900_ai_ci
 completion-type NO_CHAIN
 concurrent-insert AUTO
-conn-wait-no-timeout FALSE
 connect-timeout 10
 connection-memory-chunk-size 8912
 connection-memory-limit 18446744073709551615
@@ -2326,18 +2117,8 @@ event-scheduler ON
 expire-logs-days 0
 explicit-defaults-for-timestamp TRUE
 external-locking FALSE
-extra-max-connections 300
 flush FALSE
 flush-time 0
-forbid-remote-change-master FALSE
-forbid-remote-change-sql-log-bin FALSE
-forbid-remote-drop-meta FALSE
-forbid-remote-install-plugin FALSE
-forbid-remote-stop-server FALSE
-forbid-server-path-remote-access FALSE
-forbid-server-path-remote-change FALSE
-freeze-transaction-enable FALSE
-freeze-wait-timeout-sec 60
 ft-boolean-syntax + -><()~*:""&|
 ft-max-word-len 84
 ft-min-word-len 4
@@ -2353,7 +2134,6 @@ group-replication-consistency EVENTUAL
 gtid-executed-compression-period 0
 gtid-mode OFF
 help TRUE
-hidden-sensitive-variable FALSE
 histogram-generation-max-mem-size 20000000
 histogram-history-enabled FALSE
 histogram-history-versions-limit 5
@@ -2463,7 +2243,6 @@ net-read-timeout 30
 net-retry-count 10
 net-write-timeout 60
 new FALSE
-new-connection-action-when-resource-group-overrun move-to-default
 no-dd-upgrade FALSE
 num-seq-threads 4
 offline-mode FALSE
@@ -2536,7 +2315,7 @@ performance-schema-max-socket-classes 10
 performance-schema-max-socket-instances -1
 performance-schema-max-sql-text-length 1024
 performance-schema-max-stage-classes 175
-performance-schema-max-statement-classes 242
+performance-schema-max-statement-classes 240
 performance-schema-max-statement-stack 10
 performance-schema-max-table-handles -1
 performance-schema-max-table-instances -1
@@ -2555,13 +2334,12 @@ port ####
 port-open-timeout 0
 preload-buffer-size 32768
 print-identified-with-as-hex FALSE
-print-proxy-info-for-processlist FALSE
 profiling-history-size 15
 protocol-compression-algorithms zlib,zstd,uncompressed
-proxy-protocol-networks 
 query-alloc-block-size 8192
 query-prealloc-size 8192
 range-alloc-block-size 4096
+range-estimation-by-histogram FALSE
 range-optimizer-max-mem-size 8388608
 read-buffer-size 131072
 read-only FALSE
@@ -2572,7 +2350,6 @@ recycle-bin-max-size 18446744073709551615
 recycle-bin-startup-mode NON
 regexp-stack-limit 8000000
 regexp-time-limit 32
-reject-rw-mysql-user-sys-users FALSE
 reject-table-no-pk FALSE
 relay-log relaylog
 relay-log-index relaylog.index
@@ -2604,10 +2381,6 @@ report-password (No default value)
 report-port 0
 report-user (No default value)
 require-secure-transport FALSE
-reserved-connection-count 20
-resource-group-iops-control-timeunit 100
-resource-group-iops-wait-counts 50
-resource-group-iops-wait-timeunit 100
 rpl-read-size 8192
 rpl-stop-replica-timeout 31536000
 rpl-stop-slave-timeout 31536000
@@ -2623,12 +2396,10 @@ sequence-same-nextval-in-query FALSE
 server-id 1
 server-id-bits 32
 session-track-gtids OFF
-session-track-lock FALSE
 session-track-schema TRUE
 session-track-state-change FALSE
 session-track-system-variables time_zone,autocommit,character_set_client,character_set_results,character_set_connection
 session-track-transaction-info OFF
-session-track-udf-var FALSE
 sha256-password-proxy-users FALSE
 show-create-table-verbosity FALSE
 show-gipk-in-create-table-and-information-schema TRUE
@@ -2662,9 +2433,15 @@ slow-query-log FALSE
 sort-buffer-size 262144
 source-verify-checksum FALSE
 sporadic-binlog-dump-fail FALSE
+sql-auto-is-null FALSE
 sql-generate-invisible-primary-key FALSE
 sql-mode ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION
 sql-require-primary-key FALSE
+sql-safe-updates FALSE
+statement-outline-apply-verbose FALSE
+statement-outline-enable-apply TRUE
+statement-outline-enabled TRUE
+statement-outline-partitions 16
 stored-program-cache 256
 stored-program-definition-cache 256
 super-read-only FALSE
@@ -2679,21 +2456,12 @@ table-encryption-privilege-check FALSE
 table-open-cache-instances 16
 tablespace-definition-cache 256
 tc-heuristic-recover OFF
-tdsql-allow-access-internal-table FALSE
-tdsql-buffer-pool-optimize-pct 1
 tdsql-compat-oracle-mode FALSE
-tdsql-forbid-write FALSE
 tdsql-hide-partitions 
 temptable-max-mmap 1073741824
 temptable-max-ram 1073741824
 temptable-use-mmap TRUE
 tencent-myisam-conversion-innodb OFF
-tencent-reserved-connection 20
-tencent-root-cnf (No default value)
-tencent-root-connected 0
-tencent-root-limit 
-tencent-root-user (No default value)
-tencent-root-whitelist (No default value)
 terminology-use-previous NONE
 thread-cache-size 9
 thread-handling one-thread-per-connection
@@ -2715,12 +2483,14 @@ transaction-isolation REPEATABLE-READ
 transaction-prealloc-size 4096
 transaction-read-only FALSE
 transaction-write-set-extraction XXHASH64
+txsql-check-thd-in-bottom-half FALSE
+txsql-column-encryption-whitelist (No default value)
 txsql-compute-query-time-for-slow-logging 0
-txsql-disable-gtid-in-undo FALSE
+txsql-disable-sqlasyn FALSE
 txsql-extend-slow-log-level 0
-txsql-found-rows 0
 txsql-load-data-local-strict-mode FALSE
 txsql-max-parallel-worker-threads 0
+txsql-optimize-ps-priv-check FALSE
 txsql-optimizer-context-max-mem-size 8388608
 txsql-optimizer-context-prealloc-size 4096
 txsql-parallel-copy-ddl FALSE
@@ -2741,11 +2511,8 @@ txsql-recycle-bin-enabled FALSE
 txsql-recycle-bin-max-size 18446744073709551615
 txsql-recycle-bin-retention 604800
 txsql-recycle-scheduler-interval 0
-txsql-root-user-mode TENCENT_ROOT
-txsql-row-count 0
 txsql-simplify-priv-check FALSE
 txsql-slave-wait-group-done 60
-txsql-use-db 
 updatable-views-with-limit YES
 upgrade AUTO
 validate-config FALSE

@@ -2315,7 +2315,7 @@ Warning	1052	Column 'kundentyp' in group statement is ambiguous
 Warning	1052	Column 'kundentyp' in group statement is ambiguous
 Warning	1052	Column 'kundentyp' in group statement is ambiguous
 drop table t1;
-# restart:--thread-handling=pool-of-threads --thread-pool-size=2 --thread-pool-max-threads=2 --admin-address=127.0.0.1 --admin-port=ADMIN_PORT --loose-skip-mysqlx --tencent-root-cnf=tmy.conf
+# restart:--thread-handling=pool-of-threads --thread-pool-size=2 --thread-pool-max-threads=2 --admin-address=127.0.0.1 --admin-port=ADMIN_PORT --loose-skip-mysqlx 
 call mtr.add_suppression("Threadpool could not create additional thread to handle queries");
 call mtr.add_suppression("Failed to initialize TLS for channel: mysql_admin");
 call mtr.add_suppression(".*Failed to set up SSL.*");

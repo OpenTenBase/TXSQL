@@ -100,7 +100,7 @@ ID
 CALL dbms_admin.statement_outline_flush_rules();
 CALL dbms_admin.statement_outline_delete_rule(11111);
 Warnings:
-Warning	4170	Could not delete statement outline rule: "Rule 11111 is not found.".
+Warning	4142	Could not delete statement outline rule: "Rule 11111 is not found.".
 ALTER TABLE mysql.statement_outline_rules DROP COLUMN col1;
 #-----------------------------------------------------------
 # 5. test flush warning
@@ -116,18 +116,18 @@ ID	SCHEMA	DIGEST	ENABLED	HITS	OUTLINE	DIGEST_TEXT	HAS_APPLY_FAILURE
 UPDATE mysql.statement_outline_rules SET  outline ='[{"hint": "/*+ xxx */"}, {"select_number": 1}]' where digest_text like '%MAX_EXECUTION_TIME%';
 CALL dbms_admin.statement_outline_flush_rules();
 Warnings:
-Warning	4172	Invalid statement outline rule # in rules table: Invalid optimizer hint in outline column.
-Warning	4172	Error when refreshing statement outline rules: Some rules failed to load.
+Warning	4144	Invalid statement outline rule # in rules table: Invalid optimizer hint in outline column.
+Warning	4144	Error when refreshing statement outline rules: Some rules failed to load.
 UPDATE mysql.statement_outline_rules SET  outline ='[{"select_number": 1}]' where digest_text like '%MAX_EXECUTION_TIME%';
 CALL dbms_admin.statement_outline_flush_rules();
 Warnings:
-Warning	4172	Invalid statement outline rule # in rules table: Invalid optimizer hint in outline column.
-Warning	4172	Error when refreshing statement outline rules: Some rules failed to load.
+Warning	4144	Invalid statement outline rule # in rules table: Invalid optimizer hint in outline column.
+Warning	4144	Error when refreshing statement outline rules: Some rules failed to load.
 UPDATE mysql.statement_outline_rules SET  outline ='[{"number": 1}, {"hint": "/*+ MAX_EXECUTION_TIME(1000) */"}]' where digest_text like '%MAX_EXECUTION_TIME%';
 CALL dbms_admin.statement_outline_flush_rules();
 Warnings:
-Warning	4172	Invalid statement outline rule # in rules table: Invalid optimizer hint in outline column.
-Warning	4172	Error when refreshing statement outline rules: Some rules failed to load.
+Warning	4144	Invalid statement outline rule # in rules table: Invalid optimizer hint in outline column.
+Warning	4144	Error when refreshing statement outline rules: Some rules failed to load.
 DELETE FROM mysql.statement_outline_rules;
 CALL dbms_admin.statement_outline_flush_rules();
 #-----------------------------------------------------------

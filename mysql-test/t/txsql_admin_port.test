@@ -9,11 +9,9 @@ grant all privileges on *.* to 'user1'@'localhost';
 let $ADMIN_ADDRESS =  `SELECT @@global.admin_address`;
 let $ADMIN_PORT =  `SELECT @@global.admin_port`;
 
---connect(tencentroot,localhost,tencentroot)
+--connect(root,localhost,root)
 
---connection tencentroot
-let $cdb_admin_port_allow_for_normal_user_old =  `SELECT @@global.cdb_admin_port_allow_for_normal_user`;
-set global cdb_admin_port_allow_for_normal_user=on;
+--connection root
 
 
 connect(con_admin,$ADMIN_ADDRESS,user1,,test,$ADMIN_PORT);
@@ -23,20 +21,16 @@ connect(con_normal,$ADMIN_ADDRESS,user1,,test,$MASTER_MYPORT);
 disconnect con_normal;
 
 
---connection tencentroot
-set global cdb_admin_port_allow_for_normal_user=off;
+--connection root
 
 --disable_query_log
---error ER_LOGIN_FROM_ADMIN_PORT_NOT_ALLOWED
 connect(con_admin,$ADMIN_ADDRESS,user1,,test,$ADMIN_PORT);
+disconnect con_admin;
 --enable_query_log
 
 connect(con_normal,$ADMIN_ADDRESS,user1,,test,$MASTER_MYPORT);
 disconnect con_normal;
 
-
---connection tencentroot
-eval set global cdb_admin_port_allow_for_normal_user=$cdb_admin_port_allow_for_normal_user_old;
-
+--connection root
 
 drop user 'user1'@'localhost';

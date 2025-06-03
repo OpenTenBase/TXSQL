@@ -16,11 +16,11 @@ cdb_working_mode_enabled	OFF
 cdb_workmode_life_interval	10
 ----- Stage 1. switch to tencent_conn to switch to OFFLINE -----
 USER
-tencentroot
+root
 root
 event_scheduler
 USER
-tencentroot
+root
 event_scheduler
 --- OFFLINE ---
 Variable_name	Value
@@ -54,7 +54,7 @@ id
 Variable_name	Value
 cdb_working_mode	OFFLINE
 USER
-tencentroot
+root
 event_scheduler
 ----- switch to default -----
 ERROR HY000: Lost connection to MySQL server during query
@@ -72,7 +72,7 @@ id
 5
 ----- Stage 4. switch to tencent_conn to switch to NORMAL -----
 USER
-tencentroot
+root
 root
 event_scheduler
 ----- switch to default -----

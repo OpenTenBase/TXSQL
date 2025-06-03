@@ -271,15 +271,15 @@ Id	User	Host	db	Command	Time	State	Info
 #	root	localhost	test	COMMAND	TIME	STATE	INFO
 #	root	localhost	test	COMMAND	TIME	STATE	INFO
 #	root	localhost	test	COMMAND	TIME	STATE	INFO
-#	tencentroot	localhost	test	COMMAND	TIME	STATE	INFO
-#	tencentroot	localhost	test	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
 #	user101	localhost	test	COMMAND	TIME	STATE	INFO
 #	user102	localhost	test	COMMAND	TIME	STATE	INFO
 #	user103	localhost	test	COMMAND	TIME	STATE	INFO
 #	user104	localhost	test	COMMAND	TIME	STATE	INFO
 show parallel processlist;
 Id	User	Host	db	Command	Time	State	Info
-#	tencentroot	localhost	test	COMMAND	TIME	STATE	INFO
+#	root	localhost	test	COMMAND	TIME	STATE	INFO
 #	 	 	 	COMMAND	TIME	STATE	INFO
 #	 	 	 	COMMAND	TIME	STATE	INFO
 #	user101	localhost	test	COMMAND	TIME	STATE	INFO

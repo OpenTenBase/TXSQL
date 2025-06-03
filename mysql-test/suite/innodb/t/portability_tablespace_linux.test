@@ -285,7 +285,7 @@ DROP TABLESPACE ts2;
 --remove_files_wildcard $MYSQL_TMP_DIR/data_home/#innodb_redo/ #ib_redo*
 --remove_files_wildcard $MYSQL_TMP_DIR/data_home/ ibtmp*
 --rmdir $MYSQL_TMP_DIR/data_home/#innodb_redo
---rmdir $MYSQL_TMP_DIR/data_home
+--force-rmdir $MYSQL_TMP_DIR/data_home
 
 --remove_files_wildcard $MYSQL_TMP_DIR/undo_files/ undo*
 --rmdir  $MYSQL_TMP_DIR/undo_files

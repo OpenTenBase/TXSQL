@@ -2,12 +2,12 @@
 show grants;
 Grants for root@localhost
 GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, RELOAD, SHUTDOWN, PROCESS, FILE, REFERENCES, INDEX, ALTER, SHOW DATABASES, SUPER, CREATE TEMPORARY TABLES, LOCK TABLES, EXECUTE, REPLICATION SLAVE, REPLICATION CLIENT, CREATE VIEW, SHOW VIEW, CREATE ROUTINE, ALTER ROUTINE, CREATE USER, EVENT, TRIGGER, CREATE TABLESPACE, CREATE ROLE, DROP ROLE ON *.* TO `root`@`localhost` WITH GRANT OPTION
-GRANT APPLICATION_PASSWORD_ADMIN,AUDIT_ABORT_EXEMPT,AUDIT_ADMIN,AUTHENTICATION_POLICY_ADMIN,BACKUP_ADMIN,BINLOG_ADMIN,BINLOG_ENCRYPTION_ADMIN,CLONE_ADMIN,CONNECTION_ADMIN,ENCRYPTION_KEY_ADMIN,FIREWALL_EXEMPT,FLUSH_OPTIMIZER_COSTS,FLUSH_STATUS,FLUSH_TABLES,FLUSH_USER_RESOURCES,GROUP_REPLICATION_ADMIN,GROUP_REPLICATION_STREAM,INNODB_REDO_LOG_ARCHIVE,INNODB_REDO_LOG_ENABLE,PASSWORDLESS_USER_ADMIN,PERSIST_RO_VARIABLES_ADMIN,READ_MASK,REPLICATION_APPLIER,REPLICATION_SLAVE_ADMIN,RESOURCE_GROUP_ADMIN,RESOURCE_GROUP_USER,ROLE_ADMIN,SENSITIVE_VARIABLES_OBSERVER,SERVICE_CONNECTION_ADMIN,SESSION_VARIABLES_ADMIN,SET_USER_ID,SHOW_ROUTINE,SYSTEM_USER,SYSTEM_VARIABLES_ADMIN,TABLE_ENCRYPTION_ADMIN,XA_RECOVER_ADMIN ON *.* TO `root`@`localhost` WITH GRANT OPTION
+GRANT APPLICATION_PASSWORD_ADMIN,AUDIT_ABORT_EXEMPT,AUDIT_ADMIN,AUTHENTICATION_POLICY_ADMIN,BACKUP_ADMIN,BINLOG_ADMIN,BINLOG_ENCRYPTION_ADMIN,CLONE_ADMIN,CONNECTION_ADMIN,ENCRYPTION_KEY_ADMIN,FIREWALL_EXEMPT,FLUSH_OPTIMIZER_COSTS,FLUSH_STATUS,FLUSH_TABLES,FLUSH_USER_RESOURCES,GROUP_REPLICATION_ADMIN,GROUP_REPLICATION_STREAM,INNODB_REDO_LOG_ARCHIVE,INNODB_REDO_LOG_ENABLE,PASSWORDLESS_USER_ADMIN,PERSIST_RO_VARIABLES_ADMIN,REPLICATION_APPLIER,REPLICATION_SLAVE_ADMIN,RESOURCE_GROUP_ADMIN,RESOURCE_GROUP_USER,ROLE_ADMIN,SENSITIVE_VARIABLES_OBSERVER,SERVICE_CONNECTION_ADMIN,SESSION_VARIABLES_ADMIN,SET_USER_ID,SHOW_ROUTINE,SYSTEM_USER,SYSTEM_VARIABLES_ADMIN,TABLE_ENCRYPTION_ADMIN,XA_RECOVER_ADMIN ON *.* TO `root`@`localhost` WITH GRANT OPTION
 GRANT PROXY ON ``@`` TO `root`@`localhost` WITH GRANT OPTION
 set global cdb_opt_outline_enabled = off;
 select user();
 user()
-tencentroot@localhost
+root@localhost
 drop database if exists test;
 create database test;
 use test;
@@ -3292,30 +3292,6 @@ a	b	c	a	b	c
 3	3	4	3	2	3
 truncate table mysql.outline;
 outline flush;
-set global cdb_forbid_mysql_write = on;
-delete from mysql.outline;
-ERROR 42000: Access denied for user 'root'@'localhost' to database 'mysql'
-insert into mysql.outline values(1,"****", "fafafa", "*****");
-ERROR 42000: Access denied for user 'root'@'localhost' to database 'mysql'
-outline "select * from t1, t2 where t1.a = t2.a" set outline_info "OUTLINE:select /*+max_execution_time(1000)*/* from t1, t2 where t1.a = t2.a";
-select * from mysql.outline;
-Id	Digest	Digest_text	Outline_text
-1	a6f1b785369c22689ac1de6884404c800086e80df716969a4a6dec7436943910	select * from `test`.`t1` join `test`.`t2` where (`t1`.`a` = `t2`.`a`)	select /*+ MAX_EXECUTION_TIME(1000) */ * from `test`.`t1` join `test`.`t2` where (`t1`.`a` = `t2`.`a`)
-show cdb_outline_info;
-origin	outline	hit
-select * from `test`.`t1` join `test`.`t2` where (`t1`.`a` = `t2`.`a`)	select /*+ MAX_EXECUTION_TIME(1000) */ * from `test`.`t1` join `test`.`t2` where (`t1`.`a` = `t2`.`a`)	0
-select * from information_schema.cdb_outline_info;
-ORIGIN	OUTLINE	HIT
-select * from `test`.`t1` join `test`.`t2` where (`t1`.`a` = `t2`.`a`)	select /*+ MAX_EXECUTION_TIME(1000) */ * from `test`.`t1` join `test`.`t2` where (`t1`.`a` = `t2`.`a`)	0
-outline "select a from t1" set outline_info "OUTLINE:select b from t1";
-ERROR HY000: SET outline_info failed, reason: different outline
-outline "select * from t1, t2 where t1.a = t2.a" set outline_info "OUTLINE:select * from t1, t2 use index(idx2) where t1.a = t2.b";
-ERROR HY000: SET outline_info failed, reason: different outline
-outline "select * from t1 where t1.a in (select t1.a from t1 where t1.b in (select * from t1 left join t2 on t1.a = t2.a))" set outline_info "OUTLINE:select * from t1 where t1.a in (select t1.a from t1 where t1.b in (select * from t1 left join t2 USE index(idx2) on t1.c = t2.a))";
-ERROR HY000: SET outline_info failed, reason: different outline
-outline "select * from t1 left join t2 on t1.a = t2.a" set outline_info "";
-ERROR HY000: SET outline_info failed, reason: unknown error
-outline reset all;
 outline "select * from t1, t2 where t1.a = t2.a" set outline_info "OUTLINE:select * from t1 use index(idx1), t2 where t1.a = t2.a";
 outline "select count(*) from t1 join t2 on t1.a = t2.a" set outline_info "OPT:1#HASH_JOIN(t1,t2)#";
 outline "select * from t1 where t1.a in (select t1.a from t1,t2 left join t3 on t1.a = t2.a)" set outline_info "INDEX:1#test#t1#idx1#1#0";
@@ -3360,7 +3336,6 @@ select * from `test`.`t1` where `t1`.`a` in (select `t1`.`a` from `test`.`t1` jo
 select `a` from `test`.`t1` where `t1`.`a` in (select `t2`.`b` from `test`.`t2` where (`t2`.`a` = ?))	select `a` from `test`.`t1` USE INDEX FOR JOIN (`idx1`) where `t1`.`a` in (select `t2`.`b` from `test`.`t2` where (`t2`.`a` = ?))	2
 select `t1`.`a`,avg(`t1`.`b`) from (`test`.`t1` join `test`.`t2` on((`t1`.`a` = `t2`.`a`))) group by `t1`.`a`	select /*+ NO_HASH_JOIN(t1,t2)*/ `t1`.`a`,avg(`t1`.`b`) from (`test`.`t1` join `test`.`t2` on((`t1`.`a` = `t2`.`a`))) group by `t1`.`a`	0
 select count(?) from (`test`.`t1` join `test`.`t2` on((`t1`.`a` = `t2`.`a`)))	select /*+ HASH_JOIN(`t1`@`select#1`) HASH_JOIN(`t2`@`select#1`) HASH_JOIN(t1,t2)*/ count(?) from (`test`.`t1` join `test`.`t2` on((`t1`.`a` = `t2`.`a`)))	1
-set global cdb_forbid_mysql_write = off;
 set global cdb_opt_outline_enabled = off;
 drop table t1;
 drop table t2;

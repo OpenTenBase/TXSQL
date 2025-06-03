@@ -13,7 +13,6 @@
 # as rli is not inited and subsequent START SLAVE will fail.
 # Disable "Warning  1612  Being purged log ./slave-relay-bin.0* was not found"
 # because it is different on Unix and Windows systems.
-source include/have_tdsql_root.inc;
 --source include/have_binlog_format_mixed.inc
 --source include/master-slave.inc
 
@@ -58,11 +57,11 @@ call mtr.add_suppression("Error counting relay log space");
 --source include/rpl_start_server.inc
 
 # Start slave must fail because of the removed file(s).
-#--error ER_SLAVE_RLI_INIT_REPOSITORY
+--error ER_SLAVE_RLI_INIT_REPOSITORY
 START SLAVE;
 
 # Try a second time, it must fail again.
-#--error ER_SLAVE_RLI_INIT_REPOSITORY
+--error ER_SLAVE_RLI_INIT_REPOSITORY
 START SLAVE;
 STOP SLAVE;
 

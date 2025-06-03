@@ -1,8 +1,7 @@
 disable_ps_protocol;
-source include/have_no_tdsql_root.inc;
 source include/have_debug.inc;
 
-connect (con_tencentroot, localhost, tencentroot,'', );
+connect (con_root, localhost, root,'', );
 connection default;
 create database db1;
 use db1;
@@ -44,7 +43,7 @@ let $assert_select= bool Sql_cmd_dml::execute: txsql_print_privilege_check: TXSQ
 let $assert_text= check if there are some messages for privileges checking;
 source include/assert_grep.inc;
 
-connection con_tencentroot;
+connection con_root;
 set global cdb_optimize_ps_priv_check = ON;
 connection con_test;
 
@@ -164,9 +163,9 @@ set debug = '-d, txsql_print_privilege_check';
 deallocate prepare stmt1;
 deallocate prepare stmt2;
 
-connection con_tencentroot;
+connection con_root;
 set global cdb_optimize_ps_priv_check = OFF;
 connection default;
 drop user 'test'@'localhost';
-disconnect con_tencentroot;
+disconnect con_root;
 drop database if exists db1;

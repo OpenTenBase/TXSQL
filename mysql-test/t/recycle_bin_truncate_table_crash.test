@@ -5,7 +5,7 @@
 --echo #
 
 call mtr.add_suppression("access __txsql_recycle_bin__ fail, the query string is");
-connect (con_tencentroot_master, localhost, tencentroot,,,,$MASTER_MYSOCK);
+connect (con_root_master, localhost, root,,,,$MASTER_MYSOCK);
 
 let $cdb_recycle_bin_enabled_default= `select @@cdb_recycle_bin_enabled`;
 set global cdb_recycle_bin_enabled=on;
@@ -35,7 +35,7 @@ drop table t1;
 --echo # Cleanup
 --echo # 
 
-connection con_tencentroot_master;
+connection con_root_master;
 set global cdb_recycle_bin_enabled=on;
 
 let table_count=0;
@@ -49,4 +49,4 @@ while ($table_count<2)
 
 eval set global cdb_recycle_bin_enabled=$cdb_recycle_bin_enabled_default;
 
-disconnect con_tencentroot_master;
+disconnect con_root_master;

@@ -34,7 +34,7 @@ SET GLOBAL debug = '-d,stmtol.simulate_init_read_se_error';
 SET GLOBAL debug = '+d,stmtol.simulate_read_se_error';
 CALL dbms_admin.statement_outline_flush_rules();
 Warnings:
-Warning	4172	Error when refreshing statement outline rules: Got error "Deadlock found when trying to get lock; try restarting transaction" from storage engine.
+Warning	4144	Error when refreshing statement outline rules: Got error "Deadlock found when trying to get lock; try restarting transaction" from storage engine.
 SET GLOBAL debug = '-d,stmtol.simulate_read_se_error';
 CALL dbms_admin.statement_outline_flush_rules();
 #

@@ -1,4 +1,4 @@
-connect (con_tencentroot, localhost, tencentroot, '',);
+connect (con_root, localhost, root, '',);
 --let $cdb_recycle_bin_enabled_default= `select @@cdb_recycle_bin_enabled`
 --let $event_scheduler_default = `select @@event_scheduler`
 
@@ -32,7 +32,7 @@ show tables from  __txsql_recycle_bin__;
 --echo #
 --echo # clear environment
 --echo #
---connection con_tencentroot
+--connection con_root
 let $i = 0;
 while ($i < 4) {
   --let $rb_table_name = `select table_name from mysql.recycle_bin_info limit 1`
@@ -43,4 +43,4 @@ while ($i < 4) {
 eval set global cdb_recycle_bin_enabled=$cdb_recycle_bin_enabled_default;
 
 --connection default
-disconnect con_tencentroot;
+disconnect con_root;

@@ -7,12 +7,12 @@
 --echo #  Prepare
 --echo #
 
-connect (con_tencentroot_master, 127.0.0.1, tencentroot, '', '', $MASTER_MYPORT);
+connect (con_root_master, 127.0.0.1, root, '', '', $MASTER_MYPORT);
 --let $txsql_recycle_bin_enabled_default= `select @@txsql_recycle_bin_enabled`
 --echo # open recycle bin on master
 set global txsql_recycle_bin_enabled = on;
 
-connect (con_tencentroot_slave, 127.0.0.1, tencentroot, '', '', $SLAVE_MYPORT);
+connect (con_root_slave, 127.0.0.1, root, '', '', $SLAVE_MYPORT);
 --echo # open recycle bin on slave
 set global txsql_recycle_bin_enabled = on;
 
@@ -76,10 +76,10 @@ show triggers;
 --echo # case4. drop table with recycle_bin
 --echo #
 
---disconnect con_tencentroot_slave
-connect (con_tencentroot_slave, 127.0.0.1, tencentroot, '', '', $SLAVE_MYPORT);
---disconnect con_tencentroot_master
---connect (con_tencentroot_master, 127.0.0.1, tencentroot, '', '', $MASTER_MYPORT)
+--disconnect con_root_slave
+connect (con_root_slave, 127.0.0.1, root, '', '', $SLAVE_MYPORT);
+--disconnect con_root_master
+--connect (con_root_master, 127.0.0.1, root, '', '', $MASTER_MYPORT)
 
 set global txsql_recycle_bin_enabled = on;
 
@@ -90,7 +90,7 @@ show triggers;
 
 --sync_slave_with_master
 
---connection con_tencentroot_slave
+--connection con_root_slave
 --replace_column 6 <CREATE_TIME>
 show triggers;
 
@@ -98,7 +98,7 @@ show triggers;
 --echo # case5. truncate table with recycle_bin
 --echo #
 
---connection con_tencentroot_master
+--connection con_root_master
 set global txsql_recycle_bin_enabled = on;
 
 create table t3(a int, b int);
@@ -111,14 +111,14 @@ truncate table t3;
 --echo # Cleanup 
 --echo # 
 
---connection con_tencentroot_master
+--connection con_root_master
 clear recycle_bin;
 
---connection con_tencentroot_slave
+--connection con_root_slave
 --eval set global txsql_recycle_bin_enabled=$txsql_recycle_bin_enabled_default
 
 
---connection con_tencentroot_master
+--connection con_root_master
 --eval set global txsql_recycle_bin_enabled=$txsql_recycle_bin_enabled_default
 drop table t3;
 

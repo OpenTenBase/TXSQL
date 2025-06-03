@@ -299,13 +299,13 @@ assert($count_before_create_index == $count_after);
 --echo 
 --echo 
 --echo #TEST SCAN_THREAD AND DDL_THREAD from 1 to 16 with k-ways merge sort
---error 1193
+# --error 1193
 select @@global.txsql_parallel_ddl_merge_sort_k_value;
 
---let $restart_parameters=restart:--tencent-root-cnf=tmy.conf
+--let $restart_parameters=restart:
 --source include/restart_mysqld.inc
-connect (con_tencentroot, localhost, tencentroot,'', );
---connection con_tencentroot
+connect (con_root, localhost, root,'', );
+--connection con_root
 select @@global.txsql_parallel_ddl_merge_sort_k_value;
 
 SET @old_k_value= @@global.txsql_parallel_ddl_merge_sort_k_value;

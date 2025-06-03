@@ -6,7 +6,7 @@ GRANT APPLICATION_PASSWORD_ADMIN,AUDIT_ABORT_EXEMPT,AUDIT_ADMIN,AUTHENTICATION_P
 GRANT PROXY ON ``@`` TO `root`@`localhost` WITH GRANT OPTION
 select user();
 user()
-tencentroot@localhost
+root@localhost
 create database test1;
 use test1;
 create table t1(a int, b int, c int, unique key idx1(a));

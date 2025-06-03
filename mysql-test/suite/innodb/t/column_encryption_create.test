@@ -166,9 +166,9 @@ select * from tc order by c1 limit 10;
 # for cdb_column_encryption_whitelist
 
 # cdb_column_encryption_whitelist is '' allow all user
---echo #test for tencentroot slow query log
-connect (con_tencentroot, localhost, tencentroot,'', );
---connection con_tencentroot
+--echo #test for root slow query log
+connect (con_root, localhost, root,'', );
+--connection con_root
 set global cdb_column_encryption_whitelist = '';
 select * from t1 where c1='数' or c2 ='据' or c3='库' or c4='系' or c5='统';
 select '数'=c1, '据'=c2, '库'=c3, '系'=c4, '统'=c5 from t1 where length(c1)=3;
@@ -191,7 +191,7 @@ select count(*) from tc where c1=1;
 select count(*) from tc where c2=repeat('a',255);
 select c2=repeat('a',255) from tc where c1=1;
 
-set global cdb_column_encryption_whitelist = 'tencentroot';
+set global cdb_column_encryption_whitelist = 'root';
 select * from t1 where c1='数' or c2 ='据' or c3='库' or c4='系' or c5='统';
 select '数'=c1, '据'=c2, '库'=c3, '系'=c4, '统'=c5 from t1 where length(c1)=3;
 select length(c1), length(c2), length(c3), length(c4), length(c5) from t1;
@@ -201,8 +201,8 @@ select count(*) from tc where c1=1;
 select count(*) from tc where c2=repeat('a',255);
 select c2=repeat('a',255) from tc where c1=1;
 
-# cdb_column_encryption_whitelist='tencentroot,invalid' allow 'invalid' && 'root'
-set global cdb_column_encryption_whitelist = 'tencentroot,invalid';
+# cdb_column_encryption_whitelist='root,invalid' allow 'invalid' && 'root'
+set global cdb_column_encryption_whitelist = 'root,invalid';
 select * from t1 where c1='数' or c2 ='据' or c3='库' or c4='系' or c5='统';
 select '数'=c1, '据'=c2, '库'=c3, '系'=c4, '统'=c5 from t1 where length(c1)=3;
 select length(c1), length(c2), length(c3), length(c4), length(c5) from t1;

@@ -379,6 +379,7 @@ void Event_worker_thread::run(THD *thd, Event_queue_element_for_exec *event) {
   if (Recycle_bin_event::instance().is_recycle_bin_event(event->dbname,
                                                          event->name)) {
     if (Recycle_bin_event::instance().init_job_data(thd, job_data)) return;
+    thd->security_context()->skip_grants("", "");
     DBUG_PRINT(RB_DEBUG_INFO, ("purge table job data init successfully."));
   } else {
 

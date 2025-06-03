@@ -3578,6 +3578,9 @@ bool check_reserved_account(THD *thd, List<LEX_USER> &list) {
   if (list.is_empty()) {
     return false;
   }
+  if (thd->security_context()->check_access(SUPER_ACL)) {
+    return false;
+  }
   /* Hard code of reserved accounts. */
   static const char *reserved_accounts[] = {
     "mysql.sys",

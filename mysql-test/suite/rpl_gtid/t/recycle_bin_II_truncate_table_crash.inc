@@ -9,7 +9,7 @@
 #
 #
 
-connect (con_tencentroot_master_$crash_point, localhost, tencentroot,,,,$MASTER_MYSOCK);
+connect (con_root_master_$crash_point, localhost, root,,,,$MASTER_MYSOCK);
 set global cdb_recycle_bin_enabled = on;
 
 --connection master 

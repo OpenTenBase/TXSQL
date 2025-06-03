@@ -259,7 +259,7 @@ DO innodb_redo_log_archive_start('9');
 --rmdir $EXT_DIR/tmp
 --rmdir $INNODB_TEMP_TABLESPACES_DIR
 --rmdir $INNODB_LOG_GROUP_HOME_DIR/#innodb_redo
---rmdir $INNODB_LOG_GROUP_HOME_DIR
+--force-rmdir $INNODB_LOG_GROUP_HOME_DIR
 --rmdir $INNODB_DIRECTORIES
 --rmdir $INNODB_DATA_HOME_DIR/xxx
 --rmdir $INNODB_DATA_HOME_DIR

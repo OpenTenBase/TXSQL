@@ -4,4 +4,4 @@
 --cdb_optimize_large_trans_binlog_aver_affected_rows_threshold=1
 --cdb_sql_statistics=ON
 --cdb_sql_statistics_info_threshold=1000
---tencent-root-cnf=$MYSQL_TEST_DIR/tmy.conf
+

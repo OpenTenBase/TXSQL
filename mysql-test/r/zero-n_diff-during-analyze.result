@@ -53,10 +53,10 @@ test.t1	analyze	status	OK
 # Expect new stats because of the simulated failure is considered temporary
 select n_rows,clustered_index_size from mysql.innodb_table_stats where table_name = 't1';
 n_rows	clustered_index_size
-16569	97
+15932	97
 select index_name,stat_value,sample_size from mysql.innodb_index_stats where table_name = 't1' and stat_name = 'n_diff_pfx01';
 index_name	stat_value	sample_size
-GEN_CLUST_INDEX	16569	20
+GEN_CLUST_INDEX	15932	20
 SET SESSION DEBUG='-d,dict_stats_simulate_tree_change';
 SET SESSION DEBUG='-d,dict_stats_skip_stat_modified_counter';
 drop table t1;

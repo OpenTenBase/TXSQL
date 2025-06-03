@@ -124,8 +124,8 @@ Warning	1287	'START SLAVE' is deprecated and will be removed in a future release
 SET GLOBAL innodb_buffer_pool_snapshot_pct = @old_snapshot_pct;
 drop table ib_bp_test;
 set global tencent_root_whitelist=concat(@@tencent_root_whitelist,"");
-include/assert.inc [Cdb_tencentroot_set_counts = 1]
-include/assert.inc [Cdb_show_tencentroot_counts = 4]
+include/assert.inc [Cdb_root_set_counts = 1]
+include/assert.inc [Cdb_show_root_counts = 4]
 use test;
 create table t(id INT);
 show global status like "Cdb_returning_counts";
@@ -145,7 +145,6 @@ id
 include/assert.inc [Cdb_returning_counts = 2]
 drop table t;
 include/assert.inc [Cdb_forbid_mysql_write_counts = 0]
-SET GLOBAL cdb_forbid_mysql_write=on;
 use mysql;
 create table tbl_fail(id int);
 ERROR 42000: Access denied for user 'root'@'localhost' to database 'mysql'
@@ -155,7 +154,6 @@ insert into tbl values(1,1);
 update tbl set c2 = 2 where c1 = 1;
 replace into tbl values(1, 3);
 delete from tbl where c1 = 1;
-SET GLOBAL cdb_forbid_mysql_write=off;
 commit;
 include/assert.inc [Cdb_forbid_mysql_write_counts = 1]
 drop table tbl;

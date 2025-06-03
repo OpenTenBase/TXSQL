@@ -1,9 +1,5 @@
 set global sequence_same_nextval_in_query = 1;
 set global seq_currval_before_first_nextval_return_error = 1;
-set global forbid_remote_drop_meta=on;
-show variables like 'forbid_remote_drop_meta';
-Variable_name	Value
-forbid_remote_drop_meta	ON
 create sequence seq0;
 select seq0.nextval, seq0.nextval;
 seq0.nextval	seq0.nextval
@@ -16,7 +12,7 @@ drop sequence seq1;
 ERROR HY000: Sequence seq1 in database test not found.
 drop sequence if exists seq1;
 Warnings:
-Note	4191	Sequence seq1 in database test not found.
+Note	4161	Sequence seq1 in database test not found.
 alter sequence seq1;
 ERROR HY000: Sequence seq1 in database test not found.
 create sequence seq1;
@@ -27,10 +23,10 @@ create sequence seq1;
 ERROR HY000: Sequence seq1 in database test already exists.
 create sequence if not exists seq1;
 Warnings:
-Note	4189	Sequence seq1 in database test already exists.
+Note	4159	Sequence seq1 in database test already exists.
 show warnings;
 Level	Code	Message
-Note	4189	Sequence seq1 in database test already exists.
+Note	4159	Sequence seq1 in database test already exists.
 select*from mysql.tdsql_sequences;
 db	name	curval	start	step	max_value	min_value	do_cycle	n_cache
 test	seq1	-9223372036854775808	1	1	9223372036854775807	1	0	20
@@ -80,7 +76,7 @@ select seq1.nextval;
 ERROR HY000: Sequence seq1 in database test not found.
 drop sequence if exists seq1;
 Warnings:
-Note	4191	Sequence seq1 in database test not found.
+Note	4161	Sequence seq1 in database test not found.
 drop sequence seq1;
 ERROR HY000: Sequence seq1 in database test not found.
 create sequence seq2 increment by 2 start with 0 maxvalue 10 minvalue -4;
@@ -678,4 +674,3 @@ seq_56.nextval	name
 2	wj
 drop table t;
 drop sequence seq_56;
-set global forbid_remote_drop_meta=off;

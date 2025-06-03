@@ -1,9 +1,9 @@
 --source include/not_group_replication_plugin.inc
 --source include/master-slave.inc
 
-# Note: Reconfiguring cdb_role requires tencentroot because it is TENCENT_VAR.
-connect (tencentroot,127.0.0.1,tencentroot,,test,$MASTER_MYPORT,);
-connect (slave3,127.0.0.1,tencentroot,,test,$SLAVE_MYPORT3,);
+# Note: Reconfiguring cdb_role requires root because it is TENCENT_VAR.
+connect (root,127.0.0.1,root,,test,$MASTER_MYPORT,);
+connect (slave3,127.0.0.1,root,,test,$SLAVE_MYPORT3,);
 
 --connection slave3
 --echo [connection slave3]
@@ -17,8 +17,8 @@ connect (slave3,127.0.0.1,tencentroot,,test,$SLAVE_MYPORT3,);
 source include/wait_for_slave_io_to_start.inc;
 
 
---connection tencentroot
---echo [connection tencentroot]
+--connection root
+--echo [connection root]
 
 --echo # Slave (Server_id 2) reports default cdb_role.
 --echo # Slave (Server_id 3) reports explicitly configured cdb_role.
@@ -38,8 +38,8 @@ source include/show_slave_hosts.inc;
 
 set global cdb_role = 3;
 
---connection tencentroot
---echo [connection tencentroot]
+--connection root
+--echo [connection root]
 
 --echo # Slave (Server_id 3) does not report reconfigured cdb_role without reconnecting.
 --replace_column 3 'SLAVE_PORT'
@@ -56,8 +56,8 @@ set global cdb_role = 1;
 START SLAVE IO_THREAD;
 
 
---connection tencentroot
---echo [connection tencentroot]
+--connection root
+--echo [connection root]
 
 --echo # Slave (Server_id 3) reports reconfigured cdb_role after reconnecting.
 # Wait for slave (Server_id 3) to register as CDB_ROLE_MASTER.
@@ -74,13 +74,12 @@ source include/show_slave_hosts.inc;
 --connection slave3
 --echo [connection slave3]
 
-#--disable_query_log
-#--eval SET GLOBAL cdb_role= '$saved_cdb_role';
-#--enable_query_log
+--disable_query_log
+--eval SET GLOBAL cdb_role= '$saved_cdb_role';
+--enable_query_log
 --source include/stop_slave_io.inc
 
 
 --connection master
 --echo [connection master]
-
 --source include/rpl_end.inc

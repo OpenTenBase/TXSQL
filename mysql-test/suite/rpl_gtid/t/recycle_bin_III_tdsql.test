@@ -498,8 +498,6 @@ select hello("wx2");
 --sync_slave_with_master
 --connection tdsql_slave
 use db_a;
-set allow_access_dd_tables=on;
-select * from mysql.routines where name like '%hello%';
 --error ER_SP_DOES_NOT_EXIST
 select hello("wx2");
 --connection tdsql_master

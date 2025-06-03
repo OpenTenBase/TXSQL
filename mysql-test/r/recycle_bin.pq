@@ -68,7 +68,7 @@ Tables_in___txsql_recycle_bin__
 <RECYCLED_TABLE>
 
 # phase3. recovery table t1 from recycle_bin
-# recycle_table must login tencentroot 
+# recycle_table must login root 
 call sys.recycle_bin_recycle_table("<RECYCLED_TABLE>");
 select * from mysql.recycle_bin_info;
 table_name	origin_schema	origin_table	drop_time	purge_time

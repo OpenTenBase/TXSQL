@@ -1,6 +1,9 @@
 #
 # Test recycle bin compatibility after upgrading from 8022
 #
+create user 'testuser'@'localhost';
+grant all privileges on __txsql_recycle_bin__.* to 'testuser'@'localhost';
+grant all privileges on __cdb_recycle_bin__.* to 'testuser'@'localhost';
 #
 # Test 1: Test create database permissions
 #
@@ -8,6 +11,7 @@ create database __txsql_recycle_bin__;
 ERROR HY000: Access to system schema '__txsql_recycle_bin__' is rejected.
 create database __cdb_recycle_bin__;
 ERROR HY000: Access to system schema '__cdb_recycle_bin__' is rejected.
+drop user 'testuser'@'localhost';
 create database __cdb_recycle_bin__;
 drop database __cdb_recycle_bin__;
 #
@@ -19,7 +23,6 @@ drop database __cdb_recycle_bin__;
 # SHOW DATABASES
 SHOW DATABASES;
 Database
-__txsql_recycle_bin__
 information_schema
 mtr
 mysql
@@ -64,7 +67,6 @@ Tables_in___txsql_recycle_bin__
 # SHOW DATABASES
 SHOW DATABASES;
 Database
-__cdb_recycle_bin__
 information_schema
 mtr
 mysql
@@ -109,7 +111,6 @@ Tables_in___cdb_recycle_bin__
 # SHOW DATABASES
 SHOW DATABASES;
 Database
-__cdb_recycle_bin__
 __txsql_recycle_bin__
 information_schema
 mtr
@@ -155,7 +156,6 @@ Tables_in___cdb_recycle_bin__
 SHOW DATABASES;
 Database
 __cdb_recycle_bin__
-__txsql_recycle_bin__
 information_schema
 mtr
 mysql

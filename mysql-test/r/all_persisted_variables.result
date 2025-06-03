@@ -8,6 +8,7 @@ call mtr.add_suppression("Failed to initialize TLS for channel: mysql_main");
 call mtr.add_suppression("Truncated incorrect DOUBLE value: 'ON'");
 call mtr.add_suppression("Variable 'tdsql_hide_partitions' can't be set to the value of 'NULL'.");
 call mtr.add_suppression("Currently unknown variable 'partition_table_skip_limit' was read from the persisted config file.");
+call mtr.add_suppression(".*Persisting SENSITIVE variables in encrypted form requires keyring.*");
 ***************************************************************
 * 0. Verify that variables present in performance_schema.global
 * variables are actually global variables and can be set using
@@ -43,7 +44,7 @@ include/assert.inc [Expect 500+ variables in the table. Due to open Bugs, we are
 
 # Test SET PERSIST
 
-include/assert.inc [Expect 566 persisted variables in the table.]
+include/assert.inc [Expect 608 persisted variables in the table.]
 
 ************************************************************
 * 3. Restart server, it must preserve the persisted variable
@@ -51,12 +52,13 @@ include/assert.inc [Expect 566 persisted variables in the table.]
 ************************************************************
 # restart
 
-include/assert.inc [Expect 566 persisted variables in persisted_variables table.]
-include/assert.inc [Expect 566 persisted variables shown as PERSISTED in variables_info table.]
-include/assert.inc [Expect 566 persisted variables with matching peristed and global values.]
+include/assert.inc [Expect 608 persisted variables in persisted_variables table.]
+include/assert.inc [Expect 608 persisted variables shown as PERSISTED in variables_info table.]
+include/assert.inc [Expect 608 persisted variables with matching peristed and global values.]
 
 ************************************************************
 * 4. Test RESET PERSIST IF EXISTS. Verify persisted variable
+*    settings are removed.
 ************************************************************
 
 include/assert.inc ['Expect 0 persisted variables.']

@@ -2,7 +2,7 @@
 -- source include/have_binlog_format_mixed_or_row.inc
 --disable_ps_protocol
 
-connect (con1,localhost,tencentroot,,);
+connect (con1,localhost,root,,);
 
 connection master;
 CREATE TABLE `t1` (

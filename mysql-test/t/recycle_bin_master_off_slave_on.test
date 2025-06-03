@@ -11,11 +11,11 @@ call mtr.add_suppression("access __txsql_recycle_bin__ fail, the query string is
 --echo #
 --echo # drop temporary table with "drop table" will occur ER_NO_SUCH_TABLE error
 
-connect (con_tencentroot_master, localhost, tencentroot,,,,$MASTER_MYSOCK);
+connect (con_root_master, localhost, root,,,,$MASTER_MYSOCK);
 let $cdb_recycle_bin_enabled_default= `select @@cdb_recycle_bin_enabled`;
 set global cdb_recycle_bin_enabled=off;
 
-connect (con_tencentroot_slave, localhost, tencentroot,,,,$SLAVE_MYSOCK);
+connect (con_root_slave, localhost, root,,,,$SLAVE_MYSOCK);
 set global cdb_recycle_bin_enabled=on;
 
 --echo
@@ -62,14 +62,14 @@ show tables from __txsql_recycle_bin__;
 --echo #
 connection master;
 
-connection con_tencentroot_slave;
+connection con_root_slave;
 eval set global cdb_recycle_bin_enabled=$cdb_recycle_bin_enabled_default;
 
-connection con_tencentroot_master;
+connection con_root_master;
 eval set global cdb_recycle_bin_enabled=$cdb_recycle_bin_enabled_default;
 
 --source include/sync_slave_sql_with_master.inc
 --source include/rpl_end.inc
 
-disconnect con_tencentroot_master;
-disconnect con_tencentroot_slave;
+disconnect con_root_master;
+disconnect con_root_slave;

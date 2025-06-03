@@ -14,7 +14,6 @@
 # Reference: WL#10957
 ###############################################################################
 
---source include/have_tdsql_root.inc
 # Save initial value
 --let $saved_binlog_encryption= `SELECT @@global.binlog_encryption`
 

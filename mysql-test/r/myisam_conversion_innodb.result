@@ -204,7 +204,7 @@ t2	CREATE TABLE `t2` (
   `col1` int NOT NULL AUTO_INCREMENT,
   `col2` varchar(30) NOT NULL,
   PRIMARY KEY (`col1`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 CREATE TABLE t3 (
 col1 varchar(250) NOT NULL PRIMARY KEY
 )ENGINE=MyISAM;
@@ -213,7 +213,7 @@ Table	Create Table
 t3	CREATE TABLE `t3` (
   `col1` varchar(250) NOT NULL,
   PRIMARY KEY (`col1`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 "myisam_conversion_innodb=ON & connection con_root"
 ALTER TABLE t1 ENGINE=MyISAM;
 SHOW CREATE TABLE t1;
@@ -251,22 +251,26 @@ CREATE TABLE t2 (
 col1 int NOT NULL AUTO_INCREMENT PRIMARY KEY,
 col2 varchar(30) NOT NULL
 )ENGINE=MyISAM;
+Warnings:
+Warning	1266	Using storage engine InnoDB for table 't2'
 SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `col1` int NOT NULL AUTO_INCREMENT,
   `col2` varchar(30) NOT NULL,
   PRIMARY KEY (`col1`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 CREATE TABLE t3 (
 col1 varchar(250) NOT NULL PRIMARY KEY
 )ENGINE=MyISAM;
+Warnings:
+Warning	1266	Using storage engine InnoDB for table 't3'
 SHOW CREATE TABLE t3;
 Table	Create Table
 t3	CREATE TABLE `t3` (
   `col1` varchar(250) NOT NULL,
   PRIMARY KEY (`col1`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 "connection con_root & myisam_conversion_innodb=WARN"
 ALTER TABLE t1 ENGINE=MyISAM;
 Warnings:
@@ -316,7 +320,7 @@ t2	CREATE TABLE `t2` (
   `col1` int NOT NULL AUTO_INCREMENT,
   `col2` varchar(30) NOT NULL,
   PRIMARY KEY (`col1`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 CREATE TABLE t3 (
 col1 varchar(250) NOT NULL PRIMARY KEY
 )ENGINE=MyISAM;
@@ -325,11 +329,14 @@ Table	Create Table
 t3	CREATE TABLE `t3` (
   `col1` varchar(250) NOT NULL,
   PRIMARY KEY (`col1`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 CREATE TABLE t4 (
 col1 int NOT NULL AUTO_INCREMENT PRIMARY KEY,
 col2 varchar(30) NOT NULL
 )ENGINE=MyISAM ROW_FORMAT=FIXED;
+Warnings:
+Warning	1478	InnoDB: invalid ROW_FORMAT specifier.
+Error	1031	Table storage engine for 't4' doesn't have this option
 SHOW CREATE TABLE t4;
 Table	Create Table
 t4	CREATE TABLE `t4` (
@@ -394,7 +401,7 @@ t2	CREATE TABLE `t2` (
   `col1` int NOT NULL AUTO_INCREMENT,
   `col2` varchar(30) NOT NULL,
   PRIMARY KEY (`col1`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 DROP TABLE IF EXISTS t1,t2;
 "tencent_myisam_conversion_innodb=ON & connection con_root"
 SET GLOBAL tencent_myisam_conversion_innodb=ON;
@@ -423,7 +430,7 @@ t2	CREATE TABLE `t2` (
 CREATE TABLE t3 (
 col1 varchar(4768) NOT NULL PRIMARY KEY
 )ENGINE=MyISAM;
-ERROR 42000: Specified key was too long; max key length is 3072 bytes
+ERROR 42000: Specified key was too long; max key length is 1000 bytes
 DROP TABLE IF EXISTS t1,t2;
 "tencent_myisam_conversion_innodb=WARN & connection con_root"
 SET GLOBAL tencent_myisam_conversion_innodb=WARN;
@@ -442,8 +449,6 @@ CREATE TABLE t2 (
 col1 int NOT NULL AUTO_INCREMENT PRIMARY KEY,
 col2 varchar(30) NOT NULL
 )ENGINE=MyISAM;
-Warnings:
-Warning	1266	Using storage engine InnoDB for table 't2'
 SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
@@ -454,7 +459,7 @@ t2	CREATE TABLE `t2` (
 CREATE TABLE t3 (
 col1 varchar(4768) NOT NULL PRIMARY KEY
 )ENGINE=MyISAM;
-ERROR 42000: Specified key was too long; max key length is 3072 bytes
+ERROR 42000: Specified key was too long; max key length is 1000 bytes
 DROP TABLE IF EXISTS t1,t2;
 "tencent_myisam_conversion_innodb=TRY & connection con_root"
 SET GLOBAL tencent_myisam_conversion_innodb=TRY;
@@ -525,7 +530,7 @@ t1	CREATE TABLE `t1` (
   `col1` int NOT NULL AUTO_INCREMENT,
   `col2` varchar(30) NOT NULL,
   PRIMARY KEY (`col1`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 CREATE TABLE t2 (
 col1 int NOT NULL AUTO_INCREMENT PRIMARY KEY,
 col2 varchar(30) NOT NULL
@@ -536,7 +541,7 @@ t2	CREATE TABLE `t2` (
   `col1` int NOT NULL AUTO_INCREMENT,
   `col2` varchar(30) NOT NULL,
   PRIMARY KEY (`col1`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 ALTER TABLE t2 ENGINE=MyISAM;
 SHOW CREATE TABLE t2;
 Table	Create Table
@@ -544,7 +549,7 @@ t2	CREATE TABLE `t2` (
   `col1` int NOT NULL AUTO_INCREMENT,
   `col2` varchar(30) NOT NULL,
   PRIMARY KEY (`col1`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 DROP TABLE IF EXISTS t1,t2;
 "---------- alter table tencent_myisam_conversion_innodb=WARN -----------------"
 "tencent_myisam_conversion_innodb=OFF & connection con_root"
@@ -570,7 +575,7 @@ t2	CREATE TABLE `t2` (
   `col1` int NOT NULL AUTO_INCREMENT,
   `col2` varchar(30) NOT NULL,
   PRIMARY KEY (`col1`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 CREATE TABLE t3 (
 col1 varchar(250) NOT NULL PRIMARY KEY
 )ENGINE=MyISAM;
@@ -579,7 +584,7 @@ Table	Create Table
 t3	CREATE TABLE `t3` (
   `col1` varchar(250) NOT NULL,
   PRIMARY KEY (`col1`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 "tencent_myisam_conversion_innodb=ON & connection con_root"
 SET GLOBAL tencent_myisam_conversion_innodb=ON;
 ALTER TABLE t1 ENGINE=MyISAM;
@@ -629,7 +634,7 @@ t2	CREATE TABLE `t2` (
   `col1` int NOT NULL AUTO_INCREMENT,
   `col2` varchar(30) NOT NULL,
   PRIMARY KEY (`col1`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 CREATE TABLE t3 (
 col1 varchar(250) NOT NULL PRIMARY KEY
 )ENGINE=MyISAM;
@@ -638,12 +643,10 @@ Table	Create Table
 t3	CREATE TABLE `t3` (
   `col1` varchar(250) NOT NULL,
   PRIMARY KEY (`col1`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 "tencent_myisam_conversion_innodb=WARN & connection con_root"
 SET GLOBAL tencent_myisam_conversion_innodb=WARN;
 ALTER TABLE t1 ENGINE=MyISAM;
-Warnings:
-Warning	1266	Using storage engine InnoDB for table 't1'
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
@@ -652,8 +655,6 @@ t1	CREATE TABLE `t1` (
   PRIMARY KEY (`col1`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 ALTER TABLE t2 ENGINE=MyISAM;
-Warnings:
-Warning	1266	Using storage engine InnoDB for table 't2'
 SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
@@ -662,8 +663,6 @@ t2	CREATE TABLE `t2` (
   PRIMARY KEY (`col1`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 ALTER TABLE t3 ENGINE=MyISAM;
-Warnings:
-Warning	1266	Using storage engine InnoDB for table 't3'
 DROP TABLE IF EXISTS t1,t2,t3;
 "----------alter table tencent_myisam_conversion_innodb=TRY-----------------"
 "tencent_myisam_conversion_innodb=OFF & connection con_root"
@@ -689,7 +688,7 @@ t2	CREATE TABLE `t2` (
   `col1` int NOT NULL AUTO_INCREMENT,
   `col2` varchar(30) NOT NULL,
   PRIMARY KEY (`col1`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 CREATE TABLE t3 (
 col1 varchar(250) NOT NULL PRIMARY KEY
 )ENGINE=MyISAM;
@@ -698,11 +697,14 @@ Table	Create Table
 t3	CREATE TABLE `t3` (
   `col1` varchar(250) NOT NULL,
   PRIMARY KEY (`col1`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 CREATE TABLE t4 (
 col1 int NOT NULL AUTO_INCREMENT PRIMARY KEY,
 col2 varchar(30) NOT NULL
 )ENGINE=MyISAM ROW_FORMAT=FIXED;
+Warnings:
+Warning	1478	InnoDB: invalid ROW_FORMAT specifier.
+Error	1031	Table storage engine for 't4' doesn't have this option
 SHOW CREATE TABLE t4;
 Table	Create Table
 t4	CREATE TABLE `t4` (
@@ -775,7 +777,7 @@ t2	CREATE TABLE `t2` (
   `col1` int NOT NULL AUTO_INCREMENT,
   `col2` varchar(30) NOT NULL,
   PRIMARY KEY (`col1`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 CREATE TABLE t3 (
 col1 int NOT NULL AUTO_INCREMENT PRIMARY KEY,
 col2 varchar(30) NOT NULL

@@ -10124,15 +10124,10 @@ void mysql_convert_table_myisam_to_innodb(THD *thd, const char *type,
         type, db, table);
   } else if (db_type && db_type->db_type == DB_TYPE_MYISAM &&
              strcasecmp(db, "mysql")) {
-    ulong tmp_myisam_conversion_innodb;
+    ulong tmp_myisam_conversion_innodb = opt_myisam_conversion_innodb;
     String print_prefix;
-    if (thd_system_privilege(thd)) {
-      tmp_myisam_conversion_innodb = opt_tencent_myisam_conversion_innodb;
-      print_prefix.append("tencent_myisam_conversion_innodb[");
-    } else {
-      tmp_myisam_conversion_innodb = opt_myisam_conversion_innodb;
-      print_prefix.append("myisam_conversion_innodb[");
-    }
+    tmp_myisam_conversion_innodb = opt_myisam_conversion_innodb;
+    print_prefix.append("myisam_conversion_innodb[");
     print_prefix.append(
         myisam_conversion_innodb_names[tmp_myisam_conversion_innodb]);
     print_prefix.append("]");

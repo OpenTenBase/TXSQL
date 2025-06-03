@@ -1,12 +1,2 @@
-connect (con_tencentroot_master, localhost, tencentroot,,,,$MASTER_MYSOCK);
-set global cdb_forbid_mysql_write = on;
-set global cdb_forbid_system_database_write = on;
-
---connection default
 create sequence seq;
-
 drop sequence seq;
-
---connection con_tencentroot_master
-set global cdb_forbid_mysql_write = default;
-set global cdb_forbid_system_database_write = default;

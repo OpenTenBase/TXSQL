@@ -44,14 +44,14 @@ while ($table_count <= $table_limit)
 let $con_count= 0;
 while ($con_count < $con_limit)
 {
-  connect(conn_tencentroot$con_count,localhost,tencentroot,,);
+  connect(conn_root$con_count,localhost,root,,);
   inc $con_count;
 }
-connect (conn_tencentroot_slave, 127.0.0.1, tencentroot, ,, $SLAVE_MYPORT,);
+connect (conn_root_slave, 127.0.0.1, root, ,, $SLAVE_MYPORT,);
 
 --echo #
 --echo # step3. save some of variables value
-connection conn_tencentroot_slave;
+connection conn_root_slave;
 let $base_cdb_hash_scan_max_agg_event_size_saved=`select @@cdb_hash_scan_max_agg_event_size`;
 let $base_slave_rows_search_algorithms_saved=`select @@slave_rows_search_algorithms`;
 
@@ -70,7 +70,7 @@ while ($iteration < $target)
   let $con_count= 0;
   while ($con_count < $con_limit)
   {
-    connection conn_tencentroot$con_count;
+    connection conn_root$con_count;
     let $table_sel=`select ($con_count%$table_limit)+1`;
     let $query= insert into t$table_sel value ($global_id, '$global_id');
     inc $global_id;
@@ -88,7 +88,7 @@ while ($iteration < $target)
   let $con_count= 0;
   while ($con_count < $con_limit)
   {
-    connection conn_tencentroot$con_count;
+    connection conn_root$con_count;
     reap;
     inc $con_count;
   }
@@ -145,11 +145,11 @@ while ($table_count <= $table_limit)
 let $con_count= 0;
 while ($con_count < $con_limit)
 {
-  disconnect conn_tencentroot$con_count;
+  disconnect conn_root$con_count;
   inc $con_count;
 }
 --sync_slave_with_master
-connection conn_tencentroot_slave;
+connection conn_root_slave;
 eval set global cdb_hash_scan_max_agg_event_size=$base_cdb_hash_scan_max_agg_event_size_saved;
 eval set global slave_rows_search_algorithms='$base_slave_rows_search_algorithms_saved';
 

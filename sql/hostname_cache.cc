@@ -686,6 +686,69 @@ int ip_to_hostname(struct sockaddr_storage *ip_storage, const char *ip_string,
     free_addr_info_list = false;
   });
 
+  DBUG_EXECUTE_IF("getaddrinfo_fake_bad_ipv4", {
+    if (free_addr_info_list) freeaddrinfo(addr_info_list);
+
+    struct sockaddr_in *debug_addr;
+    /*
+      Not thread safe, which is ok.
+      Only one connection at a time is tested with
+      fault injection.
+    */
+    static struct sockaddr_in debug_sock_addr[2];
+    static struct addrinfo debug_addr_info[2];
+    /* Simulating ipv4 192.0.2.126 */
+    debug_addr = &debug_sock_addr[0];
+    debug_addr->sin_family = AF_INET;
+    debug_addr->sin_addr.s_addr = inet_addr("192.0.2.126");
+
+    /* Simulating ipv4 192.0.2.127 */
+    debug_addr = &debug_sock_addr[1];
+    debug_addr->sin_family = AF_INET;
+    debug_addr->sin_addr.s_addr = inet_addr("192.0.2.127");
+
+    debug_addr_info[0].ai_addr = (struct sockaddr *)&debug_sock_addr[0];
+    debug_addr_info[0].ai_addrlen = sizeof(struct sockaddr_in);
+    debug_addr_info[0].ai_next = &debug_addr_info[1];
+
+    debug_addr_info[1].ai_addr = (struct sockaddr *)&debug_sock_addr[1];
+    debug_addr_info[1].ai_addrlen = sizeof(struct sockaddr_in);
+    debug_addr_info[1].ai_next = nullptr;
+
+    addr_info_list = &debug_addr_info[0];
+    err_code = 0;
+    free_addr_info_list = false;
+  });
+
+  DBUG_EXECUTE_IF("getaddrinfo_fake_good_ipv4", {
+    if (free_addr_info_list) freeaddrinfo(addr_info_list);
+
+    struct sockaddr_in *debug_addr;
+    static struct sockaddr_in debug_sock_addr[2];
+    static struct addrinfo debug_addr_info[2];
+    /* Simulating ipv4 192.0.2.5 */
+    debug_addr = &debug_sock_addr[0];
+    debug_addr->sin_family = AF_INET;
+    debug_addr->sin_addr.s_addr = inet_addr("192.0.2.5");
+
+    /* Simulating ipv4 192.0.2.4 */
+    debug_addr = &debug_sock_addr[1];
+    debug_addr->sin_family = AF_INET;
+    debug_addr->sin_addr.s_addr = inet_addr("192.0.2.4");
+
+    debug_addr_info[0].ai_addr = (struct sockaddr *)&debug_sock_addr[0];
+    debug_addr_info[0].ai_addrlen = sizeof(struct sockaddr_in);
+    debug_addr_info[0].ai_next = &debug_addr_info[1];
+
+    debug_addr_info[1].ai_addr = (struct sockaddr *)&debug_sock_addr[1];
+    debug_addr_info[1].ai_addrlen = sizeof(struct sockaddr_in);
+    debug_addr_info[1].ai_next = nullptr;
+
+    addr_info_list = &debug_addr_info[0];
+    err_code = 0;
+    free_addr_info_list = false;
+  });
+
   DBUG_EXECUTE_IF("getaddrinfo_fake_bad_ipv6", {
     if (free_addr_info_list) freeaddrinfo(addr_info_list);
 

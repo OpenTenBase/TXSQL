@@ -11,6 +11,7 @@ echo $mysql_errno before test;
 echo $mysql_errname before test;
 
 -- source include/have_log_bin.inc
+-- source include/pq_dop_1.inc
 
 # This test uses chmod, can't be run with root permissions
 -- source include/not_as_root.inc
@@ -5060,4 +5061,5 @@ while ($counter)
 EOF
 --error 1
 --exec $MYSQL_TEST -x $MYSQLTEST_VARDIR/tmp/myt_assert4.test 2>&1
+-- source include/pq_reset_dop.inc
 --remove_file $MYSQLTEST_VARDIR/tmp/myt_assert4.test

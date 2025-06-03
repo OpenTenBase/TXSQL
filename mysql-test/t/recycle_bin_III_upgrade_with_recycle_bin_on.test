@@ -3,7 +3,7 @@
 --echo # Test recycle bin compatibility after upgrading from 8022
 --echo #
 
-connect (con_tencentroot, localhost, tencentroot,'', );
+connect (con_root, localhost, root,'', );
 
 let BASEDIR=    `select @@basedir`;
 let extra_args= --no-defaults --innodb_dedicated_server=OFF --secure-file-priv="" --loose-skip-auto_generate_certs --loose-skip-sha256_password_auto_generate_rsa_keys --skip-ssl --basedir=$BASEDIR --lc-messages-dir=$MYSQL_SHAREDIR;
@@ -15,7 +15,7 @@ let extra_args= --no-defaults --innodb_dedicated_server=OFF --secure-file-priv="
 --echo # Stop the running server.
 --exec echo "wait" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
 --shutdown_server 300
---connection con_tencentroot
+--connection con_root
 --source include/wait_until_disconnected.inc
 --echo # Unzip a 8.0.22 datadir
 --file_exists $MYSQLTEST_VARDIR/std_data/recycle_bin/8022_without_cdb_recycle_bin.zip

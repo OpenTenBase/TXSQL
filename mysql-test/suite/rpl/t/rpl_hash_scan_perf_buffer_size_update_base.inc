@@ -1,9 +1,9 @@
 
 --echo # update a column
 
-connection conn_tencentroot0;
+connection conn_root0;
 eval update t1 set a=repeat($update_str, 650);
-connection conn_tencentroot1;
+connection conn_root1;
 eval update t2 set a=repeat($update_str, 650);
 
 --echo # on slave

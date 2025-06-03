@@ -125,6 +125,9 @@ class Worker_thread_context {
   Attach/associate the connection with the OS thread,
 */
 static bool thread_attach(THD *thd) {
+#ifndef NDEBUG
+  set_mysys_thread_var(thd->mysys_var);
+#endif
   thd->thread_stack = (char *)&thd;
   thd->store_globals();
 #ifdef HAVE_PSI_THREAD_INTERFACE
@@ -164,6 +167,11 @@ int threadpool_add_connection(THD *thd) {
 #endif
 
   my_thread_init();
+
+#ifndef NDEBUG
+  thd->mysys_var = mysys_thread_var();
+  if (!thd->mysys_var) goto end;
+#endif
 
   /* Create new PSI thread for use with the THD. */
 #ifdef HAVE_PSI_THREAD_INTERFACE
@@ -259,6 +267,9 @@ bool threadpool_process_request_prepare(THD *thd) {
   set_mysys_thread_var(nullptr);
 #endif
   my_thread_init();
+#ifndef NDEBUG
+  thd->mysys_var = mysys_thread_var();
+#endif
 
 #ifdef HAVE_PSI_THREAD_INTERFACE
   thd->set_psi(PSI_THREAD_CALL(new_thread)(key_thread_one_connection,

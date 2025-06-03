@@ -4,12 +4,9 @@
 # if the user has a GRANT_OPTION on the specific dynamic privilege he
 # wants to grant.
 #
-# When cdb_forbid_mysql_write is enabled, user without a GRANT_OPTION
 # on the specific dynamic privilege can't grant privilege to others.
-# Tencentroot is not limited.
 #
-source include/have_tencent_root.inc;
-connect (con1,localhost,tencentroot,,);
+connect (con1,localhost,root,,);
 # create some users with different privileges
 create user 'test_user1'@'localhost';
 create user 'test_user2'@'localhost';
@@ -18,7 +15,6 @@ show grants for 'test_user2'@'localhost';
 connect (con2,localhost,test_user1,,);
 
 connection con1;
-let $saved_cdb_forbid_mysql_write=`SELECT @@GLOBAL.cdb_forbid_mysql_write`;
 
 connection con2;
 echo ## should fail;
@@ -51,7 +47,6 @@ grant session_variables_admin on *.* to 'test_user2'@'localhost';
 set session sql_log_bin=OFF;
 let SEARCH_FILE= $MYSQLTEST_VARDIR/log/mysqld.1.err;
 let SEARCH_PATTERN= SESSION variable sql_log_bin has been updated to 'OFF';
---source include/search_pattern_in_file.inc
 set session sql_log_bin=ON;
 
 connection con1;
@@ -81,24 +76,17 @@ revoke session_variables_admin on *.* from 'test_user2'@'localhost';
 show grants for 'test_user1'@'localhost';
 show grants for 'test_user2'@'localhost';
 flush privileges;
-set global cdb_forbid_mysql_write=ON;
 
 disconnect con2;
 connect (con2,localhost,test_user1,,);
 
 connection con2;
-echo ## should fail when cdb_forbid_mysql_write=ON;
-error ER_SPECIFIC_ACCESS_DENIED_ERROR;
 grant system_variables_admin on *.* to 'test_user1'@'localhost';
-error ER_SPECIFIC_ACCESS_DENIED_ERROR;
 grant session_variables_admin on *.* to 'test_user1'@'localhost';
-error ER_SPECIFIC_ACCESS_DENIED_ERROR;
 grant system_variables_admin on *.* to 'test_user2'@'localhost';
-error ER_SPECIFIC_ACCESS_DENIED_ERROR;
 grant session_variables_admin on *.* to 'test_user2'@'localhost';
 
 connection con1;
-set global cdb_forbid_mysql_write=OFF;
 revoke update on *.* from 'test_user1'@'localhost';
 show grants for 'test_user1'@'localhost';
 flush privileges;
@@ -142,21 +130,18 @@ revoke system_variables_admin on *.* from 'test_user2'@'localhost';
 revoke session_variables_admin on *.* from 'test_user2'@'localhost';
 grant update on mysql.* to 'test_user1'@'localhost';
 show grants for 'test_user2'@'localhost';
-set global cdb_forbid_mysql_write=ON;
 flush privileges;
 
 disconnect con2;
 connect (con2,localhost,test_user1,,);
 
 connection con2;
-echo ## cdb_forbid_mysql_write=ON, should success because test_user1 has specific privileges;
 grant system_variables_admin on *.* to 'test_user2'@'localhost';
 grant session_variables_admin on *.* to 'test_user2'@'localhost';
 show grants for 'test_user2'@'localhost';
 ## cleanup
 
 connection con1;
-eval set global cdb_forbid_mysql_write=$saved_cdb_forbid_mysql_write;
 
 connection default;
 

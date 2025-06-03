@@ -1,16 +1,17 @@
-=== check the system variabels for tencentroot only ===
+create user 'testuser'@'localhost';
+=== check the system variabels for root only ===
 select @@innodb_async_drop_tmp_dir;
-@@innodb_async_drop_tmp_dir
-NULL
+ERROR 42000: Access denied; you need (at least one of) the SENSITIVE_VARIABLES_OBSERVER privilege(s) for this operation
 set global innodb_async_drop_tmp_dir= @@global.datadir;
-ERROR HY000: Unknown system variable 'innodb_async_drop_tmp_dir'
+ERROR 42000: Access denied; you need (at least one of) the SENSITIVE_VARIABLES_OBSERVER privilege(s) for this operation
 set global innodb_table_drop_mode= 'async_drop';
-ERROR HY000: Unknown system variable 'innodb_table_drop_mode'
+ERROR 42000: Access denied; you need (at least one of) the SENSITIVE_VARIABLES_OBSERVER privilege(s) for this operation
 set global innodb_async_truncate_size = 256;
-ERROR HY000: Unknown system variable 'innodb_async_truncate_size'
+ERROR 42000: Access denied; you need (at least one of) the SENSITIVE_VARIABLES_OBSERVER privilege(s) for this operation
 set global innodb_async_table_size = 4096;
-ERROR HY000: Unknown system variable 'innodb_async_table_size'
-#connect user=tencentroot
+ERROR 42000: Access denied; you need (at least one of) the SENSITIVE_VARIABLES_OBSERVER privilege(s) for this operation
+#connect user=root
+drop user 'testuser'@'localhost';
 set session innodb_async_drop_tmp_dir= @@global.datadir;
 ERROR HY000: Variable 'innodb_async_drop_tmp_dir' is a GLOBAL variable and should be set with SET GLOBAL
 == now try to check table with small size ==
@@ -105,10 +106,8 @@ no .trh
 === now check async table status ===
 show status like "%async_drop_table%counts%";
 Variable_name	Value
-Txsql_async_drop_table_async_truncate_counts	4
-Txsql_async_drop_table_counts	4
 === now check adding orphaned trash file when start ===
-# restart:--tencent-root-cnf=tmy.conf --innodb-table-drop-mode=async_drop --innodb-async-drop-tmp-dir=DROP_TMPDIR
+# restart: --innodb-table-drop-mode=async_drop --innodb-async-drop-tmp-dir=DROP_TMPDIR
 here should NOT see trash file
 no .trh
 === now check adding left trash file when set innodb_async_drop_tmp_dir to new dir ===

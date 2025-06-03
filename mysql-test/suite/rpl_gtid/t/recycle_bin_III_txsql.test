@@ -7,12 +7,12 @@
 --echo #  Prepare
 --echo #
 
-connect (con_tencentroot_master, localhost, tencentroot,,,,$MASTER_MYSOCK);
+connect (con_root_master, localhost, root,,,,$MASTER_MYSOCK);
 --let $txsql_recycle_bin_enabled_default= `select @@txsql_recycle_bin_enabled`
 --echo # open recycle bin on master
 set global txsql_recycle_bin_enabled = on;
 
-connect (con_tencentroot_slave, localhost, tencentroot,,,,$SLAVE_MYSOCK);
+connect (con_root_slave, localhost, root,,,,$SLAVE_MYSOCK);
 --echo # open recycle bin on slave
 set global txsql_recycle_bin_enabled = on;
 
@@ -28,10 +28,10 @@ set global txsql_recycle_bin_enabled = on;
 --echo # case1.1. clear table while the txsql_recycle_bin_enable of slave is off
 --echo #
 
---connection con_tencentroot_slave
+--connection con_root_slave
 set global txsql_recycle_bin_enabled= off;
 
---connection con_tencentroot_master
+--connection con_root_master
 
 CREATE DATABASE test_recycle_bin;
 use test_recycle_bin;
@@ -58,14 +58,14 @@ show tables from __txsql_recycle_bin__;
 show recycle_bin;
 
 --sync_slave_with_master
---connection con_tencentroot_slave
+--connection con_root_slave
 
 --replace_column 1 #
 show tables from __txsql_recycle_bin__;
 --replace_column 3 # 4 # 5 #
 show recycle_bin;
 
---connection con_tencentroot_master
+--connection con_root_master
 
 clear recycle_bin test_recycle_bin.zz;
 
@@ -83,14 +83,14 @@ show tables from __txsql_recycle_bin__;
 show recycle_bin;
 
 --sync_slave_with_master
---connection con_tencentroot_slave
+--connection con_root_slave
 
 --replace_column 1 #
 show tables from __txsql_recycle_bin__;
 --replace_column 3 # 4 # 5 #
 show recycle_bin;
 
---connection con_tencentroot_master
+--connection con_root_master
 
 # clear all.
 clear recycle_bin;
@@ -101,7 +101,7 @@ show tables from __txsql_recycle_bin__;
 show recycle_bin;
 
 --sync_slave_with_master
---connection con_tencentroot_slave
+--connection con_root_slave
 
 --replace_column 1 #
 show tables from __txsql_recycle_bin__;
@@ -112,9 +112,9 @@ show recycle_bin;
 --echo # case1.2. clear table while the txsql_recycle_bin_enable of slave is on
 --echo #
 
---connection con_tencentroot_slave
+--connection con_root_slave
 set global txsql_recycle_bin_enabled= off;
---connection con_tencentroot_master
+--connection con_root_master
 
 CREATE DATABASE test_recycle_bin;
 use test_recycle_bin;
@@ -141,14 +141,14 @@ show tables from __txsql_recycle_bin__;
 show recycle_bin;
 
 --sync_slave_with_master
---connection con_tencentroot_slave
+--connection con_root_slave
 
 --replace_column 1 #
 show tables from __txsql_recycle_bin__;
 --replace_column 3 # 4 # 5 #
 show recycle_bin;
 
---connection con_tencentroot_master
+--connection con_root_master
 
 clear recycle_bin test_recycle_bin.zz;
 
@@ -166,14 +166,14 @@ show tables from __txsql_recycle_bin__;
 show recycle_bin;
 
 --sync_slave_with_master
---connection con_tencentroot_slave
+--connection con_root_slave
 
 --replace_column 1 #
 show tables from __txsql_recycle_bin__;
 --replace_column 3 # 4 # 5 #
 show recycle_bin;
 
---connection con_tencentroot_master
+--connection con_root_master
 
 # clear all.
 clear recycle_bin;
@@ -184,7 +184,7 @@ show tables from __txsql_recycle_bin__;
 show recycle_bin;
 
 --sync_slave_with_master
---connection con_tencentroot_slave
+--connection con_root_slave
 
 --replace_column 1 #
 show tables from __txsql_recycle_bin__;
@@ -199,9 +199,9 @@ show recycle_bin;
 --echo # case2.1. restore table while the txsql_recycle_bin_enable of slave is off
 --echo #
 
---connection con_tencentroot_slave
+--connection con_root_slave
 set global txsql_recycle_bin_enabled= off;
---connection con_tencentroot_master
+--connection con_root_master
 
 CREATE DATABASE test_recycle_bin;
 use test_recycle_bin;
@@ -256,13 +256,13 @@ show tables from __txsql_recycle_bin__;
 show recycle_bin;
 
 --sync_slave_with_master
---connection con_tencentroot_slave
+--connection con_root_slave
 
 --replace_column 1 #
 show tables from __txsql_recycle_bin__;
 --replace_column 3 # 4 # 5 #
 show recycle_bin;
---connection con_tencentroot_master
+--connection con_root_master
 
 --error ER_RECYCLE_BIN_DUPLICATE_TABLE
 restore database test_recycle_bin from recycle_bin;
@@ -284,13 +284,13 @@ show tables from __txsql_recycle_bin__;
 show recycle_bin;
 
 --sync_slave_with_master
---connection con_tencentroot_slave
+--connection con_root_slave
 
 --replace_column 1 #
 show tables from __txsql_recycle_bin__;
 --replace_column 3 # 4 # 5 #
 show recycle_bin;
---connection con_tencentroot_master
+--connection con_root_master
 
 drop database test_recycle_bin;
 clear recycle_bin;
@@ -299,9 +299,9 @@ clear recycle_bin;
 --echo # case2.2. restore table while the txsql_recycle_bin_enable of slave is on
 --echo #
 
---connection con_tencentroot_slave
+--connection con_root_slave
 set global txsql_recycle_bin_enabled= on;
---connection con_tencentroot_master
+--connection con_root_master
 
 CREATE DATABASE test_recycle_bin;
 use test_recycle_bin;
@@ -357,13 +357,13 @@ show tables from __txsql_recycle_bin__;
 show recycle_bin;
 
 --sync_slave_with_master
---connection con_tencentroot_slave
+--connection con_root_slave
 
 --replace_column 1 #
 show tables from __txsql_recycle_bin__;
 --replace_column 3 # 4 # 5 #
 show recycle_bin;
---connection con_tencentroot_master
+--connection con_root_master
 
 --error ER_RECYCLE_BIN_DUPLICATE_TABLE
 restore database test_recycle_bin from recycle_bin;
@@ -386,13 +386,13 @@ show tables from __txsql_recycle_bin__;
 show recycle_bin;
 
 --sync_slave_with_master
---connection con_tencentroot_slave
+--connection con_root_slave
 
 --replace_column 1 #
 show tables from __txsql_recycle_bin__;
 --replace_column 3 # 4 # 5 #
 show recycle_bin;
---connection con_tencentroot_master
+--connection con_root_master
 
 drop database test_recycle_bin;
 clear recycle_bin;
@@ -400,7 +400,7 @@ clear recycle_bin;
 --echo #
 --echo # case3. Test recycle_bin_max_size and recycle_bin_drop_if_exceed_limit
 --echo #
---connection con_tencentroot_master
+--connection con_root_master
 use test;
 create table aa(a int);
 create table bb(a int);
@@ -426,13 +426,13 @@ show tables from __txsql_recycle_bin__;
 show recycle_bin;
 
 --sync_slave_with_master
---connection con_tencentroot_slave
+--connection con_root_slave
 
 --replace_column 1 #
 show tables from __txsql_recycle_bin__;
 --replace_column 3 # 4 # 5 #
 show recycle_bin;
---connection con_tencentroot_master
+--connection con_root_master
 
 --echo #
 --echo # case4. Test recycle sequence
@@ -444,18 +444,18 @@ create tdsql_sequence sb_seq;
 select sb_seq.nextval;
 
 --sync_slave_with_master
---connection con_tencentroot_slave
+--connection con_root_slave
 --replace_regex /.*__recycle_bin__db_a/__recycle_bin__db_a/
 select * from mysql.tdsql_sequences;
---connection con_tencentroot_master
+--connection con_root_master
 
 drop database db_a;
 
 --sync_slave_with_master
---connection con_tencentroot_slave
+--connection con_root_slave
 --replace_regex /.*__recycle_bin__db_a/__recycle_bin__db_a/
 select * from mysql.tdsql_sequences;
---connection con_tencentroot_master
+--connection con_root_master
 
 create database db_a;
 restore database db_a from RECYCLE_BIN;
@@ -463,12 +463,12 @@ use db_a;
 select sb_seq.nextval;
 
 --sync_slave_with_master
---connection con_tencentroot_slave
+--connection con_root_slave
 --replace_regex /.*__recycle_bin__db_a/__recycle_bin__db_a/
 select * from mysql.tdsql_sequences;
 use db_a;
 select sb_seq.nextval;
---connection con_tencentroot_master
+--connection con_root_master
 
 drop database db_a;
 clear recycle_bin;
@@ -476,7 +476,7 @@ clear recycle_bin;
 --echo #
 --echo # case5. Test recycle function and procedure
 --echo #
---connection con_tencentroot_master
+--connection con_root_master
 create database db_a;
 use db_a;
 
@@ -494,13 +494,11 @@ restore database db_a from RECYCLE_BIN;
 select hello("wx2");
 
 --sync_slave_with_master
---connection con_tencentroot_slave
+--connection con_root_slave
 use db_a;
-set allow_access_dd_tables=on;
-select * from mysql.routines where name like '%hello%';
 --error ER_SP_DOES_NOT_EXIST
 select hello("wx2");
---connection con_tencentroot_master
+--connection con_root_master
 
 drop database db_a;
 clear recycle_bin;
@@ -532,11 +530,11 @@ use db_a;
 call p1();
 
 --sync_slave_with_master
---connection con_tencentroot_slave
+--connection con_root_slave
 use db_a;
 --error ER_SP_DOES_NOT_EXIST
 call p1();
---connection con_tencentroot_master
+--connection con_root_master
 
 drop database db_a;
 clear recycle_bin;
@@ -545,7 +543,7 @@ clear recycle_bin;
 --echo # case6. Test drop table if exists
 --echo #
 
---connection con_tencentroot_master
+--connection con_root_master
 
 CREATE DATABASE test_recycle_bin;
 use test_recycle_bin;
@@ -561,14 +559,14 @@ show tables from __txsql_recycle_bin__;
 show recycle_bin;
 
 --sync_slave_with_master
---connection con_tencentroot_slave
+--connection con_root_slave
 
 --replace_column 1 #
 show tables from __txsql_recycle_bin__;
 --replace_column 3 # 4 # 5 #
 show recycle_bin;
 
---connection con_tencentroot_master
+--connection con_root_master
 drop database test_recycle_bin;
 clear recycle_bin;
 
@@ -576,11 +574,11 @@ clear recycle_bin;
 --echo # Cleanup 
 --echo # 
 
---connection con_tencentroot_slave
+--connection con_root_slave
 --eval set global txsql_recycle_bin_enabled=$txsql_recycle_bin_enabled_default
 
 
---connection con_tencentroot_master
+--connection con_root_master
 --eval set global txsql_recycle_bin_enabled=$txsql_recycle_bin_enabled_default
 
 --source include/rpl_connection_master.inc

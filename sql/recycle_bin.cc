@@ -766,7 +766,8 @@ bool deny_access_recycle_bin_schema(THD *thd, TABLE_LIST *all_tables) {
     Allow binlog relative thread user to access the
     recycle bin.
   */
-  if (thd->is_system_thread())
+  if (thd->is_system_thread() ||
+      thd->security_context()->check_access(SUPER_ACL))
     return false;
 
   /*

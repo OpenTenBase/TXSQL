@@ -1,4 +1,4 @@
-# restart:--tencent-root-cnf=tmy.conf
+# restart:
 SET @old_global_isolation= @@global.transaction_isolation;
 SET @old_session_isolation= @@session.transaction_isolation;
 SET GLOBAL TRANSACTION ISOLATION LEVEL READ COMMITTED;

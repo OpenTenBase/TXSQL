@@ -1,7 +1,7 @@
 --echo # ==============================================================
 --echo # Switch test
 
-connection conn_tencentroot_slave;
+connection conn_root_slave;
 let $slave_parallel_type_saved=`select @@slave_parallel_type`;
 let $slave_parallel_workers_saved=`select @@slave_parallel_workers`;
 let $cdb_hash_scan_max_agg_event_size_saved=`select @@cdb_hash_scan_max_agg_event_size`;
@@ -10,7 +10,7 @@ let $slave_rows_search_algorithms_saved=`select @@slave_rows_search_algorithms`;
 call mtr.add_suppression("The slave coordinator and worker threads are stopped, possibly leaving data in inconsistent state.");
 
 
-connection conn_tencentroot_slave;
+connection conn_root_slave;
 set global slave_rows_search_algorithms='INDEX_SCAN,TABLE_SCAN';
 set global cdb_hash_scan_max_agg_event_size=16384;
 STOP SLAVE SQL_THREAD;
@@ -20,10 +20,10 @@ set global slave_parallel_workers=2;
 start slave SQL_THREAD;
 source include/wait_for_slave_sql_to_start.inc;
 
-connection conn_tencentroot0;
+connection conn_root0;
 update t1 set a=repeat('b', 650);
 
-connection conn_tencentroot_slave;
+connection conn_root_slave;
 
 let $switch_count= 0;
 while ($switch_count < 15)
@@ -41,7 +41,7 @@ connection master;
 let $slave_sync_timeout = 86400;
 --source include/wait_for_slave_to_sync_with_master.inc
 
-connection conn_tencentroot0;
+connection conn_root0;
 update t1 set a=repeat('c', 650);
 
 let $slave_sync_timeout = 86400;
@@ -49,7 +49,7 @@ let $slave_sync_timeout = 86400;
 
 --echo #
 --echo # Switch test cleanup
-connection conn_tencentroot_slave;
+connection conn_root_slave;
 STOP SLAVE SQL_THREAD;
 source include/wait_for_slave_sql_to_stop.inc;
 eval set global slave_parallel_type='$slave_parallel_type_saved';

@@ -14,8 +14,8 @@ create table t1(
   key i_c(c)
 ) DEFAULT charset=latin1 engine= innodb;
 
---connect(conn_tencentroot,localhost,tencentroot,,)
---connect (conn_tencentroot_slave, 127.0.0.1, tencentroot, ,, $SLAVE_MYPORT,)
+--connect(conn_root,localhost,root,,)
+--connect (conn_root_slave, 127.0.0.1, root, ,, $SLAVE_MYPORT,)
 set global slave_rows_search_algorithms='INDEX_SCAN,HASH_SCAN';
 show variables like 'innodb_stats%';
 
@@ -49,7 +49,7 @@ commit;
 let $slave_sync_timeout= 86400;
 --source include/wait_for_slave_to_sync_with_master.inc
 
---connection conn_tencentroot
+--connection conn_root
 
 --echo # run ===================================================================
 ANALYZE table t1;
@@ -69,7 +69,7 @@ select count(*) from t1 where b=43 and c like 'b%' ;
 --connection master
 drop table if exists t1;
 
---connection conn_tencentroot_slave
+--connection conn_root_slave
 set global slave_rows_search_algorithms=default;
 
 --source include/rpl_end.inc

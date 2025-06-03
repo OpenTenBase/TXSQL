@@ -32,35 +32,35 @@ drop procedure p2;
 drop table t1;
 drop table threadpool;
 
-create table tencentroot(id int, c1 int);
-create table t1(tencentroot int, c1 int);
+create table root(id int, c1 int);
+create table t1(root int, c1 int);
 insert into t1 values (1,1);
-insert into tencentroot values (1,2);
+insert into root values (1,2);
 
 delimiter |;
 create procedure p1()
 begin
-  declare tencentroot int;
-  select max(t1.tencentroot) into tencentroot from t1;
+  declare root int;
+  select max(t1.root) into root from t1;
 end|
 delimiter ;|
 call p1();
 
-## tencentroot can't be used as unquoted SP label names
+## ascii can't be used as unquoted SP label names
 delimiter |;
 --error ER_PARSE_ERROR
 create procedure p2()
 begin
-tencentroot:loop
-  leave tencentroot;
-end loop tencentroot;
+ascii:loop
+  leave ascii;
+end loop ascii;
 end |
 
 create procedure p2()
 begin
-`tencentroot`:loop
-  leave `tencentroot`;
-end loop `tencentroot`;
+`ascii`:loop
+  leave `ascii`;
+end loop `ascii`;
 end |
 delimiter ;|
 call p2();
@@ -68,4 +68,4 @@ call p2();
 drop procedure p1;
 drop procedure p2;
 drop table t1;
-drop table tencentroot;
+drop table root;

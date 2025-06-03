@@ -3,8 +3,4 @@ call mtr.add_suppression("Failed to set up SSL because");
 call mtr.add_suppression("Failed to initialize TLS for channel: mysql_admin");
 CREATE USER 'user1'@'localhost';
 grant all privileges on *.* to 'user1'@'localhost';
-set global cdb_admin_port_allow_for_normal_user=on;
-set global cdb_admin_port_allow_for_normal_user=off;
-ERROR HY000: Ordinary users are not allowed to log in to admin_port.
-set global cdb_admin_port_allow_for_normal_user=1;
 drop user 'user1'@'localhost';

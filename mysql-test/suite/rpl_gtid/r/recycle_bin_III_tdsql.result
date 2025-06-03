@@ -78,13 +78,13 @@ test_recycle_bin	cc	#	#	#
 test_recycle_bin	dd	#	#	#
 clear recycle_bin test_recycle_bin.zz;
 Warnings:
-Warning	4203	No corresponding record was found in recycle_bin.
+Warning	4171	No corresponding record was found in recycle_bin.
 clear recycle_bin test_recycle_bin.aa before timestamp(DATE_SUB(NOW(), INTERVAL 10 DAY));
 Warnings:
-Warning	4203	No corresponding record was found in recycle_bin.
+Warning	4171	No corresponding record was found in recycle_bin.
 clear recycle_bin test_recycle_bin.aa before timestamp(DATE_SUB(NOW(), INTERVAL 10 DAY));
 Warnings:
-Warning	4203	No corresponding record was found in recycle_bin.
+Warning	4171	No corresponding record was found in recycle_bin.
 clear recycle_bin all test_recycle_bin.bb;
 show tables from __txsql_recycle_bin__;
 Tables_in___txsql_recycle_bin__
@@ -189,10 +189,10 @@ test_recycle_bin	cc	#	#	#
 test_recycle_bin	dd	#	#	#
 clear recycle_bin test_recycle_bin.zz;
 Warnings:
-Warning	4203	No corresponding record was found in recycle_bin.
+Warning	4171	No corresponding record was found in recycle_bin.
 clear recycle_bin test_recycle_bin.aa before timestamp(DATE_SUB(NOW(), INTERVAL 10 DAY));
 Warnings:
-Warning	4203	No corresponding record was found in recycle_bin.
+Warning	4171	No corresponding record was found in recycle_bin.
 clear recycle_bin test_recycle_bin.aa before timestamp(DATE_ADD(NOW(), INTERVAL 10 DAY));
 clear recycle_bin all test_recycle_bin.bb;
 show tables from __txsql_recycle_bin__;
@@ -413,7 +413,7 @@ ERROR HY000: Exceed limit size 1 of recycle bin
 set global txsql_recycle_bin_drop_if_exceed_limit = 1;
 drop table aa;
 Warnings:
-Warning	4204	Exceed limit size 1 of recycle bin
+Warning	4172	Exceed limit size 1 of recycle bin
 set global txsql_recycle_bin_max_size = default;
 set global txsql_recycle_bin_drop_if_exceed_limit = default;
 clear recycle_bin;
@@ -444,7 +444,7 @@ __recycle_bin__db_a	sb_seq	20	1	1	9223372036854775807	1	0	20
 create database db_a;
 restore database db_a from RECYCLE_BIN;
 Warnings:
-Warning	4203	No corresponding record was found in recycle_bin.
+Warning	4171	No corresponding record was found in recycle_bin.
 use db_a;
 select sb_seq.nextval;
 sb_seq.nextval
@@ -459,7 +459,7 @@ sb_seq.nextval
 drop database db_a;
 clear recycle_bin;
 Warnings:
-Warning	4203	No corresponding record was found in recycle_bin.
+Warning	4171	No corresponding record was found in recycle_bin.
 #
 # case5. Test recycle function and procedure
 #
@@ -476,19 +476,16 @@ select hello("wx");
 ERROR 42000: FUNCTION db_a.hello does not exist
 restore database db_a from RECYCLE_BIN;
 Warnings:
-Warning	4203	No corresponding record was found in recycle_bin.
+Warning	4171	No corresponding record was found in recycle_bin.
 select hello("wx2");
 ERROR 42000: FUNCTION db_a.hello does not exist
 use db_a;
-set allow_access_dd_tables=on;
-select * from mysql.routines where name like '%hello%';
-id	schema_id	name	type	result_data_type	result_data_type_utf8	result_is_zerofill	result_is_unsigned	result_char_length	result_numeric_precision	result_numeric_scale	result_datetime_precision	result_collation_id	definition	definition_utf8	parameter_str	is_deterministic	sql_data_access	security_type	definer	sql_mode	client_collation_id	connection_collation_id	schema_collation_id	created	last_altered	comment	options	external_language
 select hello("wx2");
 ERROR 42000: FUNCTION db_a.hello does not exist
 drop database db_a;
 clear recycle_bin;
 Warnings:
-Warning	4203	No corresponding record was found in recycle_bin.
+Warning	4171	No corresponding record was found in recycle_bin.
 create database db_a;
 use db_a;
 create table t1 (a int);

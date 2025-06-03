@@ -351,7 +351,7 @@ c1	c2
 8	iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
 9	jjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
 10	bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
-#test for tencentroot slow query log
+#test for root slow query log
 set global cdb_column_encryption_whitelist = '';
 select * from t1 where c1='数' or c2 ='据' or c3='库' or c4='系' or c5='统';
 c1	c2	c3	c4	c5
@@ -439,7 +439,7 @@ c2=repeat('a',255)
 0
 Warning	4148	illegal user or without master key can only read encrypted data of the encrypted column 'c2'
 Warnings:
-set global cdb_column_encryption_whitelist = 'tencentroot';
+set global cdb_column_encryption_whitelist = 'root';
 select * from t1 where c1='数' or c2 ='据' or c3='库' or c4='系' or c5='统';
 c1	c2	c3	c4	c5
 数	据	库	系	统
@@ -471,7 +471,7 @@ count(*)
 select c2=repeat('a',255) from tc where c1=1;
 c2=repeat('a',255)
 0
-set global cdb_column_encryption_whitelist = 'tencentroot,invalid';
+set global cdb_column_encryption_whitelist = 'root,invalid';
 select * from t1 where c1='数' or c2 ='据' or c3='库' or c4='系' or c5='统';
 c1	c2	c3	c4	c5
 数	据	库	系	统

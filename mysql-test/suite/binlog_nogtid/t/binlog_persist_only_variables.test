@@ -85,7 +85,7 @@ INSERT INTO aliases(name) VALUES
 # If this count differs, it means a variable has been added or removed.
 # In that case, this testcase needs to be updated accordingly.
 --echo
---let $expected = 123
+--let $expected = 126
 --let $assert_text = Expect $expected variables in the table.
 --let $assert_cond = [SELECT COUNT(*) as count FROM rplvars, count, 1] = $expected
 --source include/assert.inc
@@ -117,7 +117,7 @@ while ( $varid <= $countvars )
 }
 
 --echo
---let $expected = 110
+--let $expected = 113
 --let $assert_text = Expect $expected persisted variables in persisted_variables table.
 --let $assert_cond = [SELECT COUNT(*) as count FROM performance_schema.persisted_variables, count, 1] = $expected
 --source include/assert.inc
@@ -138,7 +138,7 @@ while ( $varid <= $countvars )
 # skip_slave_start/skip_replica_start:
 # BUG#32640588: SOURCE FOR SKIP_SLAVE_START DISPLAYED AS COMPILED WHEN IT IS PERSISTED
 --echo
---let $expected = 71
+--let $expected = 53
 --let $assert_text = Expect $expected persisted variables shown as PERSISTED in variables_info table.
 --let $assert_cond = [SELECT COUNT(*) as count FROM performance_schema.variables_info WHERE variable_source="PERSISTED" OR variable_name LIKE "skip_%_start", count, 1] = $expected
 --source include/assert.inc

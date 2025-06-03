@@ -1,4 +1,4 @@
-=== check the system variabels for tencentroot only ===
+=== check the system variabels for root only ===
 select @@innodb_async_drop_tmp_dir;
 ERROR HY000: Unknown system variable 'innodb_async_drop_tmp_dir'
 set global innodb_async_drop_tmp_dir= @@global.datadir;
@@ -9,7 +9,7 @@ set global innodb_async_truncate_size = 256;
 ERROR HY000: Unknown system variable 'innodb_async_truncate_size'
 set global innodb_async_table_size = 4096;
 ERROR HY000: Unknown system variable 'innodb_async_table_size'
-#connect user=tencentroot
+#connect user=root
 set session innodb_async_drop_tmp_dir= @@global.datadir;
 ERROR HY000: Variable 'innodb_async_drop_tmp_dir' is a GLOBAL variable and should be set with SET GLOBAL
 == now try to check table with small size ==
@@ -102,7 +102,7 @@ no .trh
 no .ibd
 no .trh
 === now check adding orphaned trash file when start ===
-# restart:--tencent-root-cnf=tmy.conf --innodb-table-drop-mode=async_drop --innodb-async-drop-tmp-dir=DROP_TMPDIR
+# restart: --innodb-table-drop-mode=async_drop --innodb-async-drop-tmp-dir=DROP_TMPDIR
 here should NOT see trash file
 no .trh
 === now check adding left trash file when set innodb_async_drop_tmp_dir to new dir ===

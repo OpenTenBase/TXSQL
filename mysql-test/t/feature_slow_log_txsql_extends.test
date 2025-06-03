@@ -1,4 +1,4 @@
-connect (con1,localhost,tencentroot,,);
+connect (con1,localhost,root,,);
 connection con1;
 show variables like "%log_profile_in_slow_log%";
 show variables like "long_query_time";

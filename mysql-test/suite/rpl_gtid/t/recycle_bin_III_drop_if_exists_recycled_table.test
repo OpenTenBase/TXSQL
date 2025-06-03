@@ -7,19 +7,19 @@
 --echo #  Prepare
 --echo #
 
-connect (con_tencentroot_master, localhost, tencentroot,,,,$MASTER_MYSOCK);
+connect (con_root_master, localhost, root,,,,$MASTER_MYSOCK);
 --let $txsql_recycle_bin_enabled_default= `select @@txsql_recycle_bin_enabled`
 --echo # open recycle bin on master
 set global txsql_recycle_bin_enabled = on;
 
-connect (con_tencentroot_slave, localhost, tencentroot,,,,$SLAVE_MYSOCK);
+connect (con_root_slave, localhost, root,,,,$SLAVE_MYSOCK);
 --echo # open recycle bin on slave
 set global txsql_recycle_bin_enabled = on;
 
 --echo #
 --echo # Run 
 --echo #
---connection con_tencentroot_master 
+--connection con_root_master 
 create table t1(a int);
 drop table t1;
 
@@ -35,18 +35,18 @@ show tables in __txsql_recycle_bin__;
 select * from mysql.recycle_bin_info;
 show tables in __txsql_recycle_bin__;
 
---connection con_tencentroot_master 
+--connection con_root_master 
 delete from mysql.recycle_bin_info;
 
 --echo #
 --echo # Cleanup 
 --echo # 
 
---connection con_tencentroot_slave
+--connection con_root_slave
 --eval set global txsql_recycle_bin_enabled=$txsql_recycle_bin_enabled_default
 
 
---connection con_tencentroot_master
+--connection con_root_master
 --eval set global txsql_recycle_bin_enabled=$txsql_recycle_bin_enabled_default
 
 --source include/rpl_connection_master.inc

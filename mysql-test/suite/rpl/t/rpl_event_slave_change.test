@@ -1,5 +1,5 @@
 source include/master-slave.inc;
-connect (con1,localhost,tencentroot,,);
+connect (con1,localhost,root,,);
 
 create database  testdb;
 use testdb;
