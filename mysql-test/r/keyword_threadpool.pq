@@ -28,34 +28,34 @@ drop procedure p1;
 drop procedure p2;
 drop table t1;
 drop table threadpool;
-create table tencentroot(id int, c1 int);
-create table t1(tencentroot int, c1 int);
+create table root(id int, c1 int);
+create table t1(root int, c1 int);
 insert into t1 values (1,1);
-insert into tencentroot values (1,2);
+insert into root values (1,2);
 create procedure p1()
 begin
-declare tencentroot int;
-select max(t1.tencentroot) into tencentroot from t1;
+declare root int;
+select max(t1.root) into root from t1;
 end|
 call p1();
 create procedure p2()
 begin
-tencentroot:loop
-leave tencentroot;
-end loop tencentroot;
+ascii:loop
+leave ascii;
+end loop ascii;
 end |
-ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near ':loop
-leave tencentroot;
-end loop tencentroot;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'ascii:loop
+leave ascii;
+end loop ascii;
 end' at line 3
 create procedure p2()
 begin
-`tencentroot`:loop
-leave `tencentroot`;
-end loop `tencentroot`;
+`ascii`:loop
+leave `ascii`;
+end loop `ascii`;
 end |
 call p2();
 drop procedure p1;
 drop procedure p2;
 drop table t1;
-drop table tencentroot;
+drop table root;

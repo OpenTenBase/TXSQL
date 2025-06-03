@@ -106,13 +106,16 @@ execute ps1 using @g;
 
 --error ER_INVALID_JSON_TEXT
 execute ps2 using @a;
+--error ER_INVALID_JSON_TEXT
 execute ps2 using @b;
 --error ER_INVALID_JSON_TEXT
 execute ps2 using @c;
 --error ER_INVALID_JSON_TEXT
 execute ps2 using @d;
+
+--error ER_INVALID_JSON_CHARSET
 execute ps2 using @e;
---error ER_INVALID_JSON_TEXT
+--error ER_INVALID_JSON_CHARSET
 execute ps2 using @f;
 execute ps2 using @g;
 

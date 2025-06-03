@@ -1,5 +1,5 @@
 --source include/not_windows.inc
-connect (con1,localhost,tencentroot,,);
+connect (con1,localhost,root,,);
 connection con1;
 
 TRUNCATE TABLE mysql.slow_log;

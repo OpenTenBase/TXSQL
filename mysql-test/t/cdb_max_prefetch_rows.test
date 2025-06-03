@@ -1,4 +1,4 @@
-connect (con1,localhost,tencentroot,,);
+connect (con1,localhost,root,,);
 
 connection con1;
 set session cdb_max_prefetch_rows = 8;

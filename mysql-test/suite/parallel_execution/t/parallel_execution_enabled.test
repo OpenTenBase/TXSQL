@@ -13,7 +13,7 @@
 #### tesecase arrangement ###################
 ### 1. visibility:                          #
 ###     1.1 normal user cannot see.         #
-###     1.2 tencentroot can see.            #
+###     1.2 root can see.            #
 ### 2. priority                             #
 ###     2.1 enable=true,  max_threads > 0   #
 ###     2.2 enable=true,  max_threads = 0   #
@@ -48,7 +48,7 @@ ANALYZE TABLE t1;
 --echo ###
 --echo ### 0. Save Initial Value
 --echo ###
-connect(conn1,localhost,tencentroot,,);
+connect(conn1,localhost,root,,);
 connection conn1;
 --source suite/parallel_execution/inc/save_and_set_px.inc
 set @saved_txsql_parallel_execution_enabled = @@txsql_parallel_execution_enabled;
@@ -63,7 +63,7 @@ set @saved_txsql_parallel_execution_enabled = @@txsql_parallel_execution_enabled
   SHOW VARIABLES LIKE "%txsql_parallel_execution_enabled%";
   --echo
 
-  --echo # 1.2 only tencentroot can see/set this switch
+  --echo # 1.2 only root can see/set this switch
   connection conn1;
   SHOW VARIABLES LIKE "%txsql_parallel_execution_enabled%";
   set global txsql_parallel_execution_enabled = 0;

@@ -84,7 +84,7 @@ SELECT @@SESSION.binlog_row_image;
 MINIMAL
 select user();
 user()
-tencentroot@localhost
+root@localhost
 set global innodb_strict_mode=ON;
 SELECT @@GLOBAL.innodb_strict_mode;
 @@GLOBAL.innodb_strict_mode
@@ -461,7 +461,7 @@ SELECT @@SESSION.binlog_row_image;
 MINIMAL
 select user();
 user()
-tencentroot@localhost
+root@localhost
 set global innodb_strict_mode=ON;
 SELECT @@GLOBAL.innodb_strict_mode;
 @@GLOBAL.innodb_strict_mode

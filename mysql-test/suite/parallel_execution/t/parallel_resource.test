@@ -37,7 +37,7 @@ insert into t3 values(8,8,8,8);
 insert into t3 values(9,9,9,9);
 insert into t3 values(10,10,10,10);
 
-connect(con_tencentroot,localhost,tencentroot,,);
+connect(con_root,localhost,root,,);
 # Fallback affects debug_sync
 SET @saved_txsql_parallel_fallback_in_execution =@@txsql_parallel_fallback_in_execution;
 set global txsql_parallel_fallback_in_execution = 0;
@@ -143,7 +143,7 @@ connection conn1;
 set global txsql_parallel_degree = @saved_txsql_parallel_degree;
 --source suite/parallel_execution/inc/set_px_to_saved.inc
 
-connection con_tencentroot;
+connection con_root;
 set global txsql_parallel_fallback_in_execution = @saved_txsql_parallel_fallback_in_execution;
 
 flush status;

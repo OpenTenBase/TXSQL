@@ -11,7 +11,7 @@ query_vertical show global variables like 'report_host';
 --replace_column 2 CURRENT_PORT
 query_vertical show global variables like 'report_port';
 
-connect (tencent_conn, localhost, tencentroot,'', );
+connect (tencent_conn, localhost, root,'', );
 connection tencent_conn;
 show variables like '%cdb_statistics%';
 

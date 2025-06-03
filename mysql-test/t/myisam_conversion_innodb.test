@@ -10,18 +10,16 @@ DROP DATABASE IF EXISTS mysqltest;
 CREATE DATABASE mysqltest;
 --enable_warnings
 
---echo #connect user=tencentroot
-connect (con_tencentroot, localhost, tencentroot,'', mysqltest);
 --echo #connect user=root
 connect (con_root, localhost, root,'', mysqltest);
 
-connection con_tencentroot;
+connection con_root;
 SET @save_myisam_conversion_innodb=@@myisam_conversion_innodb;
 SET @save_tencent_myisam_conversion_innodb=@@tencent_myisam_conversion_innodb;
 
 --echo "# Test 1.1 create table test unit "
 
-connection con_tencentroot;
+connection con_root;
 SET GLOBAL myisam_conversion_innodb=OFF;
 
 
@@ -43,7 +41,7 @@ SHOW CREATE TABLE t2;
 
 DROP TABLE IF EXISTS t1,t2;
 
-connection con_tencentroot;
+connection con_root;
 SET GLOBAL myisam_conversion_innodb=ON;
 
 --echo "myisam_conversion_innodb=ON & connection con_root"
@@ -70,7 +68,7 @@ CREATE TABLE t3 (
 
 DROP TABLE IF EXISTS t1,t2;
 
-connection con_tencentroot;
+connection con_root;
 SET GLOBAL myisam_conversion_innodb=WARN;
 
 --echo "myisam_conversion_innodb=WARN & connection con_root"
@@ -96,7 +94,7 @@ CREATE TABLE t3 (
 
 DROP TABLE IF EXISTS t1,t2;
 
-connection con_tencentroot;
+connection con_root;
 SET GLOBAL myisam_conversion_innodb=TRY;
 
 --echo "myisam_conversion_innodb=TRY & connection con_root"
@@ -132,7 +130,7 @@ DROP TABLE IF EXISTS t1,t2,t3,t4;
 
 --echo "# Test 1.2 alter table test unit "
 
-connection con_tencentroot;
+connection con_root;
 SET GLOBAL myisam_conversion_innodb=OFF;
 
 --echo "myisam_conversion_innodb=OFF & connection con_root"
@@ -161,7 +159,7 @@ SHOW CREATE TABLE t2;
 DROP TABLE IF EXISTS t1,t2;
 
 --echo "tencent_myisam_conversion_innodb=OFF & connection con_tencent_root"
-connection con_tencentroot;
+connection con_root;
 SET GLOBAL myisam_conversion_innodb=ON;
 SET GLOBAL tencent_myisam_conversion_innodb=OFF;
 
@@ -200,7 +198,7 @@ ALTER TABLE t3 ENGINE=MyISAM;
 DROP TABLE IF EXISTS t1,t2,t3;
 
 --echo "tencent_myisam_conversion_innodb=OFF & connection con_tencent_root"
-connection con_tencentroot;
+connection con_root;
 SET GLOBAL myisam_conversion_innodb=WARN;
 SET GLOBAL tencent_myisam_conversion_innodb=OFF;
 
@@ -234,8 +232,8 @@ ALTER TABLE t3 ENGINE=MyISAM;
 
 DROP TABLE IF EXISTS t1,t2,t3;
 
---echo "myisam_conversion_innodb=TRY & connection con_tencentroot"
-connection con_tencentroot;
+--echo "myisam_conversion_innodb=TRY & connection con_root"
+connection con_root;
 SET GLOBAL myisam_conversion_innodb=TRY;
 SET GLOBAL tencent_myisam_conversion_innodb=OFF;
 
@@ -282,8 +280,8 @@ DROP TABLE IF EXISTS t1,t2,t3,t4;
 
 --echo "# Test 1.3 tencent root create table test unit "
 
---echo "tencent_myisam_conversion_innodb=OFF & connection con_tencentroot"
-connection con_tencentroot;
+--echo "tencent_myisam_conversion_innodb=OFF & connection con_root"
+connection con_root;
 SET GLOBAL tencent_myisam_conversion_innodb=OFF;
 
 CREATE TABLE t1 (
@@ -303,8 +301,8 @@ SHOW CREATE TABLE t2;
 DROP TABLE IF EXISTS t1,t2;
 
 
---echo "tencent_myisam_conversion_innodb=ON & connection con_tencentroot"
-connection con_tencentroot;
+--echo "tencent_myisam_conversion_innodb=ON & connection con_root"
+connection con_root;
 SET GLOBAL tencent_myisam_conversion_innodb=ON;
 
 CREATE TABLE t1 (
@@ -328,8 +326,8 @@ CREATE TABLE t3 (
 
 DROP TABLE IF EXISTS t1,t2;
 
---echo "tencent_myisam_conversion_innodb=WARN & connection con_tencentroot"
-connection con_tencentroot;
+--echo "tencent_myisam_conversion_innodb=WARN & connection con_root"
+connection con_root;
 SET GLOBAL tencent_myisam_conversion_innodb=WARN;
 
 CREATE TABLE t1 (
@@ -354,9 +352,9 @@ CREATE TABLE t3 (
 DROP TABLE IF EXISTS t1,t2;
 
 
---echo "tencent_myisam_conversion_innodb=TRY & connection con_tencentroot"
+--echo "tencent_myisam_conversion_innodb=TRY & connection con_root"
 
-connection con_tencentroot;
+connection con_root;
 SET GLOBAL tencent_myisam_conversion_innodb=TRY;
 
 CREATE TABLE t1 (
@@ -390,8 +388,8 @@ DROP TABLE IF EXISTS t1,t2,t3,t4;
 
 --echo "# Test 1.4 tencent root alter table test unit "
 
---echo "tencent_myisam_conversion_innodb=OFF & connection con_tencentroot"
-connection con_tencentroot;
+--echo "tencent_myisam_conversion_innodb=OFF & connection con_root"
+connection con_root;
 SET GLOBAL tencent_myisam_conversion_innodb=OFF;
 
 CREATE TABLE t1 (
@@ -420,8 +418,8 @@ DROP TABLE IF EXISTS t1,t2;
 
 --echo "---------- alter table tencent_myisam_conversion_innodb=WARN -----------------"
 
---echo "tencent_myisam_conversion_innodb=OFF & connection con_tencentroot"
-connection con_tencentroot;
+--echo "tencent_myisam_conversion_innodb=OFF & connection con_root"
+connection con_root;
 SET GLOBAL tencent_myisam_conversion_innodb=OFF;
 
 CREATE TABLE t1 (
@@ -444,7 +442,7 @@ CREATE TABLE t3 (
 
 SHOW CREATE TABLE t3;
 
---echo "tencent_myisam_conversion_innodb=ON & connection con_tencentroot"
+--echo "tencent_myisam_conversion_innodb=ON & connection con_root"
 SET GLOBAL tencent_myisam_conversion_innodb=ON;
 ALTER TABLE t1 ENGINE=MyISAM;
 SHOW CREATE TABLE t1;
@@ -457,8 +455,8 @@ show create table t3;
 
 DROP TABLE IF EXISTS t1,t2,t3;
 
---echo "tencent_myisam_conversion_innodb=OFF & connection con_tencentroot"
-connection con_tencentroot;
+--echo "tencent_myisam_conversion_innodb=OFF & connection con_root"
+connection con_root;
 SET GLOBAL tencent_myisam_conversion_innodb=OFF;
 
 CREATE TABLE t1 (
@@ -481,7 +479,7 @@ CREATE TABLE t3 (
 
 SHOW CREATE TABLE t3;
 
---echo "tencent_myisam_conversion_innodb=WARN & connection con_tencentroot"
+--echo "tencent_myisam_conversion_innodb=WARN & connection con_root"
 SET GLOBAL tencent_myisam_conversion_innodb=WARN;
 ALTER TABLE t1 ENGINE=MyISAM;
 
@@ -498,8 +496,8 @@ DROP TABLE IF EXISTS t1,t2,t3;
 
 --echo "----------alter table tencent_myisam_conversion_innodb=TRY-----------------"
 
---echo "tencent_myisam_conversion_innodb=OFF & connection con_tencentroot"
-connection con_tencentroot;
+--echo "tencent_myisam_conversion_innodb=OFF & connection con_root"
+connection con_root;
 SET GLOBAL tencent_myisam_conversion_innodb=OFF;
 
 CREATE TABLE t1 (
@@ -525,7 +523,7 @@ CREATE TABLE t4 (
 )ENGINE=MyISAM ROW_FORMAT=FIXED;
 SHOW CREATE TABLE t4;
 
---echo "tencent_myisam_conversion_innodb=TRY & connection con_tencentroot"
+--echo "tencent_myisam_conversion_innodb=TRY & connection con_root"
 
 SET GLOBAL tencent_myisam_conversion_innodb=TRY;
 ALTER TABLE t1 ENGINE=MyISAM;
@@ -550,7 +548,7 @@ DROP TABLE IF EXISTS t1,t2,t3,t4;
 
 --echo "Cleanup"
 
-connection con_tencentroot;
+connection con_root;
 SET GLOBAL myisam_conversion_innodb=@save_myisam_conversion_innodb;
 SET GLOBAL tencent_myisam_conversion_innodb=@save_tencent_myisam_conversion_innodb;
 
@@ -562,10 +560,10 @@ DROP TABLE IF EXISTS t1,t2,t3,t4;
 ## test when the default engine is myisam, create table without
 ## specified engine should turn out to be innodb engine.
 
-connection con_tencentroot;
+connection con_root;
 --let $restart_parameters=restart:--default-storage-engine=myisam
 --source include/restart_mysqld.inc
---connection con_tencentroot
+--connection con_root
 SET @save_myisam_conversion_innodb=@@myisam_conversion_innodb;
 SET @save_tencent_myisam_conversion_innodb=@@tencent_myisam_conversion_innodb;
 
@@ -595,7 +593,7 @@ CREATE TABLE t3 (
 --echo "t3 with myisam engine"
 SHOW CREATE TABLE t3;
 
-connection con_tencentroot;
+connection con_root;
 SET GLOBAL tencent_myisam_conversion_innodb=OFF;
 SET GLOBAL myisam_conversion_innodb=ON;
 
@@ -607,7 +605,7 @@ CREATE TABLE t4 (
 --echo "t4 with innodb engine"
 SHOW CREATE TABLE t4;
 
-connection con_tencentroot;
+connection con_root;
 
 SET GLOBAL myisam_conversion_innodb=@save_myisam_conversion_innodb;
 SET GLOBAL tencent_myisam_conversion_innodb=@save_tencent_myisam_conversion_innodb;
@@ -615,6 +613,5 @@ SET GLOBAL tencent_myisam_conversion_innodb=@save_tencent_myisam_conversion_inno
 DROP TABLE IF EXISTS t1, t2, t3, t4;
 DROP DATABASE IF EXISTS mysqltest;
 
-disconnect con_tencentroot;
 disconnect con_root;
 disconnect conroot;

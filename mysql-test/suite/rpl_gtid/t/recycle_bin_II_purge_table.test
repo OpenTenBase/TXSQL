@@ -9,12 +9,12 @@
 
 call mtr.add_suppression("access __txsql_recycle_bin__ fail, the query string is");
 
-connect (con_tencentroot_master, localhost, tencentroot,,,,$MASTER_MYSOCK);
+connect (con_root_master, localhost, root,,,,$MASTER_MYSOCK);
 --let $cdb_recycle_bin_enabled_default= `select @@cdb_recycle_bin_enabled`
 --echo # open recycle bin on master
 set global cdb_recycle_bin_enabled = on;
 
-connect (con_tencentroot_slave, localhost, tencentroot,,,,$SLAVE_MYSOCK);
+connect (con_root_slave, localhost, root,,,,$SLAVE_MYSOCK);
 --echo # open recycle bin on slave
 set global cdb_recycle_bin_enabled = on;
 
@@ -27,10 +27,10 @@ set global cdb_recycle_bin_enabled = on;
 --echo # case1. show status about events
 --echo #
 
---connection con_tencentroot_slave
+--connection con_root_slave
 set global cdb_recycle_bin_enabled= off;
 
---connection con_tencentroot_master
+--connection con_root_master
 set global cdb_recycle_bin_retention=1;
 set global event_scheduler=off;
 show variables like 'event_scheduler';
@@ -65,10 +65,10 @@ show tables in __txsql_recycle_bin__;
 --echo # Cleanup 
 --echo # 
 
---connection con_tencentroot_slave
+--connection con_root_slave
 --eval set global cdb_recycle_bin_enabled=$cdb_recycle_bin_enabled_default
 
---connection con_tencentroot_master
+--connection con_root_master
 
 --eval set global cdb_recycle_bin_enabled=$cdb_recycle_bin_enabled_default
 set global cdb_recycle_bin_retention=default;

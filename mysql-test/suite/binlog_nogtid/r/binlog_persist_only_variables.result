@@ -26,7 +26,6 @@ VARIABLE_NAME LIKE '%source%') AND
 (VARIABLE_NAME NOT IN ('innodb_api_enable_binlog',
 'innodb_master_thread_disabled_debug', 'innodb_replication_delay', 'gtid_undeleted'))
 ORDER BY VARIABLE_NAME;
-123
 CREATE TABLE non_persisted (name VARCHAR(100) PRIMARY KEY);
 INSERT INTO non_persisted VALUES
 ('gtid_executed'), ('gtid_owned'), ('gtid_purged'), ('log_bin'),
@@ -49,7 +48,7 @@ INSERT INTO aliases(name) VALUES
 ('slave_parallel_workers'), ('slave_pending_jobs_size_max'),
 ('pseudo_slave_mode'), ('skip_slave_start');
 
-include/assert.inc [Expect 123 variables in the table.]
+include/assert.inc [Expect 126 variables in the table.]
 
 # Test SET PERSIST_ONLY
 SET PERSIST_ONLY binlog_cache_size = @@GLOBAL.binlog_cache_size;
@@ -83,9 +82,12 @@ SET PERSIST_ONLY binlog_transaction_dependency_tracking = @@GLOBAL.binlog_transa
 SET PERSIST_ONLY binlog_write_threshold = @@GLOBAL.binlog_write_threshold;
 SET PERSIST_ONLY cdb_enable_resource_statistics = @@GLOBAL.cdb_enable_resource_statistics;
 SET PERSIST_ONLY cdb_more_gtid_feature_supported = @@GLOBAL.cdb_more_gtid_feature_supported;
+SET PERSIST_ONLY cdb_optimize_gtid_lock = @@GLOBAL.cdb_optimize_gtid_lock;
+SET PERSIST_ONLY cdb_optimize_large_trans_binlog = @@GLOBAL.cdb_optimize_large_trans_binlog;
+SET PERSIST_ONLY cdb_optimize_large_trans_binlog_aver_affected_rows_threshold = @@GLOBAL.cdb_optimize_large_trans_binlog_aver_affected_rows_threshold;
+SET PERSIST_ONLY cdb_optimize_large_trans_binlog_last_affected_rows_threshold = @@GLOBAL.cdb_optimize_large_trans_binlog_last_affected_rows_threshold;
+SET PERSIST_ONLY cdb_replica_host_detection = @@GLOBAL.cdb_replica_host_detection;
 SET PERSIST_ONLY enforce_gtid_consistency = @@GLOBAL.enforce_gtid_consistency;
-SET PERSIST_ONLY forbid_remote_change_master = @@GLOBAL.forbid_remote_change_master;
-SET PERSIST_ONLY forbid_remote_change_sql_log_bin = @@GLOBAL.forbid_remote_change_sql_log_bin;
 SET PERSIST_ONLY group_replication_consistency = @@GLOBAL.group_replication_consistency;
 SET PERSIST_ONLY gtid_executed = @@GLOBAL.gtid_executed;
 ERROR HY000: Variable 'gtid_executed' is a non persistent read only variable
@@ -100,6 +102,7 @@ SET PERSIST_ONLY init_slave = @@GLOBAL.init_slave;
 Warnings:
 Warning	1287	'@@init_slave' is deprecated and will be removed in a future release. Please use init_replica instead.
 Warning	1287	'@@init_slave' is deprecated and will be removed in a future release. Please use init_replica instead.
+SET PERSIST_ONLY innodb_strict_gtid_commit = @@GLOBAL.innodb_strict_gtid_commit;
 SET PERSIST_ONLY log_bin = @@GLOBAL.log_bin;
 ERROR HY000: Variable 'log_bin' is a non persistent read only variable
 SET PERSIST_ONLY log_bin_basename = @@GLOBAL.log_bin_basename;
@@ -132,7 +135,6 @@ SET PERSIST_ONLY max_binlog_cache_size = @@GLOBAL.max_binlog_cache_size;
 SET PERSIST_ONLY max_binlog_size = @@GLOBAL.max_binlog_size;
 SET PERSIST_ONLY max_binlog_stmt_cache_size = @@GLOBAL.max_binlog_stmt_cache_size;
 SET PERSIST_ONLY max_relay_log_size = @@GLOBAL.max_relay_log_size;
-SET PERSIST_ONLY new_connection_action_when_resource_group_overrun = @@GLOBAL.new_connection_action_when_resource_group_overrun;
 SET PERSIST_ONLY relay_log = @@GLOBAL.relay_log;
 ERROR HY000: Variable 'relay_log' is a non persistent read only variable
 SET PERSIST_ONLY relay_log_basename = @@GLOBAL.relay_log_basename;
@@ -273,17 +275,17 @@ SET PERSIST_ONLY sync_relay_log_info = @@GLOBAL.sync_relay_log_info;
 SET PERSIST_ONLY sync_source_info = @@GLOBAL.sync_source_info;
 SET PERSIST_ONLY txsql_slave_wait_group_done = @@GLOBAL.txsql_slave_wait_group_done;
 
-include/assert.inc [Expect 110 persisted variables in persisted_variables table.]
+include/assert.inc [Expect 113 persisted variables in persisted_variables table.]
 
 ############################################################
 # 2. Restart server, it must preserve the persisted variable
 #    settings. Verify persisted configuration.
 # restart
 
-include/assert.inc [Expect 110 persisted variables in persisted_variables table.]
+include/assert.inc [Expect 113 persisted variables in persisted_variables table.]
 
-include/assert.inc [Expect 71 persisted variables shown as PERSISTED in variables_info table.]
-include/assert.inc [Expect 71 persisted variables with matching persisted and global values.]
+include/assert.inc [Expect 53 persisted variables shown as PERSISTED in variables_info table.]
+include/assert.inc [Expect 53 persisted variables with matching persisted and global values.]
 
 ############################################################
 # 3. Test RESET PERSIST. Verify persisted variable settings
@@ -316,9 +318,12 @@ RESET PERSIST binlog_transaction_dependency_tracking;
 RESET PERSIST binlog_write_threshold;
 RESET PERSIST cdb_enable_resource_statistics;
 RESET PERSIST cdb_more_gtid_feature_supported;
+RESET PERSIST cdb_optimize_gtid_lock;
+RESET PERSIST cdb_optimize_large_trans_binlog;
+RESET PERSIST cdb_optimize_large_trans_binlog_aver_affected_rows_threshold;
+RESET PERSIST cdb_optimize_large_trans_binlog_last_affected_rows_threshold;
+RESET PERSIST cdb_replica_host_detection;
 RESET PERSIST enforce_gtid_consistency;
-RESET PERSIST forbid_remote_change_master;
-RESET PERSIST forbid_remote_change_sql_log_bin;
 RESET PERSIST group_replication_consistency;
 RESET PERSIST gtid_executed;
 ERROR HY000: Variable gtid_executed does not exist in persisted config file
@@ -329,6 +334,7 @@ ERROR HY000: Variable gtid_owned does not exist in persisted config file
 RESET PERSIST gtid_purged;
 ERROR HY000: Variable gtid_purged does not exist in persisted config file
 RESET PERSIST init_replica;
+RESET PERSIST innodb_strict_gtid_commit;
 RESET PERSIST log_bin;
 ERROR HY000: Variable log_bin does not exist in persisted config file
 RESET PERSIST log_bin_basename;
@@ -346,7 +352,6 @@ RESET PERSIST max_binlog_cache_size;
 RESET PERSIST max_binlog_size;
 RESET PERSIST max_binlog_stmt_cache_size;
 RESET PERSIST max_relay_log_size;
-RESET PERSIST new_connection_action_when_resource_group_overrun;
 RESET PERSIST relay_log;
 ERROR HY000: Variable relay_log does not exist in persisted config file
 RESET PERSIST relay_log_basename;

@@ -459,16 +459,16 @@ start:
     goto be_deleted;
   }
   if (!mysql_real_connect(statistics_mysql, cdb_statistics_host,
-                          "tencentroot", "", nullptr,
+                          "root", "", nullptr,
                           cdb_statistics_port, nullptr, 0)) {
     LogErr(INFORMATION_LEVEL,
           ER_CDB_FAILED_TO_CONNECT_STATISTICS_CLIENT,
-          "tencentroot", cdb_statistics_host, cdb_statistics_port);
+          "root", cdb_statistics_host, cdb_statistics_port);
     goto err;
   } else {
     LogErr(INFORMATION_LEVEL,
           ER_CDB_MASTER_CONNECTED_TO_STATISTICS_NODE_STARTED,
-          "tencentroot", cdb_statistics_host, cdb_statistics_port);
+          "root", cdb_statistics_host, cdb_statistics_port);
   }
 
   // step 3: send commond to statistics node

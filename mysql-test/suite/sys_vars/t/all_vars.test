@@ -1,5 +1,4 @@
 --source include/not_threadpool.inc
-source include/have_no_tdsql_root.inc;
 # 2010-01-28 OBN Added support to load 'innodb' and 'semisync' if possible.
 # As we need to have there variables loaded if the components exist but do 
 # not want the test skiped if they are not, we cannot use the 'have_xxx' mecanizm.

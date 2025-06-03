@@ -1,9 +1,7 @@
 set global sequence_same_nextval_in_query = 1;
 set global seq_currval_before_first_nextval_return_error = 1;
-set global forbid_remote_drop_meta=on;
 connect (con1,localhost,root,,);
 --connection con1
-show variables like 'forbid_remote_drop_meta';
 
 create sequence seq0;
 select seq0.nextval, seq0.nextval;
@@ -225,4 +223,3 @@ drop table t;
 drop sequence seq_56;
 
 --connection default
-set global forbid_remote_drop_meta=off;

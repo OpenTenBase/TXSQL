@@ -1,2 +1,2 @@
---tencent_root_cnf=tmy.conf
+
 --skip_event_scheduler=on

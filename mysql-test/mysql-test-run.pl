@@ -7204,13 +7204,9 @@ sub start_mysqltest ($) {
   # This file suffix is dedicated to '--pq-protocol'
   my $resfile_suffix = "pq";
 
-  my $have_tdsql = $mysqld_variables{'have-tdsql'};
   if (defined $tinfo->{'result_file'}) {
     if ($opt_pq_protocol) {
       mtr_add_arg($args, "--result-file=%s.%s", $resfile_basename, $resfile_suffix);
-    }
-    elsif (lc($have_tdsql) eq "true" && -e $resfile_basename.'.tdsql') {
-        mtr_add_arg($args, "--result-file=%s.tdsql", $resfile_basename);
     }
     else {
       mtr_add_arg($args, "--result-file=%s", $tinfo->{'result_file'});

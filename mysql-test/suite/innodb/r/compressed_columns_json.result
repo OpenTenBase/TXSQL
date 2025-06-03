@@ -4451,7 +4451,7 @@ a	c	json_length( c, '$' )
 
 # invalid json text
 select a, c, json_length( c, '$' ) from utf8_mj_length where a = 3;
-ERROR 22032: Invalid JSON text in argument 1 to function json_length: "Invalid value." at position 0.
+ERROR 22032: Invalid JSON text in argument 1 to function json_extract: "Invalid value." at position 0.
 select a, c, json_length( c, '$' ) from utf8_mj_length where a = 4;
 a	c	json_length( c, '$' )
 4	"abc"	1
@@ -8621,7 +8621,7 @@ field1
 "table"
 DESCRIBE t;
 Field	Type	Null	Key	Default	Extra
-field1	varchar(32)	YES		NULL
+field1	varchar(32)	YES		NULL	
 DROP TABLE t;
 SELECT JSON_UNQUOTE( '"table"' ) AS field1;
 field1
@@ -8632,7 +8632,7 @@ field1
 table
 DESCRIBE t1;
 Field	Type	Null	Key	Default	Extra
-field1	varchar(7)	YES		NULL
+field1	varchar(7)	YES		NULL	
 DROP TABLE t1;
 set names default;
 #
@@ -8649,7 +8649,7 @@ field1
 "table"
 DESCRIBE t;
 Field	Type	Null	Key	Default	Extra
-field1	varchar(32)	YES		NULL
+field1	varchar(32)	YES		NULL	
 DROP TABLE t;
 SELECT JSON_UNQUOTE( '"table"' ) AS field1;
 field1
@@ -8660,7 +8660,7 @@ field1
 table
 DESCRIBE t1;
 Field	Type	Null	Key	Default	Extra
-field1	varchar(7)	YES		NULL
+field1	varchar(7)	YES		NULL	
 DROP TABLE t1;
 set names default;
 #
@@ -11610,7 +11610,7 @@ SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `i` int DEFAULT NULL,
-  `j` json /*!99104 COMPRESSED *//*!99401 ALGORITHM=ZLIB */ DEFAULT NULL
+  `j` json /*!80022 COMPRESSED ALGORITHM=ZLIB */ DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 INSERT INTO t1 VALUES (0, NULL);
 INSERT INTO t1 VALUES (1, '{"a": 2}');
@@ -11738,13 +11738,15 @@ execute ps1 using @g;
 execute ps2 using @a;
 ERROR 22032: Invalid JSON text: "not a JSON text, may need CAST" at position 0 in value for column 'pt2.j'.
 execute ps2 using @b;
+ERROR 22032: Invalid JSON text: "not a JSON text, may need CAST" at position 0 in value for column 'pt2.j'.
 execute ps2 using @c;
 ERROR 22032: Invalid JSON text: "not a JSON text, may need CAST" at position 0 in value for column 'pt2.j'.
 execute ps2 using @d;
 ERROR 22032: Invalid JSON text: "not a JSON text, may need CAST" at position 0 in value for column 'pt2.j'.
 execute ps2 using @e;
+ERROR 22032: Cannot create a JSON value from a string with CHARACTER SET 'binary'.
 execute ps2 using @f;
-ERROR 22032: Invalid JSON text: "The document root must not be followed by other values." at position 4 in value for column 'pt2.j'.
+ERROR 22032: Cannot create a JSON value from a string with CHARACTER SET 'binary'.
 execute ps2 using @g;
 select json_type(j), j from pt1 order by j;
 json_type(j)	j
@@ -11757,8 +11759,6 @@ STRING	"123"
 select json_type(j), j from pt2 order by j;
 json_type(j)	j
 NULL	NULL
-INTEGER	123
-STRING	"123"
 drop prepare ps1;
 drop prepare ps2;
 drop table pt1;

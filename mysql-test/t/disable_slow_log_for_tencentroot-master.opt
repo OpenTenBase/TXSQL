@@ -1,2 +1,0 @@
---slow-query-log=1 --long-query-time=1
---tencent-root-cnf=$MYSQL_TEST_DIR/tmy.conf

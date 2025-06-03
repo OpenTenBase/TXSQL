@@ -13,7 +13,6 @@ log-bin = lz_pwd/mysql_root/1/data/mysql-bqin
 relay-log = lz_pwd/mysql_root/1/data/relay-bin
 innodb_log_group_home_dir = lz_pwd/mysql_root/1/log
 
-tencent-root-cnf = ../tmy.conf
 default_authentication_plugin=mysql_native_password
 
 server-id = 95000
@@ -182,7 +181,6 @@ cdb_convert_memory_to_innodb=ON
 
 cdb_audit_truncat_sql_len=1048576
 cdb_kill_user_extra = root@%
-cdb_forbid_mysql_write = TRUE
 
 
 
@@ -198,7 +196,6 @@ cdb_forbid_mysql_write = TRUE
 #rpl_semi_sync_master_wait_point=AFTER_COMMIT
 #plugin-load-add=semisync_slave.so
 #myisam_conversion_innodb=WARN
-#tencent_myisam_conversion_innodb=TRY
 #
 #
 #

@@ -70,8 +70,8 @@ create table t1(c1 int primary key, c2 varchar(255) encryption default 'abc', c3
 # cdb_column_encryption_whitelist limit 
 create table t1(c1 int primary key, c2 varchar(255) default 'abc' encryption algorithm=SM4);
 insert into t1 values(1,'a'),(2,'b'),(3,'c');
-connect (con_tencentroot, localhost, tencentroot,'', );
---connection con_tencentroot
+connect (con_root, localhost, root,'', );
+--connection con_root
 set global cdb_column_encryption_whitelist = 'invalid';
 --error ER_CDB_ILLEGAL_USER_UPDATE_COLUMN_ENCRYPTION
 insert into t1 values(4,'d');

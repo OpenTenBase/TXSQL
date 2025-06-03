@@ -19,7 +19,7 @@ SLEEP 1;
 #  @@gtid_undeleted should be null by master thread after 2 seconds.
 # 
 
-connect (slave_tencent,127.0.0.1,tencentroot,,test,$SLAVE_MYPORT);
+connect (slave_tencent,127.0.0.1,root,,test,$SLAVE_MYPORT);
 --echo [slave]
 connection slave_tencent;
 SELECT * FROM test.t;

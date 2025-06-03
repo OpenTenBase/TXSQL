@@ -21,14 +21,14 @@ CREATE TABLE t1(
 --enable_query_log
 ANALYZE TABLE t1;
 
-connect(conn1,localhost,tencentroot,,);
+connect(conn1,localhost,root,,);
 connection conn1;
 SHOW VARIABLES LIKE "%txsql_parallel_fallback_in_execution%";
 --source suite/parallel_execution/inc/save_and_set_px.inc
 SET @saved_txsql_parallel_fallback_in_execution =@@txsql_parallel_fallback_in_execution;
 set global txsql_parallel_fallback_in_execution = 0;
 
-connect(conn2,localhost,tencentroot,,);
+connect(conn2,localhost,root,,);
 connection conn2;
 --echo ###
 --echo ### Execute statement in parallel mode.
@@ -43,7 +43,7 @@ set global txsql_parallel_fallback_in_execution = 1;
 --echo ###
 --echo ### Disable Execute statement in parallel mode but the parallel explain mode
 --echo ###
-connect(conn3,localhost,tencentroot,,);
+connect(conn3,localhost,root,,);
 connection conn3;
 SHOW VARIABLES LIKE "%txsql_parallel_fallback_in_execution%";
 EXPLAIN FORMAT = TREE SELECT * FROM t1;

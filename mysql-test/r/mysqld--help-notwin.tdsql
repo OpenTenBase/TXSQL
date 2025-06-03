@@ -315,10 +315,10 @@ The following options may be given as the first argument:
  --cdb-fire-wall-enabled 
  CDB fire wall switch. Can be ON/OFF.
  --cdb-forbid-mysql-write 
- only tencentroot can modify mysql schema when this value
+ only root can modify mysql schema when this value
  is true
  --cdb-forbid-system-database-write 
- only tencentroot can modify information_schema,
+ only root can modify information_schema,
  performance_schema and sys database when this value is
  true 
  --cdb-hash-scan-index-selection-enabled 
@@ -339,7 +339,7 @@ The following options may be given as the first argument:
  The number of seconds the server waits for next command
  on an active transaction before closing it
  --cdb-kill-user-extra=name 
- Kill any session except tencentroot user
+ Kill any session except root user
  --cdb-lock-connect-detect-enabled 
  Enable connection check when transaction is blocked by
  row lock. Default is TRUE
@@ -472,10 +472,10 @@ The following options may be given as the first argument:
  sql statistics switch.
  --cdb-sql-statistics-info-threshold=# 
  cdb_sql_statistics_info threshold in the map.
- --cdb-tencentroot-audit-action-enabled 
- tencentroot audit switch
- --cdb-tencentroot-slow-log-enabled 
- Enable to log tencentroot's slow query.
+ --cdb-root-audit-action-enabled 
+ root audit switch
+ --cdb-root-slow-log-enabled 
+ Enable to log root's slow query.
  --cdb-threadpool-prepare-enabled 
  Use threadpool memory management for plan cache,
  Prepared_statement'splan which can be saved in plan cache
@@ -2009,17 +2009,11 @@ The following options may be given as the first argument:
  deprecated and will be removed in a future release.
  (Defaults to on; use --skip-temptable-use-mmap to disable.)
  --tencent-myisam-conversion-innodb=name 
- control tencentroot/system user, myisam conversion innodb
+ control root/system user, myisam conversion innodb
  mode, can be ON/OFF/WARN/TRY
  --tencent-reserved-connection=# 
  Reserve more connections for tencent root user, default
  is 20. 
- --tencent-root-cnf=name 
- File specify configuration of tencent root account
- --tencent-root-connected=# 
- The number of tencentroot connections on normal port
- --tencent-root-limit=name 
- Limit the number of simultaneous login of tencentroot
  account
  --tencent-root-user=name 
  Users of tencent root account
@@ -2399,8 +2393,8 @@ cdb-sql-filter-enable FALSE
 cdb-sql-filter-seperator ,
 cdb-sql-statistics FALSE
 cdb-sql-statistics-info-threshold 10000
-cdb-tencentroot-audit-action-enabled FALSE
-cdb-tencentroot-slow-log-enabled FALSE
+cdb-root-audit-action-enabled FALSE
+cdb-root-slow-log-enabled FALSE
 cdb-threadpool-prepare-enabled FALSE
 cdb-working-mode-default READWRITE
 cdb-working-mode-enabled FALSE
@@ -2828,11 +2822,6 @@ temptable-max-ram 1073741824
 temptable-use-mmap TRUE
 tencent-myisam-conversion-innodb OFF
 tencent-reserved-connection 20
-tencent-root-cnf (No default value)
-tencent-root-connected 0
-tencent-root-limit 
-tencent-root-user (No default value)
-tencent-root-whitelist (No default value)
 terminology-use-previous NONE
 thread-cache-size 9
 thread-handling one-thread-per-connection

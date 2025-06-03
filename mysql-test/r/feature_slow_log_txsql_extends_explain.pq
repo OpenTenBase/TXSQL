@@ -63,25 +63,25 @@ sql_text like "show%" or
 sql_text like "use%" or
 sql_text like "set%"));
 sql_text
-CREATE TABLE test_log (sql_text TEXT);
-SELECT * FROM t1 ot WHERE ot.b<0 OR ot.a IN (SELECT it.a+1 FROM t2 it);
+use test;
+SET SESSION long_query_time = 0;
 SELECT @@global.slow_query_log_file;
 SELECT @@global.slow_query_log_file;
-SELECT @@session.log_slow_verbosity;
-SELECT @@session.log_slow_verbosity;
-SELECT t1.* FROM t1 LEFT OUTER JOIN 
+select sleep(1);
 SET SESSION long_query_time = 0;
-SET SESSION long_query_time = 0;
+SELECT @@session.log_slow_verbosity;
+set session log_slow_verbosity = "explain";
+SELECT @@session.log_slow_verbosity;
+select 1;
+select sleep(1);
+select concat("Hello", " ", "World.");
 create table t1 (a int, b int);
 create table t2 (a int, b int);
-select 1;
-select concat("Hello", " ", "World.");
-select sleep(1);
-select sleep(1);
-set session log_slow_verbosity = "explain";
-show create table t1;
 show tables;
-use test;
+show create table t1;
+SELECT * FROM t1 ot WHERE ot.b<0 OR ot.a IN (SELECT it.a+1 FROM t2 it);
+SELECT t1.* FROM t1 LEFT OUTER JOIN 
+CREATE TABLE test_log (sql_text TEXT);
 drop table t1, t2;
 drop table test_log;
 SET SESSION long_query_time = @old_long_query_time;

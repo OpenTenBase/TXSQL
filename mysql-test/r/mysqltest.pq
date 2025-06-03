@@ -15,11 +15,14 @@ select otto from (select 1 as otto) as t1;
 otto
 1
 select otto from (select 1 as otto) as t1;
+otto
+1
 mysqltest: At line 1: Query 'select otto from (select 1 as otto) as t1' succeeded, should have failed with error '42S22'
 mysqltest: At line 1: Expecting a SQLSTATE (00000) from query 'remove_file MYSQLTEST_VARDIR/tmp/test_nonexistent.tmp' which cannot produce one.
 select friedrich from (select 1 as otto) as t1;
 ERROR 42S22: Unknown column 'friedrich' in 'field list'
 select friedrich from (select 1 as otto) as t1;
+ERROR 42S22: Unknown column 'friedrich' in 'field list'
 mysqltest: At line 1: Query 'select friedrich from (select 1 as otto) as t1' failed with wrong error 1054: 'Unknown column 'friedrich' in 'field list'', should have failed with error '00000'.
 select otto from (select 1 as otto) as t1;
 otto
@@ -155,6 +158,7 @@ select 1146 as "after_!errno_masked_error" ;
 after_!errno_masked_error
 1146
 select 3 from t1;
+ERROR 42S02: Table 'test.t1' doesn't exist
 mysqltest: At line 1: Query 'select 3 from t1' failed with wrong error 1146: 'Table 'test.t1' doesn't exist', should have failed with error '1000'.
 ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'garbage' at line 1
  is empty
@@ -169,6 +173,7 @@ after_--enable_abort_on_error
 select 3 from t1 ;
 ERROR 42S02: Table 'test.t1' doesn't exist
 select 3 from t1;
+ERROR 42S02: Table 'test.t1' doesn't exist
 mysqltest: At line 1: Query 'select 3 from t1' failed with wrong error 1146: 'Table 'test.t1' doesn't exist', should have failed with error '1064'.
 garbage;
 ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'garbage' at line 1
@@ -621,35 +626,35 @@ aaa\	aa'a	aa"a
 Warnings:
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 
---------------------
 Here comes a message
-Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+--------------------
 Warnings:
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 Warnings:
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 
---------------
-Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
-Warnings:
 root@localhost
+--------------
+Warnings:
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 Warnings:
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 
-    - consists of several lines"
-    - is longer then 80 characters    and
 "Here comes a very very long message that
+    - is longer then 80 characters    and
+    - consists of several lines"
 --------------------------------------------------------------------------------
-Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 Warnings:
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 Warnings:
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 
---------------------------------------------------------------------------------
-.      - consists of several lines
-.      - is longer then 80 characters    and
 . Here comes a very very long message that
-Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+.      - is longer then 80 characters    and
+.      - consists of several lines
+--------------------------------------------------------------------------------
 Warnings:
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 mysqltest: The test didn't produce any output
 Failing multi statement query
 create table t1 (a int primary key);
@@ -791,8 +796,8 @@ insert into t1 values(1, 'Line 1', '2007-04-05'), (2, "Part 3", '2007-04-05');
 select * from t1;
 a	b	c
 1	Line 1	2007-04-05 00:00:00
-1	Line 1	2007-04-05 00:00:00
 2	Part 2	2007-04-05 00:00:00
+1	Line 1	2007-04-05 00:00:00
 2	Part 3	2007-04-05 00:00:00
 select * from t1;
 a	b	c
@@ -803,8 +808,8 @@ a	b	c
 select * from t1;
 a	b	c
 1	Line 1	2007-04-05 00:00:00
-1	Line 1	2007-04-05 00:00:00
 2	Part 2	2007-04-05 00:00:00
+1	Line 1	2007-04-05 00:00:00
 2	Part 3	2007-04-05 00:00:00
 select * from t1;
 select '';
@@ -853,8 +858,8 @@ SELECT NULL as "my_col1",2 AS "my_col2"
 UNION
 SELECT NULL,1;
 my_col1	my_col2
-NULL	1
 NULL	2
+NULL	1
 SELECT NULL as "my_col1",2 AS "my_col2"
 UNION
 SELECT NULL,1;
@@ -865,8 +870,8 @@ SELECT 2 as "my_col1",NULL AS "my_col2"
 UNION
 SELECT 1,NULL;
 my_col1	my_col2
-1	NULL
 2	NULL
+1	NULL
 SELECT 2 as "my_col1",NULL AS "my_col2"
 UNION
 SELECT 1,NULL;
@@ -878,8 +883,8 @@ SELECT 2 as "my_col"
 UNION
 SELECT 1;
 my_col
-1
 2
+1
 SELECT 2 as "my_col"
 UNION
 SELECT 1;
@@ -1305,8 +1310,8 @@ INSERT INTO t1 values (1),(5),(10) /* doesn't throw error */;
 SELECT * FROM t1 /* shouldn't throw error */;
 a
 1
-10
 5
+10
 DROP TABLE t1;
 SELECT COUNT(*) FROM INFORMATION_SCHEMA.INNODB_TEMP_TABLE_INFO;
 COUNT(*)
@@ -1611,8 +1616,8 @@ INSERT INTO t1 VALUES(12900.019,37489e-12);
 SELECT * FROM t1;
 f	k
 124.79	1.23e+200
-12900	0
 7	1
+12900	0
 DROP TABLE t1;
 # Verify that the function rounds numeric values when they
 # are padded with characters

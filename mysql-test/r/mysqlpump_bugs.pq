@@ -41,10 +41,10 @@ CREATE TABLE `mysql`.`replication_asynchronous_connection_failover` (
 CREATE TABLE `mysql`.`replication_asynchronous_connection_failover_managed` (
 CREATE TABLE `mysql`.`replication_group_configuration_version` (
 CREATE TABLE `mysql`.`replication_group_member_actions` (
-CREATE TABLE `mysql`.`resource_groups_extra` (
 CREATE TABLE `mysql`.`server_cost` (
 CREATE TABLE `mysql`.`servers` (
 CREATE TABLE `mysql`.`slave_worker_info` (
+CREATE TABLE `mysql`.`statement_outline_rules` (
 CREATE TABLE `mysql`.`tdsql_sequences` (
 CREATE TABLE `mysql`.`time_zone` (
 CREATE TABLE `mysql`.`time_zone_leap_second` (

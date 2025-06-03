@@ -7833,8 +7833,7 @@ static Sys_var_enum Sys_myisam_conversion_innodb(
 
 static Sys_var_enum Sys_tencent_myisam_conversion_innodb(
     "tencent_myisam_conversion_innodb",
-    "control tencentroot/system user, myisam conversion innodb mode, can be "
-    "ON/OFF/WARN/TRY",
+    "Eliminated parameters",
     GLOBAL_VAR(opt_tencent_myisam_conversion_innodb),
     CMD_LINE(REQUIRED_ARG), myisam_conversion_innodb_names,
     DEFAULT(CONVERSION_MODE_OFF), NO_MUTEX_GUARD, NOT_IN_BINLOG);
@@ -8463,12 +8462,6 @@ static Sys_var_bool Sys_cdb_instant_modify_column_enabled(
     CMD_LINE(OPT_ARG), DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG,
     ON_CHECK(NULL), ON_UPDATE(NULL));
 
-static Sys_var_bool Sys_opt_outline_enabled(
-    "cdb_opt_outline_enabled", "outline switch",
-    NON_PERSIST SESSION_VAR(cdb_opt_outline_enabled), CMD_LINE(OPT_ARG), DEFAULT(false), 
-    NO_MUTEX_GUARD, NOT_IN_BINLOG, 
-    ON_CHECK(NULL), ON_UPDATE(NULL));
-
 static bool update_cdb_instance_mode(sys_var *, THD *, enum_var_type) {
   if (cdb_instance_mode == CDB_INSTANCEMODE_LOCKWRITE)
     killall_non_super_threads(NULL);
@@ -8768,7 +8761,11 @@ static bool fix_pseudo_server_id(sys_var *, THD *thd, enum_var_type) {
 }
 
 static bool check_pseudo_server_id(sys_var *, THD *thd, set_var *) {
-  return (thd->security_context()->check_access(SUPER_ACL));
+  if (!thd->security_context()->check_access(SUPER_ACL)) {
+    my_error(ER_SPECIFIC_ACCESS_DENIED_ERROR, MYF(0), "SUPER");
+    return true;
+  }
+  return false;
 }
 
 static Sys_var_ulong Sys_pseudo_server_id(
@@ -8782,30 +8779,6 @@ static Sys_var_bool Sys_partition_table_skip_limit(
     "partition_table_skip_limit",
     "The partion key doesn't need to be part of all unique index if setting to true",
     GLOBAL_VAR(opt_par_skip_limit),  CMD_LINE(OPT_ARG),DEFAULT(false));
-
-static Sys_var_bool Sys_statement_outline_enable_apply(
-    "statement_outline_enable_apply",
-    "Enable statement outline apply if true in current session",
-    SESSION_VAR(statement_outline_enable_apply), CMD_LINE(OPT_ARG),
-    DEFAULT(true));
-
-static Sys_var_bool Sys_statement_outline_enabled(
-    "statement_outline_enabled", "Enable statement outline if true",
-    GLOBAL_VAR(statement_outline::sys_var_enabled), CMD_LINE(OPT_ARG),
-    DEFAULT(statement_outline::default_enabled));
-
-static Sys_var_uint Sys_statement_outline_partitions(
-    "statement_outline_partitions",
-    "How many partitions of statement outline rule maps.",
-    READ_ONLY GLOBAL_VAR(statement_outline::sys_var_partitions),
-    CMD_LINE(REQUIRED_ARG), VALID_RANGE(1, 256),
-    DEFAULT(statement_outline::default_partitions), BLOCK_SIZE(1));
-
-static Sys_var_bool Sys_statement_outline_verbose(
-    "statement_outline_apply_verbose",
-    "Output more information when applying statement outline rules",
-    SESSION_VAR(statement_outline_apply_verbose), CMD_LINE(OPT_ARG),
-    DEFAULT(false));
 
 #if defined(HAVE_OPT_CTX)
 static bool fix_optimizer_context_max_mem_size(sys_var *, THD *thd,

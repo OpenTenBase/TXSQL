@@ -24,13 +24,13 @@ xa commit '3' one phase tdsql_withgts 8;
 include/sync_slave_sql_with_master.inc
 show status like 'Iothreadreport_gts';
 Variable_name	Value
-Iothreadreport_gts	8
+Iothreadreport_gts	140515429184384
 set global enable_backup_dcn_switch=off;
 insert into t values(6) tdsql_withgts 9;
 include/sync_slave_sql_with_master.inc
 show status like 'Iothreadreport_gts';
 Variable_name	Value
-Iothreadreport_gts	8
+Iothreadreport_gts	140515429184384
 set global enable_backup_dcn_switch=off;
 drop table t;
 include/rpl_end.inc

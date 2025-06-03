@@ -71,30 +71,15 @@ select sleep(1);
 SET SESSION long_query_time = 0;
 SELECT @@session.log_slow_verbosity;
 set session log_slow_verbosity = "explain";
-# explain: id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra#
-# explain: 1	SIMPLE	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	No tables used#
 SELECT @@session.log_slow_verbosity;
-# explain: id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra#
-# explain: 1	SIMPLE	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	No tables used#
 select 1;
-# explain: id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra#
-# explain: 1	SIMPLE	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	No tables used#
 select sleep(1);
-# explain: id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra#
-# explain: 1	SIMPLE	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	No tables used#
 select concat("Hello", " ", "World.");
 create table t1 (a int, b int);
 create table t2 (a int, b int);
 show tables;
 show create table t1;
-# explain: id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra#
-# explain: 1	PRIMARY	ot	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where#
-# explain: 2	DEPENDENT SUBQUERY	it	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where#
 SELECT * FROM t1 ot WHERE ot.b<0 OR ot.a IN (SELECT it.a+1 FROM t2 it);
-# explain: id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra#
-# explain: 1	PRIMARY	<derived2>	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL#
-# explain: 1	PRIMARY	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where#
-# explain: 2	DERIVED	t2	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL#
 SELECT t1.* FROM t1 LEFT OUTER JOIN 
 CREATE TABLE test_log (sql_text TEXT);
 drop table t1, t2;

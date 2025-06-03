@@ -3,7 +3,7 @@
 --echo # Prepare
 --echo #
 
-connect (tencent, localhost, tencentroot,'', );
+connect (tencent, localhost, root,'', );
 connection default;
 
 DELIMITER $$;

@@ -254,6 +254,8 @@ static void *handle_connection(void *arg) {
   Channel_info *channel_info = static_cast<Channel_info *>(arg);
   bool pthread_reused [[maybe_unused]] = false;
   bool from_thread_pool = channel_info->from_thread_pool;
+  bool is_local_or_admin_connection =
+      channel_info->is_local_or_admin_connection();
   THD *thd = nullptr;
 
   if (my_thread_init()) {
@@ -336,6 +338,9 @@ static void *handle_connection(void *arg) {
 
         if (do_command(thd)) break;
 
+        /* Always use per_thread mode to handle admin connections. */
+        if (is_local_or_admin_connection) continue;
+
         if (Connection_handler_manager::thread_handling ==
             Connection_handler_manager::SCHEDULER_THREAD_POOL) {
           /*
@@ -403,6 +408,7 @@ static void *handle_connection(void *arg) {
     channel_info = Per_thread_connection_handler::block_until_new_connection();
     if (channel_info == nullptr) break;
 
+    is_local_or_admin_connection = channel_info->is_local_or_admin_connection();
     pthread_reused = true;
     if (connection_events_loop_aborted()) {
       // Close the channel and exit as server is undergoing shutdown.

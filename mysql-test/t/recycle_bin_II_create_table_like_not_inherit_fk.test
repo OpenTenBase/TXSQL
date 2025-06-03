@@ -4,7 +4,7 @@
 --echo #  Prepare
 --echo #
 
-connect (con_tencentroot_master, localhost, tencentroot,,,,$MASTER_MYSOCK);
+connect (con_root_master, localhost, root,,,,$MASTER_MYSOCK);
 --let $cdb_recycle_bin_enabled_default= `select @@cdb_recycle_bin_enabled`
 set global cdb_recycle_bin_enabled = on;
 
@@ -39,14 +39,14 @@ LET $MYSQLD_DATADIR=`select @@datadir`;
 LET $recycle_bin_tmp=$MYSQL_TMP_DIR/recycle_bin_tmp;
 --mkdir $recycle_bin_tmp
 
-disconnect con_tencentroot_master;
+disconnect con_root_master;
 LET $restart_parameters = restart:--innodb-directories=$recycle_bin_tmp;
 --replace_result $MYSQL_TMP_DIR MYSQL_TMP_DIR
 --source include/restart_mysqld.inc
 
 SHOW TABLES;
 
-connect (con_tencentroot_master, localhost, tencentroot,,,,$MASTER_MYSOCK);
+connect (con_root_master, localhost, root,,,,$MASTER_MYSOCK);
 set global cdb_recycle_bin_enabled = on;
 --replace_result $MYSQL_TMP_DIR MYSQL_TMP_DIR
 eval CREATE TABLE `te` (

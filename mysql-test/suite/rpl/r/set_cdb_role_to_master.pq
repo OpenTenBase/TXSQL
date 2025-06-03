@@ -17,7 +17,7 @@ START SLAVE IO_THREAD;
 Warnings:
 Warning	1287	'START SLAVE' is deprecated and will be removed in a future release. Please use START REPLICA instead
 include/wait_for_slave_io_to_start.inc
-[connection tencentroot]
+[connection root]
 # Slave (Server_id 2) reports default cdb_role.
 # Slave (Server_id 3) reports explicitly configured cdb_role.
 SHOW SLAVE HOSTS;
@@ -28,7 +28,7 @@ Warning	1287	SLAVE_PORT
 Warnings:
 [connection slave3]
 set global cdb_role = 3;
-[connection tencentroot]
+[connection root]
 # Slave (Server_id 3) does not report reconfigured cdb_role without reconnecting.
 SHOW SLAVE HOSTS;
 Server_id	Host	Port	Master_id	Slave_UUID	Role
@@ -44,7 +44,7 @@ set global cdb_role = 1;
 START SLAVE IO_THREAD;
 Warnings:
 Warning	1287	'START SLAVE' is deprecated and will be removed in a future release. Please use START REPLICA instead
-[connection tencentroot]
+[connection root]
 # Slave (Server_id 3) reports reconfigured cdb_role after reconnecting.
 SHOW SLAVE HOSTS;
 Server_id	Host	Port	Master_id	Slave_UUID	Role

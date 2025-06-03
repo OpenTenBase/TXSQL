@@ -173,6 +173,7 @@ class Channel_info_local_socket : public Channel_info {
     if (thd != nullptr) {
       init_net_server_extension(thd);
       thd->security_context()->set_host_ptr(my_localhost, strlen(my_localhost));
+      thd->set_local_or_admin_connection(true);
     }
     return thd;
   }
@@ -250,6 +251,7 @@ class Channel_info_tcpip_socket : public Channel_info {
     if (thd != nullptr) {
       thd->set_admin_connection(m_is_admin_conn);
       init_net_server_extension(thd);
+      thd->set_local_or_admin_connection(m_is_admin_conn);
     }
     return thd;
   }

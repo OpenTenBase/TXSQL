@@ -1,7 +1,7 @@
 
 --echo # ==============================================================
 --echo # Update test
-connection conn_tencentroot_slave;
+connection conn_root_slave;
 let $slave_parallel_type_saved=`select @@slave_parallel_type`;
 let $slave_parallel_workers_saved=`select @@slave_parallel_workers`;
 let $cdb_hash_scan_max_agg_event_size_saved=`select @@cdb_hash_scan_max_agg_event_size`;
@@ -10,7 +10,7 @@ let $slave_rows_search_algorithms_saved=`select @@slave_rows_search_algorithms`;
 
 --echo #
 --echo # case 1: HASH_SCAN
-connection conn_tencentroot_slave;
+connection conn_root_slave;
 set global slave_rows_search_algorithms='INDEX_SCAN,HASH_SCAN';
 set global cdb_hash_scan_max_agg_event_size=16384;
 let update_str='b';
@@ -18,14 +18,14 @@ let update_str='b';
 
 --echo #
 --echo # case 2: TABLE_SCAN
-connection conn_tencentroot_slave;
+connection conn_root_slave;
 set global slave_rows_search_algorithms='INDEX_SCAN,TABLE_SCAN';
 let update_str='c';
 --source rpl_hash_scan_perf_buffer_size_update_base.inc
 
 --echo #
 --echo # case 3: HASH_SCAN + MTS
-connection conn_tencentroot_slave;
+connection conn_root_slave;
 STOP SLAVE SQL_THREAD;
 source include/wait_for_slave_sql_to_stop.inc;
 set global slave_parallel_type=LOGICAL_CLOCK;
@@ -38,7 +38,7 @@ let update_str='d';
 
 --echo #
 --echo # case 4: TABLE_SCAN + MTS
-connection conn_tencentroot_slave;
+connection conn_root_slave;
 set global slave_rows_search_algorithms='INDEX_SCAN,TABLE_SCAN';
 let update_str='e';
 --source rpl_hash_scan_perf_buffer_size_update_base.inc
@@ -48,7 +48,7 @@ let update_str='e';
 --echo # Update test cleanup
 connection master;
 --sync_slave_with_master
-connection conn_tencentroot_slave;
+connection conn_root_slave;
 STOP SLAVE SQL_THREAD;
 source include/wait_for_slave_sql_to_stop.inc;
 

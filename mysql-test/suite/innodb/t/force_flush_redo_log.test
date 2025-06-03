@@ -10,13 +10,12 @@ create table tlsn1(f1 int, f2 varchar(1000));
 insert into tlsn1 values (1, lpad('', 900, 'a'));
 
 --echo ###push checkpoint forward
-let $user1=tencentroot;
-connect (con_tencentroot1, localhost, $user1, '', );
+let $user1=root;
+connect (con_root1, localhost, $user1, '', );
 set global innodb_async_checkpoint_now=true;
 
-###should be error if use is not tencentroot
+###should be error if use is not root
 connection default;
---error ER_WRONG_ARGUMENTS
 set global innodb_async_checkpoint_now=true;
 
 --echo ###clean up

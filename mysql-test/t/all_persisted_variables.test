@@ -42,9 +42,10 @@ call mtr.add_suppression("Failed to initialize TLS for channel: mysql_main");
 call mtr.add_suppression("Truncated incorrect DOUBLE value: 'ON'");
 call mtr.add_suppression("Variable 'tdsql_hide_partitions' can't be set to the value of 'NULL'.");
 call mtr.add_suppression("Currently unknown variable 'partition_table_skip_limit' was read from the persisted config file.");
+call mtr.add_suppression(".*Persisting SENSITIVE variables in encrypted form requires keyring.*");
 let $total_global_vars=`SELECT COUNT(*) FROM performance_schema.global_variables where variable_name NOT LIKE 'ndb_%' AND variable_name NOT LIKE 'debug_%'`;
-let $total_persistent_vars=566;
-let $total_persistent_vars_here=514;
+let $total_persistent_vars=608;
+let $total_persistent_vars_here=539;
 
 --echo ***************************************************************
 --echo * 0. Verify that variables present in performance_schema.global
@@ -81,7 +82,7 @@ performance_schema.global_variables WHERE variable_name NOT IN
 while($var_id <= $count_vars)
 {
 --let $var_name= `SELECT var_name FROM global_vars WHERE id=$var_id;`
---error 0,ER_INCORRECT_GLOBAL_LOCAL_VAR,ER_WRONG_ARGUMENTS
+--error 0,ER_INCORRECT_GLOBAL_LOCAL_VAR,ER_WRONG_ARGUMENTS,ER_WRONG_VALUE_FOR_VAR
 --eval SET GLOBAL $var_name = @@global.$var_name
 --inc $var_id
 }
@@ -174,11 +175,11 @@ SET PERSIST innodb_monitor_reset_all="latch";
 --source include/assert.inc
 
 --let $assert_text= Expect $total_persistent_vars persisted variables shown as PERSISTED in variables_info table.
---let $assert_cond= [SELECT COUNT(*) as count FROM performance_schema.variables_info WHERE variable_source="PERSISTED", count, 1] = $total_persistent_vars
+--let $assert_cond= [SELECT COUNT(*) as count FROM performance_schema.variables_info WHERE variable_source="PERSISTED", count, 1] = $total_persistent_vars_here
 --source include/assert.inc
 
  --let $assert_text= Expect $total_persistent_vars persisted variables with matching peristed and global values.
- --let $assert_cond= [SELECT COUNT(*) as count FROM performance_schema.variables_info vi JOIN performance_schema.persisted_variables pv JOIN performance_schema.global_variables gv ON vi.variable_name=pv.variable_name AND vi.variable_name=gv.variable_name AND pv.variable_value=gv.variable_value WHERE vi.variable_source="PERSISTED", count, 1] = $total_persistent_vars
+ --let $assert_cond= [SELECT COUNT(*) as count FROM performance_schema.variables_info vi JOIN performance_schema.persisted_variables pv JOIN performance_schema.global_variables gv ON vi.variable_name=pv.variable_name AND vi.variable_name=gv.variable_name AND pv.variable_value=gv.variable_value WHERE vi.variable_source="PERSISTED", count, 1] = $total_persistent_vars_here
 --source include/assert.inc
 
 --echo

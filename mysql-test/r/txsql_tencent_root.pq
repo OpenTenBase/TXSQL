@@ -1,7 +1,7 @@
-#connect user=tencentroot
+#connect user=root
 #1.1 check max_connections for non tencent users.
 set global max_connections=2;
-#connect con_tencentroot_1
+#connect con_root_1
 #reserved connections test
 #1.2 check processlist for non tencent users.
 #non tencent connection
@@ -22,20 +22,20 @@ show processlist;
 Id	User	Host	db	Command	Time	State	Info
 #####	event_scheduler	localhost	NULL	#####	##	#####	NULL
 #####	root	localhost	test	#####	##	#####	NULL
-#####	tencentroot	localhost	test	#####	##	#####	show processlist
+#####	root	localhost	test	#####	##	#####	show processlist
 #####	root	localhost	test	#####	##	#####	NULL
 #####	root	localhost	test	#####	##	#####	NULL
-#####	tencentroot	localhost	test	#####	##	#####	NULL
-#####	tencentroot	localhost	test	#####	##	#####	NULL
+#####	root	localhost	test	#####	##	#####	NULL
+#####	root	localhost	test	#####	##	#####	NULL
 select id, user, command from information_schema.processlist order by user;
 id	user	command
 #####	event_scheduler	#####
 #####	root	#####
 #####	root	#####
 #####	root	#####
-#####	tencentroot	#####
-#####	tencentroot	#####
-#####	tencentroot	#####
+#####	root	#####
+#####	root	#####
+#####	root	#####
 #1.4 kill operation for non tencent users.
 kill ##;
 kill ##;
@@ -46,8 +46,8 @@ select id, user, command from information_schema.processlist order by user;
 id	user	command
 #####	event_scheduler	#####
 #####	root	#####
-#####	tencentroot	#####
-#####	tencentroot	#####
+#####	root	#####
+#####	root	#####
 #1.5 check set privileges for non tencent users.
 set global tencent_root_whitelist='localhost';
 ERROR HY000: Unknown system variable 'tencent_root_whitelist'
@@ -56,9 +56,8 @@ ERROR HY000: Unknown system variable 'tencent_root_embedded'
 set global tencent_root_whitelist='localhost;127.0.0.1';
 set global tencent_root_whitelist= 'localhost;127.0.0.1;::1';
 SET GLOBAL max_connections = 151;
-SET GLOBAL cdb_forbid_mysql_write=ON;
 #
-# only tencentroot have write access to mysql schema
+# only root have write access to mysql schema
 #
 use mysql;
 select host from db limit 0;
@@ -182,7 +181,6 @@ ERROR 42000: Access denied for user 'root'@'localhost' to database 'mysql'
 use mysql;
 rename table tbl to temp_tbl;
 drop table temp_tbl;
-SET GLOBAL cdb_forbid_mysql_write=0;
 SET GLOBAL cdb_forbid_system_database_write=ON;
 #
 # even root has no write access to sys schema

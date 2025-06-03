@@ -327,6 +327,9 @@ static bool check_reycle_bin_name(THD *thd, const char *db) {
   if (!is_original && !is_new) {
     return false;
   }
+  if (!thd->security_context()->check_access(SUPER_ACL)) {
+    return true;
+  }
   return false;
 }
 /* changes from txsql end. */
@@ -357,7 +360,10 @@ bool mysql_create_db(THD *thd, const char *db, HA_CREATE_INFO *create_info) {
   */
   dd::cache::Dictionary_client::Auto_releaser releaser(thd->dd_client());
 
-  if (check_reycle_bin_name(thd, db)) return true;
+  if (check_reycle_bin_name(thd, db)) {
+    my_error(ER_NO_SYSTEM_SCHEMA_ACCESS, MYF(0), db);
+    return true;
+  }
 
   // Reject creation of the system schema except for system threads.
   if (!thd->is_dd_system_thread() &&
@@ -759,8 +765,9 @@ bool mysql_rm_db(THD *thd, const LEX_CSTRING &db, bool if_exists) {
   bool enable_recycle =
       !is_recyle_bin && recycle_bin_enabled_in_user_thread(thd);
 
-  /** Only txsql or tdsql user allows to drop recycle bin database */
-  if (is_recyle_bin && !(thd->is_system_thread())) {
+  /** Only super user allows to drop recycle bin database */
+  if (is_recyle_bin && !(thd->is_system_thread() ||
+                         thd->security_context()->check_access(SUPER_ACL))) {
     my_error(ER_NO_SYSTEM_SCHEMA_ACCESS, MYF(0), db.str);
     return true;
   }

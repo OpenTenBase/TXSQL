@@ -286,7 +286,7 @@ insert into t4 values(1,1,1,1);
 
 set global debug="+d,enter_worker_sleep";
 
-connect(con_tencentroot1,localhost,tencentroot,,);
+connect(con_root1,localhost,root,,);
 --send select * from t4 union select * from t4;
 
 connect (conn101, localhost, user101, , );
@@ -299,7 +299,7 @@ connect (conn103, localhost, user103, , );
 
 connect (conn104, localhost, user104, , );
 
-connect(con_tencentroot2,localhost,tencentroot,,);
+connect(con_root2,localhost,root,,);
 
 --echo root see all.
 connection conn_default;
@@ -327,7 +327,7 @@ show processlist;
 show parallel processlist;
 
 --echo tencent root see everything.
-connection con_tencentroot2;
+connection con_root2;
 --replace_column 1 # 5 COMMAND 6 TIME 7 STATE 8 INFO
 --sorted_result
 show processlist;

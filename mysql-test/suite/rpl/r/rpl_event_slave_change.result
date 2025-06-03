@@ -92,6 +92,7 @@ a	b
 1000	test
 show variables like '%event_scheduler';
 Variable_name	Value
+cdb_skip_event_scheduler	ON
 event_scheduler	ON
 set global cdb_skip_event_scheduler = off;
 drop database testdb;

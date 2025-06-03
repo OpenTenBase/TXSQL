@@ -419,7 +419,7 @@ bool Grant_validator::validate_dynamic_privileges() {
       /*
         When cdb_forbid_mysql_write is enabled, user without a GRANT_OPTION
         on the specific dynamic privilege can't grant privilege to others.
-        Tencentroot or tdsqlroot is not limited.
+        Super privilege is not limited.
       */
       if (!m_thd->security_context()->check_access(SUPER_ACL) &&
           !has_grant_privilege) {

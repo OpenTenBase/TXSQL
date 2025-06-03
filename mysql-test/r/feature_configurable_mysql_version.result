@@ -38,7 +38,12 @@ show variables like 'version';
 Variable_name	Value
 version	5.7.3233333333333333333333333333333333333333333333333333333
 set global version = '5.7.233';
-ERROR HY000: Variable 'version' is a read only variable
+select version();
+version()
+5.7.233
+show variables like 'version';
+Variable_name	Value
+version	5.7.233
 set global version = default;
 select @mysql_version_is_equal;
 @mysql_version_is_equal

@@ -17,7 +17,7 @@
 #              * Scope Check                                                  #
 #                                                                             #
 ###############################################################################
-connect (tencent_conn, localhost, tencentroot,'', );
+connect (tencent_conn, localhost, root,'', );
 connection tencent_conn;
 
 # Save initial value

@@ -59,8 +59,6 @@ show grants for 'test_user2'@'localhost';
 Grants for test_user2@localhost
 GRANT USAGE ON *.* TO `test_user2`@`localhost`
 flush privileges;
-set global cdb_forbid_mysql_write=ON;
-## should fail when cdb_forbid_mysql_write=ON
 grant system_variables_admin on *.* to 'test_user1'@'localhost';
 ERROR 42000: Access denied; you need (at least one of) the GRANT OPTION privilege(s) for this operation
 grant session_variables_admin on *.* to 'test_user1'@'localhost';
@@ -69,7 +67,6 @@ grant system_variables_admin on *.* to 'test_user2'@'localhost';
 ERROR 42000: Access denied; you need (at least one of) the GRANT OPTION privilege(s) for this operation
 grant session_variables_admin on *.* to 'test_user2'@'localhost';
 ERROR 42000: Access denied; you need (at least one of) the GRANT OPTION privilege(s) for this operation
-set global cdb_forbid_mysql_write=OFF;
 revoke update on *.* from 'test_user1'@'localhost';
 show grants for 'test_user1'@'localhost';
 Grants for test_user1@localhost
@@ -113,15 +110,12 @@ grant update on mysql.* to 'test_user1'@'localhost';
 show grants for 'test_user2'@'localhost';
 Grants for test_user2@localhost
 GRANT USAGE ON *.* TO `test_user2`@`localhost`
-set global cdb_forbid_mysql_write=ON;
 flush privileges;
-## cdb_forbid_mysql_write=ON, should success because test_user1 has specific privileges
 grant system_variables_admin on *.* to 'test_user2'@'localhost';
 grant session_variables_admin on *.* to 'test_user2'@'localhost';
 show grants for 'test_user2'@'localhost';
 Grants for test_user2@localhost
 GRANT USAGE ON *.* TO `test_user2`@`localhost`
 GRANT SESSION_VARIABLES_ADMIN,SYSTEM_VARIABLES_ADMIN ON *.* TO `test_user2`@`localhost`
-set global cdb_forbid_mysql_write=0;
 drop user 'test_user1'@'localhost';
 drop user 'test_user2'@'localhost';

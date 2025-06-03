@@ -104,7 +104,7 @@ SET GLOBAL replica_parallel_type = 'DATABASE';
 Warnings:
 Warning	1287	'@@replica_parallel_type' is deprecated and will be removed in a future release.
 START SLAVE SQL_THREAD;
-ERROR HY000: replica_preserve_commit_order is not supported when replica_parallel_type is DATABASE.
+ERROR HY000: replica_preserve_commit_order is not supported when replica_parallel_type is DATABASE or TABLE.
 SET GLOBAL replica_parallel_type = 'LOGICAL_CLOCK';
 Warnings:
 Warning	1287	'@@replica_parallel_type' is deprecated and will be removed in a future release.

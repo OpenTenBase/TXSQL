@@ -475,7 +475,7 @@ alter table t1 add index k(a3);
 select length(a1) from t1 where a1='with primary' limit 10;
 length(a1)
 Warnings:
-Warning	4530	illegal user or without master key can only read encrypted data of the encrypted column 'a1'
+Warning	4127	illegal user or without master key can only read encrypted data of the encrypted column 'a1'
 alter table t1 drop column a1, drop column a2, drop column a3;
 set global cdb_column_encryption_whitelist = '';
 Warnings:

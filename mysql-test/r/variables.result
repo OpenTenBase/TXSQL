@@ -1838,6 +1838,7 @@ log_slow_admin_statements	OFF
 log_slow_extra	OFF
 log_slow_replica_statements	OFF
 log_slow_slave_statements	OFF
+log_slow_verbosity	
 set global log_slow_admin_statements = on;
 show global variables like 'log_slow_admin_statements';
 Variable_name	Value

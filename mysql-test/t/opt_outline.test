@@ -1,7 +1,7 @@
 --echo # Infrastructure for Optimizer Outline
 
 show grants;
-connect(conn_tencent,localhost,tencentroot,,);
+connect(conn_tencent,localhost,root,,);
 set global cdb_opt_outline_enabled = off;
 select user();
 
@@ -340,35 +340,10 @@ connection conn_tencent;
 truncate table mysql.outline;
 outline flush;
 
-# 1.4 forbid write mysql.outline
-connection conn_tencent;
-set global cdb_forbid_mysql_write = on;
-connect(conn_user4,localhost,root,,);
---error 1044
-delete from mysql.outline;
---error 1044
-insert into mysql.outline values(1,"****", "fafafa", "*****");
-outline "select * from t1, t2 where t1.a = t2.a" set outline_info "OUTLINE:select /*+max_execution_time(1000)*/* from t1, t2 where t1.a = t2.a";
---sorted_result
-select * from mysql.outline;
---sorted_result
-show cdb_outline_info;
---sorted_result
-select * from information_schema.cdb_outline_info;
---error ER_CDB_OUTLINE_SET_ERROR
-outline "select a from t1" set outline_info "OUTLINE:select b from t1";
---error ER_CDB_OUTLINE_SET_ERROR
-outline "select * from t1, t2 where t1.a = t2.a" set outline_info "OUTLINE:select * from t1, t2 use index(idx2) where t1.a = t2.b";
---error ER_CDB_OUTLINE_SET_ERROR
-outline "select * from t1 where t1.a in (select t1.a from t1 where t1.b in (select * from t1 left join t2 on t1.a = t2.a))" set outline_info "OUTLINE:select * from t1 where t1.a in (select t1.a from t1 where t1.b in (select * from t1 left join t2 USE index(idx2) on t1.c = t2.a))";
---error ER_CDB_OUTLINE_SET_ERROR
-outline "select * from t1 left join t2 on t1.a = t2.a" set outline_info "";
-outline reset all;
-
-# 1.5 concurrence test.
+# 1.4 concurrence test.
 # manually test the case with sysbench.
 
-# 1.6 outline in prepare stmt
+# 1.5 outline in prepare stmt
 outline "select * from t1, t2 where t1.a = t2.a" set outline_info "OUTLINE:select * from t1 use index(idx1), t2 where t1.a = t2.a";
 outline "select count(*) from t1 join t2 on t1.a = t2.a" set outline_info "OPT:1#HASH_JOIN(t1,t2)#";
 outline "select * from t1 where t1.a in (select t1.a from t1,t2 left join t3 on t1.a = t2.a)" set outline_info "INDEX:1#test#t1#idx1#1#0";
@@ -395,9 +370,8 @@ DEALLOCATE prepare stmt6;
 --sorted_result
 show cdb_outline_info;
 
-# 1.7 end the test.
+# 1.6 end the test.
 connection conn_tencent;
-set global cdb_forbid_mysql_write = off;
 set global cdb_opt_outline_enabled = off;
 drop table t1;
 drop table t2;

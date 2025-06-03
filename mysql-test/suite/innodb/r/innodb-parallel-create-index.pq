@@ -218,7 +218,7 @@ ALTER TABLE t1 DROP INDEX k_val1;
 #TEST SCAN_THREAD AND DDL_THREAD from 1 to 16 with k-ways merge sort
 select @@global.txsql_parallel_ddl_merge_sort_k_value;
 ERROR HY000: Unknown system variable 'txsql_parallel_ddl_merge_sort_k_value'
-# restart:--tencent-root-cnf=tmy.conf
+# restart:
 select @@global.txsql_parallel_ddl_merge_sort_k_value;
 @@global.txsql_parallel_ddl_merge_sort_k_value
 2

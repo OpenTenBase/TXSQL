@@ -1,4 +1,4 @@
-connect(conn_tencent,localhost,tencentroot,,);
+connect(conn_tencent,localhost,root,,);
 let $CDB_MYSQL_VERSION = `select @@global.cdb_mysql_version`;
 let $VERSION = `select version()`;
 --disable_query_log
@@ -43,10 +43,11 @@ connection conn_xx2;
 select version();
 show variables like 'version';
 
-# only tencent root can change version.
+# only root can change version.
 connect(conn_root,127.0.0.1,root,,,$MASTER_MYPORT,);
---error ER_INCORRECT_GLOBAL_LOCAL_VAR
 set global version = '5.7.233';
+select version();
+show variables like 'version';
 
 # set version = default is ok.
 connection conn_tencent;

@@ -1,2 +1,2 @@
---txsql_root_user_mode=TDSQL_ROOT
+
 --cdb_recycle_scheduler_interval=2
