@@ -25,14 +25,11 @@
 #
 # Default is "bundled".
 # The default should be "system" on non-windows platforms,
-# but we need at least version 1.2.11, and that's not available on
+# but we need at least version 1.2.13, and that's not available on
 # all the platforms we need to support.
 
-# With earier versions, several compression tests fail.
-# SET(MIN_ZLIB_VERSION_REQUIRED "1.2.11")
-
 # Security bug fixes required from:
-SET(MIN_ZLIB_VERSION_REQUIRED "1.2.12")
+SET(MIN_ZLIB_VERSION_REQUIRED "1.2.13")
 
 MACRO(FIND_ZLIB_VERSION)
   FOREACH(version_part
@@ -86,7 +83,7 @@ MACRO (RESET_ZLIB_VARIABLES)
   UNSET(FIND_PACKAGE_MESSAGE_DETAILS_ZLIB CACHE)
 ENDMACRO()
 
-SET(ZLIB_VERSION_DIR "zlib-1.2.12")
+SET(ZLIB_VERSION_DIR "zlib-1.3.1")
 SET(BUNDLED_ZLIB_PATH ${CMAKE_SOURCE_DIR}/extra/zlib/${ZLIB_VERSION_DIR})
 
 MACRO (MYSQL_USE_BUNDLED_ZLIB)
@@ -99,7 +96,8 @@ MACRO (MYSQL_USE_BUNDLED_ZLIB)
     ${CMAKE_SOURCE_DIR}/extra/zlib/${ZLIB_VERSION_DIR}
     ${CMAKE_BINARY_DIR}/extra/zlib/${ZLIB_VERSION_DIR}
     )
-  ADD_SUBDIRECTORY(extra/zlib/${ZLIB_VERSION_DIR})
+
+  ADD_SUBDIRECTORY(extra/zlib)
 
   # Add support for bundled curl.
   IF(NOT CMAKE_VERSION VERSION_LESS 3.4)
@@ -122,6 +120,7 @@ MACRO (MYSQL_CHECK_ZLIB)
   
   IF(WITH_ZLIB STREQUAL "bundled")
     MYSQL_USE_BUNDLED_ZLIB()
+    SET(ZLIB_FOUND ON)
   ELSEIF(WITH_ZLIB STREQUAL "system")
     FIND_SYSTEM_ZLIB()
     IF(NOT ZLIB_FOUND)
