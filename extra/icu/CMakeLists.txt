@@ -1,15 +1,16 @@
-# Copyright (c) 2017, 2022, Oracle and/or its affiliates.
+# Copyright (c) 2017, 2023, Oracle and/or its affiliates.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License, version 2.0,
 # as published by the Free Software Foundation.
 #
-# This program is also distributed with certain software (including
+# This program is designed to work with certain software (including
 # but not limited to OpenSSL) that is licensed under separate terms,
 # as designated in a particular file or component or in included license
 # documentation.  The authors of MySQL hereby grant you an additional
 # permission to link the program and your derivative works with the
-# separately licensed software that they have included with MySQL.
+# separately licensed software that they have either included with
+# the program or referenced in the documentation.
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -57,6 +58,16 @@ IF(MY_COMPILER_IS_GNU_OR_CLANG)
   )
 ENDIF()
 
+# Xcode >= 14 makes noise about sprintf, so silence:
+IF(APPLE)
+  LIST(APPEND ICU_LINUX_COMPILE_OPTIONS "-Wno-deprecated-declarations")
+ENDIF()
+
+MY_CHECK_CXX_COMPILER_WARNING("-Warray-bounds" HAS_WARN_FLAG)
+IF(HAS_WARN_FLAG)
+  LIST(APPEND ICU_LINUX_COMPILE_OPTIONS "${HAS_WARN_FLAG}")
+ENDIF()
+
 MY_CHECK_CXX_COMPILER_WARNING("-Wreturn-local-addr" HAS_WARN_FLAG)
 IF(HAS_WARN_FLAG)
   LIST(APPEND ICU_LINUX_COMPILE_OPTIONS "${HAS_WARN_FLAG}")
@@ -72,6 +83,11 @@ IF(HAS_WARN_FLAG)
 ENDIF()
 
 MY_CHECK_CXX_COMPILER_WARNING("-Wmisleading-indentation" HAS_WARN_FLAG)
+IF(HAS_WARN_FLAG)
+  LIST(APPEND ICU_LINUX_COMPILE_OPTIONS "${HAS_WARN_FLAG}")
+ENDIF()
+
+MY_CHECK_CXX_COMPILER_WARNING("-Wuninitialized" HAS_WARN_FLAG)
 IF(HAS_WARN_FLAG)
   LIST(APPEND ICU_LINUX_COMPILE_OPTIONS "${HAS_WARN_FLAG}")
 ENDIF()
@@ -101,6 +117,24 @@ IF(HAS_WARN_FLAG)
   LIST(APPEND ICU_LINUX_COMPILE_OPTIONS "${HAS_WARN_FLAG}")
 ENDIF()
 
+# warning: comparing the result of pointer addition
+MY_CHECK_CXX_COMPILER_WARNING("-Waddress" HAS_WARN_FLAG)
+IF(HAS_WARN_FLAG)
+  LIST(APPEND ICU_LINUX_COMPILE_OPTIONS "${HAS_WARN_FLAG}")
+ENDIF()
+
+# warning: comparison between two arrays
+MY_CHECK_CXX_COMPILER_WARNING("-Warray-compare" HAS_WARN_FLAG)
+IF(HAS_WARN_FLAG)
+  LIST(APPEND ICU_LINUX_COMPILE_OPTIONS "${HAS_WARN_FLAG}")
+ENDIF()
+
+# warning: dangling pointer to an unnamed temporary may be used
+MY_CHECK_CXX_COMPILER_WARNING("-Wdangling-pointer" HAS_WARN_FLAG)
+IF(HAS_WARN_FLAG)
+  LIST(APPEND ICU_LINUX_COMPILE_OPTIONS "${HAS_WARN_FLAG}")
+ENDIF()
+
 IF(WIN32)
   ADD_DEFINITIONS(
     -DU_STATIC_IMPLEMENTATION=1
@@ -120,6 +154,9 @@ IF(MSVC)
   STRING_APPEND(CMAKE_CXX_FLAGS " /wd4996")
 ENDIF()
 
+IF(WIN32_CLANG)
+  STRING_APPEND(CMAKE_CXX_FLAGS " -Wno-unused-function")
+ENDIF()
 
 IF(WITH_ICU STREQUAL "bundled")
   REMOVE_CMAKE_COMPILER_FLAGS(CMAKE_C_FLAGS "${MY_COMPILER_FLAG_FLTO}")
@@ -148,6 +185,7 @@ SET(ICU_COMMON_SOURCES
   ${ICU_VERSION_DIR}/source/common/dictionarydata.cpp
   ${ICU_VERSION_DIR}/source/common/dtintrv.cpp
   ${ICU_VERSION_DIR}/source/common/edits.cpp
+  ${ICU_VERSION_DIR}/source/common/emojiprops.cpp
   ${ICU_VERSION_DIR}/source/common/errorcode.cpp
   ${ICU_VERSION_DIR}/source/common/filteredbrk.cpp
   ${ICU_VERSION_DIR}/source/common/filterednormalizer2.cpp
@@ -169,7 +207,9 @@ SET(ICU_COMMON_SOURCES
   ${ICU_VERSION_DIR}/source/common/locresdata.cpp
   ${ICU_VERSION_DIR}/source/common/locutil.cpp
   ${ICU_VERSION_DIR}/source/common/lsr.cpp
+  ${ICU_VERSION_DIR}/source/common/lstmbe.cpp
   ${ICU_VERSION_DIR}/source/common/messagepattern.cpp
+  ${ICU_VERSION_DIR}/source/common/mlbe.cpp
   ${ICU_VERSION_DIR}/source/common/normalizer2.cpp
   ${ICU_VERSION_DIR}/source/common/normalizer2impl.cpp
   ${ICU_VERSION_DIR}/source/common/normlzr.cpp
@@ -390,6 +430,7 @@ SET(ICU_I18N_SOURCES
   ${ICU_VERSION_DIR}/source/i18n/decContext.cpp
   ${ICU_VERSION_DIR}/source/i18n/decimfmt.cpp
   ${ICU_VERSION_DIR}/source/i18n/decNumber.cpp
+  ${ICU_VERSION_DIR}/source/i18n/displayoptions.cpp
   ${ICU_VERSION_DIR}/source/i18n/double-conversion-bignum.cpp
   ${ICU_VERSION_DIR}/source/i18n/double-conversion-bignum-dtoa.cpp
   ${ICU_VERSION_DIR}/source/i18n/double-conversion-cached-powers.cpp
@@ -422,6 +463,7 @@ SET(ICU_I18N_SOURCES
   ${ICU_VERSION_DIR}/source/i18n/indiancal.cpp
   ${ICU_VERSION_DIR}/source/i18n/inputext.cpp
   ${ICU_VERSION_DIR}/source/i18n/islamcal.cpp
+  ${ICU_VERSION_DIR}/source/i18n/iso8601cal.cpp
   ${ICU_VERSION_DIR}/source/i18n/japancal.cpp
   ${ICU_VERSION_DIR}/source/i18n/listformatter.cpp
   ${ICU_VERSION_DIR}/source/i18n/measfmt.cpp
@@ -457,6 +499,7 @@ SET(ICU_I18N_SOURCES
   ${ICU_VERSION_DIR}/source/i18n/number_patternstring.cpp
   ${ICU_VERSION_DIR}/source/i18n/number_rounding.cpp
   ${ICU_VERSION_DIR}/source/i18n/number_scientific.cpp
+  ${ICU_VERSION_DIR}/source/i18n/number_simple.cpp
   ${ICU_VERSION_DIR}/source/i18n/number_skeletons.cpp
   ${ICU_VERSION_DIR}/source/i18n/number_symbolswrapper.cpp
   ${ICU_VERSION_DIR}/source/i18n/number_usageprefs.cpp
@@ -575,7 +618,7 @@ SET(ICU_I18N_SOURCES
 )
 
 IF(WIN32)
-  LIST(APPEND ICU_SOURCES
+  LIST(APPEND ICU_I18N_SOURCES
     ${ICU_VERSION_DIR}/source/i18n/windtfmt.cpp
     ${ICU_VERSION_DIR}/source/i18n/winnmfmt.cpp
     ${ICU_VERSION_DIR}/source/i18n/wintzimpl.cpp
@@ -587,6 +630,7 @@ TARGET_COMPILE_DEFINITIONS(icuuc PRIVATE -DU_COMMON_IMPLEMENTATION)
 TARGET_INCLUDE_DIRECTORIES(icuuc PRIVATE
   "${CMAKE_CURRENT_SOURCE_DIR}/${ICU_VERSION_DIR}/source/common"
   )
+TARGET_LINK_LIBRARIES(icuuc PRIVATE ${CMAKE_DL_LIBS})
 
 ADD_LIBRARY(icui18n STATIC ${ICU_I18N_SOURCES})
 TARGET_COMPILE_DEFINITIONS(icui18n PRIVATE -DU_I18N_IMPLEMENTATION)
@@ -601,7 +645,7 @@ TARGET_INCLUDE_DIRECTORIES(icustubdata PRIVATE
   "${CMAKE_CURRENT_SOURCE_DIR}/${ICU_VERSION_DIR}/source/common"
   )
 
-IF(LINUX OR SOLARIS)
+IF(UNIX)
   TARGET_COMPILE_OPTIONS(icuuc PRIVATE ${ICU_LINUX_COMPILE_OPTIONS})
   TARGET_COMPILE_OPTIONS(icui18n PRIVATE ${ICU_LINUX_COMPILE_OPTIONS})
   TARGET_COMPILE_OPTIONS(icustubdata PRIVATE ${ICU_LINUX_COMPILE_OPTIONS})
@@ -627,10 +671,10 @@ ADD_DEPENDENCIES(icu_all icuuc icui18n icustubdata)
 # ../source/configure --with-data-packaging=files
 # make
 # cd data/out/build
-# tar cvf icudt69l.tar icudt69l/brkitr icudt69l/unames.icu
+# tar cvf icudt73l.tar icudt73l/brkitr icudt73l/*.icu
 #
 # Solaris sparc, same thing, but:
-# tar cvf icudt69b.tar icudt69b/brkitr icudt69b/unames.icu
+# tar cvf icudt73b.tar icudt73b/brkitr icudt73b/*.icu
 #
 # Copy the tarballs, unpack them, and do 'git add'.
 
