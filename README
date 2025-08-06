@@ -1,20 +1,31 @@
-Copyright (c) 2000, 2022, Oracle and/or its affiliates.
+> **Tencent Cloud's customized enterprise-grade MySQL branch**  
+> Based on MySQL 8.0.30, this deeply optimized, high-performance, highly secure, and low-cost enterprise-grade database solution integrates...
 
-This is a release of MySQL, an SQL database server.
+## Core Features
+### **High-Performance Engine**
+- **Transaction Lock Optimization**: Optimizes transaction commit performance bottlenecks
+- **Master-Slave BP Synchronization**: Failure recovery is 10x faster, with a 500GB buffer pool initialized in just 2 seconds
 
-License information can be found in the LICENSE file.
+### **Smooth Operation**
+- **Online Column Modification**: ALTER TABLE completes in milliseconds, eliminating data copying (supports type conversions such as INT to BIGINT)
+- **Asynchronous Large Table Delete**: Smoothly reclaims disk space and eliminates I/O spikes
+- **Parallel DDL**: Parallelizes the entire index creation process, linearly improving efficiency
 
-In test packages where this file is renamed README-test, the license
-file is renamed LICENSE-test.
+### **Enterprise-Level Features**
+- **Transparent Column Encryption**: Encrypted storage of sensitive columns ensures data security
+- **Undo Flashback Query**: Quickly recover accidentally deleted data and ensure business continuity
+- **Transparent Column Compression**: Compression of large fields reduces storage costs
 
-This distribution may include materials developed by third parties.
-For license and attribution notices for these materials,
-please refer to the LICENSE file.
+## Applicable Scenarios
+- **Financial Applications**: Transparent encryption + strong synchronization meets compliance requirements
+- **High-Concurrency E-Commerce**: Hotspot update queuing mechanism supports flash sales
+- **Game scenario**: Frequent table structure changes, compression saves costs
 
-For further information on MySQL or additional documentation, visit
-  http://dev.mysql.com/doc/
+---
 
-For additional downloads and the source of MySQL, visit
-  http://dev.mysql.com/downloads/
-
-MySQL is brought to you by the MySQL team at Oracle.
+## Compile script
+```bash
+sh build.sh ## Relies on gcc 10.x or later
+```
+## License
+TXSQL-MySQL is licensed under the GNU General Public License, version 2 except for the third-party components listed below.
