@@ -1,31 +1,28 @@
-> **Tencent Cloud's customized enterprise-grade MySQL branch**  
-> Based on MySQL 8.0.30, this deeply optimized, high-performance, highly secure, and low-cost enterprise-grade database solution integrates...
+Tencent Cloud's customized enterprise-grade MySQL branch
+Based on MySQL 8.0.30, this deeply optimized, high-performance, highly secure, and low-cost enterprise-grade database solution integrates...
 
-## Core Features
-### **High-Performance Engine**
-- **Transaction Lock Optimization**: Optimizes transaction commit performance bottlenecks
-- **Master-Slave BP Synchronization**: Failure recovery is 10x faster, with a 500GB buffer pool initialized in just 2 seconds
+## Core Features:
+1. High-Performance Engine
+- Transaction Lock Optimization: Optimizes transaction commit performance bottlenecks
+- Master-Slave BP Synchronization: Failure recovery is 10x faster, with a 500GB buffer pool initialized in just 2 seconds
 
-### **Smooth Operation**
-- **Online Column Modification**: ALTER TABLE completes in milliseconds, eliminating data copying (supports type conversions such as INT to BIGINT)
-- **Asynchronous Large Table Delete**: Smoothly reclaims disk space and eliminates I/O spikes
-- **Parallel DDL**: Parallelizes the entire index creation process, linearly improving efficiency
+2. Smooth Operation
+- Online Column Modification: ALTER TABLE completes in milliseconds, eliminating data copying (supports type conversions such as INT to BIGINT)
+- Asynchronous Large Table Delete: Smoothly reclaims disk space and eliminates I/O spikes
+- Parallel DDL: Parallelizes the entire index creation process, linearly improving efficiency
 
-### **Enterprise-Level Features**
-- **Transparent Column Encryption**: Encrypted storage of sensitive columns ensures data security
-- **Undo Flashback Query**: Quickly recover accidentally deleted data and ensure business continuity
-- **Transparent Column Compression**: Compression of large fields reduces storage costs
+3. Enterprise-Level Features
+- Transparent Column Encryption: Encrypted storage of sensitive columns ensures data security
+- Undo Flashback Query: Quickly recover accidentally deleted data and ensure business continuity
+- Transparent Column Compression: Compression of large fields reduces storage costs
 
 ## Applicable Scenarios
-- **Financial Applications**: Transparent encryption + strong synchronization meets compliance requirements
-- **High-Concurrency E-Commerce**: Hotspot update queuing mechanism supports flash sales
-- **Game scenario**: Frequent table structure changes, compression saves costs
-
----
+1. Financial Applications: Transparent encryption + strong synchronization meets compliance requirements
+2. High-Concurrency E-Commerce: Hotspot update queuing mechanism supports flash sales
+3. Game scenario: Frequent table structure changes, compression saves costs
 
 ## Compile script
-```bash
 sh build.sh ## Relies on gcc 10.x or later
-```
+
 ## License
 TXSQL-MySQL is licensed under the GNU General Public License, version 2 except for the third-party components listed below.
