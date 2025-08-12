@@ -20,6 +20,8 @@ IF(WITH_ENTERPRISE_ENCRYPTION)
 
   SET(CMAKE_CXX_FLAGES_DEBUG "${CMAKE_CXX_FLAGES} -O0 -pipe -Wall -fno-strict-aliasing  -fPIC -g -ggdb -lcrypto")
   SET(CMAKE_CXX_FLAGES_RELEASE"${CMAKE_CXX_FLAGES} -O1 -pipe -Wall -fno-strict-aliasing -fPIC -lcrypto")
+  add_compile_options(-Wno-error=deprecated-declarations)
+
 
   INCLUDE_DIRECTORIES(${OPENSSL_INCLUDE_DIR})
   MYSQL_ADD_PLUGIN(cdb_enterprise_encryption

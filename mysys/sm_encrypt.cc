@@ -61,13 +61,13 @@ EVP_PKEY *Getpkey(int curve_id, uint8_t *pubKey, uint8_t *priKey, int flag) {
             EC_KEY_get0_group(EVP_PKEY_get0_EC_KEY(pkey)), point, x, y, NULL)) {
       return NULL;
     }
-    if (!EC_KEY_set_public_key(EVP_PKEY_get0_EC_KEY(pkey), point)) {
+    if (!EC_KEY_set_public_key(const_cast<EC_KEY*>(EVP_PKEY_get0_EC_KEY(pkey)), point)) {
       return NULL;
     }
   }
   if (flag & 1) {
     r = BN_bin2bn(priKey, 32, r);
-    EC_KEY_set_private_key(EVP_PKEY_get0_EC_KEY(pkey), r);
+    EC_KEY_set_private_key(const_cast<EC_KEY*>(EVP_PKEY_get0_EC_KEY(pkey)), r);
   }
 
   BN_free(r);
