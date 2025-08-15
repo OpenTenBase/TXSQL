@@ -1,0 +1,4 @@
+--early-plugin-load="keyring_file=$KEYRING_PLUGIN"
+--loose-keyring_file_data=$MYSQL_TMP_DIR/mysecret_keyring
+$KEYRING_PLUGIN_OPT
+--loose-innodb_txsql_parallel_ddl=ON
