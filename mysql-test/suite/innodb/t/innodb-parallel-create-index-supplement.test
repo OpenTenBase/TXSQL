@@ -1,0 +1,7 @@
+--disable_query_log
+--source ddl_large_record.test
+--disable_query_log
+--source column_encryption_alter.test
+--disable_query_log
+--source t/group_min_max_ext.test
+--enable_query_log
