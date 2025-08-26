@@ -50,7 +50,13 @@ extern bool pfs_initialized;
 
 #if defined(HAVE_POSIX_MEMALIGN) || defined(HAVE_MEMALIGN) || \
     defined(HAVE_ALIGNED_MALLOC)
+
+#ifdef ARCH_KUNPENG
+/* Kunpeng 920 processor Cacheline optimization */
+#define PFS_ALIGNEMENT 128
+#else
 #define PFS_ALIGNEMENT 64
+#endif
 #define PFS_ALIGNED alignas(PFS_ALIGNEMENT)
 #else
 /*

@@ -34,11 +34,15 @@ Utilities related to CPU cache. */
 namespace ut {
 
 /** CPU cache line size */
+#ifdef ARCH_KUNPENG
+constexpr size_t INNODB_CACHE_LINE_SIZE = 128;
+#else
 #ifdef __powerpc__
 constexpr size_t INNODB_CACHE_LINE_SIZE = 128;
 #else
 constexpr size_t INNODB_CACHE_LINE_SIZE = 64;
 #endif /* __powerpc__ */
+#endif
 
 /** Default kernel page size (not assuming huge pages support). */
 constexpr size_t INNODB_KERNEL_PAGE_SIZE_DEFAULT = 4 * 1024;

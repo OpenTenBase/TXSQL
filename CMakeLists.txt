@@ -136,6 +136,22 @@ IF(DEFINED GIT_COMMIT)
   ADD_DEFINITIONS("-DSHOW_GIT_COMMIT=\"${GIT_COMMIT}\"")
 ENDIF()
 
+IF(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64" AND AARCH_VER EQUAL 7)
+  ADD_DEFINITIONS("-DAARCH64_V7")
+ENDIF()
+
+#Special compiler optimization for Kunpeng920 processor
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
+  execute_process(COMMAND lscpu OUTPUT_VARIABLE CPU_INFO)
+  #if(CPU_INFO MATCHES "TaiShan 200|Kunpeng920|Kunpeng 920")
+	  message("Current processor is Kunpeng 920. Compile optimization is enabled")
+    # Added compilation optimization options for KUNPENG cpu
+    ADD_DEFINITIONS("-DARCH_KUNPENG")
+    STRING_APPEND(CMAKE_CXX_FLAGS " -march=armv8-a+lse+crc  -mtune=tsv110 -fno-reorder-blocks-and-partition ")
+    set(WITH_LTO ON)
+  #endif()
+endif()
+
 OPTION(WITH_DEBUG "Use dbug/safemutex" OFF)
 OPTION(CHECK_ERRMSG_FORMAT "Check printf format for English error messages" OFF)
 

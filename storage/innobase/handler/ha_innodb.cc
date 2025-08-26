@@ -23615,12 +23615,6 @@ static MYSQL_SYSVAR_BOOL(
     "if supported",
     nullptr, nullptr, false);
 
-static MYSQL_SYSVAR_BOOL(
-    txsql_enable_copy_free_snapshot, srv_txsql_enable_copy_free_snapshot,
-    PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-    "enable copy free snapshot",
-    nullptr, nullptr, false);
-
 static MYSQL_SYSVAR_LONGLONG(
     txsql_copy_free_snapshot_rw_hash_size_threshold,
     srv_txsql_copy_free_snapshot_rw_hash_size_threshold,
@@ -25150,7 +25144,6 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(txsql_ddl_buffer_size),
     MYSQL_SYSVAR(txsql_ddl_threads),
     MYSQL_SYSVAR(txsql_parallel_ddl),
-    MYSQL_SYSVAR(txsql_enable_copy_free_snapshot),
     MYSQL_SYSVAR(txsql_copy_free_snapshot_rw_hash_size_threshold),
     MYSQL_SYSVAR(txsql_copy_free_snapshot_update_min_interval_us),
     MYSQL_SYSVAR(data_file_path),
