@@ -848,9 +848,17 @@ struct Trx_shard {
 
 
 /** The transaction system central memory data structure. */
+/*
+  Here is optimize for KUNPENG processor in trxsys
+*/
+#ifdef ARCH_KUNPENG
+#define TRX_SYS_INNODB_CACHE_LINE_SIZE 128
+#else
+#define TRX_SYS_INNODB_CACHE_LINE_SIZE ut::INNODB_CACHE_LINE_SIZE
+#endif
 struct trx_sys_t {
   /* Members protected by neither trx_sys_t::mutex nor serialisation_mutex. */
-  char pad0[ut::INNODB_CACHE_LINE_SIZE];
+  char pad0[TRX_SYS_INNODB_CACHE_LINE_SIZE];
 
   rw_lock_t *lock; /*!< lock to avoid ongoing registering trx
                    while taking snapshot. */
@@ -880,7 +888,7 @@ struct trx_sys_t {
   /** @} */
 
   /* Members protected by either trx_sys_t::mutex or serialisation_mutex. */
-  char pad1[ut::INNODB_CACHE_LINE_SIZE];
+  char pad1[TRX_SYS_INNODB_CACHE_LINE_SIZE];
 
   /** @{ */
 
@@ -897,18 +905,18 @@ struct trx_sys_t {
 
   /** @} */
 
-  char pad01[ut::INNODB_CACHE_LINE_SIZE];
+  char pad01[TRX_SYS_INNODB_CACHE_LINE_SIZE];
   std::atomic<trx_id_t> m_max_flushed_trx_id;
 
-  char pad02[ut::INNODB_CACHE_LINE_SIZE];
+  char pad02[TRX_SYS_INNODB_CACHE_LINE_SIZE];
   std::atomic<trx_id_t> m_rw_trx_hash_version;
 
-  char pad03[ut::INNODB_CACHE_LINE_SIZE];
+  char pad03[TRX_SYS_INNODB_CACHE_LINE_SIZE];
   std::atomic<trx_id_t> m_min_active_id;
   /*!< Minimal transaction id which is
   still in active state. */
 
-  char pad04[ut::INNODB_CACHE_LINE_SIZE];
+  char pad04[TRX_SYS_INNODB_CACHE_LINE_SIZE];
   std::atomic<int64_t> m_hash_erase_version;
 
   std::atomic<uint64_t> max_snapshotgts;
@@ -922,18 +930,18 @@ struct trx_sys_t {
   /** @} */
 
   /* Members protected by the trx_sys_t::mutex. */
-  char pad4[ut::INNODB_CACHE_LINE_SIZE];
+  char pad4[TRX_SYS_INNODB_CACHE_LINE_SIZE];
 
   /** @{ */
 
   /** Mutex protecting most fields in this structure (the default one). */
   TrxSysMutex mutex;
 
-  char pad5[ut::INNODB_CACHE_LINE_SIZE];
+  char pad5[TRX_SYS_INNODB_CACHE_LINE_SIZE];
 
   rw_trx_hash_t rw_trx_hash; /*!<  Lock-free hash of in memory read-write transactions */
 
-  char pad6[ut::INNODB_CACHE_LINE_SIZE];
+  char pad6[TRX_SYS_INNODB_CACHE_LINE_SIZE];
 
   /** List of transactions created for MySQL. All user transactions are
   on mysql_trx_list. The rw_trx_hash can contain system transactions and
@@ -957,7 +965,7 @@ struct trx_sys_t {
 
   /** @} */
 
-  char pad_after[ut::INNODB_CACHE_LINE_SIZE];
+  char pad_after[TRX_SYS_INNODB_CACHE_LINE_SIZE];
 
   Trx_shard &get_shard_by_trx_id(trx_id_t trx_id) {
     return trx_sys->shards[trx_get_shard_no(trx_id)];

@@ -170,6 +170,23 @@ parse_options() {
     --clang)
       clang=1
     ;;
+    --jemallocprof)
+      with_jemalloc_prof=1
+    ;;
+    --aarch64_ver=*)
+      aarch64_ver=`get_option_value "$1"`
+    ;;
+    --aarch64_ver)
+      shift
+      aarch64_ver=`get_option_value "$1"`
+		;;
+    --arch_type=*)
+      arch_type=`get_option_value "$1"`
+    ;;
+    --arch_type)
+      shift
+      arch_type=`get_option_value "$1"`
+		;;
     -h | --help)
       usage
       exit 0
@@ -289,6 +306,8 @@ profile_dir=""
 profile_generate=0
 profile_use=0
 do_bolt=0
+aarch64_ver=8
+arch_type=""
 
 parse_options "$@"
 
@@ -400,7 +419,9 @@ if [ $optimize -eq 0 ];then
     -DWITH_JEMALLOC=$jemalloc                   \
     -DLOCAL_GMOCK_ZIP="${gmock_zip}" \
     -DGIT_COMMIT="$git_log"\
-    -DCOMPILATION_COMMENT_SERVER="20221215"
+    -DAARCH64_VER="$aarch64_ver"\
+    -DARCH_TYPE="$arch_type"\
+    -DCOMPILATION_COMMENT_SERVER="20221230"
 else 
   # optimize compilation with lto + pgo + bolt.
   boost_dir="${boost_dir}/boost/boost_1_77_0"
@@ -455,7 +476,9 @@ else
     -DCMAKE_C_COMPILER=${cmake_c_compiler}      \
     -DWITH_JEMALLOC=$jemalloc                   \
     -DGIT_COMMIT="$git_log"\
-    -DCOMPILATION_COMMENT_SERVER="20221215"
+    -DAARCH64_VER="$aarch64_ver"\
+    -DARCH_TYPE="$arch_type"\
+    -DCOMPILATION_COMMENT_SERVER="20221230"
 fi
 
 
