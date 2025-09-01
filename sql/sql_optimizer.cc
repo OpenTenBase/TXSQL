@@ -548,6 +548,9 @@ bool JOIN::optimize(bool finalize_access_paths) {
   // Ensure there are no errors prior making query plan
   if (thd->is_error()) return true;
 
+  //group by placement optimize
+  
+
   if (thd->lex->using_hypergraph_optimizer) {
     Item *where_cond_no_in2exists = remove_in2exists_conds(thd, where_cond);
     Item *having_cond_no_in2exists = remove_in2exists_conds(thd, having_cond);

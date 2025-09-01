@@ -89,6 +89,9 @@ static bool reckey_in_range(bool max_fl, TABLE_REF *ref, Item_field *item_field,
                             Item *cond, uint range_fl, uint prefix_len);
 static bool maxmin_in_range(bool max_fl, Item_field *item_field, Item *cond);
 
+
+
+
 /**
   Get exact count of rows in all tables. This is called, when at least one of
   the table handlers support HA_COUNT_ROWS_INSTANT, but not
@@ -617,6 +620,13 @@ bool optimize_aggregated_query(THD *thd, Query_block *select,
                               : aggr_delayed ? AGGR_DELAYED : AGGR_COMPLETE;
   return false;
 }
+
+bool group_by_placement(THD *thd, Query_block *select,
+                               const mem_root_deque<Item *> &fields,
+                               Item *conds, aggregate_evaluated *decision){
+  
+}
+
 
 /**
   Test if the predicate compares a field with constants.
