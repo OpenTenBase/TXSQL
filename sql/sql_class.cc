@@ -826,6 +826,11 @@ THD::THD(bool enable_plugins)
                    MY_MUTEX_INIT_FAST);
   mysql_cond_init(key_COND_thr_lock, &COND_thr_lock);
 
+  mysql_mutex_init(key_LOCK_thd_done, &m_thd_lock_done, MY_MUTEX_INIT_FAST);
+  mysql_cond_init(key_COND_thd_done, &m_thd_stage_cond_commit_order);
+  mysql_cond_init(key_COND_thd_done, &m_thd_stage_cond_binlog);
+
+
   /*Initialize connection delegation mutex and cond*/
   mysql_mutex_init(key_LOCK_group_replication_connection_mutex,
                    &LOCK_group_replication_connection_mutex,
@@ -1539,6 +1544,9 @@ THD::~THD() {
   mysql_mutex_destroy(&LOCK_group_replication_connection_mutex);
 
   mysql_cond_destroy(&COND_thr_lock);
+  mysql_mutex_destroy(&m_thd_lock_done);
+  mysql_cond_destroy(&m_thd_stage_cond_commit_order);
+  mysql_cond_destroy(&m_thd_stage_cond_binlog);
   mysql_cond_destroy(&COND_group_replication_connection_cond_var);
 #ifndef NDEBUG
   dbug_sentry = THD_SENTRY_GONE;

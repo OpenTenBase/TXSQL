@@ -2915,6 +2915,10 @@ private:
   */
   THD *next_to_commit;
 
+  mysql_mutex_t m_thd_lock_done;
+  mysql_cond_t m_thd_stage_cond_binlog;
+  mysql_cond_t m_thd_stage_cond_commit_order;
+
   /**
     The member is served for marking a query that CREATEs or ALTERs
     a table declared with a TIMESTAMP column as dependent on

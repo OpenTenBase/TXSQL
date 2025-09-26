@@ -57,8 +57,8 @@ select
 EVENT_NAME,
 if (count_star > 0, "MANY", "NONE") as COUNT_STAR
 from performance_schema.events_waits_summary_global_by_event_name
-where event_name like "%MYSQL_BIN_LOG%"
-  and event_name not like "%MYSQL_BIN_LOG::update_cond"
+where (event_name like "%MYSQL_BIN_LOG%" or event_name like '%LOCK_thd_done%')
+and event_name not like "%MYSQL_BIN_LOG::update_cond"
   order by event_name;
 EVENT_NAME	COUNT_STAR
 wait/synch/cond/sql/MYSQL_BIN_LOG::clear_flush_trxs_cond	NONE
@@ -76,6 +76,7 @@ wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_log	MANY
 wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_sync	MANY
 wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_sync_queue	MANY
 wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_xids	NONE
+wait/synch/mutex/sql/THD::LOCK_thd_done	MANY
 "Expect no slave relay log"
 select * from performance_schema.file_summary_by_instance
 where event_name like "%relaylog%" order by file_name;
@@ -158,8 +159,8 @@ select
 EVENT_NAME,
 if (count_star > 0, "MANY", "NONE") as COUNT_STAR
 from performance_schema.events_waits_summary_global_by_event_name
-where event_name like "%MYSQL_BIN_LOG%"
-  and event_name not like "%MYSQL_BIN_LOG::update_cond"
+where (event_name like "%MYSQL_BIN_LOG%" or event_name like '%LOCK_thd_done%')
+and event_name not like "%MYSQL_BIN_LOG::update_cond"
   order by event_name;
 EVENT_NAME	COUNT_STAR
 wait/synch/cond/sql/MYSQL_BIN_LOG::clear_flush_trxs_cond	NONE
@@ -177,6 +178,7 @@ wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_log	MANY
 wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_sync	MANY
 wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_sync_queue	MANY
 wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_xids	MANY
+wait/synch/mutex/sql/THD::LOCK_thd_done	MANY
 "Expect a slave relay log"
 select
 substring(file_name, locate("slave-", file_name)) as FILE_NAME,
