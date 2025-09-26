@@ -95,19 +95,19 @@ std::pair<bool, THD *> Commit_stage_manager::Mutex_queue::pop_front() {
 void Commit_stage_manager::init(PSI_mutex_key key_LOCK_flush_queue,
                                 PSI_mutex_key key_LOCK_sync_queue,
                                 PSI_mutex_key key_LOCK_commit_queue,
-                                PSI_mutex_key key_LOCK_done,
+                                PSI_mutex_key key_LOCK_done MY_ATTRIBUTE((unused)),
                                 PSI_cond_key key_COND_done,
                                 PSI_cond_key key_COND_flush_queue) {
   if (m_is_initialized) return;
   m_is_initialized = true;
 
-  mysql_mutex_init(key_LOCK_done, &m_lock_done, MY_MUTEX_INIT_FAST);
-  mysql_cond_init(key_COND_done, &m_stage_cond_binlog);
-  mysql_cond_init(key_COND_done, &m_stage_cond_commit_order);
   mysql_cond_init(key_COND_flush_queue, &m_stage_cond_leader);
 #ifndef NDEBUG
   leader_thd = nullptr;
 
+  // m_lock_preempt use key_LOCK_done since m_cond_preempt use key_COND_done
+  mysql_mutex_init(key_LOCK_done, &m_lock_preempt, MY_MUTEX_INIT_FAST);
+ 
   /**
     reuse key_COND_done 'cos a new PSI object would be wasteful in !NDEBUG
   */
@@ -137,10 +137,11 @@ void Commit_stage_manager::deinit() {
 
   for (size_t i = 0; i < STAGE_COUNTER - 1; ++i)
     mysql_mutex_destroy(&m_queue_lock[i]);
-  mysql_cond_destroy(&m_stage_cond_binlog);
-  mysql_cond_destroy(&m_stage_cond_commit_order);
   mysql_cond_destroy(&m_stage_cond_leader);
-  mysql_mutex_destroy(&m_lock_done);
+#ifndef NDEBUG
+  mysql_mutex_destroy(&m_lock_preempt);
+  mysql_cond_destroy(&m_cond_preempt);
+#endif
 }
 
 bool Commit_stage_manager::enroll_for(StageID stage, THD *thd,
@@ -261,8 +262,8 @@ bool Commit_stage_manager::enroll_for(StageID stage, THD *thd,
   */
   if (!leader) {
     CONDITIONAL_SYNC_POINT_FOR_TIMESTAMP("before_follower_wait");
-    mysql_mutex_lock(&m_lock_done);
 #ifndef NDEBUG
+    mysql_mutex_lock(&m_lock_preempt);
     /*
       Leader can be awaiting all-clear to preempt follower's execution.
       With setting the status the follower ensures it won't execute anything
@@ -270,16 +271,19 @@ bool Commit_stage_manager::enroll_for(StageID stage, THD *thd,
     */
     thd->get_transaction()->m_flags.ready_preempt = true;
     if (leader_await_preempt_status) mysql_cond_signal(&m_cond_preempt);
+    mysql_mutex_unlock(&m_lock_preempt);
 #endif
+
+    mysql_mutex_lock(&thd->m_thd_lock_done);
     while (thd->tx_commit_pending) {
       if (stage == COMMIT_ORDER_FLUSH_STAGE) {
-        mysql_cond_wait(&m_stage_cond_commit_order, &m_lock_done);
+        mysql_cond_wait(&thd->m_thd_stage_cond_commit_order, &thd->m_thd_lock_done);
       } else {
-        mysql_cond_wait(&m_stage_cond_binlog, &m_lock_done);
+        mysql_cond_wait(&thd->m_thd_stage_cond_binlog, &thd->m_thd_lock_done);
       }
     }
 
-    mysql_mutex_unlock(&m_lock_done);
+    mysql_mutex_unlock(&thd->m_thd_lock_done);
     return false;
   }
 
@@ -317,13 +321,14 @@ bool Commit_stage_manager::enroll_for(StageID stage, THD *thd,
       mysql_cond_signal(&m_stage_cond_leader);
       unlock_queue(stage);
 
-      mysql_mutex_lock(&m_lock_done);
+      mysql_mutex_lock(&thd->m_thd_lock_done);
       /* wait for signal from binlog leader */
       CONDITIONAL_SYNC_POINT_FOR_TIMESTAMP(
           "before_commit_order_leader_waits_for_binlog_leader");
-      while (thd->tx_commit_pending)
-        mysql_cond_wait(&m_stage_cond_commit_order, &m_lock_done);
-      mysql_mutex_unlock(&m_lock_done);
+      while (thd->tx_commit_pending) {
+        mysql_cond_wait(&thd->m_thd_stage_cond_commit_order, &thd->m_thd_lock_done);
+      }
+      mysql_mutex_unlock(&thd->m_thd_lock_done);
 
       leader = false;
       return leader;
@@ -405,32 +410,38 @@ void Commit_stage_manager::process_final_stage_for_ordered_commit_group(
 }
 
 void Commit_stage_manager::signal_done(THD *queue, StageID stage) {
-  mysql_mutex_lock(&m_lock_done);
+  THD *cur = queue;
+  THD *next = nullptr;
+  while (cur) {
+    // fetch next pointer before wake cur, since cur may quit or be reused
+    // before we fetch its next_to_commit
+    next = cur->next_to_commit;
 
-  for (THD *thd = queue; thd; thd = thd->next_to_commit) {
-    thd->tx_commit_pending = false;
+    mysql_mutex_lock(&cur->m_thd_lock_done);
+    cur->tx_commit_pending = false;
+    /* if thread belong to commit order wake only commit order queue threads */
+    if (stage == COMMIT_ORDER_FLUSH_STAGE) {
+      mysql_cond_signal(&cur->m_thd_stage_cond_commit_order);
+    } else {
+      mysql_cond_signal(&cur->m_thd_stage_cond_binlog);
+    }   
+    mysql_mutex_unlock(&cur->m_thd_lock_done);
+
+    cur = next;
   }
-
-  /* if thread belong to commit order wake only commit order queue threads */
-  if (stage == COMMIT_ORDER_FLUSH_STAGE)
-    mysql_cond_broadcast(&m_stage_cond_commit_order);
-  else
-    mysql_cond_broadcast(&m_stage_cond_binlog);
-
-  mysql_mutex_unlock(&m_lock_done);
 }
 
 #ifndef NDEBUG
 void Commit_stage_manager::clear_preempt_status(THD *head) {
   assert(head);
 
-  mysql_mutex_lock(&m_lock_done);
+  mysql_mutex_lock(&m_lock_preempt);
   while (!head->get_transaction()->m_flags.ready_preempt) {
     leader_await_preempt_status = true;
-    mysql_cond_wait(&m_cond_preempt, &m_lock_done);
+    mysql_cond_wait(&m_cond_preempt, &m_lock_preempt);
   }
   leader_await_preempt_status = false;
-  mysql_mutex_unlock(&m_lock_done);
+  mysql_mutex_unlock(&m_lock_preempt);
 }
 #endif
 

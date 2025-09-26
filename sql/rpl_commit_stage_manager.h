@@ -360,21 +360,6 @@ class Commit_stage_manager {
   */
   mysql_cond_t m_stage_cond_leader;
 
-  /**
-     Condition variable to indicate that the binlog threads can wake up
-     and continue.
-  */
-  mysql_cond_t m_stage_cond_binlog;
-
-  /**
-     Condition variable to indicate that the flush to storage engine
-     is done and commit order threads can again wake up and continue.
-  */
-  mysql_cond_t m_stage_cond_commit_order;
-
-  /** Mutex used for the condition variable above */
-  mysql_mutex_t m_lock_done;
-
   /** Mutex used for the stage level locks */
   mysql_mutex_t m_queue_lock[STAGE_COUNTER - 1];
 
@@ -387,6 +372,7 @@ class Commit_stage_manager {
 
   /** Condition variable to indicate a follower started waiting for commit */
   mysql_cond_t m_cond_preempt;
+  mysql_mutex_t m_lock_preempt;
 #endif
 };
 

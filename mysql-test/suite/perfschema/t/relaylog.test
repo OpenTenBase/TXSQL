@@ -69,7 +69,7 @@ select
   EVENT_NAME,
   if (count_star > 0, "MANY", "NONE") as COUNT_STAR
   from performance_schema.events_waits_summary_global_by_event_name
-  where event_name like "%MYSQL_BIN_LOG%"
+  where (event_name like "%MYSQL_BIN_LOG%" or event_name like '%LOCK_thd_done%')
   and event_name not like "%MYSQL_BIN_LOG::update_cond"
   order by event_name;
 
@@ -137,7 +137,7 @@ select
   EVENT_NAME,
   if (count_star > 0, "MANY", "NONE") as COUNT_STAR
   from performance_schema.events_waits_summary_global_by_event_name
-  where event_name like "%MYSQL_BIN_LOG%"
+  where (event_name like "%MYSQL_BIN_LOG%" or event_name like '%LOCK_thd_done%')
   and event_name not like "%MYSQL_BIN_LOG::update_cond"
   order by event_name;
 
