@@ -771,6 +771,7 @@ done:
   return (error);
 }
 
+
 /** Open an InnoDB table.
 @param[in]      name            table name
 @param[in]      mode            access mode
