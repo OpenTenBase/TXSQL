@@ -681,6 +681,8 @@ class JOIN {
   bool plan_is_single_table() { return primary_tables - const_tables == 1; }
 
   bool optimize(bool finalize_access_paths);
+  
+  bool transform_in_predicates_into_in_subq(THD *thd);
 
 #if defined(HAVE_PX)
   bool px_generate_plan(px_access_path::Split_Position *split_position);

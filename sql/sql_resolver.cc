@@ -1685,7 +1685,7 @@ bool Query_block::setup_conds(THD *thd) {
       return true;
 
     assert(m_where_cond->data_type() != MYSQL_TYPE_INVALID);
-
+    m_where_cond->mark_as_condition_AND_part((TABLE_LIST*)0x1);
     // Simplify the where condition if it's a const item
     if (m_where_cond->const_item() && !thd->lex->is_view_context_analysis() &&
         !m_where_cond->walk(&Item::is_non_const_over_literals,
@@ -1737,6 +1737,7 @@ bool Query_block::setup_join_cond(THD *thd,
       resolve_place = Query_block::RESOLVE_JOIN_NEST;
       resolve_nest = tr;
       thd->where = "on clause";
+      join_cond->mark_as_condition_AND_part(tr);
       if ((!join_cond->fixed && join_cond->fix_fields(thd, ref)) ||
           join_cond->check_cols(1))
         return true;

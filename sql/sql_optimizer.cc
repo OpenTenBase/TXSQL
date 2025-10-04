@@ -244,6 +244,44 @@ static void SaveCondEqualLists(COND_EQUAL *cond_equal) {
   SaveCondEqualLists(cond_equal->upper_levels);
 }
 
+bool JOIN::transform_in_predicates_into_in_subq(THD *thd) {
+  DBUG_ENTER("JOIN::transform_in_predicates_into_in_subq");
+  if (!query_block->in_funcs.elements)
+    DBUG_RETURN(false);
+
+  Query_block *save_current_query_block = thd->lex->current_query_block();
+  enum_parsing_context save_parsing_place = query_block->parsing_place;
+  thd->lex->set_current_query_block(query_block);
+
+  if(where_cond){
+    query_block->parsing_place = CTX_IN_WHERE;
+    where_cond = where_cond->transform(&Item::in_predicate_to_in_subs_transformer, 0);
+    if(!where_cond)
+      DBUG_RETURN(true);
+    query_block->set_where_cond(where_cond);
+  }
+
+  auto join_list = query_block->join_list;
+  if(join_list){
+    TABLE_LIST *table;
+    auto iter = join_list->begin();
+    while(iter != join_list->end()){
+      table = *iter;
+      query_block->parsing_place = CTX_IN_ON;
+      if(table->join_cond()){
+        table->set_join_cond(table->join_cond()->transform(&Item::in_predicate_to_in_subs_transformer, 0));
+      }
+      if(!table->join_cond())
+        DBUG_RETURN(true);
+      iter ++;
+    }
+  }
+  query_block->in_funcs.clear();
+  query_block->parsing_place = save_parsing_place;
+  thd->lex->set_current_query_block(save_current_query_block);
+  DBUG_RETURN(false);
+}
+
 /**
   Optimizes one query block into a query execution plan (QEP.)
 
@@ -359,6 +397,8 @@ bool JOIN::optimize(bool finalize_access_paths) {
       }
     }
   }
+  if(thd->variables.in_subquery_conversion_threshold_enabled)
+    transform_in_predicates_into_in_subq(thd);
 
   if (thd->lex->using_hypergraph_optimizer) {
     // The hypergraph optimizer also wants all subselect items to be optimized,

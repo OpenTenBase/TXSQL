@@ -624,7 +624,7 @@ bool optimize_aggregated_query(THD *thd, Query_block *select,
 bool group_by_placement(THD *thd, Query_block *select,
                                const mem_root_deque<Item *> &fields,
                                Item *conds, aggregate_evaluated *decision){
-  
+  return true;
 }
 
 

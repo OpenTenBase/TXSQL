@@ -478,7 +478,9 @@ bool Query_expression::prepare(THD *thd, Query_result *sel_result,
     // All query blocks get their options in this phase
     sl->set_query_result(tmp_result);
     sl->make_active_options(added_options | SELECT_NO_UNLOCK, removed_options);
-
+    if(sl->tvc){
+      sl->tvc->prepare(thd, sl, tmp_result, this);
+    }
     thd->lex->set_current_query_block(sl);
 
     if (sl == first_recursive) {
