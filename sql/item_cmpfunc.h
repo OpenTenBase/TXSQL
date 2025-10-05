@@ -2022,6 +2022,7 @@ public:
   List<List<Item>> lists_of_values;
   Query_result* result;
   Query_block *query_block;
+  Query_block * parent_query_block;
   Item_type_holder *type_holders;
 
   enum { QEP_NOT_PRESENT_YET, QEP_AVAILABLE} have_query_plan;
@@ -2029,9 +2030,9 @@ public:
   //Explain_context *explain;
   ulonglong select_options;
   
-  table_value_constr(List<List<Item>> tvc_values, Query_block *qb,
+  table_value_constr(List<List<Item>> tvc_values, Query_block *qb, Query_block * parent_qb,
 		     ulonglong select_options_arg) :
-    lists_of_values(tvc_values), result(0), query_block(qb), type_holders(0),
+    lists_of_values(tvc_values), result(0), query_block(qb), parent_query_block(parent_qb),type_holders(0),
     have_query_plan(QEP_NOT_PRESENT_YET),
     select_options(select_options_arg)
   { }

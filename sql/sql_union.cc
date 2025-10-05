@@ -702,7 +702,10 @@ bool Query_expression::optimize(THD *thd, TABLE *materialize_destination,
 
     // LIMIT is required for optimization
     if (set_limit(thd, query_block)) return true; /* purecov: inspected */
-
+    if(query_block->tvc){
+      if (query_block->tvc->optimize(thd))
+        return true; /* purecov: inspected */
+    }
     if (query_block->optimize(thd, finalize_access_paths)) return true;
 
     /*

@@ -254,7 +254,7 @@ bool JOIN::transform_in_predicates_into_in_subq(THD *thd) {
   thd->lex->set_current_query_block(query_block);
 
   if(where_cond){
-    query_block->parsing_place = CTX_IN_WHERE;
+    query_block->parsing_place = CTX_WHERE;
     where_cond = where_cond->transform(&Item::in_predicate_to_in_subs_transformer, 0);
     if(!where_cond)
       DBUG_RETURN(true);
@@ -267,7 +267,7 @@ bool JOIN::transform_in_predicates_into_in_subq(THD *thd) {
     auto iter = join_list->begin();
     while(iter != join_list->end()){
       table = *iter;
-      query_block->parsing_place = CTX_IN_ON;
+      query_block->parsing_place = CTX_ON;
       if(table->join_cond()){
         table->set_join_cond(table->join_cond()->transform(&Item::in_predicate_to_in_subs_transformer, 0));
       }
@@ -276,6 +276,7 @@ bool JOIN::transform_in_predicates_into_in_subq(THD *thd) {
       iter ++;
     }
   }
+  
   query_block->in_funcs.clear();
   query_block->parsing_place = save_parsing_place;
   thd->lex->set_current_query_block(save_current_query_block);
