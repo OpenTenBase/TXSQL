@@ -4052,6 +4052,42 @@ int mysql_execute_command(THD *thd, bool first_level) {
     until we have the MDL, and LOCK TABLE could massively delay this.
   */
 
+  if (txsql_disable_ddl)
+  {
+    switch(lex->sql_command) {
+    case SQLCOM_CREATE_DB:
+    case SQLCOM_ALTER_DB:
+    case SQLCOM_DROP_DB:
+    case SQLCOM_CREATE_TABLE:
+    case SQLCOM_ALTER_TABLE:
+    case SQLCOM_DROP_TABLE:
+    case SQLCOM_TRUNCATE:
+    case SQLCOM_RENAME_TABLE:
+    case SQLCOM_OPTIMIZE:
+    case SQLCOM_ANALYZE:
+    case SQLCOM_CHECK:
+    case SQLCOM_REPAIR:
+    case SQLCOM_CREATE_INDEX:
+    case SQLCOM_DROP_INDEX:
+    case SQLCOM_CREATE_VIEW:
+    case SQLCOM_DROP_VIEW:
+    case SQLCOM_CREATE_PROCEDURE:
+    case SQLCOM_ALTER_PROCEDURE:
+    case SQLCOM_DROP_PROCEDURE:
+    case SQLCOM_CREATE_FUNCTION:
+    case SQLCOM_DROP_FUNCTION:
+    case SQLCOM_CREATE_TRIGGER:
+    case SQLCOM_DROP_TRIGGER:
+    case SQLCOM_CREATE_EVENT:
+    case SQLCOM_ALTER_EVENT:
+    case SQLCOM_DROP_EVENT:
+      my_error(ER_DDL_DISABLED, MYF(0));
+      goto error;
+    default:
+      break;
+    }
+  }
+
   switch (lex->sql_command) {
     case SQLCOM_PREPARE: {
       mysql_sql_stmt_prepare(thd);
