@@ -9142,6 +9142,19 @@ bool have_tdsql = true;
 bool have_tdsql = false;
 #endif
 
+static Sys_var_bool Sys_txsql_audit_alter_table_enable(
+       "txsql_audit_alter_table_enable",
+       "Monitor alter table command and warn the info out.",
+       GLOBAL_VAR(txsql_audit_alter_table_enable), CMD_LINE(OPT_ARG),
+       DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+       ON_CHECK(NULL), ON_UPDATE(NULL));
+static Sys_var_bool Sys_txsql_audit_set_option_enable(
+       "txsql_audit_set_option_enable",
+       "Monitor set option command and warn the info out.",
+       GLOBAL_VAR(txsql_audit_set_option_enable), CMD_LINE(OPT_ARG),
+       DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+       ON_CHECK(NULL), ON_UPDATE(NULL));
+
 static Sys_var_bool Sys_have_tdsql(
     "have_tdsql", "Whether the server was compiled with TDSQL support.",
     READ_ONLY GLOBAL_VAR(have_tdsql), NO_CMD_LINE, DEFAULT(have_tdsql),

@@ -343,6 +343,8 @@ extern MYSQL_PLUGIN_IMPORT ulong max_connections;
 extern ulong max_digest_length;
 extern ulong max_connect_errors, connect_timeout;
 extern bool opt_replica_allow_batching;
+extern bool txsql_audit_alter_table_enable;
+extern bool txsql_audit_set_option_enable;
 extern ulong slave_trans_retries;
 extern uint replica_net_timeout;
 extern ulong opt_mts_replica_parallel_workers;
