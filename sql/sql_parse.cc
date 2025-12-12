@@ -5395,6 +5395,24 @@ int mysql_execute_command(THD *thd, bool first_level) {
     case SQLCOM_REPAIR:
     case SQLCOM_TRUNCATE:
     case SQLCOM_ALTER_TABLE:
+    {
+      if(txsql_audit_alter_table_enable)
+      {
+        if(lex->sql_command == SQLCOM_ALTER_TABLE)
+        {
+          /*
+            Hook the 'ALTER TABLE' command and warn the info out.
+          */
+          const char *user = thd->security_context()->user().str;
+          const char *ip = thd->security_context()->ip().str;
+          const char *query_str = thd->query().str;
+          sql_print_information(
+            "[SECURITY WARNING][DDL] User '%s'@'%s' execute: %s",
+            user, ip, query_str);
+        }
+      }
+      [[fallthrough]];  
+    }
     case SQLCOM_HA_OPEN:
     case SQLCOM_HA_READ:
     case SQLCOM_HA_CLOSE:
