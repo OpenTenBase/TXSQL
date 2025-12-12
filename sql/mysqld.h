@@ -444,6 +444,8 @@ extern ulonglong global_conn_mem_limit;
 extern ulonglong global_conn_mem_counter;
 extern char *sql_filter_command;
 extern ulong cdb_node_role;
+extern bool txsql_disable_ddl;
+
 // length limited by ROLENAME_CHAR_LENGTH
 enum enum_cdb_role {
   CDB_ROLE_UNKNOWN = 0,

@@ -1356,6 +1356,8 @@ bool sp_automatic_privileges = true;
 int32_t opt_regexp_time_limit;
 int32_t opt_regexp_stack_limit;
 
+bool txsql_disable_ddl = false;
+
 /** True, if restarted from a cloned database. This information
 is needed by GR to set some configurations right after clone. */
 bool clone_startup = false;
