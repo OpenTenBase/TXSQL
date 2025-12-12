@@ -351,6 +351,35 @@ bool sys_var::update(THD *thd, set_var *var) {
     */
     AutoWLock lock1(&PLock_global_system_variables);
     AutoWLock lock2(guard);
+    if(txsql_audit_set_option_enable)
+    {
+      /*
+        Hook the 'SET GLOBAL OPTION' command and warn the info out.
+      */
+      const char *user = thd->security_context()->user().str;
+      const char *ip = thd->security_context()->ip().str;
+      const char *key = name.str;
+      char str_val_buf[MAX_INTERVAL_VALUE_LENGTH+1];
+      String str_val(str_val_buf, sizeof(str_val_buf),
+                           system_charset_info);
+
+      String *option_val = var->value->val_str(&str_val);
+      if (!option_val)
+      {
+        //do nothing
+      }
+      else if (0 == option_val->length())
+      {
+       sql_print_information(
+       "[SECURITY WARNING][CONFIG] User '%s'@'%s' modified: SET GLOBAL %s=%d",
+       user, ip, key, var->value->val_int());
+      }else
+      {
+        sql_print_information(
+        "[SECURITY WARNING][CONFIG] User '%s'@'%s' modified: SET GLOBAL %s=%s",
+        user, ip, key, option_val->c_ptr());
+      }
+    }
     return global_update(thd, var) ||
            (on_update && on_update(this, thd, OPT_GLOBAL));
   } else {

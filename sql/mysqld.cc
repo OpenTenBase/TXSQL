@@ -1293,6 +1293,8 @@ bool opt_log_replica_updates = false;
 char *opt_replica_skip_errors;
 bool opt_replica_allow_batching = true;
 
+bool txsql_audit_alter_table_enable= false;
+bool txsql_audit_set_option_enable= false;
 /**
   compatibility option:
     - index usage hints (USE INDEX without a FOR clause) behave as in 5.0
