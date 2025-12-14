@@ -1,0 +1,129 @@
+--source include/mysql_upgrade_preparation.inc
+
+# This test will intentionally generate errors in the server error log
+# when a broken password is inserted into the mysql.user table.
+# The below suppression is to clear those errors.
+--disable_query_log
+call mtr.add_suppression(".*Password salt for user.*");
+call mtr.add_suppression("Found invalid password for user:*");
+--enable_query_log
+
+CREATE USER 'cup_dba' IDENTIFIED WITH 'txsql_sm3_password';
+ALTER USER 'cup_dba' IDENTIFIED BY 'secret';
+SELECT user, plugin FROM mysql.user where user = "cup_dba" ORDER BY user;
+connect(con1,localhost,cup_dba,secret,,);
+connection con1;
+SELECT USER(),CURRENT_USER();
+connection default;
+disconnect con1;
+# Make sure authentication also works if client default_auth is changed and that
+# it possible to select a local public key fil using client options.
+DROP USER 'cup_dba';
+
+CREATE USER 'cup_dba'@'localhost' IDENTIFIED WITH 'txsql_sm3_password';
+CREATE USER 'cup_dba2'@'localhost' IDENTIFIED WITH 'txsql_sm3_password';
+GRANT ALL ON *.* TO 'cup_dba'@'localhost';
+GRANT ALL ON *.* TO 'cup_dba2'@'localhost';
+ALTER USER 'cup_dba'@'localhost' IDENTIFIED BY 'secret2';
+ALTER USER 'cup_dba2'@'localhost' IDENTIFIED BY 'secret2';
+--disable_query_log
+--error ER_ACCESS_DENIED_ERROR
+connect(con2,localhost,cup_dba,badpassword,,);
+--enable_query_log
+connect(con2,localhost,cup_dba,secret2,,);
+connection con2;
+SELECT USER(),CURRENT_USER();
+--replace_regex /AS .*$/AS '<non-deterministic-password-hash>'/
+SHOW CREATE USER 'cup_dba'@'localhost';
+
+--echo Change user (should succeed)
+change_user cup_dba2,secret2;
+SELECT USER(),CURRENT_USER();
+
+connection default;
+disconnect con2;
+--echo **** Client default_auth=txsql_sm3_password and server default auth=native
+--exec $MYSQL -ucup_dba -psecret2 --default_auth=txsql_sm3_password -e "select user(), current_user()"
+--echo **** Client default_auth=native and server default auth=native
+--exec $MYSQL -ucup_dba -psecret2 --default_auth=mysql_native_password -e "select user(), current_user()"
+# restart mysqld server to load user identified by sm3
+--source include/restart_mysqld.inc
+DROP USER 'cup_dba'@'localhost';
+DROP USER 'cup_dba2'@'localhost';
+
+CREATE USER 'cup_dba'@'localhost' IDENTIFIED WITH 'txsql_sm3_password';
+GRANT ALL ON *.* TO 'cup_dba'@'localhost';
+ALTER USER 'cup_dba'@'localhost' IDENTIFIED BY '';
+--disable_query_log
+--error ER_ACCESS_DENIED_ERROR
+connect(con3,localhost,cup_dba,wrongpass,,);
+--enable_query_log
+connect(con3,localhost,cup_dba,,,);
+connection con3;
+SELECT USER(),CURRENT_USER();
+--replace_regex /AS .*$/AS '<non-deterministic-password-hash>'/
+SHOW CREATE USER 'cup_dba'@'localhost';
+connection default;
+disconnect con3;
+DROP USER 'cup_dba'@'localhost';
+
+CREATE USER 'cup_dba'@'33.33.33.33' IDENTIFIED WITH 'txsql_sm3_password';
+GRANT ALL ON *.* TO 'cup_dba'@'33.33.33.33';
+ALTER USER 'cup_dba'@'33.33.33.33' IDENTIFIED BY '';
+--echo Connection should fail for localhost
+--replace_result $MASTER_MYSOCK MASTER_MYSOCK
+--disable_query_log
+--error ER_ACCESS_DENIED_ERROR
+connect(con4,127.0.0.1,cup_dba,,,);
+--enable_query_log
+DROP USER 'cup_dba'@'33.33.33.33';
+
+#
+# Test with non const arguments
+#
+CREATE TABLE t1 (c1 VARCHAR(10) );
+INSERT INTO t1 VALUES ('secret');
+SELECT HEX(SM3_PASSWORD(c1)) FROM t1;
+SELECT HEX(SM3(c1)) FROM t1;
+DROP TABLE t1;
+
+#
+# Test null argument
+# PASSWORD(NULL) should produce empty "" values.
+#
+CREATE TABLE t1( c1 text, c2 varchar (2));
+INSERT INTO t1 VALUES (NULL,''),(NULL,''),(NULL,'');
+SELECT SM3_PASSWORD(c1), SM3_PASSWORD(c2) FROM t1;
+SELECT SM3(c1), SM3(c2) FROM t1;
+DROP TABLE t1;
+
+#
+# test bad password formats
+#
+CREATE USER 'cup_dba' IDENTIFIED WITH 'txsql_sm3_password';
+ALTER USER 'cup_dba' IDENTIFIED BY 'secret';
+SELECT user, plugin FROM mysql.user where user = "cup_dba" ORDER BY user;
+--disable_query_log
+connect(con1,localhost,cup_dba,secret);
+--enable_query_log
+connection con1;
+SELECT USER(),CURRENT_USER();
+connection default;
+disconnect con1;
+UPDATE mysql.user SET authentication_string= '$' WHERE user='cup_dba';
+FLUSH PRIVILEGES;
+SELECT user,authentication_string,plugin FROM mysql.user WHERE user='cup_dba';
+--disable_query_log
+--error ER_ACCESS_DENIED_ERROR
+connect(con1,localhost,cup_dba,secret);
+--enable_query_log
+
+UPDATE mysql.user SET authentication_string= '$5$asd' WHERE user='cup_dba';
+FLUSH PRIVILEGES;
+SELECT user,authentication_string,plugin FROM mysql.user WHERE user='cup_dba';
+--disable_query_log
+--error ER_ACCESS_DENIED_ERROR
+connect(con1,localhost,cup_dba,secret);
+--enable_query_log
+DROP USER cup_dba;
+

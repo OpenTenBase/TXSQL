@@ -89,6 +89,7 @@
 #include "template_utils.h"
 #include "typelib.h"
 #include "violite.h"
+#include <sm3.h>
 
 #if !defined(_WIN32)
 #include "my_thread.h" /* because of signal()*/
@@ -4048,9 +4049,63 @@ static auth_plugin_t caching_sha2_password_client_plugin = {
     nullptr,
     caching_sha2_password_auth_client,
     caching_sha2_password_auth_client_nonblocking};
+
 #ifdef AUTHENTICATION_WIN
 extern "C" auth_plugin_t win_auth_client_plugin;
 #endif
+
+static int sm3_password_auth_client(MYSQL_PLUGIN_VIO *vio, MYSQL *mysql)
+{
+  int pkt_len = 0;
+  uchar *pkt;
+
+  DBUG_ENTER("sm3_password_auth_client");
+
+  pkt_len = vio->read_packet(vio, &pkt);
+
+  if (pkt_len < 0)
+    DBUG_RETURN(CR_ERROR);
+
+  if (pkt_len == 0) {
+    pkt = (uchar*)mysql->scramble;
+    pkt_len = SCRAMBLE_LENGTH + 1;
+  } else {
+    if (pkt_len != SCRAMBLE_LENGTH + 1)
+      DBUG_RETURN(CR_AUTH_HANDSHAKE);
+    memcpy(mysql->scramble, pkt, SCRAMBLE_LENGTH);
+    mysql->scramble[SCRAMBLE_LENGTH] = 0;
+  }
+
+  if (mysql->passwd[0]) {
+    char scrambled[SM3_SCRAMBLE_LENGTH + 1];
+    scramble_sm3(scrambled, (const unsigned char*)pkt, mysql->passwd);
+    if (vio->write_packet(vio, (uchar*)scrambled, SM3_SCRAMBLE_LENGTH))
+      DBUG_RETURN(CR_ERROR);
+  } else {
+    if (vio->write_packet(vio, 0, 0)) /* no password */
+      DBUG_RETURN(CR_ERROR);
+  }
+  DBUG_RETURN(CR_OK);
+}
+
+static auth_plugin_t sm3_password_client_plugin =
+{
+  MYSQL_CLIENT_AUTHENTICATION_PLUGIN,
+  MYSQL_CLIENT_AUTHENTICATION_PLUGIN_INTERFACE_VERSION,
+  "txsql_sm3_password",
+  "Weng Haixing",
+  "SM3 MySQL Authentication",
+  { 1, 0, 0 },
+  "GPL",
+  NULL,
+  NULL,
+  NULL,
+  NULL,
+  NULL,
+  sm3_password_auth_client,
+  NULL
+};
+
 
 /*
   Test trace plugin can be used only in debug builds. In non-debug ones
@@ -4066,6 +4121,7 @@ extern auth_plugin_t test_trace_plugin;
 struct st_mysql_client_plugin *mysql_client_builtins[] = {
     (struct st_mysql_client_plugin *)&native_password_client_plugin,
     (struct st_mysql_client_plugin *)&clear_password_client_plugin,
+    (struct st_mysql_client_plugin *)&sm3_password_client_plugin,
     (struct st_mysql_client_plugin *)&sha256_password_client_plugin,
     (struct st_mysql_client_plugin *)&caching_sha2_password_client_plugin,
 #ifdef AUTHENTICATION_WIN
@@ -5630,6 +5686,7 @@ static mysql_state_machine_status authsm_begin_plugin_auth(
 
   if (check_plugin_enabled(mysql, ctx)) return STATE_MACHINE_FAILED;
 
+  DBUG_PRINT ("this", ("data_plugin=%s", ctx->data_plugin));
   DBUG_PRINT("info", ("using plugin %s", ctx->auth_plugin_name));
 
   mysql->net.last_errno = 0; /* just in case */

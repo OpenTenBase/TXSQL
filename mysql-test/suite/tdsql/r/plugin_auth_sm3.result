@@ -1,0 +1,95 @@
+CREATE USER 'cup_dba' IDENTIFIED WITH 'txsql_sm3_password';
+ALTER USER 'cup_dba' IDENTIFIED BY 'secret';
+SELECT user, plugin FROM mysql.user where user = "cup_dba" ORDER BY user;
+user	plugin
+cup_dba	txsql_sm3_password
+SELECT USER(),CURRENT_USER();
+USER()	CURRENT_USER()
+cup_dba@localhost	cup_dba@%
+DROP USER 'cup_dba';
+CREATE USER 'cup_dba'@'localhost' IDENTIFIED WITH 'txsql_sm3_password';
+CREATE USER 'cup_dba2'@'localhost' IDENTIFIED WITH 'txsql_sm3_password';
+GRANT ALL ON *.* TO 'cup_dba'@'localhost';
+GRANT ALL ON *.* TO 'cup_dba2'@'localhost';
+ALTER USER 'cup_dba'@'localhost' IDENTIFIED BY 'secret2';
+ALTER USER 'cup_dba2'@'localhost' IDENTIFIED BY 'secret2';
+ERROR 28000: Access denied for user 'cup_dba'@'localhost' (using password: YES)
+SELECT USER(),CURRENT_USER();
+USER()	CURRENT_USER()
+cup_dba@localhost	cup_dba@localhost
+SHOW CREATE USER 'cup_dba'@'localhost';
+CREATE USER for cup_dba@localhost
+CREATE USER `cup_dba`@`localhost` IDENTIFIED WITH 'txsql_sm3_password' AS '<non-deterministic-password-hash>'
+Change user (should succeed)
+SELECT USER(),CURRENT_USER();
+USER()	CURRENT_USER()
+cup_dba2@localhost	cup_dba2@localhost
+**** Client default_auth=txsql_sm3_password and server default auth=native
+user()	current_user()
+cup_dba@localhost	cup_dba@localhost
+**** Client default_auth=native and server default auth=native
+user()	current_user()
+cup_dba@localhost	cup_dba@localhost
+# restart
+DROP USER 'cup_dba'@'localhost';
+DROP USER 'cup_dba2'@'localhost';
+CREATE USER 'cup_dba'@'localhost' IDENTIFIED WITH 'txsql_sm3_password';
+GRANT ALL ON *.* TO 'cup_dba'@'localhost';
+ALTER USER 'cup_dba'@'localhost' IDENTIFIED BY '';
+ERROR 28000: Access denied for user 'cup_dba'@'localhost' (using password: YES)
+SELECT USER(),CURRENT_USER();
+USER()	CURRENT_USER()
+cup_dba@localhost	cup_dba@localhost
+SHOW CREATE USER 'cup_dba'@'localhost';
+CREATE USER for cup_dba@localhost
+CREATE USER `cup_dba`@`localhost` IDENTIFIED WITH 'txsql_sm3_password' REQUIRE NONE PASSWORD EXPIRE DEFAULT ACCOUNT UNLOCK PASSWORD HISTORY DEFAULT PASSWORD REUSE INTERVAL DEFAULT PASSWORD REQUIRE CURRENT DEFAULT
+DROP USER 'cup_dba'@'localhost';
+CREATE USER 'cup_dba'@'33.33.33.33' IDENTIFIED WITH 'txsql_sm3_password';
+GRANT ALL ON *.* TO 'cup_dba'@'33.33.33.33';
+ALTER USER 'cup_dba'@'33.33.33.33' IDENTIFIED BY '';
+Connection should fail for localhost
+ERROR 28000: Access denied for user 'cup_dba'@'localhost' (using password: NO)
+DROP USER 'cup_dba'@'33.33.33.33';
+CREATE TABLE t1 (c1 VARCHAR(10) );
+INSERT INTO t1 VALUES ('secret');
+SELECT HEX(SM3_PASSWORD(c1)) FROM t1;
+HEX(SM3_PASSWORD(c1))
+2A42373937313744354637323741354339333238394533454442304531453444444331344532424539383242424330313535304534413246323544434634363938
+SELECT HEX(SM3(c1)) FROM t1;
+HEX(SM3(c1))
+32303633386166333335336661356264333961393333303063663532356563316538366538326635326239363565323036373134363163633864333537646261
+DROP TABLE t1;
+CREATE TABLE t1( c1 text, c2 varchar (2));
+INSERT INTO t1 VALUES (NULL,''),(NULL,''),(NULL,'');
+SELECT SM3_PASSWORD(c1), SM3_PASSWORD(c2) FROM t1;
+SM3_PASSWORD(c1)	SM3_PASSWORD(c2)
+	
+	
+	
+SELECT SM3(c1), SM3(c2) FROM t1;
+SM3(c1)	SM3(c2)
+NULL	1ab21d8355cfa17f8e61194831e81a8f22bec8c728fefb747ed035eb5082aa2b
+NULL	1ab21d8355cfa17f8e61194831e81a8f22bec8c728fefb747ed035eb5082aa2b
+NULL	1ab21d8355cfa17f8e61194831e81a8f22bec8c728fefb747ed035eb5082aa2b
+DROP TABLE t1;
+CREATE USER 'cup_dba' IDENTIFIED WITH 'txsql_sm3_password';
+ALTER USER 'cup_dba' IDENTIFIED BY 'secret';
+SELECT user, plugin FROM mysql.user where user = "cup_dba" ORDER BY user;
+user	plugin
+cup_dba	txsql_sm3_password
+SELECT USER(),CURRENT_USER();
+USER()	CURRENT_USER()
+cup_dba@localhost	cup_dba@%
+UPDATE mysql.user SET authentication_string= '$' WHERE user='cup_dba';
+FLUSH PRIVILEGES;
+SELECT user,authentication_string,plugin FROM mysql.user WHERE user='cup_dba';
+user	authentication_string	plugin
+cup_dba	$	txsql_sm3_password
+ERROR 28000: Access denied for user 'cup_dba'@'localhost' (using password: YES)
+UPDATE mysql.user SET authentication_string= '$5$asd' WHERE user='cup_dba';
+FLUSH PRIVILEGES;
+SELECT user,authentication_string,plugin FROM mysql.user WHERE user='cup_dba';
+user	authentication_string	plugin
+cup_dba	$5$asd	txsql_sm3_password
+ERROR 28000: Access denied for user 'cup_dba'@'localhost' (using password: YES)
+DROP USER cup_dba;

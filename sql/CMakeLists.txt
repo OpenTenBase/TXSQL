@@ -567,6 +567,7 @@ SET(SQL_SHARED_SOURCES
   sd_notify.cc
   sdi_utils.cc
   session_tracker.cc
+  sm3.c
   set_var.cc
   sp.cc
   sp_cache.cc

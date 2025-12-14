@@ -1545,6 +1545,8 @@ static const std::pair<const char *, Create_func *> func_array[] = {
     {"SIGN", SQL_FN(Item_func_sign, 1)},
     {"SIN", SQL_FN(Item_func_sin, 1)},
     {"SLEEP", SQL_FN(Item_func_sleep, 1)},
+    {"SM3", SQL_FN(Item_func_sm3, 1)},
+    {"SM3_PASSWORD", SQL_FN(Item_func_sm3_password, 1)},
     {"SOUNDEX", SQL_FN(Item_func_soundex, 1)},
     {"SOURCE_POS_WAIT", SQL_FN_V(Item_source_pos_wait, 2, 4)},
     {"SPACE", SQL_FN(Item_func_space, 1)},
