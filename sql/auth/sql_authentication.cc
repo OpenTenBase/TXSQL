@@ -995,15 +995,24 @@ inline const char *client_plugin_name(plugin_ref ref) {
   return ((st_mysql_auth *)(plugin_decl(ref)->info))->client_auth_plugin;
 }
 
+LEX_CSTRING sm3_password_plugin_name = {
+  STRING_WITH_LEN("txsql_sm3_password")
+};
+
 LEX_CSTRING validate_password_plugin_name = {
     STRING_WITH_LEN("validate_password")};
+
+LEX_CSTRING native_password_plugin_name = {
+    STRING_WITH_LEN("mysql_native_password")
+};
 
 LEX_CSTRING default_auth_plugin_name;
 
 const LEX_CSTRING Cached_authentication_plugins::cached_plugins_names[(
     uint)PLUGIN_LAST] = {{STRING_WITH_LEN("caching_sha2_password")},
                          {STRING_WITH_LEN("mysql_native_password")},
-                         {STRING_WITH_LEN("sha256_password")}};
+                         {STRING_WITH_LEN("sha256_password")},
+                         {STRING_WITH_LEN("txsql_sm3_password")}};
 
 /**
   Use known pointers for cached plugins to improve comparison time
@@ -1369,7 +1378,10 @@ int set_default_auth_plugin(char *plugin_name, size_t plugin_name_length) {
       !Cached_authentication_plugins::compare_plugin(
           PLUGIN_MYSQL_NATIVE_PASSWORD, default_auth_plugin_name) &&
       !Cached_authentication_plugins::compare_plugin(
-          PLUGIN_CACHING_SHA2_PASSWORD, default_auth_plugin_name))
+          PLUGIN_CACHING_SHA2_PASSWORD, default_auth_plugin_name) &&
+      !Cached_authentication_plugins::compare_plugin(
+          PLUGIN_SM3_PASSWORD,default_auth_plugin_name))
+
     return 1;
 
   if (!Cached_authentication_plugins::compare_plugin(
@@ -3291,7 +3303,18 @@ static int server_mpvio_read_packet(MYSQL_PLUGIN_VIO *param, uchar **buf) {
       useless. Furthermore, we have to send a "change plugin" request
       to the client.
     */
-    if (mpvio->write_packet(mpvio, nullptr, 0))
+    if(my_strcasecmp(system_charset_info, validate_password_plugin_name.str,
+                      client_auth_plugin_name) == 0 ||
+        my_strcasecmp(system_charset_info, native_password_plugin_name.str,
+                      client_auth_plugin_name) == 0)
+    {
+      if (send_plugin_request_packet(mpvio,
+                                 (uchar*) mpvio->cached_server_packet.pkt,
+                                 mpvio->cached_server_packet.pkt_len))
+        pkt_len= packet_error;
+      protocol->read_packet();
+      pkt_len= protocol->get_packet_length();
+    } else if (mpvio->write_packet(mpvio, nullptr, 0))
       pkt_len = packet_error;
     else {
       protocol->read_packet();
@@ -5943,6 +5966,162 @@ static bool do_auto_rsa_keys_generation() {
                             "--caching_sha2_password_auto_generate_rsa_keys"));
 }
 
+int generate_sm3_password(char *outbuf, unsigned int *outbuflen, const char *inbuf, unsigned int inbuflen)
+{
+  char *buffer;
+
+  DBUG_ENTER("generate_sm3_password");
+
+  if (my_validate_password_policy(inbuf, inbuflen))
+    return 1;
+  /* for empty passwords */
+  if (inbuflen == 0)
+  {
+    *outbuflen = 0;
+    DBUG_RETURN(0);
+  }
+  buffer = (char *)my_malloc(PSI_NOT_INSTRUMENTED, SM3_SCRAMBLED_PASSWORD_CHAR_LENGTH + 1, MYF(0));
+  if (buffer == NULL)
+  DBUG_RETURN(1);
+  my_make_scrambled_password_sm3(buffer, (const unsigned char *)inbuf, inbuflen);
+  /*
+  if buffer specified by server is smaller than the buffer given
+  by plugin then return error
+  */
+  if (*outbuflen < strlen(buffer))
+  {
+    my_free(buffer);
+    DBUG_RETURN(1);
+  }
+  *outbuflen = SM3_SCRAMBLED_PASSWORD_CHAR_LENGTH;
+  memcpy(outbuf, buffer, *outbuflen);
+  my_free(buffer);
+  DBUG_RETURN(0);
+}
+
+int validate_sm3_password_hash(char* const inbuf, unsigned int buflen)
+{
+  DBUG_ENTER("validate_sm3_password_hash");
+
+  if ((buflen &&
+      buflen == SM3_SCRAMBLED_PASSWORD_CHAR_LENGTH && inbuf[0] == '*') ||
+      buflen == 0)
+    DBUG_RETURN(0);
+  DBUG_RETURN(1);
+}
+
+int set_sm3_salt(const char* password, unsigned int password_len,
+	unsigned char* salt, unsigned char *salt_len)
+{
+  DBUG_ENTER("set_sm3_salt");
+
+  if (password_len == 0)
+    *salt_len = 0;
+  else
+  {
+    if (password_len == SM3_SCRAMBLED_PASSWORD_CHAR_LENGTH)
+    {
+      get_salt_from_sm3_password(salt, password);
+      *salt_len = SM3_SCRAMBLE_LENGTH;
+    }
+  }
+  DBUG_RETURN(0);
+}
+
+int sm3_password_authenticate(MYSQL_PLUGIN_VIO *vio, MYSQL_SERVER_AUTH_INFO *info)
+{
+  uchar *pkt;
+  int pkt_len;
+
+  unsigned char scramble[SCRAMBLE_LENGTH + 1];
+
+  DBUG_ENTER("sm3_password_authenticate");
+
+  generate_user_salt((char *)scramble, SCRAMBLE_LENGTH + 1);
+
+  DBUG_PRINT("this", ("scramble=%s",scramble));
+
+  /* send it to the client */
+  if (vio->write_packet(vio, (const unsigned char *)scramble, SCRAMBLE_LENGTH + 1))
+    DBUG_RETURN(CR_AUTH_HANDSHAKE);
+
+  /* read the reply with the encrypted password */
+  if ((pkt_len = vio->read_packet(vio, &pkt)) < 0)
+    DBUG_RETURN(CR_AUTH_HANDSHAKE);
+
+  /*
+  if (mysql_native_password_proxy_users)
+  {
+    *info->authenticated_as = PROXY_FLAG;
+    DBUG_PRINT("info", ("mysql_native_authentication_proxy_users is enabled, setting authenticated_as to NULL"));
+  }
+  */
+  if (pkt_len == 0) /* no password */
+    DBUG_RETURN(info->auth_string_length != 0 ? CR_AUTH_USER_CREDENTIALS : CR_OK);
+
+  info->password_used = PASSWORD_USED_YES;
+
+  DBUG_PRINT("this", ("pkt_len = %d", pkt_len));
+  DBUG_PRINT("info", ("auth_string = %s, auth_string_length = %ld", info->auth_string, info->auth_string_length));
+
+  if (pkt_len == SM3_SCRAMBLE_LENGTH)
+  {
+    unsigned char salt[SM3_SCRAMBLE_LENGTH + 1];
+    unsigned char salt_len = SM3_SCRAMBLE_LENGTH;
+
+    if (info->auth_string_length == 0)
+      DBUG_RETURN(CR_AUTH_USER_CREDENTIALS);
+
+    //DBUG_RETURN(check_scramble_sm3(pkt, scramble, (unsigned char *)info->auth_string) ? CR_AUTH_USER_CREDENTIALS : CR_OK);
+
+    set_sm3_salt(info->auth_string, info->auth_string_length, salt, &salt_len);
+
+    DBUG_RETURN(check_scramble_sm3(pkt, scramble, salt) ? CR_AUTH_USER_CREDENTIALS : CR_OK);
+  }
+  DBUG_RETURN(CR_AUTH_HANDSHAKE);
+}
+
+/**
+  Compare a clear text password with a stored hash for
+  the sm3 password plugin
+
+  If the password is non-empty it calculates a hash from
+  the cleartext and compares it with the supplied hash.
+
+  if the password is empty checks if the hash is empty too.
+
+  @arg hash              pointer to the hashed data
+  @arg hash_length       length of the hashed data
+  @arg cleartext         pointer to the clear text password
+  @arg cleartext_length  length of the cleat text password
+  @arg[out] is_error     non-zero in case of error extracting the salt
+  @retval 0              the hash was created with that password
+  @retval non-zero       the hash was created with a different password
+*/
+static int compare_sm3_password_with_hash(const char *hash,
+                                             unsigned long hash_length,
+                                             const char *cleartext,
+                                             unsigned long cleartext_length,
+                                             int *is_error) {
+  DBUG_TRACE;
+
+  char buffer[SM3_SCRAMBLED_PASSWORD_CHAR_LENGTH + 1];
+
+  /** empty password results in an empty hash */
+  if (!hash_length && !cleartext_length) return 0;
+
+  assert(hash_length <= SM3_SCRAMBLED_PASSWORD_CHAR_LENGTH);
+
+  /* calculate the hash from the clear text */
+  my_make_scrambled_password_sm3(buffer, (const unsigned char*)cleartext, cleartext_length);
+
+  *is_error = 0;
+  int result = memcmp(hash, buffer, SM3_SCRAMBLED_PASSWORD_CHAR_LENGTH);
+
+  return result;
+}
+
+
 bool MPVIO_EXT::can_authenticate() {
   return (acl_user && acl_user->can_authenticate);
 }
@@ -5968,6 +6147,18 @@ static struct st_mysql_auth sha256_password_handler = {
     set_sha256_salt,
     AUTH_FLAG_USES_INTERNAL_STORAGE,
     compare_sha256_password_with_hash,
+};
+
+struct st_mysql_auth sm3_auth_plugin_handler =
+{
+  MYSQL_AUTHENTICATION_INTERFACE_VERSION,
+  "txsql_sm3_password",					    /* requires test_plugin client's plugin */
+  sm3_password_authenticate,
+  generate_sm3_password,
+  validate_sm3_password_hash,
+  set_sm3_salt,
+  AUTH_FLAG_USES_INTERNAL_STORAGE,
+  compare_sm3_password_with_hash
 };
 
 mysql_declare_plugin(mysql_password){
@@ -6003,4 +6194,23 @@ mysql_declare_plugin(mysql_password){
         sha256_password_sysvars,          /* system variables */
         nullptr,                          /* config options   */
         0                                 /* flags            */
-    } mysql_declare_plugin_end;
+    }
+,
+{
+  MYSQL_AUTHENTICATION_PLUGIN,
+  &sm3_auth_plugin_handler,        /* type-specific descriptor */
+  Cached_authentication_plugins::get_plugin_name(
+            PLUGIN_SM3_PASSWORD),     /* plugin name */
+  "Haixing Weng",                    /* author */
+  "SM3 password authentication",   /* description */
+  PLUGIN_LICENSE_GPL,              /* license type */
+  NULL,                            /* init function */
+  NULL,                            /* deinit function */
+  NULL,                            /* check uninstall*/
+  0x0100,                          /* version = 1.0 */
+  NULL,                            /* status variables */
+  NULL,                            /* system variables */
+  NULL,                            /* no reserved information */
+  0                                /* no flags */
+}   
+     mysql_declare_plugin_end;

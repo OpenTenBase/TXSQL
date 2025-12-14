@@ -208,6 +208,23 @@ class Item_func_sha2 : public Item_str_ascii_func {
   const char *func_name() const override { return "sha2"; }
 };
 
+class Item_func_sm3 : public Item_str_ascii_func {
+ public:
+  Item_func_sm3(const POS &pos, Item *a) : Item_str_ascii_func(pos, a) {}
+  String *val_str_ascii(String *) override;
+  bool resolve_type(THD *thd) override;
+  const char *func_name() const override { return "sm3"; }
+};
+
+class Item_func_sm3_password : public Item_str_ascii_func {
+ public:
+  Item_func_sm3_password(const POS &pos, Item *a)
+      : Item_str_ascii_func(pos, a) {}
+  String *val_str_ascii(String *) override;
+  bool resolve_type(THD *thd) override;
+  const char *func_name() const override { return "sm3_password"; }
+};
+
 class Item_func_to_base64 final : public Item_str_ascii_func {
   String tmp_value;
 
