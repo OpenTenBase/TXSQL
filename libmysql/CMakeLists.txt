@@ -192,6 +192,7 @@ SET(CLIENT_SOURCES
   ../sql-common/bind_params.cc
   ../sql/auth/password.cc
   ../sql/auth/sha2_password_common.cc
+  ../sql/sm3.c
 )
 
 IF (WIN32 AND OPENSSL_APPLINK_C)

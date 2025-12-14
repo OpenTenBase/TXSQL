@@ -159,6 +159,7 @@ typedef enum {
   PLUGIN_CACHING_SHA2_PASSWORD = 0,
   PLUGIN_MYSQL_NATIVE_PASSWORD,
   PLUGIN_SHA256_PASSWORD,
+  PLUGIN_SM3_PASSWORD,
   /* Add new plugin before this */
   PLUGIN_LAST
 } cached_plugins_enum;

@@ -123,6 +123,7 @@
 #include "typelib.h"
 #include "unhex.h"
 #include "protocol.h"
+#include <sm3.h>
 
 extern uint *my_aes_opmode_key_sizes;
 
@@ -260,6 +261,73 @@ bool Item_func_sha::resolve_type(THD *thd) {
   args[0]->collation.set(cs, DERIVATION_COERCIBLE);
   // size of hex representation of hash
   set_data_type_string(SHA1_HASH_SIZE * 2, default_charset());
+  return false;
+}
+
+String *Item_func_sm3::val_str_ascii(String *str) {
+  assert(fixed == 1);
+  String * sptr = args[0]->val_str(str);
+  str->set_charset(&my_charset_bin);
+  if (sptr)  /* If we got value different from NULL */
+  {
+    /* Temporary buffer to store 160bit digest */
+    uint8 digest[SM3_HASH_SIZE];
+    sm3((unsigned char *)sptr->ptr(), sptr->length(), digest);
+    /* Ensure that memory is free */
+    if (!(str->alloc(SM3_HASH_SIZE * 2)))
+    {
+      array_to_hex((char *)str->ptr(), digest, SM3_HASH_SIZE);
+      str->length((uint)SM3_HASH_SIZE * 2);
+      null_value = 0;
+      return str;
+    }
+  }
+  null_value = 1;
+  return 0;
+}
+
+bool Item_func_sm3::resolve_type(THD *thd) {
+  if (param_type_is_default(thd, 0, 1)) return true;
+  CHARSET_INFO *cs = get_checksum_charset(args[0]->collation.collation->csname);
+  args[0]->collation.set(cs, DERIVATION_COERCIBLE);
+  // size of hex representation of hash
+  set_data_type_string(SM3_HASH_SIZE * 2 + 1, default_charset());
+  return false;
+}
+
+String *Item_func_sm3_password::val_str_ascii(String *str) {
+  assert(fixed == 1);
+  String * sptr = args[0]->val_str(str);
+  str->set_charset(&my_charset_bin);
+  if (sptr)  /* If we got value different from NULL */
+  {
+    if (sptr->length() == 0)
+    {
+      str = make_empty_result();
+      return str;
+    }
+    if (!(str->alloc(SM3_HASH_SIZE * 2 + 1)))
+    {
+      my_make_scrambled_password_sm3((char *)str->ptr(), (const unsigned char *)sptr->ptr(), sptr->length());
+      str->length((uint)SM3_HASH_SIZE * 2 + 1);
+      null_value = 0;
+      return str;
+    }
+  }
+  else {
+    str = make_empty_result();
+    return str;
+  }
+  null_value = 1;
+  return 0;
+}
+
+bool Item_func_sm3_password::resolve_type(THD *thd) {
+  if (param_type_is_default(thd, 0, 1)) return true;
+  CHARSET_INFO *cs = get_checksum_charset(args[0]->collation.collation->csname);
+  args[0]->collation.set(cs, DERIVATION_COERCIBLE);
+  // size of hex representation of hash
+  set_data_type_string(SM3_HASH_SIZE * 2, default_charset());
   return false;
 }
 
