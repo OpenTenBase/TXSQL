@@ -135,6 +135,8 @@
 #include "sql/log_event.h"     /* Log_event_type */
 #include "sql/rpl_constants.h" /* mysql_binlog_XXX() */
 
+#include "my_thread_os_id.h"
+
 using std::string;
 using std::swap;
 
@@ -6127,7 +6129,7 @@ static int set_connect_attributes(MYSQL *mysql, char *buff, size_t buf_len) {
   return rc > 0 ? 1 : 0;
 }
 
-MYSQL *STDCALL mysql_real_connect(MYSQL *mysql, const char *host,
+static MYSQL *STDCALL mysql_real_connect_do(MYSQL *mysql, const char *host,
                                   const char *user, const char *passwd,
                                   const char *db, uint port,
                                   const char *unix_socket, ulong client_flag) {
@@ -6174,6 +6176,382 @@ MYSQL *STDCALL mysql_real_connect(MYSQL *mysql, const char *host,
   }
   return nullptr;
 }
+
+#define CLIENT_PROTOCOL_NAME  "loadbalance://"
+#define CLIENT_IPLIST_SEP_CHR ','
+#define CLIENT_IPPORT_SEP_CHR ':'
+
+typedef struct st_proxy_addr_info_t
+{
+  char* host;
+  uint  port;
+  uint  index;
+  struct st_proxy_addr_info_t *next;
+}st_proxy_addr_info;
+
+static int pick_another_ip(st_proxy_addr_info **addr_list, uint failed_idx,
+                           uint addr_cnt, uint *pick_idx)
+{
+  st_proxy_addr_info *p;
+  st_proxy_addr_info *tmp;
+  int ip_delete= 0;
+  uint seed= my_thread_os_id();
+  /* first, need rm failed ip from list */
+  if (!addr_list || !(*addr_list))
+    return 0;
+  p= *addr_list;
+  tmp= 0;
+  if (p->index == failed_idx) {
+    tmp= p->next;
+    if (p->host)
+      my_free(p->host);
+    my_free(p);
+    *addr_list= tmp;
+    ip_delete= 1;
+    addr_cnt--;
+    if (0 == addr_cnt)
+      return addr_cnt;
+  }
+  if (!ip_delete) {
+    tmp= p;
+    p= p->next;
+  }
+  else
+    p= *addr_list;
+  while (p) {
+    if (!ip_delete && p->index == failed_idx) {
+      tmp->next= p->next;
+      if (p->host)
+        my_free(p->host);
+      my_free(p);
+      p= tmp->next;
+      ip_delete= 1;
+      addr_cnt--;
+    } else if (ip_delete && p->index > failed_idx) {
+      (p->index)--;
+       p= p->next;
+    } else {
+       tmp= p;
+       p= p->next;
+    }
+  }
+  /* then we return a new random index*/
+  seed = my_micro_time() & UINT_MAX;
+  *pick_idx = (int) (addr_cnt * 1.0 * rand_r(&seed)/(RAND_MAX+1.0));
+  return addr_cnt;
+}
+
+static int proxy_get_ip_list(MYSQL *mysql, const char *host, uint port, const char *user,
+                             st_proxy_addr_info **addr_info, uint* addr_cnt)
+{
+  char *pos, *pos1, *pos2, *start, *tmp, *end;
+  uint count= 0;
+  st_proxy_addr_info *addr_list= NULL, *list, *addr;
+  char* env_host= NULL, *url_host= NULL, *env_key1= NULL, *env_key2= NULL, *env_value= NULL;
+  DBUG_ENTER("proxy_get_ip_list");
+  /* normal ip*/
+  DBUG_PRINT("info", ("proxy_get_ip_list host:%s, port:%u", host, port));
+  if (0 != strncmp(host, CLIENT_PROTOCOL_NAME, strlen(CLIENT_PROTOCOL_NAME))) {
+    if (NULL == (env_key1 = (char *)my_malloc(key_memory_MYSQL, 4096, MYF(MY_ZEROFILL)))) {
+      DBUG_PRINT("error", ("memory malloc for env_key1 failed"));
+      set_mysql_error(mysql, CR_OUT_OF_MEMORY, unknown_sqlstate);
+      DBUG_RETURN(-1);
+    }
+    snprintf(env_key1, 4096, "%s_%s_%u_%s", "TXSQL_LOAD_BALANCE", host, port, user);
+    tmp= env_key1;
+    while ((pos= strchr(tmp, '.')) != NULL) {
+      *pos= '_';
+       tmp= pos + 1;
+    }
+    DBUG_PRINT("info", ("env_key1:%s", env_key1));
+    if (NULL == (env_key2= (char *)my_malloc(key_memory_MYSQL, 4096, MYF(MY_ZEROFILL)))) {
+      DBUG_PRINT("error", ("memory malloc for env_key2 failed"));
+      set_mysql_error(mysql, CR_OUT_OF_MEMORY, unknown_sqlstate);
+      DBUG_RETURN(-1);
+    }
+    snprintf(env_key2, 4096, "%s_%s_%u", "TXSQL_LOAD_BALANCE", host, port);
+    tmp= env_key2;
+    while ((pos= strchr(tmp, '.')) != NULL) {
+      *pos= '_';
+      tmp= pos+1;
+    }
+    DBUG_PRINT("info", ("env_key2:%s", env_key2));
+    if ((env_value= getenv(env_key1)) != NULL) {
+      my_free(env_key1);
+      my_free(env_key2);
+      if (NULL == (env_host= my_strdup(key_memory_MYSQL, env_value, MYF(MY_WME)))) {
+        DBUG_PRINT("error", ("memory malloc for balance_url failed"));
+        set_mysql_error(mysql, CR_OUT_OF_MEMORY, unknown_sqlstate);
+        DBUG_RETURN(-1);
+      }
+      env_host[strlen(env_value)]= '\0';
+      host= env_host;
+      DBUG_PRINT("info", ("env_host1:%s", env_host));
+    }
+    else if ((env_value= getenv(env_key2)) != NULL) {
+      my_free(env_key1);
+      my_free(env_key2);
+      if (NULL == (env_host=  my_strdup(key_memory_MYSQL, env_value, MYF(MY_WME)))) {
+        DBUG_PRINT("error", ("memory malloc for balance_url failed"));
+        set_mysql_error(mysql, CR_OUT_OF_MEMORY, unknown_sqlstate);
+        DBUG_RETURN(-1);
+      }
+      env_host[strlen(env_value)]= '\0';
+      host= env_host;
+      DBUG_PRINT("info", ("env_host2:%s", env_host));
+    } else {
+      my_free(env_key1);
+      my_free(env_key2);
+      *addr_info= NULL;
+      DBUG_PRINT("info", ("normal host"));
+      DBUG_RETURN(0);
+    }
+  }
+  if (NULL == (url_host= my_strdup(key_memory_MYSQL, host, MYF(MY_WME)))) {
+    DBUG_PRINT("error", ("memory malloc for url_host failed"));
+    set_mysql_error(mysql, CR_OUT_OF_MEMORY, unknown_sqlstate);
+    goto error;
+  }
+  DBUG_PRINT("info", ("url_host:%s", url_host));
+  start= url_host + strlen(CLIENT_PROTOCOL_NAME);
+  end= start + strlen(start);
+  while (start) {
+    pos1= strchr(start, CLIENT_IPLIST_SEP_CHR);
+    if (pos1)
+      *pos1= 0x00;
+    if (NULL == (addr= (st_proxy_addr_info *)my_malloc(key_memory_MYSQL,
+                                                       sizeof(st_proxy_addr_info), MYF(MY_ZEROFILL)))) {
+      DBUG_PRINT("error", ("memory malloc for address info failed"));
+      set_mysql_error(mysql, CR_OUT_OF_MEMORY, unknown_sqlstate);
+      goto error;
+    }
+    if (count == 0) {
+      addr_list= addr;
+      list= addr;
+    } else {
+      list->next= addr;
+      list= list->next;
+    }
+    // ipv4 host
+    if (start[0] != '[') {
+      pos2 = strchr(start, CLIENT_IPPORT_SEP_CHR);
+    }
+    // ipv6 host
+    else {
+      ++start;
+      if (start >= end) {
+    	DBUG_PRINT("error", ("wrong host info"));
+    	set_mysql_error(mysql, CR_WRONG_HOST_INFO, unknown_sqlstate);
+    	goto error;
+      }
+      pos2 = strchr(start, ']');
+      if (pos2 == NULL) {
+    	DBUG_PRINT("error", ("wrong host info %s", start));
+    	set_mysql_error(mysql, CR_WRONG_HOST_INFO, unknown_sqlstate);
+    	goto error;
+      }
+      *pos2 = 0x00;
+	  ++pos2;
+	  if (pos2 >= end || *pos2 != ':') {
+	    DBUG_PRINT("error", ("wrong host info %s", start));
+		set_mysql_error(mysql, CR_WRONG_HOST_INFO, unknown_sqlstate);
+		goto error;
+	  }
+    }
+    if (pos2 != NULL) {
+      *pos2= 0x00;
+      if (NULL == (addr->host= my_strdup(key_memory_MYSQL, start, MYF(MY_WME))))
+      {
+        DBUG_PRINT("error", ("memory malloc for ip info failed"));
+        set_mysql_error(mysql, CR_OUT_OF_MEMORY, unknown_sqlstate);
+        goto error;
+      }
+      addr->port= atoi(pos2 + 1);
+    } else {
+      if (NULL == (addr->host= my_strdup(key_memory_MYSQL, start, MYF(MY_WME)))) {
+        DBUG_PRINT("error", ("memory malloc for ip info failed"));
+        set_mysql_error(mysql, CR_OUT_OF_MEMORY, unknown_sqlstate);
+        goto error;
+      }
+      addr->port= 0;
+    }
+    addr->index= count;
+    ++count;
+    if (pos1)
+      start= pos1+1;
+    else
+      break;
+  }
+  if (env_host)
+    my_free(env_host);
+  if (url_host)
+    my_free(url_host);
+  *addr_info= addr_list;
+  *addr_cnt= count;
+  DBUG_RETURN(0);
+error:
+  if(env_host)
+    my_free(env_host);
+  if(url_host)
+    my_free(url_host);
+  if (addr_list) {
+    st_proxy_addr_info* header= addr_list;
+    st_proxy_addr_info* next= header->next;
+    while (next) {
+      if(header->host)
+        my_free(header->host);
+      my_free(header);
+      header= next;
+      next= header->next;
+    }
+    if (header->host)
+      my_free(header->host);
+    my_free(header);
+  }
+  DBUG_RETURN(-1);
+}
+
+MYSQL *STDCALL mysql_real_connect(MYSQL *mysql, const char *host,
+                                  const char *user, const char *passwd,
+                                  const char *db, uint port,
+                                  const char *unix_socket, ulong client_flag) {
+  DBUG_TRACE;
+  MYSQL *handle= NULL;
+  int sqlcode;
+  st_proxy_addr_info *addr_list, *p;
+  uint addr_cnt= 0;
+  uint seed= my_thread_os_id();
+  uint new_selected;
+  char *svr_host;
+  uint svr_port= 0;
+  uint selected;
+  uint list_size;
+  ulong old_client_flag= client_flag;
+  ulong old_mysql_options_client_flag= mysql->options.client_flag;
+#ifndef DBUG_OFF
+  uint first_port_flag= 12010;
+  uint last_port_flag= 12011;
+#endif
+  if (!host || !host[0]) {
+    DBUG_PRINT("info", ("normal ip, derect return"));
+    return mysql_real_connect_do(mysql, host, user,
+      passwd, db, port, unix_socket, client_flag);
+  }
+  if (0 != proxy_get_ip_list(
+    mysql, host, port, user, &addr_list, &addr_cnt)) {
+    DBUG_PRINT("error", ("proxy_get_ip_list failed"));
+    /* Free alloced memory */
+    end_server(mysql);
+    mysql_close_free(mysql);
+    if (!(client_flag & CLIENT_REMEMBER_OPTIONS) &&
+        !(old_mysql_options_client_flag & CLIENT_REMEMBER_OPTIONS))
+      mysql_close_free_options(mysql);
+    return nullptr;
+  }
+  /**
+ *    * we should set client flag to save mysql_options,
+ *       * or we will lost our options in loadbalance-failover mode
+ *         **/
+  if (addr_list && addr_cnt > 0 &&
+    !(client_flag & CLIENT_REMEMBER_OPTIONS)) {
+    /* only in loadbalance mode, addr_list/addr_cnt will greater than zero*/
+    client_flag |= CLIENT_REMEMBER_OPTIONS;
+  }
+  if (addr_list && addr_cnt > 0) {
+    DBUG_PRINT("info", ("addr_cnt:%u", addr_cnt));
+    p= addr_list;
+    while (p) {
+      DBUG_PRINT("info", ("p->host:%s, p->port:%u", p->host, p->port));
+      p= p->next;
+    }
+    seed= my_micro_time() & UINT_MAX;
+    selected= (uint) (addr_cnt * 1.0 * rand_r(&seed)/(RAND_MAX+1.0));
+#ifndef DBUG_OFF
+    if (port == first_port_flag)
+      selected= 0;
+    else if (port == last_port_flag)
+      selected = addr_cnt - 1;
+#endif
+    /* first connect */
+    DBUG_PRINT("info", ("selected:%u", selected));
+    p= addr_list;
+    while (p) {
+      if (p->index == selected) {
+        svr_host= p->host;
+        svr_port= p->port;
+        if((handle= mysql_real_connect_do(mysql, svr_host, user,
+                 passwd, db, svr_port,
+                 unix_socket, client_flag)) == NULL) {
+          sqlcode= mysql_errno(mysql);
+          DBUG_PRINT("error", ("first connect svr_host:%s, port:%u fail, sqlcode:%d, try other",
+                  svr_host, svr_port, sqlcode));
+        } else {
+          DBUG_PRINT("info", ("connect svr_host:%s, svr_port:%u ok", svr_host, svr_port));
+          goto end;
+        }
+        break;
+      }
+      p= p->next;
+    }
+    /* connect other */
+    list_size= addr_cnt;
+    new_selected= 0;
+    while ((list_size= pick_another_ip(
+    		  &addr_list, selected, addr_cnt, &new_selected)) > 0) {
+      p= addr_list;
+      while (p) {
+        if (p->index == new_selected) {
+          svr_host= p->host;
+          svr_port= p->port;
+          if((handle= mysql_real_connect_do(mysql, svr_host, user,
+                           passwd, db, svr_port,
+                           unix_socket, client_flag)) == NULL) {
+            sqlcode= mysql_errno(mysql);
+            DBUG_PRINT("error", ("connect svr_host:%s, port:%u fail, sqlcode:%d, try other",
+                        svr_host, svr_port, sqlcode));
+          } else {
+            DBUG_PRINT("info", ("reconnect svr_host:%s, svr_port:%u ok", svr_host, svr_port));
+            goto end;
+          }
+          selected= new_selected;
+          addr_cnt= list_size;
+          break;
+        }
+        p= p->next;
+      }
+    }
+  }
+  if (strlen(host) < strlen(CLIENT_PROTOCOL_NAME) ||
+    0 != strncmp(host, CLIENT_PROTOCOL_NAME, strlen(CLIENT_PROTOCOL_NAME))) {
+	mysql->options.client_flag = old_mysql_options_client_flag;
+	return mysql_real_connect_do(
+	  mysql, host, user, passwd, db, port, unix_socket, old_client_flag);
+  }
+end:
+  if (addr_list) {
+    st_proxy_addr_info* header = addr_list;
+    st_proxy_addr_info* next = header->next;
+    while (next) {
+      if (header->host)
+        my_free(header->host);
+      my_free(header);
+      header= next;
+      next= header->next;
+    }
+    if(header->host)
+      my_free(header->host);
+    my_free(header);
+  }
+  if (!handle && !(old_client_flag & CLIENT_REMEMBER_OPTIONS) &&
+    (client_flag & CLIENT_REMEMBER_OPTIONS)) {
+    mysql_close_free_options(mysql);
+  }
+  if (handle && !(old_client_flag & CLIENT_REMEMBER_OPTIONS)) {
+    handle->options.client_flag &= ~CLIENT_REMEMBER_OPTIONS;
+  }
+  return handle;
+}
+
 
 /**
   This API attempts to initialize all the context needed to make an asynchronous
