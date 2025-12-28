@@ -154,6 +154,111 @@ static bool can_switch_from_ref_to_range(THD *thd, JOIN_TAB *tab,
 
 static bool has_not_null_predicate(Item *cond, Item_field *not_null_item);
 
+/**
+  Check if the item tree contains any Item_ref.
+  We want to avoid pushing Item_ref to WHERE, as they might depend on
+  select list calculation which happens after WHERE.
+*/
+static bool contains_ref_item(Item *item) {
+  if (item->type() == Item::REF_ITEM) return true;
+  
+  if (item->type() == Item::COND_ITEM) {
+    Item_cond *cond = (Item_cond *)item;
+    List_iterator<Item> li(*cond->argument_list());
+    Item *it;
+    while ((it = li++)) {
+      if (contains_ref_item(it)) return true;
+    }
+    return false;
+  }
+  
+  if (item->type() == Item::FUNC_ITEM) {
+    Item_func *func = (Item_func *)item;
+    for (uint i = 0; i < func->argument_count(); i++) {
+      if (func->arguments()[i] && contains_ref_item(func->arguments()[i])) return true;
+    }
+    return false;
+  }
+  
+  if (item->type() == Item::SUBSELECT_ITEM) return true; 
+  
+  return false;
+}
+
+/**
+  Push conditions from HAVING to WHERE if they don't contain aggregates.
+  This allows earlier filtering and potential index usage.
+*/
+static void push_having_to_where(THD *thd, JOIN *join) {
+  if (!join->having_cond) return;
+
+  Item *having = join->having_cond;
+  Item *where = join->where_cond;
+
+  List<Item> new_having_list;
+  List<Item> new_where_list;
+
+  // 1. Flatten AND conditions from HAVING
+  List<Item> having_items;
+  if (having->type() == Item::COND_ITEM &&
+      ((Item_cond *)having)->functype() == Item_func::COND_AND_FUNC) {
+    Item_cond_and *cond_and = (Item_cond_and *)having;
+    List_iterator<Item> li(*cond_and->argument_list());
+    Item *item;
+    while ((item = li++)) {
+      having_items.push_back(item);
+    }
+  } else {
+    having_items.push_back(having);
+  }
+
+  // 2. Iterate and check pushability
+  bool changed = false;
+  List_iterator<Item> it(having_items);
+  Item *item;
+  while ((item = it++)) {
+    // Condition to push: No aggregation, no window functions, no rollup, no refs
+    if (!item->has_aggregation() && 
+        !item->has_wf() && 
+        !item->has_rollup_expr() &&
+        !contains_ref_item(item)) {
+      new_where_list.push_back(item);
+      changed = true;
+    } else {
+      new_having_list.push_back(item);
+    }
+  }
+
+  if (!changed) return;
+
+  // 3. Reconstruct HAVING clause
+  if (new_having_list.is_empty()) {
+    join->having_cond = nullptr;
+  } else if (new_having_list.elements == 1) {
+    join->having_cond = new_having_list.head();
+  } else {
+    Item_cond_and *new_having = new (thd->mem_root) Item_cond_and(new_having_list);
+    new_having->update_used_tables();
+    new_having->quick_fix_field();
+    join->having_cond = new_having;
+  }
+
+  // 4. Reconstruct WHERE clause
+  if (where) {
+    // Add existing WHERE condition to the list
+    new_where_list.push_front(where);
+  }
+
+  if (new_where_list.elements == 1) {
+    join->where_cond = new_where_list.head();
+  } else {
+    Item_cond_and *new_where = new (thd->mem_root) Item_cond_and(new_where_list);
+    new_where->update_used_tables();
+    new_where->quick_fix_field();
+    join->where_cond = new_where;
+  }
+}
+
 JOIN::JOIN(THD *thd_arg, Query_block *select)
     : query_block(select),
       thd(thd_arg),
@@ -403,6 +508,9 @@ bool JOIN::optimize(bool finalize_access_paths) {
                        query_block == query_expression()->fake_query_block);
   }
   if (having_cond || calc_found_rows) m_select_limit = HA_POS_ERROR;
+
+  // Attempt to push non-aggregated HAVING conditions to WHERE
+  push_having_to_where(thd, this);
 
   if (query_expression()->select_limit_cnt == 0 && !calc_found_rows) {
     zero_result_cause = "Zero limit";
