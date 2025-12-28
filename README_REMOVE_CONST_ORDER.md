@@ -46,32 +46,3 @@ static void remove_const_order_elements(THD *thd, ORDER **order_ptr) {
     }
   }
 ```
-
-## 示例与效果
-
-### 示例 1：完全消除排序
-
-**查询：**
-```sql
-SELECT * FROM t1 WHERE id = 100 ORDER BY id;
-```
-
-**优化前：**
-即使 `id` 已经被约束为 100，优化器可能仍然保留 `ORDER BY id`，导致执行路径中包含排序操作（除非索引已被用于访问）。
-
-**优化后：**
-`id` 被识别为常量，`ORDER BY` 列表被清空。查询不再执行排序。
-
-### 示例 2：部分消除
-
-**查询：**
-```sql
-SELECT * FROM t1 WHERE category = 'A' ORDER BY category, create_time;
-```
-
-**优化后：**
-`category` 是常量，被移除。`ORDER BY` 简化为 `ORDER BY create_time`。这减少了排序键的长度，可能提升排序性能。
-
-## 安全性
-
-该优化依赖于 `Item::const_item()` 的正确性。由于它在 `optimize_cond` 之后执行，此时所有能够被推导为常量的字段（const tables, eq_ref, const expressions）都已被正确标记。移除这些常量排序项不会改变结果集的顺序语义。
