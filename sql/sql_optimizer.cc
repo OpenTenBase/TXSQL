@@ -245,6 +245,38 @@ static void SaveCondEqualLists(COND_EQUAL *cond_equal) {
 }
 
 /**
+  Remove constant expressions from the ORDER BY list.
+  If an ORDER BY item is constant (e.g. ORDER BY 1, or ORDER BY col where col=const),
+  it does not affect the sorting order and can be removed.
+
+  @param thd        Thread handle
+  @param order_ptr  Pointer to the ORDER list head
+*/
+static void remove_const_order_elements(THD *thd, ORDER **order_ptr) {
+  ORDER *order;
+  ORDER *prev = nullptr;
+
+  for (order = *order_ptr; order; ) {
+    Item *item = *order->item;
+    // We can rely on const_item() because constant propagation (optimize_cond)
+    // has already happened.
+    if (item->const_item()) {
+      // This item is constant, remove it from the list
+      ORDER *next = order->next;
+      if (prev) {
+        prev->next = next;
+      } else {
+        *order_ptr = next;
+      }
+      order = next;
+    } else {
+      prev = order;
+      order = order->next;
+    }
+  }
+}
+
+/**
   Optimizes one query block into a query execution plan (QEP.)
 
   This is the entry point to the query optimization phase. This phase
@@ -437,6 +469,18 @@ bool JOIN::optimize(bool finalize_access_paths) {
       best_rowcount = 0;
       create_access_paths_for_zero_rows();
       goto setup_subq_exit;
+    }
+  }
+
+  /*
+    Optimize ORDER BY:
+    If any ORDER BY item is constant, remove it.
+    This typically happens if the field is equated to a constant in WHERE.
+  */
+  if (order.order) {
+    remove_const_order_elements(thd, &order.order);
+    if (!order.order) {
+      explain_flags.clear(ESC_ORDER_BY);
     }
   }
 
