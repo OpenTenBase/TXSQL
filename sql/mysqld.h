@@ -343,6 +343,8 @@ extern MYSQL_PLUGIN_IMPORT ulong max_connections;
 extern ulong max_digest_length;
 extern ulong max_connect_errors, connect_timeout;
 extern bool opt_replica_allow_batching;
+extern bool txsql_audit_alter_table_enable;
+extern bool txsql_audit_set_option_enable;
 extern ulong slave_trans_retries;
 extern uint replica_net_timeout;
 extern ulong opt_mts_replica_parallel_workers;
@@ -444,6 +446,8 @@ extern ulonglong global_conn_mem_limit;
 extern ulonglong global_conn_mem_counter;
 extern char *sql_filter_command;
 extern ulong cdb_node_role;
+extern bool txsql_disable_ddl;
+
 // length limited by ROLENAME_CHAR_LENGTH
 enum enum_cdb_role {
   CDB_ROLE_UNKNOWN = 0,
