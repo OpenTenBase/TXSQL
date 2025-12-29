@@ -9172,8 +9172,26 @@ static Sys_var_bool Sys_tdsql_current_session_sqlasyn(
     SESSION_ONLY(txsql_disable_sqlasyn), CMD_LINE(OPT_ARG), DEFAULT(false),
     NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL), ON_UPDATE(NULL));
 
+static bool check_txsql_gb18030_charset_standard(
+               sys_var *self, THD *thd, set_var *var)
+{
+  return var->save_result.ulonglong_value==2022 ||
+                 var->save_result.ulonglong_value==2005;
+}
+
+static Sys_var_ulong Sys_txsql_gb18030_charset_standard(
+       "txsql_gb18030_charset_standard",
+          "Standard of gb18030 charset.",
+       READ_ONLY GLOBAL_VAR(txsql_gb18030_charset_standard),
+          CMD_LINE(REQUIRED_ARG),
+       VALID_RANGE(2005, 2022),
+          DEFAULT(2005), BLOCK_SIZE(1),
+          NO_MUTEX_GUARD, NOT_IN_BINLOG,
+          ON_CHECK(check_txsql_gb18030_charset_standard), ON_UPDATE(NULL));
+
 static Sys_var_bool Sys_txsql_disable_ddl(
        "txsql_disable_ddl",
        "Disable DDL statement where ON",
        GLOBAL_VAR(txsql_disable_ddl), CMD_LINE(OPT_ARG), DEFAULT(false));    
+
 /* Changes from txsql end. */
