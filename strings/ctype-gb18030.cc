@@ -3076,7 +3076,7 @@ static MY_UNICASE_INFO my_caseinfo_gb18030 = {0xFFFF,
   including all 2-byte code points in [GB+8140, GB+FEFE],
   with 0 for those invalid code points
 */
-static const uint16 tab_gb18030_2_uni[] = {
+uint16 tab_gb18030_2_uni[] = {
     0x4E02, 0x4E04, 0x4E05, 0x4E06, 0x4E0F, 0x4E12, 0x4E17, 0x4E1F, 0x4E20,
     0x4E21, 0x4E23, 0x4E26, 0x4E29, 0x4E2E, 0x4E2F, 0x4E31, 0x4E33, 0x4E35,
     0x4E37, 0x4E3C, 0x4E40, 0x4E41, 0x4E42, 0x4E44, 0x4E46, 0x4E4A, 0x4E51,
@@ -19206,6 +19206,47 @@ static size_t code_to_gb18030_chs(uchar *dst, size_t dstlen, uint code) {
 }
 
 /**
+  Convert the ulong value to 2 uchars
+
+  @param[in]  n  ulong value
+  @param[out] s  start of chars
+  @param[out] e  end of chars
+  @retval        1) len
+                 2) MY_CS_TOOSMALL2 if the output
+                    space is too small
+*/
+static int
+ulong_to_2uchars(ulong n, uchar *s, uchar *e)
+{
+    if (s + 2 > e)
+      return MY_CS_TOOSMALL2;
+	s[0] = (n >> 8) & 0xFF;
+	s[1] = n & 0xFF;
+	return 2;
+}
+
+/**
+  Convert the ulong value to 4 uchars
+
+  @param[in]  n  ulong value
+  @param[out] s  start of chars
+  @param[out] e  end of chars
+  @retval        1) len
+                 2) MY_CS_TOOSMALL4 if the output
+                    space is too small
+*/
+static int ulong_to_4uchars(ulong n, uchar *s, uchar *e)
+{
+    if (s + 4 > e)
+      return MY_CS_TOOSMALL4;
+	s[0] = (n >> 24) & 0xFF;
+	s[1] = (n >> 16) & 0xFF;
+	s[2] = (n >> 8) & 0xFF;
+	s[3] = n & 0xFF;
+	return 4;
+}
+
+/**
   Calculate the 4-byte GB18030 code from a diff value
 
   @param[out] dst     dest to store the gb18030 code in bytes
@@ -19354,6 +19395,25 @@ static int my_wc_mb_gb18030_chs(const CHARSET_INFO *cs [[maybe_unused]],
     /* [0x9FA6, 0xD7FF] */
     idx = wc - 0x5543;
     len = 4;
+    if (wc >= 0x9FB4 && wc <= 0x9FBB && txsql_gb18030_charset_standard == 2022)
+    {
+      if (wc == 0x9FB4)
+       return ulong_to_2uchars(0xFE59, s, e);
+      if (wc == 0x9FB5)
+        return ulong_to_2uchars(0xFE61, s, e);
+      if (wc == 0x9FB6)
+        return ulong_to_2uchars(0xFE66, s, e);
+      if (wc == 0x9FB7)
+        return ulong_to_2uchars(0xFE67, s, e);
+      if (wc == 0x9FB8)
+       return ulong_to_2uchars(0xFE6D, s, e);
+      if (wc == 0x9FB9)
+       return ulong_to_2uchars(0xFE7E, s, e);
+      if (wc == 0x9FBA)
+       return ulong_to_2uchars(0xFE90, s, e);
+      if (wc == 0x9FBB)
+       return ulong_to_2uchars(0xFEA0, s, e);
+    }
   } else if (wc < 0xE000) {
     /* [0xD800, 0xE000) */
     return MY_CS_ILUNI;
@@ -19363,6 +19423,45 @@ static int my_wc_mb_gb18030_chs(const CHARSET_INFO *cs [[maybe_unused]],
     if ((uint)((cp >> 8) & 0xFF) < MIN_MB_ODD_BYTE) {
       idx = cp + UNI2_TO_GB4_DIFF;
       len = 4;
+    }
+    if (wc >= 0xE78D && wc <= 0xE864 && txsql_gb18030_charset_standard == 2022)
+    {
+      if (wc == 0xE81E)
+    	return ulong_to_4uchars(0x82359037, s, e);
+      if (wc == 0xE826)
+        return ulong_to_4uchars(0x82359038, s, e);
+      if (wc == 0xE82B)
+        return ulong_to_4uchars(0x82359039, s, e);
+      if (wc == 0xE82C)
+        return ulong_to_4uchars(0x82359130, s, e);
+      if (wc == 0xE832)
+    	return ulong_to_4uchars(0x82359131, s, e);
+      if (wc == 0xE843)
+    	return ulong_to_4uchars(0x82359132, s, e);
+      if (wc == 0xE854)
+    	return ulong_to_4uchars(0x82359133, s, e);
+      if (wc == 0xE864)
+    	return ulong_to_4uchars(0x82359134, s, e);
+      if (wc == 0xE78D)
+    	return ulong_to_4uchars(0x84318236, s, e);
+      if (wc == 0xE78F)
+    	return ulong_to_4uchars(0x84318237, s, e);
+      if (wc == 0xE78E)
+    	return ulong_to_4uchars(0x84318238, s, e);
+      if (wc == 0xE790)
+    	return ulong_to_4uchars(0x84318239, s, e);
+      if (wc == 0xE791)
+    	return ulong_to_4uchars(0x84318330, s, e);
+      if (wc == 0xE792)
+    	return ulong_to_4uchars(0x84318331, s, e);
+      if (wc == 0xE793)
+    	return ulong_to_4uchars(0x84318332, s, e);
+      if (wc == 0xE794)
+        return ulong_to_4uchars(0x84318333, s, e);
+      if (wc == 0xE795)
+        return ulong_to_4uchars(0x84318334, s, e);
+      if (wc == 0xE796)
+        return ulong_to_4uchars(0x84318335, s, e);
     }
   } else if (wc <= 0xF92B) {
     /* [0xE865, 0xF92B] */
@@ -19374,6 +19473,29 @@ static int my_wc_mb_gb18030_chs(const CHARSET_INFO *cs [[maybe_unused]],
     if ((uint)((cp >> 8) & 0xFF) < MIN_MB_ODD_BYTE) {
       idx = cp + UNI2_TO_GB4_DIFF;
       len = 4;
+    }
+    if (wc >= 0xFE10 && wc <= 0xFE19 && txsql_gb18030_charset_standard == 2022)
+    {
+      if (wc == 0xFE10)
+    	return ulong_to_2uchars(0xA6D9, s, e);
+      if (wc == 0xFE12)
+        return ulong_to_2uchars(0xA6DA, s, e);
+      if (wc == 0xFE11)
+        return ulong_to_2uchars(0xA6DB, s, e);
+      if (wc == 0xFE13)
+        return ulong_to_2uchars(0xA6DC, s, e);
+      if (wc == 0xFE14)
+    	return ulong_to_2uchars(0xA6DD, s, e);
+      if (wc == 0xFE15)
+    	return ulong_to_2uchars(0xA6DE, s, e);
+      if (wc == 0xFE16)
+    	return ulong_to_2uchars(0xA6DF, s, e);
+      if (wc == 0xFE17)
+    	return ulong_to_2uchars(0xA6EC, s, e);
+      if (wc == 0xFE18)
+    	return ulong_to_2uchars(0xA6ED, s, e);
+      if (wc == 0xFE19)
+    	return ulong_to_2uchars(0xA6F3, s, e);
     }
   } else if (wc <= 0x10FFFF) {
     /* [0x10000, 0x10FFFF] */
@@ -19422,6 +19544,7 @@ static int my_mb_wc_gb18030(const CHARSET_INFO *cs [[maybe_unused]],
                             my_wc_t *pwc, const uchar *s, const uchar *e) {
   uint idx = 0;
   uint cp = 0;
+  ulong code4 = 0;
 
   if (s >= e) return MY_CS_TOOSMALL;
 
@@ -19461,8 +19584,38 @@ static int my_mb_wc_gb18030(const CHARSET_INFO *cs [[maybe_unused]],
       /* (GB+8138FD38, GB+82358F33) */
       cp = tab_gb18030_4_uni[idx - 6637 - 2110];
     else if (idx <= 0x82BC)
+    {
       /* [GB+82358F33, GB+8336C738] */
       cp = idx + 0x5543;
+      if (txsql_gb18030_charset_standard == 2022)
+      {
+    	code4 = gb18030_chs_to_code(s, 4);
+        // GB+82359037
+        if (code4 == 0x82359037)
+          cp= 0xE81E;
+        // GB+82359038
+        else if (code4 == 0x82359038)
+          cp= 0xE826;
+        // GB+82359039
+        else if (code4 == 0x82359039)
+          cp= 0xE82B;
+        // GB+82359130
+        else if (code4 == 0x82359130)
+          cp= 0xE82C;
+        // GB+82359131
+        else if (code4 == 0x82359131)
+          cp= 0xE832;
+        // GB+82359132
+        else if (code4 == 0x82359132)
+          cp= 0xE843;
+        // GB+82359133
+        else if (code4 == 0x82359133)
+          cp= 0xE854;
+        // GB+82359134
+        else if (code4 == 0x82359134)
+          cp= 0xE864;
+      }
+    }
     else if (idx < 0x830E)
       /* (GB+8336C738, GB+8336D030) */
       cp = tab_gb18030_4_uni[idx - 6637 - 2110 - 14426];
@@ -19473,8 +19626,44 @@ static int my_mb_wc_gb18030(const CHARSET_INFO *cs [[maybe_unused]],
       /* (GB+84308534, GB+84309C38) */
       cp = tab_gb18030_4_uni[idx - 6637 - 2110 - 14426 - 4295];
     else if (idx <= 0x98C3)
+    {
       /* [GB+84309C38, GB+84318537] */
       cp = idx + 0x656C;
+      if (txsql_gb18030_charset_standard == 2022)
+      {
+    	code4 = gb18030_chs_to_code(s, 4);
+        // GB+84318236
+        if (code4 == 0x84318236)
+          cp= 0xE78D;
+        // GB+84318237
+        else if (code4 == 0x84318237)
+          cp= 0xE78F;
+        // GB+84318238
+        else if (code4 == 0x84318238)
+          cp= 0xE78E;
+        // GB+84318239
+        else if (code4 == 0x84318239)
+          cp= 0xE790;
+        // GB+84318330
+        else if (code4 == 0x84318330)
+          cp= 0xE791;
+        // GB+84318331
+        else if (code4 == 0x84318331)
+          cp= 0xE792;
+        // GB+84318332
+        else if (code4 == 0x84318332)
+          cp= 0xE793;
+        // GB+84318333
+        else if (code4 == 0x84318333)
+          cp= 0xE794;
+        // GB+84318334
+        else if (code4 == 0x84318334)
+          cp= 0xE795;
+        // GB+84318335
+        else if (code4 == 0x84318335)
+          cp= 0xE796;
+      }
+    }
     else if (idx <= 0x99fb)
       /* (GB+84318537, GB+8431A439] */
       cp = tab_gb18030_4_uni[idx - 6637 - 2110 - 14426 - 4295 - 1030];
@@ -20351,6 +20540,71 @@ static void my_hash_sort_gb18030(const CHARSET_INFO *cs, const uchar *s,
 }
 }  // extern "C"
 
+volatile ulong txsql_gb18030_charset_standard;
+
+static ulong cal_gb18030_2_uni_map_offset(ulong code)
+{
+  ulong s0 = (code >> 8) & 0xFF;
+  ulong s1 = code & 0xFF;
+  return (s0 - MIN_MB_ODD_BYTE) * 192 + (s1 - MIN_MB_EVEN_BYTE_2);
+}
+
+// gb18030_2022 2 byte
+static void set_gb18030_2_uni_map_for_gb18030_2022()
+{
+  if (txsql_gb18030_charset_standard == 2022)
+  {
+	// 2-byte code points in [GB+8140, GB+FEFE]
+    tab_gb18030_2_uni[cal_gb18030_2_uni_map_offset(0xA6D9)] = 0xFE10;
+    tab_gb18030_2_uni[cal_gb18030_2_uni_map_offset(0xA6DA)] = 0xFE12;
+    tab_gb18030_2_uni[cal_gb18030_2_uni_map_offset(0xA6DB)] = 0xFE11;
+    tab_gb18030_2_uni[cal_gb18030_2_uni_map_offset(0xA6DC)] = 0xFE13;
+    tab_gb18030_2_uni[cal_gb18030_2_uni_map_offset(0xA6DD)] = 0xFE14;
+    tab_gb18030_2_uni[cal_gb18030_2_uni_map_offset(0xA6DE)] = 0xFE15;
+    tab_gb18030_2_uni[cal_gb18030_2_uni_map_offset(0xA6DF)] = 0xFE16;
+    tab_gb18030_2_uni[cal_gb18030_2_uni_map_offset(0xA6EC)] = 0xFE17;
+    tab_gb18030_2_uni[cal_gb18030_2_uni_map_offset(0xA6ED)] = 0xFE18;
+    tab_gb18030_2_uni[cal_gb18030_2_uni_map_offset(0xA6F3)] = 0xFE19;
+    tab_gb18030_2_uni[cal_gb18030_2_uni_map_offset(0xFE59)] = 0x9FB4;
+    tab_gb18030_2_uni[cal_gb18030_2_uni_map_offset(0xFE61)] = 0x9FB5;
+    tab_gb18030_2_uni[cal_gb18030_2_uni_map_offset(0xFE66)] = 0x9FB6;
+    tab_gb18030_2_uni[cal_gb18030_2_uni_map_offset(0xFE67)] = 0x9FB7;
+    tab_gb18030_2_uni[cal_gb18030_2_uni_map_offset(0xFE6D)] = 0x9FB8;
+    tab_gb18030_2_uni[cal_gb18030_2_uni_map_offset(0xFE7E)] = 0x9FB9;
+    tab_gb18030_2_uni[cal_gb18030_2_uni_map_offset(0xFE90)] = 0x9FBA;
+    tab_gb18030_2_uni[cal_gb18030_2_uni_map_offset(0xFEA0)] = 0x9FBB;
+  }
+  /*
+  tab_gb18030_2_uni[0xA6D9-0x8140] = 0xE78D;
+  tab_gb18030_2_uni[0xA6DA-0x8140] = 0xE78E;
+  tab_gb18030_2_uni[0xA6DB-0x8140] = 0xE78F;
+  tab_gb18030_2_uni[0xA6DC-0x8140] = 0xE790;
+  tab_gb18030_2_uni[0xA6DD-0x8140] = 0xE791;
+  tab_gb18030_2_uni[0xA6DE-0x8140] = 0xE792;
+  tab_gb18030_2_uni[0xA6DF-0x8140] = 0xE793;
+  tab_gb18030_2_uni[0xA6EC-0x8140] = 0xE794;
+  tab_gb18030_2_uni[0xA6ED-0x8140] = 0xE795;
+  tab_gb18030_2_uni[0xA6F3-0x8140] = 0xE796;
+  tab_gb18030_2_uni[0xFE59-0x8140] = 0xE81E;
+  tab_gb18030_2_uni[0xFE61-0x8140] = 0xE826;
+  tab_gb18030_2_uni[0xFE66-0x8140] = 0xE82B;
+  tab_gb18030_2_uni[0xFE67-0x8140] = 0xE82C;
+  tab_gb18030_2_uni[0xFE6D-0x8140] = 0xE832;
+  tab_gb18030_2_uni[0xFE7E-0x8140] = 0xE843;
+  tab_gb18030_2_uni[0xFE90-0x8140] = 0xE854;
+  tab_gb18030_2_uni[0xFEA0-0x8140] = 0xE864;
+  */
+}
+
+static bool
+my_init_gb18030(CHARSET_INFO *cs, MY_CHARSET_LOADER *loader)
+{
+  set_gb18030_2_uni_map_for_gb18030_2022();
+  if (cs != NULL && loader != NULL)
+    return false;
+  return true;
+}
+
 static MY_COLLATION_HANDLER my_collation_ci_handler = {nullptr,
                                                        nullptr,
                                                        my_strnncoll_gb18030,
@@ -20365,7 +20619,7 @@ static MY_COLLATION_HANDLER my_collation_ci_handler = {nullptr,
                                                        my_propagate_simple};
 
 static MY_CHARSET_HANDLER my_charset_gb18030_handler = {
-    nullptr,
+    my_init_gb18030,
     my_ismbchar_gb18030,
     my_mbcharlen_gb18030,
     my_numchars_mb,
@@ -20393,7 +20647,7 @@ static MY_CHARSET_HANDLER my_charset_gb18030_handler = {
     my_strntoull10rnd_8bit,
     my_scan_8bit};
 
-MY_CHARSET_HANDLER my_charset_gb18030_uca_handler = {nullptr,
+MY_CHARSET_HANDLER my_charset_gb18030_uca_handler = {my_init_gb18030,
                                                      my_ismbchar_gb18030,
                                                      my_mbcharlen_gb18030,
                                                      my_numchars_mb,

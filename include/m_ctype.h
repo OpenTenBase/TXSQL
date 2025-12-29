@@ -746,4 +746,6 @@ static inline bool is_supported_parser_charset(const CHARSET_INFO *cs) {
   return (cs->mbminlen == 1);
 }
 
+extern volatile ulong txsql_gb18030_charset_standard;
+
 #endif  // M_CTYPE_INCLUDED
