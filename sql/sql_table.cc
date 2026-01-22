@@ -18666,6 +18666,17 @@ bool mysql_trans_commit_alter_copy_data(THD *thd) {
   return error;
 }
 
+static bool check_if_table_has_functional_index(TABLE *to) {
+  for (uint i = 0; i < to->s->keys; ++i) {
+    const KEY &index = to->key_info[i];
+    if (index.is_functional_index()) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 /*
 In the following cases, we don't use parallel copy ddl:
   1. Turn off txsql_parallel_copy_ddl;
@@ -18678,6 +18689,7 @@ In the following cases, we don't use parallel copy ddl:
       latch, and during insert, it will do row_ins_check_foreign_constraints, which
       maybe try to acquire the same latch when the parent is in the same table.
       In this case, crash will happen.
+  8. Table doesn't have functional indexes.
 
       Example,
       CREATE TABLE t3(
@@ -18708,7 +18720,7 @@ static bool check_if_can_use_parallel_copy_ddl(THD *thd, TABLE *from, TABLE *to,
       && order == nullptr && !is_auto_inc
       && (table_def && table_def->foreign_keys()->empty())
       && (old_table_def && old_table_def->foreign_keys().empty())
-      && !is_multi_value) {
+      && !is_multi_value && !check_if_table_has_functional_index(to)) {
     return true;
   }
   return res;
@@ -18964,7 +18976,12 @@ static int copy_data_between_tables(
   }
   else {
 fallback:
-    while (!(error = iterator->Read())) {
+  if (thd->variables.txsql_parallel_copy_ddl) {
+    sql_print_information(
+        "[TXSQL] Executing non-parallel copy DDL  when "
+        "txsql_parallel_copy_ddl=ON.");
+  }
+  while (!(error = iterator->Read())) {
       if (thd->killed) {
         thd->send_kill_message();
         error = 1;
