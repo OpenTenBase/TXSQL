@@ -1,0 +1,20 @@
+SET SESSION txsql_parallel_copy_ddl=ON;
+
+CREATE TABLE t1 (fld1 INT, fld2 DATETIME NOT NULL) ENGINE= INNODB;
+
+INSERT INTO t1 VALUES(1, '2000-01-01');
+INSERT INTO t1 VALUES(2, '2001-01-01');
+INSERT INTO t1 VALUES(3, '2002-01-01');
+ALTER TABLE t1 ADD INDEX idx_sale_month ((MONTH(fld2))), ALGORITHM= COPY;
+
+--let SEARCH_FILE= $MYSQLTEST_VARDIR/log/mysqld.1.err
+--let SEARCH_PATTERN= Executing non-parallel copy DDL  when txsql_parallel_copy_ddl=ON
+--source include/search_pattern_in_file.inc
+
+ALTER TABLE t1 DROP INDEX idx_sale_month, ALGORITHM= COPY;
+
+--let SEARCH_FILE= $MYSQLTEST_VARDIR/log/mysqld.1.err
+--let SEARCH_PATTERN= \[TXSQL\] parallel_threads=
+--source include/search_pattern_in_file.inc
+
+DROP TABLE t1;
