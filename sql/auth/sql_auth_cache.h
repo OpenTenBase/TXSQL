@@ -56,6 +56,8 @@
 #include "sql/psi_memory_key.h"
 #include "sql/sql_connect.h"  // USER_RESOURCES
 #include "violite.h"          // SSL_type
+#include <mysql/plugin_auth.h>
+#include <sm3.h>
 
 /* Forward declarations */
 class Security_context;
@@ -224,7 +226,7 @@ class Acl_credential {
  public:
   Acl_credential() {
     m_auth_string = {"", 0};
-    memset(m_salt, 0, SCRAMBLE_LENGTH + 1);
+    memset(m_salt, 0, SM3_SCRAMBLE_LENGTH + 1);
     m_salt_len = 0;
   }
 
@@ -234,7 +236,7 @@ class Acl_credential {
     The salt variable is used as the password hash for
     native_password_authetication.
   */
-  uint8 m_salt[SCRAMBLE_LENGTH + 1];  // scrambled password in binary form
+  uint8 m_salt[SM3_SCRAMBLE_LENGTH + 1];   // scrambled password in binary form
   /**
     In the old protocol the salt_len indicated what type of autnetication
     protocol was used: 0 - no password, 4 - 3.20, 8 - 4.0,  20 - 4.1.1
