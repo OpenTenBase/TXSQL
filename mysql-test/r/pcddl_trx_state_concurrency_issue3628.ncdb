@@ -1,0 +1,21 @@
+SET SESSION txsql_parallel_copy_ddl=ON;
+SET debug="+d,sync_row_mysql_handle_errors";
+CREATE TABLE t1(id int primary key, v int);
+drop procedure if exists insert_t1;
+create procedure insert_t1(IN start INT, IN end INT)
+begin
+declare i int default start;
+SET autocommit=0;
+repeat
+INSERT INTO t1 VALUES (i, i);
+set i=i+1;
+until i=end
+end repeat;
+SET autocommit=1;
+end |
+CALL insert_t1(0, 20000);
+UPDATE t1 SET v = 2 WHERE id = 9999;
+ALTER TABLE t1 ADD UNIQUE INDEX k_1(v), algorithm=copy;
+ERROR 23000: Can't write; duplicate key in table '#sql-394247_31'
+DROP TABLE t1;
+DROP PROCEDURE insert_t1;

@@ -266,7 +266,7 @@ lock_wait_in_hot_row_update_queue(que_thr_t *thr)
 
   trx_mutex_enter(trx);
 
-  trx->error_state = DB_SUCCESS;
+  set_trx_error_state(trx, DB_SUCCESS);
 
   slot = lock_wait_table_reserve_slot(thr, std::chrono::seconds{100000000});
 
@@ -342,7 +342,7 @@ lock_wait_in_hot_row_update_queue(que_thr_t *thr)
   trx->hot_update_status = HOT_UPDATE_STATUS_RUNNING;
   trx_mutex_exit(trx);
   if (trx_is_interrupted(trx)) {
-    trx->error_state = DB_INTERRUPTED;
+    set_trx_error_state(trx, DB_INTERRUPTED);
   }
 }
 
@@ -369,7 +369,7 @@ void lock_wait_suspend_thread(que_thr_t *thr) {
 
   trx_mutex_enter(trx);
 
-  trx->error_state = DB_SUCCESS;
+  set_trx_error_state(trx, DB_SUCCESS);
 
   if (thr->state == QUE_THR_RUNNING) {
     ut_ad(thr->is_active);
@@ -378,7 +378,7 @@ void lock_wait_suspend_thread(que_thr_t *thr) {
     was chosen as a deadlock victim: no need to suspend */
 
     if (trx->lock.was_chosen_as_deadlock_victim) {
-      trx->error_state = DB_DEADLOCK;
+      set_trx_error_state(trx, DB_DEADLOCK);
       trx->lock.was_chosen_as_deadlock_victim = false;
 
       ut_d(trx->lock.in_rollback = true);
@@ -492,17 +492,17 @@ void lock_wait_suspend_thread(que_thr_t *thr) {
   }
 
   /* The transaction is chosen as deadlock victim during sleep. */
-  if (trx->error_state == DB_DEADLOCK) {
+  if (get_trx_error_state(trx) == DB_DEADLOCK) {
     ut_d(trx->lock.in_rollback = true);
     return;
   }
 
-  if (trx->error_state == DB_LOCK_WAIT_TIMEOUT) {
+  if (get_trx_error_state(trx) == DB_LOCK_WAIT_TIMEOUT) {
     MONITOR_INC(MONITOR_TIMEOUT);
   }
 
   if (trx_is_interrupted(trx)) {
-    trx->error_state = DB_INTERRUPTED;
+    set_trx_error_state(trx, DB_INTERRUPTED);
   }
 }
 
@@ -561,7 +561,7 @@ static void lock_wait_release_thread_if_suspended(que_thr_t *thr) {
 
   if (thr->slot != nullptr && thr->slot->in_use && thr->slot->thr == thr) {
     if (trx->lock.was_chosen_as_deadlock_victim) {
-      trx->error_state = DB_DEADLOCK;
+      set_trx_error_state(trx, DB_DEADLOCK);
       trx->lock.was_chosen_as_deadlock_victim = false;
 
       ut_d(trx->lock.in_rollback = true);
@@ -636,8 +636,8 @@ static void lock_wait_try_cancel(trx_t *trx, bool timeout) {
     current query. We set error_state to DB_DEADLOCK only:
     1) before the transaction reserves a slot. But, we know it's in a slot.
     2) when wait_lock is already set to nullptr. But, it's not nullptr. */
-    ut_ad(trx->error_state != DB_DEADLOCK);
-    trx->error_state = DB_LOCK_WAIT_TIMEOUT;
+    ut_ad(get_trx_error_state(trx) != DB_DEADLOCK);
+    set_trx_error_state(trx, DB_LOCK_WAIT_TIMEOUT);
     /* This flag can't be set, as we always call the
     lock_cancel_waiting_and_release() immediately after setting it, which
     either prevents the trx from going to sleep or resets the wait_lock, and

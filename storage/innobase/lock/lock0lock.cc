@@ -2234,7 +2234,7 @@ static const lock_t *lock_rec_has_to_wait_for_granted(
 
   for (size_t i = new_granted_index; i < granted.size(); ++i) {
     const auto granted_lock = granted[i];
-    ut_ad(granted_lock->trx->error_state != DB_DEADLOCK);
+    ut_ad(get_trx_error_state(granted_lock->trx) != DB_DEADLOCK);
     ut_ad(!granted_lock->trx->lock.was_chosen_as_deadlock_victim);
 
     if (lock_has_to_wait(wait_lock, granted_lock)) {
@@ -2307,7 +2307,7 @@ static void lock_rec_grant_by_heap_no(lock_t *in_lock, ulint heap_no) {
         }
         ut_d(seen_waiting_lock = true);
         const auto trx = lock->trx;
-        if (trx->error_state == DB_DEADLOCK ||
+        if (get_trx_error_state(trx) == DB_DEADLOCK ||
             trx->lock.was_chosen_as_deadlock_victim) {
           return (true);
         }
@@ -4387,7 +4387,7 @@ run_again:
 
   err = lock_table(0, table, mode, thr);
 
-  trx->error_state = err;
+  set_trx_error_state(trx, err);
 
   if (err == DB_SUCCESS) {
     que_thr_stop_for_mysql_no_error(thr, trx);

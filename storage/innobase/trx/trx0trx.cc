@@ -179,7 +179,7 @@ static void trx_init(trx_t *trx) {
 
   trx->ddl_operation = false;
 
-  trx->error_state = DB_SUCCESS;
+  set_trx_error_state(trx, DB_SUCCESS);
 
   trx->error_key_num = ULINT_UNDEFINED;
 
@@ -366,7 +366,7 @@ struct TrxFactory {
   is added to the pool.
   @return true if all OK */
   static bool debug(const trx_t *trx) {
-    ut_a(trx->error_state == DB_SUCCESS);
+    ut_a(get_trx_error_state(trx) == DB_SUCCESS);
 
     ut_a(trx->magic_n == TRX_MAGIC_N);
 
@@ -1283,7 +1283,7 @@ static void trx_start_low(
   ut_ad(trx->start_file != nullptr);
   ut_ad(trx->roll_limit == 0);
   ut_ad(!trx->lock.in_rollback);
-  ut_ad(trx->error_state == DB_SUCCESS);
+  ut_ad(get_trx_error_state(trx) == DB_SUCCESS);
   ut_ad(trx->rsegs.m_redo.rseg == nullptr);
   ut_ad(trx->rsegs.m_noredo.rseg == nullptr);
   ut_ad(trx_state_eq(trx, TRX_STATE_NOT_STARTED));
@@ -1407,7 +1407,7 @@ static void trx_start_low(
     }
   }
 
-  ut_a(trx->error_state == DB_SUCCESS);
+  ut_a(get_trx_error_state(trx) == DB_SUCCESS);
 
   trx->connect_broken = false;
 
@@ -2091,7 +2091,7 @@ written */
 
   trx_mutex_exit(trx);
 
-  ut_a(trx->error_state == DB_SUCCESS);
+  ut_a(get_trx_error_state(trx) == DB_SUCCESS);
 }
 
 /** Commits a transaction and a mini-transaction.

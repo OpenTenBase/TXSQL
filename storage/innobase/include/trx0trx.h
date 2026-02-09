@@ -56,6 +56,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "srv0srv.h"
 
 #include "dict0mem.h"
+#include "sql_thd_internal_api.h"
 
 // Forward declaration
 struct mtr_t;
@@ -1125,7 +1126,7 @@ struct trx_t {
   const char *start_file; /*!< Filename where it was started */
 #endif                    /* UNIV_DEBUG */
 
-  std::atomic<lint> n_ref; /*!< Count of references, protected   
+  std::atomic<lint> n_ref; /*!< Count of references, protected
               by trx_t::mutex. We can't release the
               locks nor commit the transaction until
               this reference is 0.  We can change
@@ -1207,7 +1208,7 @@ struct trx_t {
   @return true iff in this transaction's isolation level locks on records which
                do not match the WHERE clause are released */
   bool releases_non_matching_rows() const { return skip_gap_locks(); }
-  
+
   inline uint64_t get_hash_val() const {
     return (reinterpret_cast<uint64_t>(this)) >> 4;
   }
@@ -1668,6 +1669,22 @@ class TrxInInnoDB {
   Transaction instance crossing the handler boundary from the Server. */
   trx_t *m_trx;
 };
+
+static inline void set_trx_error_state(trx_t *trx, dberr_t error_state) {
+  if (UNIV_UNLIKELY(current_thd && thd_is_parallel_copy_data(current_thd))) {
+    thd_set_trx_error_state(current_thd, static_cast<uint32>(error_state));
+  } else {
+    trx->error_state = error_state;
+  }
+}
+
+static inline dberr_t get_trx_error_state(const trx_t *trx) {
+  if (UNIV_UNLIKELY(current_thd && thd_is_parallel_copy_data(current_thd))) {
+    return (dberr_t)thd_get_trx_error_state(current_thd);
+  } else {
+    return trx->error_state;
+  }
+}
 
 /** Check if transaction is internal XA transaction
 @param[in]      trx     transaction

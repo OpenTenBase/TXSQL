@@ -527,7 +527,7 @@ dberr_t fts_index_fetch_nodes(
         ib::warn(ER_IB_MSG_486) << "lock wait timeout reading"
                                    " FTS index. Retrying!";
 
-        trx->error_state = DB_SUCCESS;
+        set_trx_error_state(trx, DB_SUCCESS);
       } else {
         ib::error(ER_IB_MSG_487)
             << "(" << ut_strerr(error) << ") while reading FTS index.";
@@ -832,7 +832,7 @@ static void fts_zip_deflate_end(
           deflateEnd(zip->zp);
           fts_zip_init(zip);
 
-          optim->trx->error_state = DB_SUCCESS;
+          set_trx_error_state(optim->trx, DB_SUCCESS);
         } else {
           ib::error(ER_IB_MSG_490)
               << "(" << ut_strerr(error) << ") while reading document.";
@@ -1673,11 +1673,11 @@ static void fts_optimize_words(
       ib::warn(ER_IB_MSG_495) << "Lock wait timeout during optimize."
                                  " Retrying!";
 
-      trx->error_state = DB_SUCCESS;
+      set_trx_error_state(trx, DB_SUCCESS);
     } else if (error == DB_DEADLOCK) {
       ib::warn(ER_IB_MSG_496) << "Deadlock during optimize. Retrying!";
 
-      trx->error_state = DB_SUCCESS;
+      set_trx_error_state(trx, DB_SUCCESS);
     } else {
       optim->done = true; /* Exit the loop. */
     }
