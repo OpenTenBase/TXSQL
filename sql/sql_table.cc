@@ -18947,6 +18947,8 @@ static int copy_data_between_tables(
                                                                &ha_copy_alter_info,
                                                                create, found_count);
 
+      delete ha_copy_alter_info.handler_ctx;
+
       if (ha_copy_alter_info.fallback) {
         if (iterator->Init()) {
           error= 1;
