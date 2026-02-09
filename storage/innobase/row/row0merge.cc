@@ -2373,11 +2373,11 @@ static dberr_t write_merge_buf_to_file(
   file_mutex.unlock();
 
   if (!row_merge_write(file->fd, my_offset, block)) {
-    err = DB_TEMP_FILE_WRITE_FAIL; 
+    err = DB_TEMP_FILE_WRITE_FAIL;
     trx->error_key_num = idx;
     return err;
   }
-  UNIV_MEM_INVALID(&block[0], srv_sort_buf_size); 
+  UNIV_MEM_INVALID(&block[0], srv_sort_buf_size);
 
   return err;
 }
@@ -5429,7 +5429,7 @@ dberr_t row_merge_build_indexes(
       const_cast<dict_index_t *> (sort_idx)->cached_offs_pddl.reset();
 
 #ifdef UNIV_DEBUG_PARALLEL_DDL
-      ib::info() << "[TXSQL PARALLEL DDL] Build btree finished, costs(" 
+      ib::info() << "[TXSQL PARALLEL DDL] Build btree finished, costs("
                  << std::chrono::duration_cast<std::chrono::microseconds>(
                     std::chrono::steady_clock::now() - start_build_btree_time).count()
                  << ") ms.";

@@ -1699,7 +1699,7 @@ do_possible_lock_wait:
     when it goes out of this scope. */
     ib_dec_in_dtor dec(check_table->n_foreign_key_checks_running);
 
-    trx->error_state = err;
+    set_trx_error_state(trx, err);
 
     que_thr_stop_for_mysql(thr);
 
@@ -1712,8 +1712,8 @@ do_possible_lock_wait:
 
     lock_wait_suspend_thread(thr);
 
-    if (trx->error_state != DB_SUCCESS) {
-      err = trx->error_state;
+    if (get_trx_error_state(trx) != DB_SUCCESS) {
+      err = get_trx_error_state(trx);
       goto exit_func;
     }
 
@@ -3600,7 +3600,7 @@ static inline void row_ins_get_row_from_query_block(
         case DB_SUCCESS:
           break;
         case DB_DUPLICATE_KEY:
-          thr_get_trx(thr)->error_state = DB_DUPLICATE_KEY;
+          set_trx_error_state(thr_get_trx(thr), DB_DUPLICATE_KEY);
           thr_get_trx(thr)->error_index = node->index;
           [[fallthrough]];
         default:
@@ -3721,7 +3721,7 @@ que_thr_t *row_ins_step(que_thr_t *thr) /*!< in: query thread */
   err = row_ins(node, thr);
 
 error_handling:
-  trx->error_state = err;
+  set_trx_error_state(trx, err);
 
   if (err != DB_SUCCESS) {
     /* err == DB_LOCK_WAIT or SQL error detected */

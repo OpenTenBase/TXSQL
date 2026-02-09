@@ -3299,7 +3299,7 @@ que_thr_t *row_upd_step(que_thr_t *thr) /*!< in: query thread */
   err = row_upd(node, thr);
 
 error_handling:
-  trx->error_state = err;
+  set_trx_error_state(trx, err);
 
   if (err != DB_SUCCESS) {
     return nullptr;

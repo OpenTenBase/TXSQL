@@ -256,7 +256,7 @@ dberr_t fts_eval_sql(trx_t *trx,   /*!< in: transaction */
 
   que_run_threads(thr);
 
-  return (trx->error_state);
+  return (get_trx_error_state(trx));
 }
 
 /** Construct the column specification part of the SQL string for selecting the

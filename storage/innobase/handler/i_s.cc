@@ -3106,7 +3106,7 @@ static dberr_t i_s_fts_index_table_fill_selected(
         ib::warn(ER_IB_MSG_601) << "Lock wait timeout reading"
                                    " FTS index. Retrying!";
 
-        trx->error_state = DB_SUCCESS;
+        set_trx_error_state(trx, DB_SUCCESS);
       } else {
         ib::error(ER_IB_MSG_602) << "Error occurred while reading"
                                     " FTS index: "

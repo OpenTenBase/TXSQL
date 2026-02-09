@@ -327,4 +327,9 @@ void thd_start_parallel_copy_data(THD *thd);
 
 void thd_end_parallel_copy_data(THD *thd);
 
+bool thd_is_parallel_copy_data(THD *thd);
+
+uint32 thd_get_trx_error_state(THD *thd);
+
+void thd_set_trx_error_state(THD *thd, uint32 trx_error_state);
 #endif  // SQL_THD_INTERNAL_API_INCLUDED
