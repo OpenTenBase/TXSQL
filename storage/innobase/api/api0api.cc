@@ -1030,7 +1030,7 @@ static inline ib_err_t ib_insert_row_with_lock_retry(
 
     row_ins_step(thr);
 
-    err = trx->error_state;
+    err = get_trx_error_state(trx);
 
     if (err != DB_SUCCESS) {
       que_thr_stop_for_mysql(thr);
@@ -1336,7 +1336,7 @@ static inline ib_err_t ib_update_row_with_lock_retry(
 
     row_upd_step(thr);
 
-    err = trx->error_state;
+    err = get_trx_error_state(trx);
 
     if (err != DB_SUCCESS) {
       que_thr_stop_for_mysql(thr);
@@ -1412,7 +1412,7 @@ static inline ib_err_t ib_execute_update_query_graph(
     }
 
   } else if (err == DB_RECORD_NOT_FOUND) {
-    trx->error_state = DB_SUCCESS;
+    set_trx_error_state(trx, DB_SUCCESS);
   }
 
   trx->op_info = "";

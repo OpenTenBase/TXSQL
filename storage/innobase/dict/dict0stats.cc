@@ -199,7 +199,7 @@ static dberr_t dict_stats_exec_sql(pars_info_t *pinfo, const char *sql,
   DBUG_EXECUTE_IF(
       "stats_index_error", if (!trx_started) {
         err = DB_STATS_DO_NOT_EXIST;
-        trx->error_state = DB_STATS_DO_NOT_EXIST;
+        set_trx_error_state(trx, DB_STATS_DO_NOT_EXIST);
       });
 
   if (!trx_started && err == DB_SUCCESS) {
@@ -214,7 +214,7 @@ static dberr_t dict_stats_exec_sql(pars_info_t *pinfo, const char *sql,
     trx_rollback_to_savepoint(trx, nullptr);
     trx->dict_operation_lock_mode = 0;
     trx->op_info = "";
-    ut_a(trx->error_state == DB_SUCCESS);
+    ut_a(get_trx_error_state(trx) == DB_SUCCESS);
   }
 
   if (trx_started) {

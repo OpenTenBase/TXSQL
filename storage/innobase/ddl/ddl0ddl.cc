@@ -230,7 +230,7 @@ dict_index_t *create_index(trx_t *trx, dict_table_t *table,
                                             trx_is_strict(trx));
 
   if (err != DB_SUCCESS) {
-    trx->error_state = err;
+    set_trx_error_state(trx, err);
     dict_sys_mutex_enter();
     return nullptr;
   }
@@ -248,7 +248,7 @@ dict_index_t *create_index(trx_t *trx, dict_table_t *table,
       fts_cache_index_cache_remove(table, index);
     }
 
-    trx->error_state = err;
+    set_trx_error_state(trx, err);
     return nullptr;
   }
 

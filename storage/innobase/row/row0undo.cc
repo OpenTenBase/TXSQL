@@ -361,7 +361,7 @@ que_thr_t *row_undo_step(que_thr_t *thr) /*!< in: query thread */
 
   err = row_undo(node, thr);
 
-  trx->error_state = err;
+  set_trx_error_state(trx, err);
 
   if (err != DB_SUCCESS) {
     /* SQL error detected */

@@ -1827,6 +1827,8 @@ class THD : public MDL_context_owner,
  public:
   bool is_doing_parallel_copy_data = false;
 
+  static thread_local uint32 trx_error_state;
+
   mysql_mutex_t LOCK_push_warning;
 
   mysql_mutex_t LOCK_internal_handler;

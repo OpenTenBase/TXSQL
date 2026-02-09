@@ -1008,7 +1008,7 @@ retry:
     case DB_LOCK_WAIT:
     re_scan:
       mtr_commit(mtr);
-      trx->error_state = err;
+      set_trx_error_state(trx, err);
       que_thr_stop_for_mysql(thr);
       thr->lock_state = QUE_THR_LOCK_ROW;
       if (row_mysql_handle_errors(&err, trx, thr, nullptr)) {
@@ -2168,7 +2168,7 @@ que_thr_t *row_sel_step(que_thr_t *thr) /*!< in: query thread */
           trx_t *trx;
 
           trx = thr_get_trx(thr);
-          trx->error_state = err;
+          set_trx_error_state(trx, err);
 
           return (nullptr);
         }
@@ -2202,7 +2202,7 @@ que_thr_t *row_sel_step(que_thr_t *thr) /*!< in: query thread */
   thr->graph->last_sel_node = node;
 
   if (err != DB_SUCCESS) {
-    thr_get_trx(thr)->error_state = err;
+    set_trx_error_state(thr_get_trx(thr), err);
 
     return (nullptr);
   }
@@ -2252,7 +2252,7 @@ que_thr_t *fetch_step(que_thr_t *thr) /*!< in: query thread */
   if (sel_node->state == SEL_NODE_CLOSED) {
     ib::error(ER_IB_MSG_1027) << "fetch called on a closed cursor";
 
-    thr_get_trx(thr)->error_state = DB_ERROR;
+    set_trx_error_state(thr_get_trx(thr), DB_ERROR);
 
     return (nullptr);
   }
@@ -6373,7 +6373,7 @@ lock_table_wait:
   mtr_commit(&mtr);
   mtr_has_extra_clust_latch = false;
 
-  trx->error_state = err;
+  set_trx_error_state(trx, err);
 
   /* The following is a patch for MySQL */
 

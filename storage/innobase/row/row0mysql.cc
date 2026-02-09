@@ -1471,11 +1471,13 @@ bool row_mysql_handle_errors(
   dberr_t err;
 
 handle_new_error:
-  err = trx->error_state;
+  DBUG_EXECUTE_IF("sync_row_mysql_handle_errors_issue3628", sleep(5););
+
+  err = get_trx_error_state(trx);
 
   ut_a(err != DB_SUCCESS);
 
-  trx->error_state = DB_SUCCESS;
+  set_trx_error_state(trx, DB_SUCCESS);
 
   switch (err) {
     case DB_LOCK_WAIT_TIMEOUT:
@@ -1519,7 +1521,7 @@ handle_new_error:
 
       lock_wait_suspend_thread(thr);
 
-      if (trx->error_state != DB_SUCCESS) {
+      if (get_trx_error_state(trx) != DB_SUCCESS) {
         que_thr_stop_for_mysql(thr);
 
         goto handle_new_error;
@@ -1577,13 +1579,13 @@ handle_new_error:
           << "Unknown error code " << err << ": " << ut_strerr(err);
   }
 
-  if (trx->error_state != DB_SUCCESS) {
-    *new_err = trx->error_state;
+  if (get_trx_error_state(trx) != DB_SUCCESS) {
+    *new_err = get_trx_error_state(trx);
   } else {
     *new_err = err;
   }
 
-  trx->error_state = DB_SUCCESS;
+  set_trx_error_state(trx, DB_SUCCESS);
 
   return (false);
 }
@@ -2058,7 +2060,7 @@ run_again:
 
   err = lock_table(0, prebuilt->table, LOCK_AUTO_INC, thr);
 
-  trx->error_state = err;
+  set_trx_error_state(trx, err);
 
   if (err != DB_SUCCESS) {
     que_thr_stop_for_mysql(thr);
@@ -2116,7 +2118,7 @@ run_again:
       lock_table(0, prebuilt->table,
                  static_cast<enum lock_mode>(prebuilt->select_lock_type), thr);
 
-  trx->error_state = err;
+  set_trx_error_state(trx, err);
 
   if (err != DB_SUCCESS) {
     que_thr_stop_for_mysql(thr);
@@ -2365,7 +2367,7 @@ static dberr_t row_insert_for_mysql_using_cursor(const byte *mysql_rec,
     }
   }
 
-  thr_get_trx(thr)->error_state = DB_SUCCESS;
+  set_trx_error_state(thr_get_trx(thr), DB_SUCCESS);
   return (err);
 }
 
@@ -2465,7 +2467,7 @@ run_again:
 
   DEBUG_SYNC_C("ib_after_row_insert_step");
 
-  err = trx->error_state;
+  err = get_trx_error_state(trx);
 
   if (err != DB_SUCCESS) {
   error_exit:
@@ -2502,7 +2504,7 @@ run_again:
     if (doc_id <= 0) {
       ib::error(ER_IB_MSG_980) << "FTS Doc ID must be large than 0";
       err = DB_FTS_INVALID_DOCID;
-      trx->error_state = DB_FTS_INVALID_DOCID;
+      set_trx_error_state(trx, DB_FTS_INVALID_DOCID);
       goto error_exit;
     }
 
@@ -2515,7 +2517,7 @@ run_again:
             << " for table " << table->name;
 
         err = DB_FTS_INVALID_DOCID;
-        trx->error_state = DB_FTS_INVALID_DOCID;
+        set_trx_error_state(trx, DB_FTS_INVALID_DOCID);
         goto error_exit;
       }
 
@@ -2533,7 +2535,7 @@ run_again:
                                     " exceed or equal to "
                                  << FTS_DOC_ID_MAX_STEP;
         err = DB_FTS_INVALID_DOCID;
-        trx->error_state = DB_FTS_INVALID_DOCID;
+        set_trx_error_state(trx, DB_FTS_INVALID_DOCID);
         goto error_exit;
       }
     }
@@ -3134,7 +3136,7 @@ static dberr_t row_del_upd_for_mysql_using_cursor(row_prebuilt_t *prebuilt) {
     }
   }
 
-  thr_get_trx(thr)->error_state = DB_SUCCESS;
+  set_trx_error_state(thr_get_trx(thr), DB_SUCCESS);
   cursors_t::iterator end = delete_entries.end();
   for (cursors_t::iterator it = delete_entries.begin(); it != end; ++it) {
     it->close();
@@ -3242,13 +3244,13 @@ run_again:
   thr->fk_cascade_depth = 0;
   row_upd_step(thr);
 
-  err = trx->error_state;
+  err = get_trx_error_state(trx);
 
   if (err != DB_SUCCESS) {
     que_thr_stop_for_mysql(thr);
 
     if (err == DB_RECORD_NOT_FOUND) {
-      trx->error_state = DB_SUCCESS;
+      set_trx_error_state(trx, DB_SUCCESS);
       trx->op_info = "";
 
       if (thr->fk_cascade_depth > 0) {
@@ -3491,7 +3493,7 @@ run_again:
   different row deletes */
   thr->fk_cascade_depth = 0;
 
-  err = trx->error_state;
+  err = get_trx_error_state(trx);
 
   /* Note that the cascade node is a subnode of another InnoDB
   query graph node. We do a normal lock wait in this node, but
@@ -3508,8 +3510,8 @@ run_again:
     or this transaction is picked as a victim in selective
     deadlock resolution */
 
-    if (trx->error_state != DB_SUCCESS) {
-      return (trx->error_state);
+    if (get_trx_error_state(trx) != DB_SUCCESS) {
+      return (get_trx_error_state(trx));
     }
 
     /* Retry operation after a normal lock wait */
@@ -3646,7 +3648,7 @@ dberr_t row_create_table_for_mysql(dict_table_t *&table,
   /* Assign table id and build table space. */
   err = dict_build_table_def(table, create_info, trx);
   if (err != DB_SUCCESS) {
-    trx->error_state = DB_SUCCESS;
+    set_trx_error_state(trx, DB_SUCCESS);
     trx->op_info = "";
     trx->dict_operation = TRX_DICT_OP_NONE;
     dict_mem_table_free(table);
@@ -3728,7 +3730,7 @@ dberr_t row_create_table_for_mysql(dict_table_t *&table,
                                 << " because the tablespace is full";
       }
 
-      trx->error_state = DB_SUCCESS;
+      set_trx_error_state(trx, DB_SUCCESS);
 
       /* Still do it here so that the table can always be freed */
       if (dd_table_open_on_name_in_mem(table->name.m_name, false)) {
@@ -3746,7 +3748,7 @@ dberr_t row_create_table_for_mysql(dict_table_t *&table,
       break;
 
     default:
-      trx->error_state = DB_SUCCESS;
+      set_trx_error_state(trx, DB_SUCCESS);
       dict_mem_table_free(table);
       table = nullptr;
       break;
@@ -4401,11 +4403,11 @@ static dberr_t row_discard_tablespace(trx_t *trx, dict_table_t *table,
     default:
       /* We need to rollback the disk changes, something failed. */
 
-      trx->error_state = DB_SUCCESS;
+      set_trx_error_state(trx, DB_SUCCESS);
 
       trx_rollback_to_savepoint(trx, nullptr);
 
-      trx->error_state = DB_SUCCESS;
+      set_trx_error_state(trx, DB_SUCCESS);
   }
 
   return (err);
@@ -4506,7 +4508,7 @@ run_again:
 
   err = lock_table(0, table, mode, thr);
 
-  trx->error_state = err;
+  set_trx_error_state(trx, err);
 
   if (err == DB_SUCCESS) {
     que_thr_stop_for_mysql_no_error(thr, trx);
@@ -5127,7 +5129,7 @@ dberr_t row_rename_table_for_mysql(const char *old_name, const char *new_name,
              " the table exists, and DROP TABLE will"
              " succeed.";
     }
-    trx->error_state = DB_SUCCESS;
+    set_trx_error_state(trx, DB_SUCCESS);
   } else {
     /* The following call will also rename the .ibd data file if
     the table is stored in a single-table tablespace */
@@ -5135,7 +5137,7 @@ dberr_t row_rename_table_for_mysql(const char *old_name, const char *new_name,
     err = dict_table_rename_in_cache(table, new_name,
                                      !table->refresh_fk && !new_is_tmp);
     if (err != DB_SUCCESS) {
-      trx->error_state = DB_SUCCESS;
+      set_trx_error_state(trx, DB_SUCCESS);
       goto funct_exit;
     }
 

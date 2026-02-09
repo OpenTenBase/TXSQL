@@ -603,8 +603,8 @@ bool que_thr_stop(que_thr_t *thr) {
     trx->lock.wait_thr = thr;
     thr->state = QUE_THR_LOCK_WAIT;
 
-  } else if (trx->error_state != DB_SUCCESS &&
-             trx->error_state != DB_LOCK_WAIT) {
+  } else if (get_trx_error_state(trx) != DB_SUCCESS &&
+             get_trx_error_state(trx) != DB_LOCK_WAIT) {
     /* Error handling built for the MySQL interface */
     thr->state = QUE_THR_COMPLETED;
 
@@ -662,7 +662,7 @@ static void que_thr_dec_refer_count(
       in this case we have to do it here,
       otherwise nobody does it. */
 
-      trx->error_state = DB_SUCCESS;
+      set_trx_error_state(trx, DB_SUCCESS);
 
       *next_thr = thr;
 
@@ -692,8 +692,8 @@ void que_thr_stop_for_mysql(que_thr_t *thr) /*!< in: query thread */
   trx_mutex_enter(trx);
 
   if (thr->state == QUE_THR_RUNNING) {
-    if (trx->error_state != DB_SUCCESS && trx->error_state != DB_LOCK_WAIT &&
-        trx->error_state != DB_LOCK_WAIT_HOT_ROW_UPDATE) {
+    if (get_trx_error_state(trx) != DB_SUCCESS && get_trx_error_state(trx) != DB_LOCK_WAIT &&
+        get_trx_error_state(trx) != DB_LOCK_WAIT_HOT_ROW_UPDATE) {
       /* Error handling built for the MySQL interface */
       thr->state = QUE_THR_COMPLETED;
     } else {
@@ -849,7 +849,7 @@ static inline que_thr_t *que_thr_step(que_thr_t *thr) /*!< in: query thread */
   trx = thr_get_trx(thr);
 
   ut_ad(thr->state == QUE_THR_RUNNING);
-  ut_a(trx->error_state == DB_SUCCESS);
+  ut_a(get_trx_error_state(trx) == DB_SUCCESS);
 
   thr->resource++;
 
@@ -931,7 +931,7 @@ static inline que_thr_t *que_thr_step(que_thr_t *thr) /*!< in: query thread */
   }
 
   if (thr) {
-    ut_a(thr_get_trx(thr)->error_state == DB_SUCCESS);
+    ut_a(get_trx_error_state(thr_get_trx(thr)) == DB_SUCCESS);
   }
 
   return (thr);
@@ -944,7 +944,7 @@ static void que_run_threads_low(que_thr_t *thr) /*!< in: query thread */
   que_thr_t *next_thr;
 
   ut_ad(thr->state == QUE_THR_RUNNING);
-  ut_a(thr_get_trx(thr)->error_state == DB_SUCCESS);
+  ut_a(get_trx_error_state(thr_get_trx(thr)) == DB_SUCCESS);
   ut_ad(!trx_mutex_own(thr_get_trx(thr)));
 
   /* cumul_resource counts how much resources the OS thread (NOT the
@@ -969,7 +969,7 @@ static void que_run_threads_low(que_thr_t *thr) /*!< in: query thread */
 
     trx_mutex_enter(trx);
 
-    ut_a(next_thr == nullptr || trx->error_state == DB_SUCCESS);
+    ut_a(next_thr == nullptr || get_trx_error_state(trx) == DB_SUCCESS);
 
     if (next_thr != thr) {
       ut_a(next_thr == nullptr);
@@ -997,7 +997,7 @@ void que_run_threads(que_thr_t *thr) /*!< in: query thread */
   ut_ad(!trx_mutex_own(thr_get_trx(thr)));
 
 loop:
-  ut_a(thr_get_trx(thr)->error_state == DB_SUCCESS);
+  ut_a(get_trx_error_state(thr_get_trx(thr)) == DB_SUCCESS);
 
   que_run_threads_low(thr);
 
@@ -1015,7 +1015,7 @@ loop:
 
       ut_a(thr_get_trx(thr)->id != 0);
 
-      if (thr_get_trx(thr)->error_state != DB_SUCCESS) {
+      if (get_trx_error_state(thr_get_trx(thr)) != DB_SUCCESS) {
         /* thr was chosen as a deadlock victim or there was
         a lock wait timeout */
 
@@ -1043,7 +1043,7 @@ dberr_t que_eval_sql(pars_info_t *info, const char *sql, trx_t *trx) {
   DBUG_TRACE;
   DBUG_PRINT("que_eval_sql", ("query: %s", sql));
 
-  ut_a(trx->error_state == DB_SUCCESS);
+  ut_a(get_trx_error_state(trx) == DB_SUCCESS);
 
   mutex_enter(&pars_mutex);
 
@@ -1063,9 +1063,9 @@ dberr_t que_eval_sql(pars_info_t *info, const char *sql, trx_t *trx) {
 
   que_graph_free(graph);
 
-  ut_a(trx->error_state != 0);
+  ut_a(get_trx_error_state(trx) != 0);
 
-  return trx->error_state;
+  return get_trx_error_state(trx);
 }
 
 /** Initialise the query sub-system. */

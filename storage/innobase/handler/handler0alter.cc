@@ -5466,7 +5466,7 @@ template <typename Table>
     add_key_nums[a] = index_defs[a].m_key_number;
 
     if (!ctx->add_index[a]) {
-      error = ctx->trx->error_state;
+      error = get_trx_error_state(ctx->trx);
       assert(error != DB_SUCCESS);
       goto error_handling;
     }
@@ -5679,7 +5679,7 @@ error_handling:
 error_handled:
 
   ctx->prebuilt->trx->error_index = nullptr;
-  ctx->trx->error_state = DB_SUCCESS;
+  set_trx_error_state(ctx->trx, DB_SUCCESS);
 
   if (!dict_locked) {
     row_mysql_lock_data_dictionary(ctx->prebuilt->trx, UT_LOCATION_HERE);
@@ -6909,7 +6909,7 @@ bool ha_innobase::inplace_alter_table_impl(TABLE *altered_table,
     /* prebuilt->table->n_ref_count can be anything here, given
     that we hold at most a shared lock on the table. */
     m_prebuilt->trx->error_index = nullptr;
-    ctx->trx->error_state = DB_SUCCESS;
+    set_trx_error_state(ctx->trx, DB_SUCCESS);
 
     return true;
   };
@@ -7338,7 +7338,7 @@ but do not touch the data dictionary cache.
   }
   DBUG_EXECUTE_IF("ib_drop_foreign_error",
                   my_error_innodb(DB_OUT_OF_FILE_SPACE, table_name, 0);
-                  trx->error_state = DB_SUCCESS; return true;);
+                  set_trx_error_state(trx, DB_SUCCESS); return true;);
   return false;
 }
 
@@ -7626,7 +7626,7 @@ when rebuilding the table.
   }
   DBUG_EXECUTE_IF("ib_rename_column_error",
                   my_error_innodb(DB_OUT_OF_FILE_SPACE, table_name, 0);
-                  trx->error_state = DB_SUCCESS; trx->op_info = "";
+                  set_trx_error_state(trx, DB_SUCCESS); trx->op_info = "";
                   return true;);
   DBUG_EXECUTE_IF("ib_ddl_crash_before_rename", DBUG_SUICIDE(););
 
@@ -7777,17 +7777,17 @@ the table.
 
   DBUG_EXECUTE_IF("ib_rename_column_error",
                   my_error_innodb(DB_OUT_OF_FILE_SPACE, table_name, 0);
-                  trx->error_state = DB_SUCCESS; trx->op_info = "";
+                  set_trx_error_state(trx, DB_SUCCESS); trx->op_info = "";
                   return true;);
 
   DBUG_EXECUTE_IF("ib_resize_column_error",
                   my_error_innodb(DB_OUT_OF_FILE_SPACE, table_name, 0);
-                  trx->error_state = DB_SUCCESS; trx->op_info = "";
+                  set_trx_error_state(trx, DB_SUCCESS); trx->op_info = "";
                   return true;);
 
   DBUG_EXECUTE_IF(
       "ib_rename_index_fail1", my_error_innodb(DB_DEADLOCK, table_name, 0);
-      trx->error_state = DB_SUCCESS; trx->op_info = ""; return true;);
+      set_trx_error_state(trx, DB_SUCCESS); trx->op_info = ""; return true;);
 
   return false;
 }

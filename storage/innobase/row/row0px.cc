@@ -1270,7 +1270,7 @@ next_rec:
 
 lock_wait_or_error:
   pcur->store_position(&mtr);
-  prebuilt->trx->error_state = err;
+  set_trx_error_state(prebuilt->trx, err);
   mtr_has_extra_clust_latch = false;
 
   goto func_exit;

@@ -3927,3 +3927,6 @@ bool THD::can_delay_commit() const {
 }
 
 /* Changes from TXSQL end. */
+
+// 定义 THD 类的静态成员变量
+thread_local uint32 THD::trx_error_state = 10;

@@ -97,7 +97,7 @@ static void trx_rollback_to_savepoint_low(
     assert_trx_nonlocking_or_in_list(trx);
   }
 
-  trx->error_state = DB_SUCCESS;
+  set_trx_error_state(trx, DB_SUCCESS);
 
   if (trx_is_rseg_updated(trx)) {
     ut_ad(trx->rsegs.m_redo.rseg != nullptr ||
@@ -125,7 +125,7 @@ static void trx_rollback_to_savepoint_low(
     MONITOR_INC(MONITOR_TRX_ROLLBACK_SAVEPOINT);
   }
 
-  ut_a(trx->error_state == DB_SUCCESS);
+  ut_a(get_trx_error_state(trx) == DB_SUCCESS);
   ut_a(trx->lock.que_state == TRX_QUE_RUNNING);
 
   mem_heap_free(heap);
@@ -150,7 +150,7 @@ dberr_t trx_rollback_to_savepoint(
 
   trx_rollback_to_savepoint_low(trx, savept);
 
-  return (trx->error_state);
+  return (get_trx_error_state(trx));
 }
 
 /** Rollback a transaction used in MySQL.
@@ -169,9 +169,9 @@ static dberr_t trx_rollback_for_mysql_low(
 
   trx->op_info = "";
 
-  ut_a(trx->error_state == DB_SUCCESS);
+  ut_a(get_trx_error_state(trx) == DB_SUCCESS);
 
-  return (trx->error_state);
+  return (get_trx_error_state(trx));
 }
 
 /** Rollback a transaction used in MySQL

@@ -2018,7 +2018,7 @@ fts_query_find_term(
                                 ib::warn(ER_IB_MSG_506) << "lock wait timeout reading FTS"
                                         " index. Retrying!";
 
-                                trx->error_state = DB_SUCCESS;
+                                set_trx_error_state(trx, DB_SUCCESS);
                         } else {
                                 ib::error(ER_IB_MSG_507) << error
                                         << " while reading FTS index.";
@@ -2135,7 +2135,7 @@ fts_query_total_docs_containing_term(
                                 ib::warn(ER_IB_MSG_508) << "lock wait timeout reading FTS"
                                         " index. Retrying!";
 
-                                trx->error_state = DB_SUCCESS;
+                                set_trx_error_state(trx, DB_SUCCESS);
                         } else {
                                 ib::error(ER_IB_MSG_509) << error
                                         << " while reading FTS index.";
@@ -2216,7 +2216,7 @@ fts_query_terms_in_document(
                                 ib::warn(ER_IB_MSG_510) << "lock wait timeout reading FTS"
                                         " doc id table. Retrying!";
 
-                                trx->error_state = DB_SUCCESS;
+                                set_trx_error_state(trx, DB_SUCCESS);
                         } else {
                                 ib::error(ER_IB_MSG_511) << error << " while reading FTS"
                                         " doc id table.";

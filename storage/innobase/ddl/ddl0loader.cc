@@ -482,7 +482,7 @@ dberr_t Loader::build_all() noexcept {
 
   DBUG_EXECUTE_IF("ib_build_indexes_too_many_concurrent_trxs",
                   err = DB_TOO_MANY_CONCURRENT_TRXS;
-                  m_ctx.m_trx->error_state = err;);
+                  set_trx_error_state(m_ctx.m_trx, err););
 
   if (m_ctx.m_fts.m_ptr != nullptr) {
     /* Clean up FTS psort related resource */

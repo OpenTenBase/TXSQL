@@ -433,3 +433,14 @@ void thd_end_parallel_copy_data(THD *thd) {
   thd->is_doing_parallel_copy_data = false;
 }
 
+bool thd_is_parallel_copy_data(THD *thd) {
+  return thd->is_doing_parallel_copy_data;
+}
+
+uint32 thd_get_trx_error_state(THD *thd) {
+  return thd->trx_error_state;
+}
+
+void thd_set_trx_error_state(THD *thd, uint32 trx_error_state) {
+  thd->trx_error_state = trx_error_state;
+}

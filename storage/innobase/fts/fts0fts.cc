@@ -451,7 +451,7 @@ static bool fts_load_user_stopword(
         ib::warn(ER_IB_MSG_462) << "Lock wait timeout reading user"
                                    " stopword table. Retrying!";
 
-        trx->error_state = DB_SUCCESS;
+        set_trx_error_state(trx, DB_SUCCESS);
       } else {
         ib::error(ER_IB_MSG_463) << "Error '" << ut_strerr(error)
                                  << "' while reading user stopword"
@@ -1850,7 +1850,7 @@ static dict_table_t *fts_create_one_common_table(trx_t *trx,
   }
 
   if (error != DB_SUCCESS) {
-    trx->error_state = error;
+    set_trx_error_state(trx, error);
     new_table = nullptr;
     ib::warn(ER_IB_MSG_465)
         << "Failed to create FTS common table " << fts_table_name;
@@ -2038,7 +2038,7 @@ static dict_table_t *fts_create_one_index_table(trx_t *trx,
   }
 
   if (error != DB_SUCCESS) {
-    trx->error_state = error;
+    set_trx_error_state(trx, error);
     new_table = nullptr;
     ib::warn(ER_IB_MSG_466)
         << "Failed to create FTS index table " << table_name;
@@ -2640,7 +2640,7 @@ void fts_trx_add_op(trx_t *trx, dict_table_t *table, doc_id_t doc_id,
   fts_trx_table_t *stmt_ftt;
 
   if (!trx->fts_trx) {
-    if (current_thd && current_thd->is_doing_parallel_copy_data) {
+    if (current_thd && thd_is_parallel_copy_data(current_thd)) {
       std::call_once(*trx->fts_trx_create_once_flag,
                      [&trx]() { trx->fts_trx = fts_trx_create(trx); });
     } else {
@@ -5018,7 +5018,7 @@ ulint fts_get_rows_count(fts_table_t *fts_table) /*!< in: fts table to read */
         ib::warn(ER_IB_MSG_478) << "lock wait timeout reading"
                                    " FTS table. Retrying!";
 
-        trx->error_state = DB_SUCCESS;
+        set_trx_error_state(trx, DB_SUCCESS);
       } else {
         ib::error(ER_IB_MSG_479)
             << "(" << ut_strerr(error) << ") while reading FTS table.";

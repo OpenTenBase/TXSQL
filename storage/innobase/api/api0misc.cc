@@ -66,11 +66,11 @@ bool ib_handle_errors(dberr_t *new_err, trx_t *trx, que_thr_t *thr,
                       trx_savept_t *savept, bool is_sdi) {
   dberr_t err;
 handle_new_error:
-  err = trx->error_state;
+  err = get_trx_error_state(trx);
 
   ut_a(err != DB_SUCCESS);
 
-  trx->error_state = DB_SUCCESS;
+  set_trx_error_state(trx, DB_SUCCESS);
 
   switch (err) {
     case DB_LOCK_WAIT_TIMEOUT:
@@ -97,7 +97,7 @@ handle_new_error:
     case DB_LOCK_WAIT:
       lock_wait_suspend_thread(thr);
 
-      if (trx->error_state != DB_SUCCESS) {
+      if (get_trx_error_state(trx) != DB_SUCCESS) {
         que_thr_stop_for_mysql(thr);
 
         goto handle_new_error;
@@ -126,13 +126,13 @@ handle_new_error:
       ut_error;
   }
 
-  if (trx->error_state != DB_SUCCESS) {
-    *new_err = trx->error_state;
+  if (get_trx_error_state(trx) != DB_SUCCESS) {
+    *new_err = get_trx_error_state(trx);
   } else {
     *new_err = err;
   }
 
-  trx->error_state = DB_SUCCESS;
+  set_trx_error_state(trx, DB_SUCCESS);
 
   return false;
 }
