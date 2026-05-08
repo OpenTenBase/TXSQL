@@ -42,6 +42,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 - 2. some depend on runtime environment
   - is it x86 which has crc32?
   - is it x86 which has pcmul?
+  - is it x86 which has avx512 + vpclmulqdq?   [NEW]
   - is it arm which has crc32?
   - is it arm which has pcmul?
 - 3. some depend on the runtime usage:
@@ -90,6 +91,8 @@ CRC32_x86_64
         to ensure that the run-time selection of target-specific variant of the
         function happens just once at the top, not in every leaf, which would
         break inlining and optimizations.
+        Additionally, this environment may support AVX-512 + VPCLMULQDQ via
+        the CRC32_AVX512_TARGET mechanism defined in crc32.cc.
 CRC32_ARM64
     An environment in which it is probable that __crc32cd and vmull_p64 could be
     used for hardware accelerated crc32 and polynomial multiplication
@@ -149,5 +152,10 @@ extern bool ut_crc32_cpu_enabled;
 
 /** Flag that tells whether the CPU supports polynomial multiplication or not.*/
 extern bool ut_poly_mul_cpu_enabled;
+
+/** Flag that tells whether the CPU supports AVX-512 + VPCLMULQDQ or not.
+ When true, ut_crc32 points to hardware::crc32_using_avx512 which uses
+ 512-bit VPCLMULQDQ folding for maximum throughput on large buffers. */
+extern bool ut_crc32_avx512_enabled;  /* [NEW] AVX-512 VPCLMULQDQ support */
 
 #endif /* ut0crc32_h */

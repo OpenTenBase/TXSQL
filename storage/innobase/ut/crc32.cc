@@ -30,6 +30,8 @@ Copyright (c) 2011, 2022, Oracle and/or its affiliates.
 
  Created Aug 8, 2011, Vasil Dimov, based on mysys/my_crc32.c and
  mysys/my_perf.c, contributed by Facebook under the following license.
+
+ AVX-512 VPCLMULQDQ implementation ported from Hygon Information Technology Co., Ltd.
  ********************************************************************/
 
 /* Copyright (C) 2009-2010 Facebook, Inc.  All Rights Reserved.
@@ -105,6 +107,44 @@ external tools. */
 #include <intrin.h>
 #endif /* CRC32_x86_64_WIN */
 
+/* =========================================================================
+ * [NEW] AVX-512 compile-time detection.
+ *
+ * CRC32_AVX512_TARGET is defined only when the compiler is GCC >= 11 or
+ * Clang >= 9, which are the first versions that correctly support the
+ * "avx512f,avx512dq,avx512bw,avx512vl,vpclmulqdq" target attribute.
+ * GCC >= 15 unifies these under the avx10.1 umbrella.
+ *
+ * The macro is intentionally limited to CRC32_x86_64_DEFAULT (Linux/macOS
+ * GCC/Clang) because MSVC (CRC32_x86_64_WIN) does not use
+ * __attribute__((target(...))) and would require a separate compilation unit
+ * compiled with /arch:AVX512 instead.
+ * ========================================================================= */
+#ifdef CRC32_x86_64_DEFAULT
+#  if defined(__GNUC__) && !defined(__clang__)
+#    if __GNUC__ >= 15
+#      define CRC32_AVX512_TARGET "pclmul,avx10.1,vpclmulqdq"
+#    elif __GNUC__ >= 11
+#      define CRC32_AVX512_TARGET \
+         "pclmul,avx512f,avx512dq,avx512bw,avx512vl,vpclmulqdq"
+#    endif
+#  elif defined(__clang__) && defined(__clang_major__)
+#    if __clang_major__ >= 9
+#      define CRC32_AVX512_TARGET \
+         "pclmul,avx512f,avx512dq,avx512bw,avx512vl,vpclmulqdq"
+#    endif
+#  endif
+#endif /* CRC32_x86_64_DEFAULT */
+
+#ifdef CRC32_AVX512_TARGET
+/* immintrin.h provides all AVX-512 / VPCLMULQDQ intrinsic declarations.
+   Its inclusion here is safe: the intrinsics are only *used* inside functions
+   annotated with the appropriate target attribute, so they are never emitted
+   unless the CPU supports them at runtime. */
+#include <immintrin.h>
+#endif /* CRC32_AVX512_TARGET */
+/* ========================================================================= */
+
 #ifdef CRC32_ARM64
 #include <arm_acle.h>
 #include <arm_neon.h>
@@ -127,8 +167,9 @@ external tools. */
 /** Pointer to CRC32 calculation function. */
 ut_crc32_func_t ut_crc32;
 
-bool ut_crc32_cpu_enabled = false;
+bool ut_crc32_cpu_enabled    = false;
 bool ut_poly_mul_cpu_enabled = false;
+bool ut_crc32_avx512_enabled = false; /* [NEW] */
 
 /* CRC32 software implementation. */
 namespace software {
@@ -363,6 +404,576 @@ bool can_use_poly_mul() { return true; }
 bool can_use_crc32() { return getauxval(AT_HWCAP) & HWCAP_CRC32; }
 bool can_use_poly_mul() { return getauxval(AT_HWCAP) & HWCAP_PMULL; }
 #endif /* CRC32_ARM64_DEFAULT */
+
+/* =========================================================================
+ * [NEW] AVX-512 + VPCLMULQDQ runtime detection.
+ *
+ * Requires:
+ *   CPUID(1).ECX[27] = OSXSAVE  (OS saves/restores XSAVE state)
+ *   CPUID(1).ECX[28] = AVX      (AVX baseline)
+ *   XCR0 bits [7:5]  = 0b111    (OS saves ZMM registers: opmask + ZMM_Hi256
+ *                                 + Hi16_ZMM) together with bit[2]=AVX,
+ *                                 bit[1]=SSE → full mask 0xe6
+ *   CPUID(7,0).EBX[16] = AVX512F
+ *   CPUID(7,0).EBX[17] = AVX512DQ
+ *   CPUID(7,0).EBX[30] = AVX512BW
+ *   CPUID(7,0).EBX[31] = AVX512VL
+ *   CPUID(7,0).ECX[10] = VPCLMULQDQ
+ *
+ * Only implemented for CRC32_x86_64 platforms (both WIN and DEFAULT).
+ * ARM64 does not have AVX-512.
+ * ========================================================================= */
+#ifdef CRC32_x86_64
+/** Checks if AVX-512 VPCLMULQDQ accelerated CRC32-C is available.
+@return true if the CPU and OS both support AVX-512 + VPCLMULQDQ */
+bool can_use_avx512_vpclmul() {
+  /* ---- Step 1: CPUID leaf 1 ---- */
+  const uint32_t ecx1 = get_cpuid_ecx();
+  /* bit 27 = OSXSAVE, bit 28 = AVX.  Both must be present before we can
+     safely execute XGETBV to query the OS-managed XSAVE feature mask. */
+  if (!((ecx1 >> 27) & 1U) || !((ecx1 >> 28) & 1U)) return false;
+
+  /* ---- Step 2: XCR0 — OS AVX-512 state management check ---- */
+  /* The bit pattern 0xe6 = 0b1110_0110 covers:
+       bit 1  SSE   (XMM registers)
+       bit 2  AVX   (YMM high halves)
+       bit 5  OPMASK
+       bit 6  ZMM_Hi256 (high halves of ZMM0-ZMM15)
+       bit 7  Hi16_ZMM  (ZMM16-ZMM31)
+     All six must be set by the OS to guarantee safe ZMM usage. */
+  uint64_t xcr0 = 0;
+#ifdef CRC32_x86_64_WIN
+  xcr0 = _xgetbv(0);
+#else /* CRC32_x86_64_DEFAULT */
+  {
+    uint32_t xcr0_lo, xcr0_hi;
+    asm volatile("xgetbv" : "=a"(xcr0_lo), "=d"(xcr0_hi) : "c"(0));
+    xcr0 = (static_cast<uint64_t>(xcr0_hi) << 32) | xcr0_lo;
+  }
+#endif /* CRC32_x86_64_WIN */
+  if ((xcr0 & 0xe6ULL) != 0xe6ULL) return false;
+
+  /* ---- Step 3: CPUID leaf 7, subleaf 0 ---- */
+  uint32_t ebx7 = 0, ecx7 = 0;
+#ifdef CRC32_x86_64_WIN
+  {
+    int cpu_info[4] = {-1, -1, -1, -1};
+    __cpuidex(cpu_info, 7, 0);
+    ebx7 = static_cast<uint32_t>(cpu_info[1]);
+    ecx7 = static_cast<uint32_t>(cpu_info[2]);
+  }
+#else /* CRC32_x86_64_DEFAULT */
+  {
+    uint32_t eax_out, edx_out;
+    asm volatile("cpuid"
+                 : "=a"(eax_out), "=b"(ebx7), "=c"(ecx7), "=d"(edx_out)
+                 : "a"(7), "c"(0));
+  }
+#endif /* CRC32_x86_64_WIN */
+
+  const bool avx512f    = (ebx7 >> 16) & 1U;  /* Foundation       */
+  const bool avx512dq   = (ebx7 >> 17) & 1U;  /* Doubleword/Qword */
+  const bool avx512bw   = (ebx7 >> 30) & 1U;  /* Byte/Word        */
+  const bool avx512vl   = (ebx7 >> 31) & 1U;  /* Vector Length    */
+  const bool vpclmulqdq = (ecx7 >> 10) & 1U;  /* Carry-less mul   */
+
+  return avx512f && avx512dq && avx512bw && avx512vl && vpclmulqdq;
+}
+#endif /* CRC32_x86_64 */
+
+/* =========================================================================
+ * [NEW] AVX-512 VPCLMULQDQ CRC32-C implementation.
+ *
+ * Algorithm: iterative 512-bit polynomial folding using VPCLMULQDQ.
+ * The data stream is processed as four parallel 128-bit lanes inside a
+ * 512-bit ZMM register.  Each round "folds" the accumulated CRC with a
+ * precomputed constant (x^N mod P) and XORs in the next data block.
+ * After the main loop the 512-bit result is reduced to 128 bits, then to
+ * 32 bits via Barrett reduction.
+ *
+ * Only compiled when CRC32_AVX512_TARGET is defined (GCC >= 11 / Clang >= 9
+ * on x86-64 Linux/macOS).  All functions are annotated with
+ * MY_ATTRIBUTE((target(CRC32_AVX512_TARGET))) so the rest of the translation
+ * unit can still be compiled without AVX-512 flags.
+ *
+ * Sources:
+ *   - Intel white paper "Fast CRC Computation Using PCLMULQDQ Instruction"
+ *   - MariaDB storage/innobase/ut/crc32c_x86.cc
+ *   - Standalone benchmark crc32c_bench.cpp (contributed to this port)
+ * ========================================================================= */
+#ifdef CRC32_AVX512_TARGET
+
+/* ---------------------------------------------------------------------------
+ * Folding-constant table for CRC-32C (polynomial 0x11EDC6F41), bit-reflected.
+ *
+ * Each pair (b[0], b[1]) represents the two constants needed to fold N bytes:
+ *   b[0] = x^(N*8 + 32) mod P(x)   (lower 64-bit lane multiplier)
+ *   b[1] = x^(N*8 + 64) mod P(x)   (upper 64-bit lane multiplier)
+ *
+ * The table covers the following fold distances:
+ *   b2048 : fold 256  bytes → keeps 192 bytes (4-way × 512-bit loop)
+ *   b1024 : fold 128  bytes → keeps  96 bytes (2-way × 512-bit loop)
+ *   b896  : 6-entry block used for the final 4→1 lane reduction
+ *   b512  : fold  64  bytes (single 512-bit loop)
+ *   b384  : fold  48  bytes (512→128 bit reduction)
+ *   b256  : fold  32  bytes
+ *   b128  : fold  16  bytes (128-bit folding loop)
+ *   b64   : 128→64 bit reduction
+ *   b32   : Barrett reduction constants (b32[0]=mu, b32[1]=P*)
+ * ------------------------------------------------------------------------- */
+struct alignas(64) crc32c_avx512_tab_t {
+  const uint64_t b2048[2];
+  const uint64_t b1024[2];
+  alignas(64) const uint64_t b896[6];
+  const uint64_t b512[2];
+  const uint64_t b384[2];
+  const uint64_t b256[2];
+  const uint64_t b128[2];
+  const uint64_t _pad[2];
+  const uint64_t b64[2];
+  const uint64_t b32[2];
+};
+
+/** Precomputed constants for CRC-32C (reflected polynomial 0x82F63B78). */
+static const crc32c_avx512_tab_t crc32c_avx512_tab = {
+  /* b2048 */ { 0x00000000b9e02b86ULL, 0x00000000dcb17aa4ULL },
+  /* b1024 */ { 0x000000000d3b6092ULL, 0x000000006992cea2ULL },
+  /* b896  */ { 0x0000000047db8317ULL, 0x000000002ad91c30ULL,
+                0x000000000715ce53ULL, 0x00000000c49f4f67ULL,
+                0x0000000039d3b296ULL, 0x00000000083a6eecULL },
+  /* b512  */ { 0x000000009e4addf8ULL, 0x00000000740eef02ULL },
+  /* b384  */ { 0x00000000ddc0152bULL, 0x000000001c291d04ULL },
+  /* b256  */ { 0x00000000ba4fc28eULL, 0x000000003da6d0cbULL },
+  /* b128  */ { 0x00000000493c7d27ULL, 0x00000000f20c0dfeULL },
+  /* _pad  */ { 0ULL, 0ULL },
+  /* b64   */ { 0x00000000493c7d27ULL, 0x00000000dd45aab8ULL },
+  /* b32   */ { 0x00000000dea713f0ULL, 0x0000000105ec76f0ULL }
+};
+
+/* ---------------------------------------------------------------------------
+ * Shuffle / mask helper tables for partial-block handling.
+ *
+ * avx_shuffle128 : used by _mm_shuffle_epi8 to "left-shift" a 128-bit
+ *                  register by N bytes (byte rotation for partial block merge)
+ * avx_shift128   : used to right-shift (bring last N bytes to low position)
+ * shift_1_to_3_reflect : 18-byte table, indexed at [size], providing a
+ *                  shuffle mask for size in [1..3] that extracts low bytes
+ *                  in reflected order into a 128-bit register (Barrett path)
+ * sz_mask        : AVX-512 byte-load masks for sizes 1–16
+ * ------------------------------------------------------------------------- */
+alignas(16) static const uint64_t avx_shuffle128[4] = {
+  0x8786858483828100ULL, 0x8f8e8d8c8b8a8988ULL,
+  0x0706050403020100ULL, 0x000e0d0c0b0a0908ULL
+};
+alignas(16) static const uint64_t avx_shift128[4] = {
+  0x8786858483828100ULL, 0x8f8e8d8c8b8a8988ULL,
+  0x0706050403020100ULL, 0x000e0d0c0b0a0908ULL
+};
+static const uint8_t shift_1_to_3_reflect[7 + 11] = {
+  0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+  0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
+};
+static const __mmask16 avx512_sz_mask[16] = {
+  0x0001, 0x0003, 0x0007, 0x000f, 0x001f, 0x003f, 0x007f, 0x00ff,
+  0x01ff, 0x03ff, 0x07ff, 0x0fff, 0x1fff, 0x3fff, 0x7fff, 0xffff
+};
+
+/* Ternary-logic immediate constants for vpternlogd:
+     TL_XOR3     : a ^ b ^ c
+     TL_XNOR3    : ~(a ^ b ^ c)
+     TL_XOR2_AND : (a ^ b) & c
+   These map the ternary truth table for inputs a (bit 4), b (bit 3), c (bit 2)
+   into an 8-bit immediate the same way as the Intel spec. */
+static constexpr uint8_t AVX512_TL_XOR3     =
+    static_cast<uint8_t>(0b11110000 ^ 0b11001100 ^ 0b10101010);
+static constexpr uint8_t AVX512_TL_XNOR3    =
+    static_cast<uint8_t>(~AVX512_TL_XOR3);
+static constexpr uint8_t AVX512_TL_XOR2_AND =
+    static_cast<uint8_t>((0b11110000 ^ 0b11001100) & 0b10101010);
+
+/* ---------------------------------------------------------------------------
+ * Inline AVX-512 helper functions.
+ * All annotated with the same target attribute as the main function.
+ * ------------------------------------------------------------------------- */
+
+/** Three-way XOR of 512-bit registers using a single vpternlogd instruction. */
+MY_ATTRIBUTE((target(CRC32_AVX512_TARGET)))
+static inline __m512i avx512_xor3_512(__m512i a, __m512i b, __m512i c) {
+  return _mm512_ternarylogic_epi64(a, b, c, AVX512_TL_XOR3);
+}
+
+/** Three-way XOR of 128-bit registers using vpternlogd. */
+MY_ATTRIBUTE((target(CRC32_AVX512_TARGET)))
+static inline __m128i avx512_xor3_128(__m128i a, __m128i b, __m128i c) {
+  return _mm_ternarylogic_epi64(a, b, c, AVX512_TL_XOR3);
+}
+
+/** Three-way XNOR of 128-bit registers using vpternlogd. */
+MY_ATTRIBUTE((target(CRC32_AVX512_TARGET)))
+static inline __m128i avx512_xnor3_128(__m128i a, __m128i b, __m128i c) {
+  return _mm_ternarylogic_epi64(a, b, c, AVX512_TL_XNOR3);
+}
+
+/** Computes (a ^ b) & c for 128-bit registers in one vpternlogd. */
+MY_ATTRIBUTE((target(CRC32_AVX512_TARGET)))
+static inline __m128i avx512_xor2_and_128(__m128i a, __m128i b, __m128i c) {
+  return _mm_ternarylogic_epi64(a, b, c, AVX512_TL_XOR2_AND);
+}
+
+/** Single 512-bit fold step:
+    result = b ^ VPCLMUL(a, tab, 0x01) ^ VPCLMUL(a, tab, 0x10)
+    This multiplies each 128-bit lane of `a` by both halves of the 128-bit
+    constant in `tab` and XORs the two 128-bit products together with `b`.
+    @param[in]  a    accumulated CRC state (4 × 128-bit lanes)
+    @param[in]  tab  fold-constant broadcast across all 4 lanes
+    @param[in]  b    next data block
+    @return    updated accumulated CRC state */
+MY_ATTRIBUTE((target(CRC32_AVX512_TARGET)))
+static inline __m512i avx512_combine512(__m512i a, __m512i tab, __m512i b) {
+  return avx512_xor3_512(b,
+                         _mm512_clmulepi64_epi128(a, tab, 0x01),
+                         _mm512_clmulepi64_epi128(a, tab, 0x10));
+}
+
+/** Extract the IDX-th 128-bit lane from a 512-bit register and zero-extend
+    it back to 512 bits.
+    @tparam IDX  lane index 0–3
+    @param[in]  a  source 512-bit register
+    @return    128-bit lane as zero-extended 512-bit value */
+template <uint8_t IDX>
+MY_ATTRIBUTE((target(CRC32_AVX512_TARGET)))
+static inline __m512i avx512_extract512_128(__m512i a) {
+  return _mm512_zextsi128_si512(_mm512_extracti64x2_epi64(a, IDX));
+}
+/* ---------------------------------------------------------------------------
+ * [OPT] Template load helper: selects _mm512_load_si512 (aligned) or
+ * _mm512_loadu_si512 (unaligned) at compile time via a bool template
+ * parameter.  The compiler inlines this and emits only the chosen variant
+ * inside each template instantiation of crc32c_avx512_impl<kAligned>,
+ * resulting in zero runtime overhead compared to always using loadu.
+ *
+ * When kAligned = true  the caller guarantees the pointer is 64-byte
+ * aligned; the compiler may emit VMOVDQA64 instead of VMOVDQU64.
+ * When kAligned = false loadu is used unconditionally.
+ * ------------------------------------------------------------------------- */
+template <bool kAligned>
+MY_ATTRIBUTE((always_inline, target(CRC32_AVX512_TARGET)))
+static inline __m512i avx512_load512(const void *p) {
+  if constexpr (kAligned)
+    return _mm512_load_si512(p);
+  else
+    return _mm512_loadu_si512(p);
+}
+
+/* ---------------------------------------------------------------------------
+ * crc32c_avx512_impl – main CRC-32C computation using AVX-512 VPCLMULQDQ.
+ *
+ * Signature matches the bench-level function; the public wrapper
+ * crc32_using_avx512() calls it with initial_crc = 0 to match
+ * ut_crc32_func_t.
+ *
+ * @param[in]  initial_crc  initial CRC value (0 for first/only block)
+ * @param[in]  vbuf         data buffer
+ * @param[in]  size         number of bytes to process
+ * @return CRC-32C of vbuf[0..size-1] chained from initial_crc
+ * ------------------------------------------------------------------------- */
+/** @tparam kAligned  true when vbuf is guaranteed 64-byte aligned (e.g.
+ *                    InnoDB buffer pool pages); false for general use.
+ *  The template parameter is resolved at compile time so the hot loop
+ *  body contains no alignment branches. */
+template <bool kAligned>
+MY_ATTRIBUTE((target(CRC32_AVX512_TARGET)))
+static uint32_t crc32c_avx512_impl(uint32_t initial_crc,
+                                   const void *vbuf, size_t size) {
+  const char *buf = static_cast<const char *>(vbuf);
+  const crc32c_avx512_tab_t &tab = crc32c_avx512_tab;
+
+  /* Initialise: invert CRC and place it in the lowest 32 bits of a ZMM. */
+  const __m512i crc_in =
+      _mm512_castsi128_si512(_mm_cvtsi32_si128(~static_cast<int>(initial_crc)));
+
+  /* Broadcast the 512-byte (b512) fold constant across all 4 × 128-bit
+     lanes; used by the single-stream 512-bit loop. */
+  const __m512i b512 =
+      _mm512_broadcast_i32x4(_mm_load_si128(
+          reinterpret_cast<const __m128i *>(tab.b512)));
+
+  __m128i crc_out;  /* Final 128-bit accumulator before Barrett reduction. */
+  __m512i lo;       /* Primary 512-bit accumulator.                        */
+
+  /* =======================================================================
+   * Large-buffer path: size >= 256 bytes.
+   * Maintain two 512-bit accumulators (lo, l1) for dual-stream folding.
+   * When size >= 512, grow to four streams (lo, l1, h0, hi) for maximum
+   * register-level parallelism.
+   * ==================================================================== */
+  if (size >= 256) {
+    /* XOR the initial CRC into the first 64 bytes loaded into lo. */
+    lo = _mm512_xor_epi64(avx512_load512<kAligned>(buf), crc_in);
+    __m512i l1 = avx512_load512<kAligned>(buf + 64);
+
+    const __m512i b1024 =
+        _mm512_broadcast_i32x4(_mm_load_si128(
+            reinterpret_cast<const __m128i *>(tab.b1024)));
+    size -= 256;
+
+    if (size >= 256) {
+      /* ----------------------------------------------------------------
+       * Four-stream path: process 256 bytes / iteration using b2048.
+       * lo: buf[0..63]  l1: buf[64..127]  h0: buf[128..191]  hi: buf[192..255]
+       * ---------------------------------------------------------------- */
+      __m512i h0 = avx512_load512<kAligned>(buf + 128);
+      __m512i hi = avx512_load512<kAligned>(buf + 192);
+      const __m512i b2048 =
+          _mm512_broadcast_i32x4(_mm_load_si128(
+              reinterpret_cast<const __m128i *>(tab.b2048)));
+      size -= 256;
+      do {
+        buf += 256;
+        lo = avx512_combine512(lo, b2048, avx512_load512<kAligned>(buf));
+        l1 = avx512_combine512(l1, b2048, avx512_load512<kAligned>(buf + 64));
+        h0 = avx512_combine512(h0, b2048, avx512_load512<kAligned>(buf + 128));
+        hi = avx512_combine512(hi, b2048, avx512_load512<kAligned>(buf + 192));
+        size -= 256;
+      } while (static_cast<ssize_t>(size) >= 0);
+      buf += 256;
+      /* Fold four streams down to two using b1024. */
+      lo = avx512_combine512(lo, b1024, h0);
+      l1 = avx512_combine512(l1, b1024, hi);
+      size += 128;
+    } else {
+      /* ----------------------------------------------------------------
+       * Two-stream path: process 128 bytes / iteration using b1024.
+       * ---------------------------------------------------------------- */
+      do {
+        buf += 128;
+        lo = avx512_combine512(lo, b1024, avx512_load512<kAligned>(buf));
+        l1 = avx512_combine512(l1, b1024, avx512_load512<kAligned>(buf + 64));
+        size -= 128;
+      } while (static_cast<ssize_t>(size) >= 0);
+      buf += 128;
+    }
+
+    if (static_cast<ssize_t>(size) >= -64) {
+      /* One more 64-byte block fits: merge l1 into lo with b512 and enter
+         the single-stream 512-bit folding loop. */
+      size += 128;
+      lo = avx512_combine512(lo, b512, l1);
+      goto fold_64_B_loop;
+    }
+
+    /* Final two-stream reduction: fold lo (b896) and l1 (b384) into a
+       single 128-bit value via cross-lane XOR.  b896 covers 3 distances:
+       x^(896), x^(768), x^(512) for the three non-last lanes of lo. */
+    const __m512i b896 = _mm512_load_si512(&tab.b896);
+    const __m512i b384 = _mm512_load_si512(&tab.b384);
+
+    __m512i c4 = avx512_xor3_512(
+        _mm512_clmulepi64_epi128(lo, b896, 0x01),
+        _mm512_clmulepi64_epi128(lo, b896, 0x10),
+        _mm512_clmulepi64_epi128(l1, b384, 0x01));
+    c4 = avx512_xor3_512(c4,
+        _mm512_clmulepi64_epi128(l1, b384, 0x10),
+        avx512_extract512_128<3>(l1));
+
+    /* Fold the 4 × 128-bit lanes of c4 down to a single 128-bit value. */
+    __m256i c2 =
+        _mm512_castsi512_si256(_mm512_shuffle_i64x2(c4, c4, 0b01001110));
+    c2 = _mm256_xor_epi64(c2, _mm512_castsi512_si256(c4));
+    crc_out = _mm_xor_epi64(_mm256_extracti64x2_epi64(c2, 1),
+                            _mm256_castsi256_si128(c2));
+    size += 128 - 16;
+    goto final_reduction;
+  }
+
+  /* =======================================================================
+   * Medium-buffer path: 32 <= size < 256 bytes.
+   * ==================================================================== */
+  __m128i b;
+  if (size >= 32) {
+    if (size >= 64) {
+      /* Single 512-bit stream loop using b512. */
+      lo = _mm512_xor_epi64(avx512_load512<kAligned>(buf), crc_in);
+      while (buf += 64, (size -= 64) >= 64) {
+      fold_64_B_loop:
+        lo = avx512_combine512(lo, b512, avx512_load512<kAligned>(buf));
+      }
+
+      /* Reduce the 512-bit accumulator to 128 bits via b384. */
+      const __m512i b384 = _mm512_load_si512(&tab.b384);
+      __m512i crc512 = avx512_xor3_512(
+          _mm512_clmulepi64_epi128(lo, b384, 0x01),
+          _mm512_clmulepi64_epi128(lo, b384, 0x10),
+          avx512_extract512_128<3>(lo));
+      crc512 = _mm512_xor_epi64(
+          crc512, _mm512_shuffle_i64x2(crc512, crc512, 0b01001110));
+      const __m256i crc256 = _mm512_castsi512_si256(crc512);
+      crc_out = _mm_xor_epi64(
+          _mm256_extracti64x2_epi64(crc256, 1),
+          _mm256_castsi256_si128(crc256));
+      size -= 16;
+    } else {
+      /* 32 <= size < 64: load two 128-bit blocks. */
+      crc_out = _mm_xor_epi64(
+          _mm_loadu_si128(reinterpret_cast<const __m128i *>(buf)),
+          _mm512_castsi512_si128(crc_in));
+      buf += 16;
+      size -= 32;
+    }
+
+  /* -----------------------------------------------------------------------
+   * final_reduction: fold remaining 128-bit blocks using b128.
+   * size at entry holds the number of remaining bytes MINUS 16
+   * (so the loop condition `(ssize_t)size >= 0` covers exactly the right
+   * number of full 16-byte blocks).
+   * --------------------------------------------------------------------- */
+  final_reduction:
+    b = _mm_load_si128(reinterpret_cast<const __m128i *>(tab.b128));
+    while (static_cast<ssize_t>(size) >= 0) {
+      crc_out = avx512_xor3_128(
+          _mm_loadu_si128(reinterpret_cast<const __m128i *>(buf)),
+          _mm_clmulepi64_si128(crc_out, b, 0x01),
+          _mm_clmulepi64_si128(crc_out, b, 0x10));
+      buf  += 16;
+      size -= 16;
+    }
+    size += 16;  /* Restore: now size = number of leftover bytes < 16. */
+
+    /* Handle last partial 128-bit block (0 < leftover < 16) using
+       a byte-shuffle to merge the tail without reading out-of-bounds. */
+    if (size) {
+    get_last_two_xmms:;
+      const __m128i crc2 = crc_out;
+      /* Load the final (possibly unaligned) 16 bytes ending at buf+size. */
+      const __m128i d = _mm_loadu_si128(
+          reinterpret_cast<const __m128i *>(buf + static_cast<ssize_t>(size) - 16));
+      /* S is a shuffle mask that rotates crc_out left by `size` bytes. */
+      __m128i S = _mm_loadu_si128(
+          reinterpret_cast<const __m128i *>(
+              reinterpret_cast<const char *>(avx_shuffle128) + size));
+      crc_out = _mm_shuffle_epi8(crc_out, S);
+      S = _mm_xor_epi64(S, _mm_set1_epi32(0x80808080));
+      crc_out = avx512_xor3_128(
+          _mm_blendv_epi8(_mm_shuffle_epi8(crc2, S), d, S),
+          _mm_clmulepi64_si128(crc_out, b, 0x01),
+          _mm_clmulepi64_si128(crc_out, b, 0x10));
+    }
+
+  /* -----------------------------------------------------------------------
+   * done_128: reduce 128-bit CRC to 64 bits using b64.
+   * --------------------------------------------------------------------- */
+  done_128:;
+    __m128i crc_tmp;
+    b = _mm_load_si128(reinterpret_cast<const __m128i *>(tab.b64));
+    crc_tmp = _mm_xor_epi64(
+        _mm_clmulepi64_si128(crc_out, b, 0x00),
+        _mm_srli_si128(crc_out, 8));
+    crc_out = _mm_slli_si128(crc_tmp, 4);
+    crc_out = _mm_clmulepi64_si128(crc_out, b, 0x10);
+    crc_out = _mm_xor_epi64(crc_out, crc_tmp);
+
+  /* -----------------------------------------------------------------------
+   * barrett: Barrett reduction — 64 bits to final 32-bit CRC.
+   * --------------------------------------------------------------------- */
+  barrett:;
+    b = _mm_load_si128(reinterpret_cast<const __m128i *>(tab.b32));
+    crc_tmp = crc_out;
+    crc_out = _mm_and_si128(crc_out,
+        _mm_set_epi64x(static_cast<long long>(~0ULL),
+                       static_cast<long long>(~0xFFFFFFFFULL)));
+    crc_out = _mm_clmulepi64_si128(crc_out, b, 0);
+    crc_out = avx512_xor2_and_128(crc_out, crc_tmp,
+        _mm_set_epi64x(0, static_cast<long long>(~0ULL)));
+    crc_out = avx512_xnor3_128(crc_out, crc_tmp,
+        _mm_clmulepi64_si128(crc_out, b, 0x10));
+    return static_cast<uint32_t>(_mm_extract_epi32(crc_out, 2));
+
+  } else {
+    /* =======================================================================
+     * Small-buffer path: size < 32 bytes.
+     * ==================================================================== */
+    if (size > 0) {
+      if (size > 16) {
+        /* 17..31 bytes: load first 16 bytes, enter get_last_two_xmms. */
+        crc_out = _mm_xor_epi64(
+            _mm_loadu_si128(reinterpret_cast<const __m128i *>(buf)),
+            _mm512_castsi512_si128(crc_in));
+        buf  += 16;
+        size -= 16;
+        b = _mm_load_si128(reinterpret_cast<const __m128i *>(tab.b128));
+        goto get_last_two_xmms;
+      } else if (size < 16) {
+        /* 1..15 bytes. */
+        crc_out = _mm_maskz_loadu_epi8(avx512_sz_mask[size - 1], buf);
+        crc_out = _mm_xor_epi64(crc_out, _mm512_castsi512_si128(crc_in));
+        if (size >= 4) {
+          /* 4..15 bytes: normalise with avx_shift128, then done_128. */
+          crc_out = _mm_shuffle_epi8(
+              crc_out,
+              _mm_loadu_si128(reinterpret_cast<const __m128i *>(
+                  reinterpret_cast<const char *>(avx_shift128) + size)));
+          goto done_128;
+        } else {
+          /* 1..3 bytes: use shift_1_to_3_reflect shuffle, then barrett. */
+          crc_out = _mm_shuffle_epi8(
+              crc_out,
+              _mm_loadu_si128(reinterpret_cast<const __m128i *>(
+                  shift_1_to_3_reflect + size - 1)));
+          goto barrett;
+        }
+      } else {
+        /* Exactly 16 bytes. */
+        crc_out = _mm_xor_epi64(
+            _mm_loadu_si128(reinterpret_cast<const __m128i *>(buf)),
+            _mm512_castsi512_si128(crc_in));
+        goto done_128;
+      }
+    } else {
+      /* size == 0: nothing to process, return the (inverted) initial CRC. */
+      return initial_crc;
+    }
+  }
+}
+
+/** Public wrapper conforming to ut_crc32_func_t (no initial CRC argument).
+    Always starts from crc=0, which is the correct initial value for
+    CRC-32C computation of a fresh buffer.
+@param[in]  data  data buffer
+@param[in]  len   number of bytes
+@return CRC-32C of data[0..len-1] */
+MY_ATTRIBUTE((target(CRC32_AVX512_TARGET)))
+uint32_t crc32_using_avx512(const byte *data, size_t len) {
+  /* ── Optimization 1: alignment-aware dispatch ────────────────────────────
+   * InnoDB 16 KB pages are allocated on ≥16 KB boundaries (always 64-byte
+   * aligned).  Redo log and arbitrary callers may pass unaligned pointers.
+   * A single compile-time branch (template parameter) generates two code
+   * paths with zero runtime overhead inside the hot loops.  The alignment
+   * check here executes only once per CRC call.                           */
+  uint32_t result;
+  if ((reinterpret_cast<uintptr_t>(data) & 63) == 0)
+    result = crc32c_avx512_impl<true>(0, data, len);
+  else
+    result = crc32c_avx512_impl<false>(0, data, len);
+
+  /* ── Optimization 2: VZEROUPPER / _mm256_zeroupper() ────────────────────
+   * After executing 512-bit (ZMM) instructions the CPU marks the upper bits
+   * of YMM/ZMM registers as "dirty".  Any subsequent legacy SSE instruction
+   * (e.g. memcpy, string functions, other InnoDB code) issued in this thread
+   * before the next AVX instruction will trigger an AVX-SSE transition
+   * penalty of 50–150 cycles on Intel microarchitectures up to Broadwell.
+   * Skylake and later handle this with a ~10-cycle micro-fusion stall.
+   *
+   * VZEROUPPER zeroes YMM0–15 high halves (and thus ZMM0–15 bits [511:128])
+   * and clears the "upper-dirty" state machine, eliminating the penalty.
+   *
+   * Note: this intrinsic must be called inside a function compiled with the
+   * AVX-512 target attribute; calling it from plain SSE code is a no-op.   */
+  _mm256_zeroupper();
+  return result;
+}
+
+#endif /* CRC32_AVX512_TARGET */
+/* ========================================================================= */
 
 /** A helper template to statically unroll a loop with a fixed number of
 iterations, where the iteration number itself is constexpr. So, instead of:
@@ -819,16 +1430,48 @@ void ut_crc32_init() {
        implementation supports only little-endian platforms
 #endif /* WORDS_BIGENDIAN */
 
-  ut_crc32_cpu_enabled = hardware::can_use_crc32();
+  ut_crc32_cpu_enabled    = hardware::can_use_crc32();
   ut_poly_mul_cpu_enabled = hardware::can_use_poly_mul();
+
+  /* [NEW] ---------------------------------------------------------------
+   * AVX-512 VPCLMULQDQ path: highest priority for x86-64 GCC/Clang builds.
+   *
+   * Requires:
+   *   1. SSE4.2 (ut_crc32_cpu_enabled) — implied by can_use_avx512_vpclmul()
+   *      but we gate on it here too so the flag semantics remain consistent.
+   *   2. can_use_avx512_vpclmul()      — full CPU + OS check for AVX-512.
+   *   3. CRC32_AVX512_TARGET defined   — compiler was new enough to generate
+   *      the target-attributed function at compile time.
+   *
+   * If all three are true, crc32_using_avx512 delivers higher throughput
+   * than crc32_using_pclmul for buffers >= 64 bytes (significant for
+   * 16 KB InnoDB pages and multi-KB redo log blocks).
+   * -------------------------------------------------------------------- */
+#if defined(CRC32_x86_64) && defined(CRC32_AVX512_TARGET)
+  if (ut_crc32_cpu_enabled && hardware::can_use_avx512_vpclmul()) {
+    ut_crc32_avx512_enabled = true;
+    ut_crc32 = hardware::crc32_using_avx512;
+    fprintf(stderr, "InnoDB: CRC32-C hardware acceleration enabled "
+                    "(AVX-512 VPCLMULQDQ)\n");
+    return;
+  }
+#endif /* CRC32_x86_64 && CRC32_AVX512_TARGET */
+
   if (ut_crc32_cpu_enabled) {
     if (ut_poly_mul_cpu_enabled) {
       ut_crc32 = hardware::crc32_using_pclmul;
+      fprintf(stderr, "InnoDB: CRC32-C hardware acceleration enabled "
+                      "(SSE4.2 + PCLMULQDQ)\n");
+
     } else {
       ut_crc32 = hardware::crc32_using_unrolled_loop_poly_mul;
+      fprintf(stderr, "InnoDB: CRC32-C hardware acceleration enabled "
+                      "(SSE4.2,no PCLMUL)\n");
     }
     return;
   }
 #endif /* !CRC32_DEFAULT */
   ut_crc32 = software::crc32;
+  fprintf(stderr, "InnoDB: CRC32-C using software implementation "
+                  "(no hardware acceleration available)\n");
 }
