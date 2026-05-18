@@ -33,7 +33,15 @@
 */
 class Basic_ostream {
  public:
-  /**
+   /**
+     Check if there is enough space for storing current data.
+
+     @retval false  Has no enough space
+     @retval true  Has enough space
+   */
+   virtual bool has_enough_space(my_off_t) { return true; }
+
+   /**
      Write some bytes into the output stream.
      When all data is written into the stream successfully, then it return
      false. Otherwise, true is returned. It will never returns false when
@@ -122,6 +130,16 @@ class IO_CACHE_ostream : public Truncatable_ostream {
      @retval true  Error
   */
   bool close();
+
+  /**
+     Check if there is enough space for storing current thread's binlog events.
+     When write buffer in IO_CACHE has no enough space, it returns false.
+
+     @param[in] length  Length of the data to write
+     @retval false  Has no enough space
+     @retval true  Has enough space
+  */
+  bool has_enough_space(my_off_t length) override;
 
   bool write(const unsigned char *buffer, my_off_t length) override;
   bool seek(my_off_t offset) override;

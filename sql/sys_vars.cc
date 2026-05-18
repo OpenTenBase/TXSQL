@@ -7753,6 +7753,13 @@ static Sys_var_charptr Sys_authentication_policy(
 static Sys_var_deprecated_alias Sys_skip_slave_start("skip_slave_start",
                                                      Sys_skip_replica_start);
 
+static Sys_var_bool Sys_ordered_commit_flush_logs_parallelly(
+    "ordered_commit_flush_logs_parallelly",
+    "Flush binlog by a dedicated thread during flush stage of ordered commit "
+    "while flushing logs of storage engines.",
+    READ_ONLY GLOBAL_VAR(opt_oc_flush_logs_parallelly), CMD_LINE(OPT_ARG),
+    DEFAULT(false));
+
 static const char *terminology_use_previous_names[] = {"NONE", "BEFORE_8_0_26",
                                                        nullptr};
 

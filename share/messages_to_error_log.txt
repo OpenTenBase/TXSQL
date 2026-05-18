@@ -11904,6 +11904,12 @@ ER_IB_MSG_CLEAR_INSTANT_DROP_COLUMN_METADATA
 ER_STATEMENT_OUTLINE_LOAD_ERROR
  eng "Error when loading statement outline rules: %s"
 
+ER_BINLOG_INITIALIZE_FAILED
+  eng "Binlog fails to initialize for %s"
+
+ER_BINLOG_THREAD_JOIN_FAILED
+  eng "Could not join %s thread. error:%d"
+
 # DO NOT add server-to-client messages here;
 # they go in messages_to_clients.txt
 # in the same directory as this file.
