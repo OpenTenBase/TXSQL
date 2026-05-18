@@ -45,6 +45,7 @@
 #include "mysql/psi/mysql_mutex.h"
 #include "mysql/udf_registration_types.h"
 #include "mysql_com.h"  // Item_result
+#include "sql/mysqld.h"
 #include "sql/rpl_commit_stage_manager.h"
 #include "sql/rpl_trx_tracking.h"
 #include "sql/tc_log.h"            // TC_LOG
@@ -108,6 +109,8 @@ struct Binlog_user_var_event {
 #define LOG_CLOSE_INDEX 1
 #define LOG_CLOSE_TO_BE_OPENED 2
 #define LOG_CLOSE_STOP_EVENT 4
+
+extern bool opt_oc_flush_logs_parallelly;
 
 /*
   Note that we destroy the lock mutex in the destructor here.
@@ -964,6 +967,152 @@ class MYSQL_BIN_LOG : public TC_LOG {
   bool is_rotating_caused_by_incident;
 
   void init_max_time_and_gts(bool relay_log);
+
+ public:
+  /*
+    Create dedicated threads.
+  */
+  bool start_dedicated_threads(void);
+
+  /*
+    Notify dedicated threads to exit when server exit.
+  */
+  void terminate_all_binlog_threads(void);
+
+  /**
+    Set the status of flushing storage engines' logs.
+    @param status True if all storage engines' logs have been flushed, False
+    otherwise.
+  */
+  inline void set_ha_flushed_status(bool status) {
+    is_ha_flushed.store(status, std::memory_order_release);
+  }
+
+  /*
+    Suspend until storage engines' logs to be flushed.
+    @note This function is called by binlog flush thread to wait for the
+    storage engines' logs to be flushed.
+  */
+  void suspend_till_ha_flushed(void) {
+    while (!is_ha_flushed.load(std::memory_order_acquire)) {
+#if defined(__i386__) || defined(__x86_64__)
+      __asm__ __volatile__("pause" ::: "memory");
+#else
+      __asm__ __volatile__("" ::: "memory");
+#endif
+    }
+  }
+
+  /**
+    Check if binlog flush thread is enabled to flush binlog in advance.
+    @return True if binlog flush thread is enabled to flush binlog in advance,
+    False otherwise.
+  */
+  bool is_flush_logs_parallelly(void) {
+    return flush_logs_parallelly.load(std::memory_order_acquire);
+  }
+
+  /**
+    Set the status of flushing binlog in advance.
+    @param status True if binlog flush thread is enabled to flush binlog in
+    advance, False otherwise.
+  */
+  void set_flush_logs_parallelly(bool status) {
+    flush_logs_parallelly.store(status, std::memory_order_release);
+  }
+
+ private:
+  /* Indicate whether logs of all storage engines have been flushed. */
+  std::atomic<bool> is_ha_flushed{false};
+
+  /*
+    Time sequence of flushing binlog when enable dedicated threads to flush
+    binlog to disk:
+    flush stage leader: ------------flush engines' logs---(wait)----------------------
+                                  |                                ^
+                                  |flush req                       |flush done
+                                  |                                |
+                                  v                                |
+    flush thread:       ----------flush thread caches-----------------------------------
+  */
+  struct ordered_commit_flush_thread {
+    my_thread_handle thread_id; /* This is the thread flushing binlog. */
+    mysql_mutex_t mutex_flush_thread;
+    mysql_cond_t cond_flush_thread;
+
+#ifndef NDEBUG
+    struct CODE_STATE *cs_header_thread;
+#endif
+    THD *header_thd; /* Flush stage header thread. */
+
+    /*
+      The header thread in the flush group.
+      It should be always nullptr before the moment to trigger the flush thread
+      to flush binlog.
+    */
+    THD *first_thd_in_group;
+
+    /* Notify the thread to exit. */
+    bool thread_exit;
+
+    /*
+      Initialize as false. When binlog flush thread finishes flushing binlog,
+      set it as true. Then, ordered commit flush stage header thread acquires
+      result of flushing binlog and sets it as false again.
+    */
+    std::atomic<bool> flush_thread_caches_done;
+
+    /* Result of flushing binlog done by binlog flush thread. */
+    struct flush_binlog_result {
+      my_off_t total_bytes;
+      int flush_error;
+#ifndef NDEBUG
+      // number of flushes per group.
+      int no_flushes;
+#endif
+    } flush_thread_caches_result;
+
+    void init(void) {
+      thread_id.thread = 0;
+#ifndef NDEBUG
+      cs_header_thread = nullptr;
+#endif
+      header_thd = nullptr;
+      first_thd_in_group = nullptr;
+      thread_exit = false;
+      flush_thread_caches_done.store(false);
+
+      mysql_mutex_init(key_mutex_binlog_flush_thread, &mutex_flush_thread,
+                       MY_MUTEX_INIT_FAST);
+      mysql_cond_init(key_cond_binlog_flush_thread, &cond_flush_thread);
+    }
+
+    void deinit(void) {
+      header_thd = nullptr;
+      first_thd_in_group = nullptr;
+      mysql_mutex_destroy(&mutex_flush_thread);
+      mysql_cond_destroy(&cond_flush_thread);
+    }
+  };
+
+  /*
+    The start routine of the dedicated thread flushing binlog to global binlog
+    IO cache.
+  */
+  static void *binlog_flush_worker(void *arg);
+
+  /*
+    Called by the flush thread to flush binlog.
+  */
+  void binlog_flush(ordered_commit_flush_thread *manager);
+
+  std::atomic<bool> flush_logs_parallelly{false};
+  ordered_commit_flush_thread binlog_flush_thread_mngr;
+
+  enum { ORDERED_COMMIT_FLUSH_THREAD_RUNNING = 1 };
+
+  int m_dedicated_thread_status = 0;
+
   /* Changes from TXSQL start.*/
  private:
   ulong m_cur_bin_suffix;

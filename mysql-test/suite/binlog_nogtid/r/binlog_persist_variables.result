@@ -23,7 +23,8 @@ VARIABLE_NAME LIKE '%semi_sync%' OR
 VARIABLE_NAME LIKE '%slave%' OR
 VARIABLE_NAME LIKE '%source%') AND
 (VARIABLE_NAME NOT IN ('innodb_api_enable_binlog',
-'innodb_master_thread_disabled_debug', 'innodb_replication_delay', 'gtid_undeleted'))
+'innodb_master_thread_disabled_debug', 'innodb_replication_delay', 'gtid_undeleted',
+'ordered_commit_flush_logs_parallelly'))
 ORDER BY VARIABLE_NAME;
 
 include/assert.inc [Expect 126 variables in the table.]
