@@ -300,6 +300,16 @@ class Binlog_encryption_ostream : public Truncatable_ostream {
   */
   uint8_t get_header_version();
 
+  /**
+     Check if there is enough space for storing current thread's binlog events.
+     When write buffer in IO_CACHE has no enough space, it returns false.
+
+     @param[in] length  Length of the data to write
+     @retval false  Has no enough space
+     @retval true  Has enough space
+  */
+  bool has_enough_space(my_off_t length) override { return m_down_ostream->has_enough_space(length); }
+
  private:
   std::unique_ptr<Truncatable_ostream> m_down_ostream;
   std::unique_ptr<Rpl_encryption_header> m_header;

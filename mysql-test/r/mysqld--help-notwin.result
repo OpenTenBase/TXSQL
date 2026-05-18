@@ -978,6 +978,10 @@ The following options may be given as the first argument:
  Maximum allowed cumulated size of stored optimizer traces
  --optimizer-trace-offset=# 
  Offset of first optimizer trace to show; see manual
+ --ordered-commit-flush-logs-parellelly 
+ Flush binlog by a dedicated thread during flush stage of
+ ordered commit while flushing logs of storage engines.
+ (Defaults to off; use --skip-ordered-commit-flush-logs-parellelly to disable.)
  --parser-max-mem-size=# 
  Maximum amount of memory available to the parser
  --partial-revokes   Access of database objects can be restricted, even if
@@ -2258,6 +2262,7 @@ optimizer-trace-features greedy_search=on,range_optimizer=on,dynamic_range=on,re
 optimizer-trace-limit 1
 optimizer-trace-max-mem-size 1048576
 optimizer-trace-offset -1
+ordered-commit-flush-logs-parellelly FALSE
 parser-max-mem-size 18446744073709551615
 partial-revokes ####
 password-history 0

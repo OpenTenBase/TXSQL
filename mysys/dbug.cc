@@ -318,7 +318,7 @@ static native_mutex_t THR_LOCK_gcov;
 */
 static native_rw_lock_t THR_LOCK_init_settings;
 
-static CODE_STATE *code_state(void) {
+CODE_STATE *code_state(void) {
   CODE_STATE *cs, **cs_ptr;
 
   if (!init_done) {
@@ -344,6 +344,14 @@ static CODE_STATE *code_state(void) {
     *cs_ptr = cs;
   }
   return cs;
+}
+
+void *get_cs_stack(CODE_STATE *cs) {
+  return (void *)cs->stack;
+}
+
+void set_cs_stack(CODE_STATE *cs_mod, void *stack) {
+  cs_mod->stack = (struct settings *)stack;
 }
 
 /**

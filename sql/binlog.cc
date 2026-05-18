@@ -178,6 +178,8 @@ ulong rpl_read_size;
 
 MYSQL_BIN_LOG mysql_bin_log(&sync_binlog_period);
 
+bool opt_oc_flush_logs_parallelly = false;
+
 static int binlog_init(void *p);
 static int binlog_start_trans_and_stmt(THD *thd, Log_event *start_event);
 static int binlog_close_connection(handlerton *hton, THD *thd);
@@ -515,6 +517,17 @@ class MYSQL_BIN_LOG::Binlog_ofile : public Basic_ostream {
   bool write(const unsigned char *buffer, my_off_t length) override {
     assert(m_pipeline_head != nullptr);
 
+    /*
+      Check if there is enough space for storing current thread's binlog events when flushing binlog in advance,
+      in case of writing binlog to disk in prior of engines' logs. If write buffer in IO_CACHE has no enough
+      space, wait until all engines' logs have been flushed. Then resume to write.
+      Only check the remaining cache size when flushing binlog events.
+    */
+    if (check_remaining_size && (!m_pipeline_head->has_enough_space(length))) {
+      /* Busy waiting for all engines' logs are flushed. */
+      mysql_bin_log.suspend_till_ha_flushed();
+    }
+
     if (m_pipeline_head->write(buffer, length)) return true;
 
     m_position += length;
@@ -601,6 +614,15 @@ class MYSQL_BIN_LOG::Binlog_ofile : public Basic_ostream {
   */
   void set_encrypted() { m_encrypted = true; }
   /**
+    Set if check the remaining cache size or not.
+    Only check the remaining cache size when flushing binlog event in advance.
+    @param[in] check True if need to check.
+  */
+  void set_check_remaining_size(bool check) {
+    check_remaining_size =
+        (check && mysql_bin_log.is_flush_logs_parallelly());
+  }
+  /**
    Return the encrypted version of binlog.
   */
   uint8_t get_encrypted_version() { return m_encrypted_version; }
@@ -610,6 +632,7 @@ class MYSQL_BIN_LOG::Binlog_ofile : public Basic_ostream {
   int m_encrypted_header_size = 0;
   std::unique_ptr<Truncatable_ostream> m_pipeline_head;
   bool m_encrypted = false;
+  bool check_remaining_size = false;
   uint8_t m_encrypted_version = 0;
 };
 
@@ -1419,6 +1442,11 @@ class Binlog_event_writer : public Basic_ostream {
         end_log_pos(binlog_file->position()) {
     // Simulate checksum error
     if (DBUG_EVALUATE_IF("fault_injection_crc_value", 1, 0)) checksum--;
+    set_check_remaining_size(true);
+  }
+
+  ~Binlog_event_writer() {
+    set_check_remaining_size(false);
   }
 
   void update_header() {
@@ -1491,6 +1519,8 @@ class Binlog_event_writer : public Basic_ostream {
     Returns true if per event checksum is enabled.
   */
   bool is_checksum_enabled() { return have_checksum; }
+
+  void set_check_remaining_size(bool check) { m_binlog_file->set_check_remaining_size(check); }
 };
 
 /*
@@ -3606,6 +3636,16 @@ void MYSQL_BIN_LOG::cleanup() {
     mysql_cond_destroy(&update_cond);
     mysql_cond_destroy(&m_prep_xids_cond);
     mysql_cond_destroy(&m_clear_flush_trxs_cond);
+
+    /*
+      LOCKs used during ordered commit have been destroyed at this point, there
+      will be no more access to them. So there will be no more requests to
+      dedicated threads and dedicated threads could exit.
+    */
+    if (m_dedicated_thread_status) {
+      terminate_all_binlog_threads();
+    }
+
     if (!is_relay_log) {
       Commit_stage_manager::get_instance().deinit();
     }
@@ -3635,6 +3675,142 @@ void MYSQL_BIN_LOG::init_pthread_objects() {
     Commit_stage_manager::get_instance().init(
         m_key_LOCK_flush_queue, m_key_LOCK_sync_queue, m_key_LOCK_commit_queue,
         m_key_LOCK_done, m_key_COND_done, m_key_COND_flush_queue);
+  }
+}
+
+void MYSQL_BIN_LOG::binlog_flush(ordered_commit_flush_thread *manager)
+{
+  mysql_mutex_assert_owner(&(manager->mutex_flush_thread));
+  my_off_t total_bytes = 0;
+  int flush_error = 1;
+#ifndef NDEBUG
+  // number of flushes per group.
+  int no_flushes = 0;
+#endif
+  Thd_backup_and_restore switch_thd(current_thd, manager->header_thd);
+
+  mysql_bin_log.assign_automatic_gtids_to_flush_group(manager->first_thd_in_group);
+
+  for (THD *head = manager->first_thd_in_group; head; head = head->next_to_commit) {
+    std::pair<int, my_off_t> result = mysql_bin_log.flush_thread_caches(head);
+    total_bytes += result.second;
+    if (flush_error == 1) flush_error = result.first;
+#ifndef NDEBUG
+    no_flushes++;
+#endif
+  }
+
+  /* Store the result. */
+  memset(&(manager->flush_thread_caches_result), 0, sizeof(manager->flush_thread_caches_result));
+  manager->flush_thread_caches_result.total_bytes = total_bytes;
+  manager->flush_thread_caches_result.flush_error = flush_error;
+#ifndef NDEBUG
+  manager->flush_thread_caches_result.no_flushes = no_flushes;
+#endif
+
+  manager->first_thd_in_group = nullptr;
+
+  return;
+}
+
+void *MYSQL_BIN_LOG::binlog_flush_worker(void *arg)
+{
+  my_thread_init();
+  DBUG_TRACE;
+
+  THD thd;
+  thd.thread_stack = (char *)&thd;
+  thd.store_globals();
+
+#ifndef NDEBUG
+  void *stack_origin;
+  struct CODE_STATE *cs_origin = code_state();
+  stack_origin = get_cs_stack(cs_origin);
+#endif
+
+  ordered_commit_flush_thread *mngr = (ordered_commit_flush_thread *)(arg);
+  mysql_mutex_lock(&(mngr->mutex_flush_thread));
+  for (;;) {
+    /*
+      Wait with predicate to avoid lost wakeup: if the producer has already
+      published first_thd_in_group before this thread starts waiting, skip wait
+      and process it directly.
+    */
+    while (mngr->first_thd_in_group == nullptr && !mngr->thread_exit) {
+      mysql_cond_wait(&(mngr->cond_flush_thread), &(mngr->mutex_flush_thread));
+    }
+
+    if (mngr->first_thd_in_group != nullptr) {
+#ifndef NDEBUG
+      set_cs_stack(cs_origin, get_cs_stack(mngr->cs_header_thread));
+#endif
+
+      mysql_bin_log.binlog_flush(mngr);
+      /*
+        Release: pairs with acquire load in process_flush_stage_queue so all
+        writes to flush_thread_caches_result in binlog_flush() are visible
+        before the leader reads them.
+      */
+      mngr->flush_thread_caches_done.store(true, std::memory_order_release);
+    }
+
+    /*
+      Check if the thread should exit. When "thread_exit" is set to true,
+      it indicates the server is under exiting and flush thread should exit.
+    */
+    if (mngr->thread_exit)
+      break;
+  }
+  mysql_mutex_unlock(&(mngr->mutex_flush_thread));
+
+#ifndef NDEBUG
+  set_cs_stack(cs_origin, stack_origin);
+#endif
+
+  my_thread_end();
+  my_thread_exit(nullptr);
+  return nullptr;
+}
+
+bool MYSQL_BIN_LOG::start_dedicated_threads(void) {
+  set_flush_logs_parallelly(opt_oc_flush_logs_parallelly);
+  if (opt_oc_flush_logs_parallelly) {
+    /* Initialize binlog flush thread. */
+    my_thread_attr_t attr_flush_thread;
+    (void)my_thread_attr_init(&attr_flush_thread);
+
+    binlog_flush_thread_mngr.init();
+    if (mysql_thread_create(key_thread_binlog_flush, &(binlog_flush_thread_mngr.thread_id),
+          &attr_flush_thread, binlog_flush_worker, (void *)(&(binlog_flush_thread_mngr)))) {
+        LogErr(ERROR_LEVEL, ER_BINLOG_INITIALIZE_FAILED, "create binlog flush thread");
+        binlog_flush_thread_mngr.deinit();
+        return true;
+    }
+    my_thread_attr_destroy(&attr_flush_thread);
+    /* Set "start" status when success to create flush thread. */
+    m_dedicated_thread_status |= ORDERED_COMMIT_FLUSH_THREAD_RUNNING;
+  }
+
+  return false;
+}
+
+/* Terminate all binlog handling threads(like binlog flush thread, binlog sync thread) when server exit. */
+void MYSQL_BIN_LOG::terminate_all_binlog_threads(void) {
+  if (opt_oc_flush_logs_parallelly) {
+    ordered_commit_flush_thread *mngr = &binlog_flush_thread_mngr;
+    /* If thread fails to be created, nothing to be done except deinit. */
+    if (m_dedicated_thread_status & ORDERED_COMMIT_FLUSH_THREAD_RUNNING) {
+      mysql_mutex_lock(&(mngr->mutex_flush_thread));
+      mngr->thread_exit = true;
+      mysql_cond_signal(&(mngr->cond_flush_thread));
+      mysql_mutex_unlock(&(mngr->mutex_flush_thread));
+
+      int error = my_thread_join(&(mngr->thread_id), nullptr);
+      mngr->thread_id.thread = 0;
+      if (error != 0)
+        LogErr(WARNING_LEVEL, ER_BINLOG_THREAD_JOIN_FAILED, "binlog flush", error);
+    }
+    mngr->deinit();
   }
 }
 
@@ -7569,7 +7745,7 @@ bool MYSQL_BIN_LOG::write_incident(Incident_log_event *ev, THD *thd,
                        0)) {
     if (need_lock_log)
       mysql_mutex_lock(&LOCK_log);
-    else
+    else if (!is_flush_logs_parallelly())
       mysql_mutex_assert_owner(&LOCK_log);
     /* Write an incident event into binlog directly. */
     error = write_event_to_binlog(ev);
@@ -7602,7 +7778,7 @@ bool MYSQL_BIN_LOG::write_incident(Incident_log_event *ev, THD *thd,
 
     if (need_lock_log)
       mysql_mutex_lock(&LOCK_log);
-    else
+    else if (!is_flush_logs_parallelly())
       mysql_mutex_assert_owner(&LOCK_log);
   }
 
@@ -7748,7 +7924,8 @@ bool MYSQL_BIN_LOG::write_cache(THD *thd, binlog_cache_data *cache_data,
   Binlog_cache_storage *cache = cache_data->get_cache();
   bool incident = cache_data->has_incident();
 
-  mysql_mutex_assert_owner(&LOCK_log);
+  if (!is_flush_logs_parallelly())
+    mysql_mutex_assert_owner(&LOCK_log);
 
   assert(is_open());
   if (likely(is_open()))  // Should always be true
@@ -8587,6 +8764,32 @@ THD *MYSQL_BIN_LOG::fetch_and_process_flush_stage_queue(
   Commit_stage_manager::get_instance().unlock_queue(
       Commit_stage_manager::BINLOG_FLUSH_STAGE);
 
+  if (is_flush_logs_parallelly() && !check_and_skip_flush_logs) {
+    ordered_commit_flush_thread *flush_mngr = &(binlog_flush_thread_mngr);
+    mysql_mutex_lock(&(flush_mngr->mutex_flush_thread));
+    if (!flush_mngr->thread_exit) {
+      /*
+        The status of handlertons's logs is only checked by binlog flush thread when IO cache
+        in m_binlog_file has no enough remaining space for wrting binlog events. And at this
+        point, binlog flush thread must be sleeping, or something error happened if it's waked.
+        So there is no need to add specific lock for updating status of handlertons's logs here.
+      */
+      set_ha_flushed_status(false);
+#ifndef NDEBUG
+      flush_mngr->cs_header_thread = code_state();
+#endif
+      flush_mngr->header_thd = current_thd;
+      assert(flush_mngr->first_thd_in_group == nullptr);
+      flush_mngr->first_thd_in_group = first_seen;
+      flush_mngr->flush_thread_caches_done.store(false);
+
+      mysql_cond_signal(&(flush_mngr->cond_flush_thread));
+    } else {
+      set_flush_logs_parallelly(false);
+    }
+    mysql_mutex_unlock(&(flush_mngr->mutex_flush_thread));
+  }
+
   if (!check_and_skip_flush_logs ||
       (check_and_skip_flush_logs && commit_order_thd != nullptr)) {
     /*
@@ -8595,6 +8798,14 @@ THD *MYSQL_BIN_LOG::fetch_and_process_flush_stage_queue(
       flushing them to binary log.
     */
     ha_flush_logs(true);
+  }
+
+  if (is_flush_logs_parallelly() && !check_and_skip_flush_logs) {
+    /*
+      If binlog flush thread is waiting for handlertons's logs to be flushed, then it can acquire such status
+      after the status is set to true by flush stage header thread here.
+    */
+    set_ha_flushed_status(true);
   }
 
   /*
@@ -8622,17 +8833,39 @@ int MYSQL_BIN_LOG::process_flush_stage_queue(my_off_t *total_bytes_var,
   THD *first_seen = fetch_and_process_flush_stage_queue();
   DBUG_EXECUTE_IF("crash_after_flush_engine_log", DBUG_SUICIDE(););
   CONDITIONAL_SYNC_POINT_FOR_TIMESTAMP("before_write_binlog");
-  assign_automatic_gtids_to_flush_group(first_seen);
-  /* Flush thread caches to binary log. */
-  for (THD *head = first_seen; head; head = head->next_to_commit) {
-    Thd_backup_and_restore switch_thd(current_thd, head);
-    std::pair<int, my_off_t> result = flush_thread_caches(head);
-    total_bytes += result.second;
-    if (flush_error == 1) flush_error = result.first;
-#ifndef NDEBUG
-    no_flushes++;
+  if (is_flush_logs_parallelly()) {
+    /* Check if flushing thread caches to binary log has been done. Wait until done! */
+    ordered_commit_flush_thread *mngr = &(binlog_flush_thread_mngr);
+    while (!mngr->flush_thread_caches_done.load(std::memory_order_acquire)) {
+#if defined(__i386__) || defined(__x86_64__)
+      __asm__ __volatile__("pause" ::: "memory");
+#else
+      __asm__ __volatile__("" ::: "memory");
 #endif
-    flush_trxs++;
+    }
+    mngr->flush_thread_caches_done.store(false, std::memory_order_relaxed);
+
+    total_bytes = mngr->flush_thread_caches_result.total_bytes;
+    flush_error = mngr->flush_thread_caches_result.flush_error;
+#ifndef NDEBUG
+    no_flushes = mngr->flush_thread_caches_result.no_flushes;
+#endif
+    for (THD *head = first_seen; head; head = head->next_to_commit) {
+      flush_trxs++;
+    }
+  } else {
+    assign_automatic_gtids_to_flush_group(first_seen);
+    /* Flush thread caches to binary log. */
+    for (THD *head = first_seen; head; head = head->next_to_commit) {
+      Thd_backup_and_restore switch_thd(current_thd, head);
+      std::pair<int, my_off_t> result = flush_thread_caches(head);
+      total_bytes += result.second;
+      if (flush_error == 1) flush_error = result.first;
+#ifndef NDEBUG
+      no_flushes++;
+#endif
+      flush_trxs++;
+    }
   }
 
   *out_queue_var = first_seen;
