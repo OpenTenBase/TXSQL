@@ -54,7 +54,8 @@ INSERT INTO rplvars (varname, varvalue)
         VARIABLE_NAME LIKE '%slave%' OR
         VARIABLE_NAME LIKE '%source%') AND
        (VARIABLE_NAME NOT IN ('innodb_api_enable_binlog',
-        'innodb_master_thread_disabled_debug', 'innodb_replication_delay', 'gtid_undeleted'))
+        'innodb_master_thread_disabled_debug', 'innodb_replication_delay', 'gtid_undeleted',
+        'ordered_commit_flush_logs_parellelly'))
        ORDER BY VARIABLE_NAME;
 --enable_warnings
 --let $countvars = `SELECT COUNT(*) FROM rplvars;`

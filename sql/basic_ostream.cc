@@ -41,7 +41,7 @@ bool IO_CACHE_ostream::open(
                               MYF(MY_WME))) < 0)
     return true;
 
-  if (init_io_cache(&m_io_cache, file, IO_SIZE, WRITE_CACHE, 0, false, flags)) {
+  if (init_io_cache(&m_io_cache, file, IO_SIZE * 4, WRITE_CACHE, 0, false, flags)) {
     mysql_file_close(file, MYF(0));
     return true;
   }
@@ -60,6 +60,11 @@ bool IO_CACHE_ostream::close() {
 bool IO_CACHE_ostream::seek(my_off_t offset) {
   assert(my_b_inited(&m_io_cache));
   return reinit_io_cache(&m_io_cache, WRITE_CACHE, offset, false, true);
+}
+
+bool IO_CACHE_ostream::has_enough_space(my_off_t length) {
+  assert(my_b_inited(&m_io_cache));
+  return ((m_io_cache.write_pos + length) <= m_io_cache.write_end);
 }
 
 bool IO_CACHE_ostream::write(const unsigned char *buffer, my_off_t length) {

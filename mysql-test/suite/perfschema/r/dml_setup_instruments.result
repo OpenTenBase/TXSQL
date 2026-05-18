@@ -42,6 +42,7 @@ where name like 'Wait/Synch/Cond/sql/%'
 order by name limit 10;
 NAME	ENABLED	TIMED	PROPERTIES	VOLATILITY	DOCUMENTATION
 wait/synch/cond/sql/Commit_order_manager::m_workers.cond	YES	YES		0	NULL
+wait/synch/cond/sql/cond_binlog_flush_thread	YES	YES		0	NULL
 wait/synch/cond/sql/COND_compress_gtid_table	YES	YES	singleton	0	NULL
 wait/synch/cond/sql/COND_connection_count	YES	YES	singleton	0	NULL
 wait/synch/cond/sql/COND_flush_thread_cache	YES	YES	singleton	0	NULL
@@ -50,7 +51,6 @@ wait/synch/cond/sql/COND_manager_state	YES	YES	singleton	0	NULL
 wait/synch/cond/sql/COND_queue_state	YES	YES	singleton	0	NULL
 wait/synch/cond/sql/COND_server_started	YES	YES	singleton	0	NULL
 wait/synch/cond/sql/COND_task_state	YES	YES	singleton	0	NULL
-wait/synch/cond/sql/COND_thd_list	YES	YES		0	NULL
 select * from performance_schema.setup_instruments
 where name='Wait';
 select * from performance_schema.setup_instruments
