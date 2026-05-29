@@ -29,6 +29,10 @@
 
 #include "zutil.h"      /* for Z_U4, Z_U8, z_crc_t, and FAR definitions */
 
+#if defined(__x86_64__) || defined(__amd64__) || defined(_M_X64)
+#include "arch_x86.h"
+#endif
+
  /*
   A CRC of a message is computed on N braids of words in the message, where
   each word consists of W bytes (4 or 8). If N is 3, for example, then three
@@ -186,24 +190,6 @@ local z_crc_t x2nmodp(z_off64_t n, unsigned k) {
     return p;
 }
 
-#ifdef DYNAMIC_CRC_TABLE
-/* =========================================================================
- * Build the tables for byte-wise and braided CRC-32 calculations, and a table
- * of powers of x for combining CRC-32s.
- */
-local z_crc_t FAR crc_table[256];
-#ifdef W
-   local z_word_t FAR crc_big_table[256];
-   local z_crc_t FAR crc_braid_table[W][256];
-   local z_word_t FAR crc_braid_big_table[W][256];
-   local void braid(z_crc_t [][256], z_word_t [][256], int, int);
-#endif
-#ifdef MAKECRCH
-   local void write_table(FILE *, const z_crc_t FAR *, int);
-   local void write_table32hi(FILE *, const z_word_t FAR *, int);
-   local void write_table64(FILE *, const z_word_t FAR *, int);
-#endif /* MAKECRCH */
-
 /*
   Define a once() function depending on the availability of atomics. If this is
   compiled with DYNAMIC_CRC_TABLE defined, and if CRCs will be computed in
@@ -278,6 +264,24 @@ local void once(once_t *state, void (*init)(void)) {
 }
 
 #endif
+
+#ifdef DYNAMIC_CRC_TABLE
+/* =========================================================================
+ * Build the tables for byte-wise and braided CRC-32 calculations, and a table
+ * of powers of x for combining CRC-32s.
+ */
+local z_crc_t FAR crc_table[256];
+#ifdef W
+   local z_word_t FAR crc_big_table[256];
+   local z_crc_t FAR crc_braid_table[W][256];
+   local z_word_t FAR crc_braid_big_table[W][256];
+   local void braid(z_crc_t [][256], z_word_t [][256], int, int);
+#endif
+#ifdef MAKECRCH
+   local void write_table(FILE *, const z_crc_t FAR *, int);
+   local void write_table32hi(FILE *, const z_word_t FAR *, int);
+   local void write_table64(FILE *, const z_word_t FAR *, int);
+#endif /* MAKECRCH */
 
 /* State for once(). */
 local once_t made = ONCE_INIT;
@@ -553,6 +557,27 @@ const z_crc_t FAR * ZEXPORT get_crc_table(void) {
     return (const z_crc_t FAR *)crc_table;
 }
 
+#ifdef ZLIB_X86_64_CRC32_PCLMUL
+static unsigned long (*crc32_x86_fp)(unsigned long crc, const unsigned char FAR* buf,
+                                     z_size_t len) = NULL;
+local once_t crc32_x86_once = ONCE_INIT;
+
+static void crc32_x86_init(void) {
+    crc32_x86_fp = NULL;
+#ifdef HAVE_VPCLMULQDQ_ATTRIBUTE
+    if (has_crc32_x86_avx512())
+        crc32_x86_fp = crc32_z_impl_x86_avx512;
+    else
+#endif
+    if (has_crc32_x86_avx())
+        crc32_x86_fp = crc32_z_impl_x86_avx;
+}
+
+static void crc32_x86_setup_native(void) {
+    once(&crc32_x86_once, crc32_x86_init);
+}
+#endif /* ZLIB_X86_64_CRC32_PCLMUL */
+
 /* =========================================================================
  * Use ARM machine instructions if available. This will compute the CRC about
  * ten times faster than the braided calculation. This code does not check for
@@ -695,6 +720,12 @@ unsigned long ZEXPORT crc32_z(unsigned long crc, const unsigned char FAR *buf,
                               z_size_t len) {
     /* Return initial CRC, if requested. */
     if (buf == Z_NULL) return 0;
+
+#ifdef ZLIB_X86_64_CRC32_PCLMUL
+    crc32_x86_setup_native();
+    if (crc32_x86_fp != NULL)
+        return crc32_x86_fp(crc, buf, len);
+#endif
 
 #ifdef DYNAMIC_CRC_TABLE
     once(&made, make_crc_table);
