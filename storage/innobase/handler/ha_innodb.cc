@@ -26496,6 +26496,13 @@ bool ha_innobase::check_index(THD *thd) { /*!< in: user thread handle */
        index = index->next()) {
     if (index->type & DICT_FTS) continue;
 
+    if (strcmp(index->name, FTS_DOC_ID_INDEX_NAME) == 0) {
+      push_warning(thd, Sql_condition::SL_WARNING, ER_NOT_SUPPORTED_YET,
+                   "Fulltext index is unsupported for check index. It will be "
+                   "omitted from the results list");
+      continue;
+    }
+
     index_physical_info_t idx_info;
     int btr_depth = 0;
     if (innobase_get_index_status(index, m_prebuilt->table->space, &idx_info,
