@@ -1,0 +1,19 @@
+connect (con_root_master, 127.0.0.1, root, '', '', $MASTER_MYPORT);
+set global txsql_recycle_bin_enabled=on;
+
+create table t1(a int);
+create table t2(a int);
+
+use __txsql_recycle_bin__;
+drop table test.t1;
+rename table test.t2 to test.t2_new;
+
+--replace_column 1 <RECYCLED_TABLE>  4 <DROP_TIME>  5 <PURGE_TIME>
+select * from mysql.recycle_bin_info;
+
+show tables from test;
+
+drop table test.t2_new;
+clear recycle_bin;
+
+set global txsql_recycle_bin_enabled = default;
