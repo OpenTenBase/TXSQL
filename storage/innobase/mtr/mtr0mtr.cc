@@ -369,6 +369,38 @@ struct Add_dirty_blocks_to_flush_list {
   Flush_observer *const m_flush_observer;
 };
 
+struct Release_all_after_savepoint {
+  Release_all_after_savepoint(const ulint savepoint, ulint total_size)
+      : m_savepoint(savepoint), m_total_size(total_size), m_released(0) {}
+  bool operator()(mtr_buf_t::block_t *block) {
+    mtr_memo_slot_t *slot =
+        reinterpret_cast<mtr_memo_slot_t *>(block->begin());
+
+    const mtr_memo_slot_t *end =
+        reinterpret_cast<const mtr_memo_slot_t *>(block->end());
+
+    m_released += block->used();
+    if (m_released + m_savepoint >= m_total_size) {
+      ulint reserved = m_released + m_savepoint - m_total_size;
+      slot =
+          reinterpret_cast<mtr_memo_slot_t *>(block->begin() + reserved);
+    }
+    while (slot != end) {
+      if (slot->object != nullptr) {
+        memo_slot_release(slot);
+      }
+      slot++;
+    }
+    if (m_released + m_savepoint >= m_total_size)
+      return false;
+    return true;
+  }
+ private:
+  ulint m_savepoint;
+  ulint m_total_size;
+  ulint m_released{0};
+};
+
 /** Constructor.
 @param[in]      start_lsn       LSN of the first entry that was added
                                 to REDO by the MTR
@@ -765,6 +797,16 @@ void mtr_t::release_page(const void *ptr, mtr_memo_type_t type) {
 
   /* The page was not found! */
   ut_d(ut_error);
+}
+
+/** Release the block in an mtr memo after a savepoint. */
+void mtr_t::release_all_after_savepoint(ulint savepoint) {
+  ut_ad(is_active());
+  ut_ad(m_impl.m_magic_n == MTR_MAGIC_N);
+
+  Release_all_after_savepoint release_all(savepoint, get_savepoint());
+
+  m_impl.m_memo.for_each_block_in_reverse(release_all);
 }
 
 /** Prepare to write the mini-transaction log to the redo log buffer.
