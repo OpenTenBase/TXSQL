@@ -523,8 +523,7 @@ bool mysql_rename_tables(THD *thd, TABLE_LIST *table_list) {
          thd->lex->recycle_bin_op == RB_RECOVERY_TABLE_BY_RESTORE ||
          thd->lex->recycle_bin_op == RB_RECYCLE_TABLE_BY_RENAME) &&
         !(thd->variables.option_bits & OPTION_NO_FOREIGN_KEY_CHECKS)) {
-      if (my_strcasecmp(table_alias_charset, table->db,
-                        RECYCLE_BIN_SCHEMA_NAME.str) != 0) {
+      if (!is_recycle_bin_db(table->db, table->db_length)) {
         for (const dd::Foreign_key_parent *fk :
              table_def->foreign_key_parents()) {
           if (my_strcasecmp(table_alias_charset,
@@ -533,9 +532,8 @@ bool mysql_rename_tables(THD *thd, TABLE_LIST *table_list) {
                             table->table_name) == 0)
             continue;
 
-          if (my_strcasecmp(table_alias_charset,
-                            fk->child_schema_name().c_str(),
-                            RECYCLE_BIN_SCHEMA_NAME.str) == 0)
+          if (is_recycle_bin_db(fk->child_schema_name().c_str(),
+                                fk->child_schema_name().length()))
             continue;
 
           if (thd->lex->recycle_bin_op == RB_RECYCLE_TABLE_BY_DROP ||
@@ -559,9 +557,8 @@ bool mysql_rename_tables(THD *thd, TABLE_LIST *table_list) {
                             table->table_name) == 0)
             continue;
 
-          if (my_strcasecmp(table_alias_charset,
-                            fk->referenced_table_schema_name().c_str(),
-                            RECYCLE_BIN_SCHEMA_NAME.str) != 0)
+          if (!is_recycle_bin_db(fk->referenced_table_schema_name().c_str(),
+                                 fk->referenced_table_schema_name().length()))
             continue;
 
           if (thd->lex->recycle_bin_op == RB_RECOVERY_TABLE_BY_RENAME ||

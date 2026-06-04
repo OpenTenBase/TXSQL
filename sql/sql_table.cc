@@ -1576,6 +1576,7 @@ bool mysql_rm_table(THD *thd, TABLE_LIST *tables, bool if_exists,
       my_error(ER_BAD_LOG_STATEMENT, MYF(0), "DROP");
       return true;
     }
+
   }
 
   if (!drop_temporary) {

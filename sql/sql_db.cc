@@ -896,11 +896,7 @@ bool mysql_rm_db(THD *thd, const LEX_CSTRING &db, bool if_exists) {
       error = Events::drop_schema_events(thd, *schema);
       error = (error || sp_drop_db_routines(thd, *schema));
       if (!error) {
-        if (enable_recycle) {
-          db_object_recycle(thd, db.str, schema->id());
-        } else {
-          drop_db_sequences(thd, db.str);
-        }
+        drop_db_sequences(thd, db.str);
       }
     }
     thd->pop_internal_handler();

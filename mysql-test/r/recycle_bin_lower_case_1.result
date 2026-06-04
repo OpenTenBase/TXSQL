@@ -1,0 +1,20 @@
+show variables like '%lower_case_table_names%';
+Variable_name	Value
+lower_case_table_names	1
+set global txsql_recycle_bin_enabled = on;
+create database DB1;
+create table db1.TT1(a int);
+create table DB1.TT2(a int);
+create table DB1.tt3(a int);
+drop table db1.TT1, DB1.tt2, Db1.Tt3;
+show recycle_bin;
+db	table	recycle_table	drop_time	purge_time
+db1	tt1	#	#	#
+db1	tt2	#	#	#
+db1	tt3	#	#	#
+restore Db1.Tt1 from recycle_bin;
+clear recycle_bin Db1.Tt2;
+restore database dB1 from recycle_bin;
+set global txsql_recycle_bin_enabled = off;
+drop database db1;
+set global txsql_recycle_bin_enabled = default;

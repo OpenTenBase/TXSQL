@@ -4269,13 +4269,13 @@ struct LEX : public Query_tables_list {
   Table_ident *restore_table;
 
   /** Restore all tables that belong to the db from recycle bin */
-  const char *restore_db;
+  LEX_CSTRING restore_db;
 
   /** Restore the table with this timestamp */
   time_t restore_time;
 
   /** Whether restore_table is the recycle_name in recycle_bin_info */
-  const char *recycle_name;
+  LEX_CSTRING recycle_name;
 
   /** Clear tables before the timestamp from recycle bin */
   time_t clear_before_time;

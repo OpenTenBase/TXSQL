@@ -505,6 +505,16 @@ bool mysql_rename_tables(THD *thd, TABLE_LIST *table_list);
 bool show_recycle_bin(THD *thd);
 
 
+inline bool is_recycle_bin_db(const char *name, size_t len) {
+  if (lower_case_table_names) {
+    return (
+        RECYCLE_BIN_SCHEMA_NAME.length == len &&
+        !my_strcasecmp(system_charset_info, RECYCLE_BIN_SCHEMA_NAME.str, name));
+  } else {
+    return (RECYCLE_BIN_SCHEMA_NAME.length == len &&
+            !strcmp(RECYCLE_BIN_SCHEMA_NAME.str, name));
+  }
+}
 /**
   @} (end of group recycle bin)
 */

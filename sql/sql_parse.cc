@@ -1801,10 +1801,14 @@ static bool deny_updates_if_read_only_option(THD *thd, TABLE_LIST *all_tables) {
 
   /* RENAME TABLES ignores shadowing temporary tables. */
   const bool rename_tables = (lex->sql_command == SQLCOM_RENAME_TABLE);
+  const bool clear_or_restore_recycle_bin =
+      (lex->sql_command == SQLCOM_RESTORE_FROM_RECYCLE_BIN ||
+       lex->sql_command == SQLCOM_CLEAR_FROM_RECYCLE_BIN);
 
   const bool update_real_tables =
       ((create_real_tables || rename_tables ||
-        some_non_temp_table_to_be_updated(thd, all_tables)) &&
+        some_non_temp_table_to_be_updated(thd, all_tables) ||
+        clear_or_restore_recycle_bin) &&
        !(create_temp_tables || drop_temp_tables));
 
   const bool create_or_drop_databases =
@@ -5650,16 +5654,48 @@ int mysql_execute_command(THD *thd, bool first_level) {
       res = show_recycle_bin(thd);
       break;
     case SQLCOM_RESTORE_FROM_RECYCLE_BIN:
-      if (lex->restore_db == nullptr) {
+      if (lex->restore_db.length == 0) {
+        if (lower_case_table_names) {
+          if (lex->restore_table->db.length) {
+            lex->restore_table->db.length =
+                my_casedn_str(files_charset_info,
+                              const_cast<char *>(lex->restore_table->db.str));
+          }
+          if (lex->restore_table->table.length) {
+            lex->restore_table->table.length = my_casedn_str(
+                files_charset_info,
+                const_cast<char *>(lex->restore_table->table.str));
+          }
+          if (lex->recycle_name.length) {
+            lex->recycle_name.length = my_casedn_str(
+                files_charset_info, const_cast<char *>(lex->recycle_name.str));
+          }
+        }
         res = mysql_restore_table(thd, lex->restore_table->db.str,
                                   lex->restore_table->table.str,
-                                  lex->recycle_name, lex->restore_time);
+                                  lex->recycle_name.str, lex->restore_time);
       } else {
-        assert(lex->restore_db != nullptr);
-        res = mysql_restore_db(thd, lex->restore_db);
+        assert(lex->restore_db.str != nullptr);
+        if (lower_case_table_names && lex->restore_db.length) {
+            lex->restore_db.length = my_casedn_str(
+                files_charset_info, const_cast<char *>(lex->restore_db.str));
+        }
+        res = mysql_restore_db(thd, lex->restore_db.str);
       }
       break;
     case SQLCOM_CLEAR_FROM_RECYCLE_BIN:
+      if (lower_case_table_names) {
+        if (lex->clear_table_name->db.length) {
+            lex->clear_table_name->db.length = my_casedn_str(
+                files_charset_info,
+                const_cast<char *>(lex->clear_table_name->db.str));
+        }
+        if (lex->clear_table_name->table.length) {
+            lex->clear_table_name->table.length = my_casedn_str(
+                files_charset_info,
+                const_cast<char *>(lex->clear_table_name->table.str));
+        }
+      }
       res = mysql_clear_tables(thd, lex->clear_before_time,
                                lex->clear_table_name, lex->clear_all_name);
       break;

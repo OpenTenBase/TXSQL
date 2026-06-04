@@ -1,0 +1,8 @@
+CREATE USER rb_user@localhost IDENTIFIED WITH sha256_password BY 'mohit' PASSWORD HISTORY 1;
+ALTER USER rb_user@localhost IDENTIFIED WITH mysql_native_password BY '123';
+GRANT ALL ON test.* TO rb_user@localhost;
+clear recycle_bin;
+ERROR HY000: The MySQL server is running with the --read-only option so it cannot execute this statement
+restore test.t1 from recycle_bin;
+ERROR HY000: The MySQL server is running with the --read-only option so it cannot execute this statement
+drop user rb_user@localhost;

@@ -1,0 +1,24 @@
+set global txsql_recycle_bin_enabled = on;
+create table t1(a int);
+drop table t1;
+create table t2(a int);
+drop table t2;
+CREATE USER rb_user@localhost IDENTIFIED WITH sha256_password BY 'mohit' PASSWORD HISTORY 1;
+ALTER USER rb_user@localhost IDENTIFIED WITH mysql_native_password BY '123';
+GRANT ALL ON test.* TO rb_user@localhost;
+clear recycle_bin;
+ERROR 42000: Access denied; you need (at least one of) the SUPER privilege(s) for this operation
+clear recycle_bin test.t1;
+ERROR 42000: Access denied; you need (at least one of) the SUPER privilege(s) for this operation
+restore database t1 from recycle_bin;
+ERROR 42000: Access denied; you need (at least one of) the SUPER privilege(s) for this operation
+restore test.t1 from recycle_bin;
+ERROR 42000: Access denied; you need (at least one of) the SUPER privilege(s) for this operation
+create user superuser_tmp;
+grant all on *.* to 'superuser_tmp'@'%';
+restore test.t1 from recycle_bin;
+clear recycle_bin;
+set global txsql_recycle_bin_enabled = default;
+drop table t1;
+drop user rb_user@localhost;
+drop user superuser_tmp;
