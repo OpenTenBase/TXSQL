@@ -10081,6 +10081,9 @@ ER_RECYCLE_BIN_DROP_TRIGGERS_FAILURE
 ER_RECYCLE_BIN_CAN_NOT_TRUNCATE_TABLE_WITH_TRIGGERS
   eng "Cannot truncate a table that contains triggers in Recycle Bin Mode"
 
+ER_RECYCLE_BIN_WITHOUT_DB_NAME_OR_TABLE_NAME
+  eng "The database name and table name should be specified."
+
 #
 # End of parallel execution specific messages to be sent to client
 #

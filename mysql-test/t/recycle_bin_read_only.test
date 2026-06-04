@@ -1,0 +1,15 @@
+connect (con_root_master, localhost, root,,,,$MASTER_MYSOCK);
+
+CREATE USER rb_user@localhost IDENTIFIED WITH sha256_password BY 'mohit' PASSWORD HISTORY 1;
+ALTER USER rb_user@localhost IDENTIFIED WITH mysql_native_password BY '123';
+GRANT ALL ON test.* TO rb_user@localhost;
+
+--connect(con2,127.0.0.1,rb_user,'123',,,,TCP)
+--error ER_OPTION_PREVENTS_STATEMENT
+clear recycle_bin;
+
+--error ER_OPTION_PREVENTS_STATEMENT
+restore test.t1 from recycle_bin;
+
+--connection con_root_master
+drop user rb_user@localhost;

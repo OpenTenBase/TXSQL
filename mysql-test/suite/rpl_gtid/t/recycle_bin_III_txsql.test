@@ -67,8 +67,10 @@ show recycle_bin;
 
 --connection con_root_master
 
+--error ER_RECYCLE_BIN_NOT_FOUND
 clear recycle_bin test_recycle_bin.zz;
 
+--error ER_RECYCLE_BIN_NOT_FOUND
 clear recycle_bin test_recycle_bin.aa before timestamp(DATE_SUB(NOW(), INTERVAL 10 DAY));
 
 # Only the oldest one is deleted by default.
@@ -150,8 +152,10 @@ show recycle_bin;
 
 --connection con_root_master
 
+--error ER_RECYCLE_BIN_NOT_FOUND
 clear recycle_bin test_recycle_bin.zz;
 
+--error ER_RECYCLE_BIN_NOT_FOUND
 clear recycle_bin test_recycle_bin.aa before timestamp(DATE_SUB(NOW(), INTERVAL 10 DAY));
 
 # Only the oldest one is deleted by default.
@@ -458,8 +462,10 @@ select * from mysql.tdsql_sequences;
 --connection con_root_master
 
 create database db_a;
+--error ER_RECYCLE_BIN_NOT_FOUND
 restore database db_a from RECYCLE_BIN;
 use db_a;
+--error ER_SEQUENCE_NOT_FOUND
 select sb_seq.nextval;
 
 --sync_slave_with_master
@@ -467,6 +473,7 @@ select sb_seq.nextval;
 --replace_regex /.*__recycle_bin__db_a/__recycle_bin__db_a/
 select * from mysql.tdsql_sequences;
 use db_a;
+--error ER_SEQUENCE_NOT_FOUND
 select sb_seq.nextval;
 --connection con_root_master
 
@@ -489,6 +496,7 @@ use db_a;
 --error ER_SP_DOES_NOT_EXIST
 select hello("wx");
 
+--error ER_RECYCLE_BIN_NOT_FOUND
 restore database db_a from RECYCLE_BIN;
 --error ER_SP_DOES_NOT_EXIST
 select hello("wx2");
@@ -568,6 +576,10 @@ show recycle_bin;
 
 --connection con_root_master
 drop database test_recycle_bin;
+
+--error ER_RECYCLE_BIN_WITHOUT_DB_NAME_OR_TABLE_NAME
+clear recycle_bin aa;
+
 clear recycle_bin;
 
 --echo #

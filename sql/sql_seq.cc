@@ -97,10 +97,7 @@ struct Seq_task {
     ALTER_SEQUENCE,
     DROP_SEQUENCE,
     FETCH_SEQUENCE,
-    DROP_DB_SEQ,
-    RECYCLE_SEQUENCE,
-    CLEAR_SEQUENCE,
-    RESTORE_SEQUENCE
+    DROP_DB_SEQ
   };
   std::string db, name;
   Type type;
@@ -134,9 +131,7 @@ struct Seq_task {
         (char *)"CREATE_SEQUENCE_TABLE", (char *)"LOAD_SEQUENCE",
         (char *)"CREATE_SEQUENCE",       (char *)"ALTER_SEQUENCE",
         (char *)"DROP_SEQUENCE",         (char *)"FETCH_SEQUENCE",
-        (char *)"DROP_DB_SEQ",           (char *)"RECYCLE_SEQUENCE",
-        (char *)"CLEAR_SEQUENCE",        (char *)"RESTORE_SEQUENCE",
-        (char *)"RECYCLE_ROUTINE"};
+        (char *)"DROP_DB_SEQ"};
     return type_strs[t];
   }
 
@@ -438,31 +433,6 @@ static void *sql_work(void*param0) {
         snprintf(sql_buf, sizeof(sql_buf),
                  "Delete from mysql.tdsql_sequences where db='%s'",
                  task->db.c_str());
-        break;
-      }
-      case Seq_task::RECYCLE_SEQUENCE: {
-        Object_recycle_task *rtask = (Object_recycle_task *)task;
-        snprintf(
-            sql_buf, sizeof(sql_buf),
-            "UPDATE mysql.tdsql_sequences set db = concat(unix_timestamp(), "
-            "'_', %lu, '__recycle_bin__', '%s') where db = '%s'",
-            rtask->schema_id, rtask->db.c_str(), rtask->db.c_str());
-        break;
-      }
-      case Seq_task::CLEAR_SEQUENCE: {
-        Object_clear_task *ctask = (Object_clear_task *)task;
-        snprintf(sql_buf, sizeof(sql_buf),
-                 "delete from mysql.tdsql_sequences where db like "
-                 "'%%__recycle_bin__%%' and substring_index(db, '_', 1) <= %ld",
-                 ctask->before_time);
-        break;
-      }
-      case Seq_task::RESTORE_SEQUENCE: {
-        Object_restore_task *rtask = (Object_restore_task *)task;
-        snprintf(sql_buf, sizeof(sql_buf),
-                 "update mysql.tdsql_sequences set db = '%s' where db like "
-                 "'%%__recycle_bin__%s'",
-                 rtask->db.c_str(), rtask->db.c_str());
         break;
       }
       default:
@@ -770,8 +740,7 @@ public:
 static int load_db_seqs(const std::string &db, bool doing_insert, bool skipTableNotExists) {
 
   /* don't load sequence for recycle_bin */
-  if (my_strcasecmp(system_charset_info,
-                    db.c_str(), RECYCLE_BIN_SCHEMA_NAME.str) == 0) {
+  if (is_recycle_bin_db(db.c_str(), db.length())) {
     return 0;
   }
 
@@ -1387,35 +1356,3 @@ int drop_db_sequences(const THD *thd, const char *db, bool do_binlogging) {
   return 0;
 }
 
-void db_object_recycle(THD *thd, const char *dbname, uint64_t schema_id) {
-  g_seq_cache.drop_db_sequences(dbname);
-  Object_recycle_task t(dbname, schema_id, Seq_task::RECYCLE_SEQUENCE, true);
-  seq_tasks.append_task(&t);
-  t.wait();
-
-  if (t.get_error()) {
-    push_warning_printf(thd, Sql_condition::SL_NOTE,
-                        ER_RECYCLE_BIN_FAIL_OP_OBJECTS,
-                        ER_THD(thd, ER_RECYCLE_BIN_FAIL_OP_OBJECTS), "recycle",
-                        "sequence", dbname, t.get_error());
-  }
-}
-
-void db_object_clear(THD *thd, time_t before_time) {
-  Object_clear_task t(before_time, Seq_task::CLEAR_SEQUENCE, true);
-  seq_tasks.append_task(&t);
-  t.wait();
-}
-
-void db_object_restore(THD *thd, const char *dbname, uint64_t schema_id) {
-  Object_restore_task t(dbname, schema_id, Seq_task::RESTORE_SEQUENCE, true);
-  seq_tasks.append_task(&t);
-  t.wait();
-
-  if (t.get_error()) {
-    push_warning_printf(thd, Sql_condition::SL_NOTE,
-                        ER_RECYCLE_BIN_FAIL_OP_OBJECTS,
-                        ER_THD(thd, ER_RECYCLE_BIN_FAIL_OP_OBJECTS), "restore",
-                        "sequence", dbname, t.get_error());
-  }
-}

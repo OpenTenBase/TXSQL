@@ -77,11 +77,9 @@ test_recycle_bin	bb	#	#	#
 test_recycle_bin	cc	#	#	#
 test_recycle_bin	dd	#	#	#
 clear recycle_bin test_recycle_bin.zz;
-Warnings:
-Warning	4171	No corresponding record was found in recycle_bin.
+ERROR HY000: No corresponding record was found in recycle_bin.
 clear recycle_bin test_recycle_bin.aa before timestamp(DATE_SUB(NOW(), INTERVAL 10 DAY));
-Warnings:
-Warning	4171	No corresponding record was found in recycle_bin.
+ERROR HY000: No corresponding record was found in recycle_bin.
 clear recycle_bin test_recycle_bin.aa before timestamp(DATE_ADD(NOW(), INTERVAL 10 DAY));
 clear recycle_bin all test_recycle_bin.bb;
 show tables from __txsql_recycle_bin__;
@@ -182,11 +180,9 @@ test_recycle_bin	bb	#	#	#
 test_recycle_bin	cc	#	#	#
 test_recycle_bin	dd	#	#	#
 clear recycle_bin test_recycle_bin.zz;
-Warnings:
-Warning	4171	No corresponding record was found in recycle_bin.
+ERROR HY000: No corresponding record was found in recycle_bin.
 clear recycle_bin test_recycle_bin.aa before timestamp(DATE_SUB(NOW(), INTERVAL 10 DAY));
-Warnings:
-Warning	4171	No corresponding record was found in recycle_bin.
+ERROR HY000: No corresponding record was found in recycle_bin.
 clear recycle_bin test_recycle_bin.aa before timestamp(DATE_ADD(NOW(), INTERVAL 10 DAY));
 clear recycle_bin all test_recycle_bin.bb;
 show tables from __txsql_recycle_bin__;
@@ -434,22 +430,17 @@ db_a	sb_seq	20	1	1	9223372036854775807	1	0	20
 drop database db_a;
 select * from mysql.tdsql_sequences;
 db	name	curval	start	step	max_value	min_value	do_cycle	n_cache
-__recycle_bin__db_a	sb_seq	20	1	1	9223372036854775807	1	0	20
 create database db_a;
 restore database db_a from RECYCLE_BIN;
-Warnings:
-Warning	4171	No corresponding record was found in recycle_bin.
+ERROR HY000: No corresponding record was found in recycle_bin.
 use db_a;
 select sb_seq.nextval;
-sb_seq.nextval
-21
+ERROR HY000: Sequence sb_seq in database db_a not found.
 select * from mysql.tdsql_sequences;
 db	name	curval	start	step	max_value	min_value	do_cycle	n_cache
-db_a	sb_seq	40	1	1	9223372036854775807	1	0	20
 use db_a;
 select sb_seq.nextval;
-sb_seq.nextval
-41
+ERROR HY000: Sequence sb_seq in database db_a not found.
 drop database db_a;
 clear recycle_bin;
 Warnings:
@@ -469,8 +460,7 @@ use db_a;
 select hello("wx");
 ERROR 42000: FUNCTION db_a.hello does not exist
 restore database db_a from RECYCLE_BIN;
-Warnings:
-Warning	4171	No corresponding record was found in recycle_bin.
+ERROR HY000: No corresponding record was found in recycle_bin.
 select hello("wx2");
 ERROR 42000: FUNCTION db_a.hello does not exist
 use db_a;
@@ -530,6 +520,8 @@ db	table	recycle_table	drop_time	purge_time
 test_recycle_bin	aa	#	#	#
 test_recycle_bin	bb	#	#	#
 drop database test_recycle_bin;
+clear recycle_bin aa;
+ERROR HY000: The database name and table name should be specified.
 clear recycle_bin;
 #
 # Cleanup 

@@ -4536,8 +4536,36 @@ bool create_table_share_for_upgrade(THD *thd, const char *path,
 
 bool create_key_part_field_with_prefix_length(TABLE *table, MEM_ROOT *root);
 
-inline bool is_recycle_bin_db(const char *name, size_t len) {
-  return (RECYCLE_BIN_SCHEMA_NAME.length == len &&
-          !my_strcasecmp(system_charset_info, RECYCLE_BIN_SCHEMA_NAME.str, name));
+/* changes from txsql start. */
+extern LEX_CSTRING SYS_DB_NAME;
+
+inline bool is_mysql_db(const char *name, size_t len) {
+  return (MYSQL_SCHEMA_NAME.length == len &&
+          !my_strcasecmp(system_charset_info, MYSQL_SCHEMA_NAME.str, name));
 }
+
+inline bool is_sys_db(const char *name, size_t len)
+{
+  return (SYS_DB_NAME.length == len &&
+          !my_strcasecmp(system_charset_info,
+                         SYS_DB_NAME.str, name));
+}
+
+/*
+  System database include: 
+  1. information_schema.
+  2. performation_schema.
+  3. sys
+  not include mysql database, because 
+  this function is  called when cdb_forbid_system_database_write is enable.
+  The is_mysql_db is called when cdb_forbid_mysql_write is enable separately.
+*/
+inline bool is_system_database(const char *name, size_t len)
+{
+  return (is_infoschema_db(name, len) ||
+          is_perfschema_db(name, len) ||
+          is_sys_db(name, len));
+}
+
+/* changes from txsql end. */
 #endif /* TABLE_INCLUDED */

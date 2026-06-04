@@ -10074,14 +10074,14 @@ table_to_table:
             if (recycle_bin_enabled(lex->thd) && lex->recycle_bin_op == RB_NO_OP &&
                 lex->sql_command == SQLCOM_RENAME_TABLE)
             {
-              if(($1->db.str && !my_strcasecmp(system_charset_info, $1->db.str, RECYCLE_BIN_SCHEMA_NAME.str)) ||
-                (lex->thd->db().str && !my_strcasecmp(system_charset_info, lex->thd->db().str, RECYCLE_BIN_SCHEMA_NAME.str)))
+              if(($1->db.str && is_recycle_bin_db($1->db.str, $1->db.length)) ||
+                (!$1->db.str && lex->thd->db().str && is_recycle_bin_db(lex->thd->db().str, lex->thd->db().length)))
               {
                 lex->recycle_bin_op= RB_RECOVERY_TABLE_BY_RENAME;
               }
 
-              if(($4->db.str && !my_strcasecmp(system_charset_info, $4->db.str, RECYCLE_BIN_SCHEMA_NAME.str)) ||
-                (lex->thd->db().str && !my_strcasecmp(system_charset_info, lex->thd->db().str, RECYCLE_BIN_SCHEMA_NAME.str)))
+              if(($4->db.str && is_recycle_bin_db($4->db.str, $4->db.length)) ||
+                (!$4->db.str && lex->thd->db().str && is_recycle_bin_db(lex->thd->db().str, lex->thd->db().length)))
               {
                 lex->recycle_bin_op= RB_RECYCLE_TABLE_BY_RENAME;
               }
@@ -13427,12 +13427,10 @@ drop_table_stmt:
             /* Count the number of tables in recycle_bin to set the type of recycle_bin_op. */
             uint tables_in_recycle_bin = 0;
             for (auto *table : *tables) {
-              if (((table->db.str && !my_strcasecmp(system_charset_info,
-                                                    table->db.str,
-                                                    RECYCLE_BIN_SCHEMA_NAME.str)) ||
-                  (!table->db.str && lex->thd->db().str && !my_strcasecmp(system_charset_info,
-                                                        lex->thd->db().str,
-                                                        RECYCLE_BIN_SCHEMA_NAME.str)))) {
+              if (((table->db.str && is_recycle_bin_db(table->db.str,
+                                                       table->db.length)) ||
+                  (!table->db.str && lex->thd->db().str &&
+                   is_recycle_bin_db(lex->thd->db().str, lex->thd->db().length)))) {
                 ++tables_in_recycle_bin;
                 continue;
               }
@@ -17126,19 +17124,23 @@ shutdown_stmt:
         ;
 
 clear_stmt:
-        CLEAR_SYM RECYCLE_BIN_SYM opt_all_table opt_table_name opt_before_timestamp
+        CLEAR_SYM RECYCLE_BIN_SYM ALL table_ident opt_before_timestamp
         {
             Lex->sql_command = SQLCOM_CLEAR_FROM_RECYCLE_BIN;
             Lex->recycle_bin_op = RB_PURGE_TABLE;
             Lex->clear_table_name = $4;
             Lex->clear_before_time = $5;
+            Lex->clear_all_name = true;
+        }
+      | CLEAR_SYM RECYCLE_BIN_SYM opt_table_name opt_before_timestamp
+        {
+            Lex->sql_command = SQLCOM_CLEAR_FROM_RECYCLE_BIN;
+            Lex->recycle_bin_op = RB_PURGE_TABLE;
+            Lex->clear_table_name = $3;
+            Lex->clear_before_time = $4;
+            Lex->clear_all_name = false;
         }
         ;
-
-opt_all_table:
-      /* empty */ { Lex->clear_all_name = false; }
-      | ALL { Lex->clear_all_name = true; }
-      ;
 
 restore_stmt:
          RESTORE_SYM table_ident FROM RECYCLE_BIN_SYM opt_restore_cond
@@ -17146,14 +17148,14 @@ restore_stmt:
             Lex->sql_command = SQLCOM_RESTORE_FROM_RECYCLE_BIN;
             Lex->recycle_bin_op = RB_RECOVERY_TABLE_BY_RESTORE;
             Lex->restore_table = $2;
-            Lex->restore_db = nullptr;
+            Lex->restore_db = {nullptr, 0};
          }
         | RESTORE_SYM DATABASE ident FROM RECYCLE_BIN_SYM
          {
            Lex->sql_command = SQLCOM_RESTORE_FROM_RECYCLE_BIN;
            Lex->recycle_bin_op = RB_RECOVERY_TABLE_BY_RESTORE;
            Lex->restore_table = nullptr;
-           Lex->restore_db = $3.str;
+           Lex->restore_db = to_lex_cstring($3);
          }
         ;
 
@@ -17165,11 +17167,11 @@ opt_table_name:
 opt_restore_cond:
           /* empty */ {
             Lex->restore_time = 0;
-            Lex->recycle_name = nullptr;
+            Lex->recycle_name = {nullptr, 0};
           }
         | WITH opt_with_timestamp opt_with_name {
             Lex->restore_time = $2;
-            Lex->recycle_name = $3;
+            Lex->recycle_name = to_lex_cstring($3);
           }
         ;
 
