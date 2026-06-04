@@ -463,7 +463,8 @@ inline int cmp_data(ulint mtype, ulint prtype, bool is_asc, const byte *data1,
   int cmp;
 
   if (len > 0) {
-#if defined __i386__ || defined __x86_64__ || defined _M_IX86 || defined _M_X64
+#if defined __i386__ || defined __x86_64__ || defined _M_IX86 || \
+    defined _M_X64 || defined __aarch64__
     /* Compare the first bytes with a loop to avoid the call
     overhead of memcmp(). On x86 and x86-64, the GCC built-in
     (repz cmpsb) seems to be very slow, so we will be calling the
@@ -503,7 +504,8 @@ inline int cmp_data(ulint mtype, ulint prtype, bool is_asc, const byte *data1,
 
       data1 += len;
       data2 += len;
-#if defined __i386__ || defined __x86_64__ || defined _M_IX86 || defined _M_X64
+#if defined __i386__ || defined __x86_64__ || defined _M_IX86 || \
+    defined _M_X64 || defined __aarch64__
     }
 #endif /* IA32 or AMD64 */
   }
