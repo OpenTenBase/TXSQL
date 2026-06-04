@@ -4984,6 +4984,8 @@ void fseg_get_pages_info(
   uint i;
   uint page_no;
   fil_addr_t node_addr;
+  ulint save_point;
+  ulint read_pages = 0;
 
   mtr_start(&mtr);
   fil_space_t *space = fil_space_get(space_id);
@@ -5011,9 +5013,15 @@ void fseg_get_pages_info(
     }
   }
 
+  save_point = mtr_set_savepoint(&mtr);
   /* Scan FSEG_NOT_FULL list */
   node_addr = flst_get_first(seg_inode + FSEG_NOT_FULL, &mtr);
   while (!fil_addr_is_null(node_addr)) {
+    if (++read_pages % 100 == 0) {
+      mtr_release_all_after_savepoint(&mtr, save_point);
+      read_pages = 0;
+      save_point = mtr_set_savepoint(&mtr);
+    }
     descr = xdes_lst_get_descriptor(space_id, page_size, node_addr, &mtr);
 
     if (mode == FSP_GET_TOTAL_CNT || mode == FSP_GET_BOTH) {
@@ -5035,6 +5043,11 @@ void fseg_get_pages_info(
   /* Scan FSEG_FULL list */
   node_addr = flst_get_first(seg_inode + FSEG_FULL, &mtr);
   while (!fil_addr_is_null(node_addr)) {
+    if (++read_pages % 100 == 0) {
+      mtr_release_all_after_savepoint(&mtr, save_point);
+      read_pages = 0;
+      save_point = mtr_set_savepoint(&mtr);
+    }
     descr = xdes_lst_get_descriptor(space_id, page_size, node_addr, &mtr);
 
     if (mode == FSP_GET_TOTAL_CNT || mode == FSP_GET_BOTH) {
