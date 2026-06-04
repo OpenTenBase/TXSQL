@@ -1859,6 +1859,7 @@ void clean_txsql_thread_resouce() {
 
 bool sql_auto_is_null = false;
 bool sql_safe_updates = false;
+bool txsql_show_kill_log = false;
 
 /* Changes from txsql end. */
 

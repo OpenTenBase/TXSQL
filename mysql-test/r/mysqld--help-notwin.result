@@ -312,8 +312,6 @@ The following options may be given as the first argument:
  --cdb-more-gtid-feature-supported 
  Gtid supported in trans and nontrans mode! Can not be
  used when cdb_optimize_gtid_lock is ON.
- --cdb-opt-outline-enabled 
- outline switch
  --cdb-optimize-gtid-lock 
  Optimize gtid lock conflict when binlog_order_commits=0.
  --cdb-optimize-large-trans-binlog 
@@ -978,10 +976,9 @@ The following options may be given as the first argument:
  Maximum allowed cumulated size of stored optimizer traces
  --optimizer-trace-offset=# 
  Offset of first optimizer trace to show; see manual
- --ordered-commit-flush-logs-parellelly 
+ --ordered-commit-flush-logs-parallelly 
  Flush binlog by a dedicated thread during flush stage of
  ordered commit while flushing logs of storage engines.
- (Defaults to off; use --skip-ordered-commit-flush-logs-parellelly to disable.)
  --parser-max-mem-size=# 
  Maximum amount of memory available to the parser
  --partial-revokes   Access of database objects can be restricted, even if
@@ -1684,17 +1681,6 @@ The following options may be given as the first argument:
  an existing primary key cannot be removed with 'ALTER
  TABLE'. Attempts to do so will result in an error.
  --sql-safe-updates  sql_safe_updates
- --statement-outline-apply-verbose 
- Output more information when applying statement outline
- rules
- --statement-outline-enable-apply 
- Enable statement outline apply if true in current session
- (Defaults to on; use --skip-statement-outline-enable-apply to disable.)
- --statement-outline-enabled 
- Enable statement outline if true
- (Defaults to on; use --skip-statement-outline-enabled to disable.)
- --statement-outline-partitions=# 
- How many partitions of statement outline rule maps.
  --stored-program-cache=# 
  The soft upper limit for number of cached stored routines
  for one connection.
@@ -1853,6 +1839,10 @@ The following options may be given as the first argument:
  This option is used to let the server know when to
  extract the write set which will be used for various
  purposes. 
+ --txsql-audit-alter-table-enable 
+ Monitor alter table command and warn the info out.
+ --txsql-audit-set-option-enable 
+ Monitor set option command and warn the info out.
  --txsql-check-thd-in-bottom-half 
  Whether to check thd valid or not in bottom half of
  sqlasync 
@@ -1863,11 +1853,14 @@ The following options may be given as the first argument:
  Compute query time for slow logging by measuring from
  query reception(2) or query start(1) or after locking(0)
  to end time.
+ --txsql-disable-ddl Disable DDL statement where ON
  --txsql-disable-sqlasyn 
  A session only variable to disable strong synchroniaztion
  if set
  --txsql-extend-slow-log-level=# 
  Control the level of extended information in slow log.
+ --txsql-gb18030-charset-standard=# 
+ Standard of gb18030 charset.
  --txsql-load-data-local-strict-mode 
  Whether to emit errors (or warnings) in strict mode when
  executing LOAD DATA LOCAL INFILE statement
@@ -1942,6 +1935,8 @@ The following options may be given as the first argument:
  --txsql-recycle-scheduler-interval=# 
  Schedule interval time of each check whether exists table
  to be purged in recycle bin database.
+ --txsql-show-kill-log 
+ The switch used to control whether to print the kill log.
  --txsql-simplify-priv-check 
  Enable to optimize privilege checking for prepared
  statement and stored procedure.
@@ -2066,7 +2061,6 @@ cdb-kill-idle-trans-timeout 0
 cdb-lock-connect-detect-enabled TRUE
 cdb-max-prefetch-rows 0
 cdb-more-gtid-feature-supported FALSE
-cdb-opt-outline-enabled FALSE
 cdb-optimize-gtid-lock FALSE
 cdb-optimize-large-trans-binlog FALSE
 cdb-optimize-large-trans-binlog-aver-affected-rows-threshold 10000
@@ -2262,7 +2256,7 @@ optimizer-trace-features greedy_search=on,range_optimizer=on,dynamic_range=on,re
 optimizer-trace-limit 1
 optimizer-trace-max-mem-size 1048576
 optimizer-trace-offset -1
-ordered-commit-flush-logs-parellelly FALSE
+ordered-commit-flush-logs-parallelly FALSE
 parser-max-mem-size 18446744073709551615
 partial-revokes ####
 password-history 0
@@ -2443,10 +2437,6 @@ sql-generate-invisible-primary-key FALSE
 sql-mode ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION
 sql-require-primary-key FALSE
 sql-safe-updates FALSE
-statement-outline-apply-verbose FALSE
-statement-outline-enable-apply TRUE
-statement-outline-enabled TRUE
-statement-outline-partitions 16
 stored-program-cache 256
 stored-program-definition-cache 256
 super-read-only FALSE
@@ -2488,11 +2478,15 @@ transaction-isolation REPEATABLE-READ
 transaction-prealloc-size 4096
 transaction-read-only FALSE
 transaction-write-set-extraction XXHASH64
+txsql-audit-alter-table-enable FALSE
+txsql-audit-set-option-enable FALSE
 txsql-check-thd-in-bottom-half FALSE
 txsql-column-encryption-whitelist (No default value)
 txsql-compute-query-time-for-slow-logging 0
+txsql-disable-ddl FALSE
 txsql-disable-sqlasyn FALSE
 txsql-extend-slow-log-level 0
+txsql-gb18030-charset-standard 2005
 txsql-load-data-local-strict-mode FALSE
 txsql-max-parallel-worker-threads 0
 txsql-optimize-ps-priv-check FALSE
@@ -2516,6 +2510,7 @@ txsql-recycle-bin-enabled FALSE
 txsql-recycle-bin-max-size 18446744073709551615
 txsql-recycle-bin-retention 604800
 txsql-recycle-scheduler-interval 0
+txsql-show-kill-log FALSE
 txsql-simplify-priv-check FALSE
 txsql-slave-wait-group-done 60
 updatable-views-with-limit YES
