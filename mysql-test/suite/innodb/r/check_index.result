@@ -197,6 +197,24 @@ Table_name	Index_name	Type	Total_size	Usage_rate	Delete_rate	Btr_depth
 test.tmp_table	GEN_CLUST_INDEX	PRIMARY_INDEX	16384	0.008	0.000	1
 test.tmp_table	NULL	TABLE_LEVEL	16384	0.008	NULL	NULL
 drop table tmp_table;
+CREATE TABLE fts_test (
+`id` bigint NOT NULL,
+`k` bigint NOT NULL,
+`k1` bigint NOT NULL,
+`c` char(120) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT '',
+`pad` char(60) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT '',
+`tran_time` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
+`body` text COLLATE utf8mb4_general_ci,
+PRIMARY KEY (`id`,`tran_time`),
+FULLTEXT KEY `tran_time` (`tran_time`,`body`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+check index from fts_test;
+Table_name	Index_name	Type	Total_size	Usage_rate	Delete_rate	Btr_depth
+test.fts_test	PRIMARY	PRIMARY_INDEX	16384	0.008	0.000	1
+test.fts_test	NULL	TABLE_LEVEL	16384	0.008	NULL	NULL
+Warnings:
+Warning	1235	Fulltext index is unsupported for check index. It will be omitted from the results list
+drop table fts_test;
 drop procedure load_t;
 drop table t;
 drop table t1;
