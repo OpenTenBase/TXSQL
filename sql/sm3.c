@@ -42,7 +42,7 @@ void sm3(unsigned char *input, int ilen,
 {
   EVP_MD_CTX *mdctx = NULL;
   const EVP_MD *md;
-  unsigned int md_len, i;
+  unsigned int md_len;
   OpenSSL_add_all_digests();
   
   md = EVP_get_digestbyname("SM3");
