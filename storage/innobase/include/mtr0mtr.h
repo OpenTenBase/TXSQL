@@ -150,6 +150,9 @@ savepoint. */
 #define mtr_block_x_latch_at_savepoint(m, s, b) \
   (m)->x_latch_at_savepoint((s), (b))
 
+#define mtr_release_all_after_savepoint(m, s) \
+  (m)->release_all_after_savepoint((s))
+
 /** Check if a mini-transaction is dirtying a clean page.
 @param b        block being x-fixed
 @return true if the mtr is dirtying a clean page. */
@@ -486,6 +489,9 @@ struct mtr_t {
   @param[in]    ptr     pointer to within a page frame
   @param[in]    type    object type: MTR_MEMO_PAGE_X_FIX, ... */
   void release_page(const void *ptr, mtr_memo_type_t type);
+
+  /** Release the block in an mtr memo after a savepoint. */
+  void release_all_after_savepoint(ulint savepoint);
 
   /** Note that the mini-transaction has modified data. */
   void set_modified() { m_impl.m_modifications = true; }
