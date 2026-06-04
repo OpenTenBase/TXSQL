@@ -952,7 +952,8 @@ size_t my_convert(char *to, size_t to_length, const CHARSET_INFO *to_cs,
 
   length = length2 = std::min(to_length, from_length);
 
-#if defined(__i386__) || defined(_WIN32) || defined(__x86_64__)
+#if defined(__i386__) || defined(_WIN32) || defined(__x86_64__) || \
+    defined(__aarch64__)
   /*
     Special loop for i386, it allows to refer to a
     non-aligned memory block as UINT32, which makes
