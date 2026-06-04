@@ -1036,6 +1036,7 @@ class CThdBottomHalf;
 extern CThdBottomHalf *g_thdBottomHalf;
 
 extern bool g_txsql_enable_name_ack;
+extern bool txsql_show_kill_log;
 
 /* Changes from txsql end. */
 #endif /* MYSQLD_INCLUDED */

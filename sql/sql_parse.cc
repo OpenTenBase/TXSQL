@@ -7704,14 +7704,34 @@ static uint kill_one_thread(THD *thd, my_thread_id id, bool only_kill_query) {
         privilege
       */
       if (tmp->killed != THD::KILL_CONNECTION) {
-        if (tmp->is_system_user() && !thd->is_system_user()) {
-          error = ER_KILL_DENIED_ERROR;
-        } else {
-          tmp->awake(only_kill_query ? THD::KILL_QUERY : THD::KILL_CONNECTION);
-          error = 0;
-        }
+          if (txsql_show_kill_log) {
+            auto user = thd->security_context()->user();
+            if (user.str == nullptr) {
+              user.str = "null";
+              user.length = 4;
+            }
+            auto host = thd->security_context()->host_or_ip();
+            if (host.str == nullptr) {
+              host.str = "null";
+              host.length = 4;
+            }
+            sql_print_information(
+                "[TXSQL] thread %u killed with %s by %.*s@%.*s, killer thread "
+                "id: "
+                "%u",
+                id, only_kill_query ? "KILL QUERY" : "KILL CONNECTION",
+                static_cast<int>(user.length), user.str,
+                static_cast<int>(host.length), host.str, thd->thread_id());
+          }
+          if (tmp->is_system_user() && !thd->is_system_user()) {
+            error = ER_KILL_DENIED_ERROR;
+          } else {
+            tmp->awake(only_kill_query ? THD::KILL_QUERY
+                                       : THD::KILL_CONNECTION);
+            error = 0;
+          }
       } else
-        error = 0;
+          error = 0;
     } else
       error = ER_KILL_DENIED_ERROR;
   }

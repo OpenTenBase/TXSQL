@@ -9201,4 +9201,12 @@ static Sys_var_bool Sys_txsql_disable_ddl(
        "Disable DDL statement where ON",
        GLOBAL_VAR(txsql_disable_ddl), CMD_LINE(OPT_ARG), DEFAULT(false));    
 
+static Sys_var_bool Sys_txsql_show_kill_log(
+    "txsql_show_kill_log",
+    "The switch used to control whether to "
+    "print the kill log.",
+    GLOBAL_VAR(txsql_show_kill_log), CMD_LINE(OPT_ARG),
+    DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL),
+    ON_UPDATE(NULL));
+
 /* Changes from txsql end. */
