@@ -90,6 +90,8 @@ struct MaterializePathParameters {
   */
   bool reject_multiple_rows;
 
+  txsql::CTE_view_expr *cte_expr{nullptr};
+
 #if defined(HAVE_PX)
   /*
     The function only serves the plan equivalence comparison of parallel

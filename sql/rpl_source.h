@@ -33,6 +33,10 @@
 #include "mysql_com.h"        // USERNAME_LENGTH
 #include "sql/sql_const.h"    // MAX_PASSWORD_LENGTH
 
+#include <string>
+#include <vector>
+
+
 class Gtid_set;
 class String;
 class THD;
@@ -139,5 +143,10 @@ class user_var_entry;
 const user_var_entry *get_user_var_from_alternatives(const THD *thd,
                                                      const std::string alt1,
                                                      const std::string alt2);
+
+
+void page_cache_cleanning_collect_slave_log_progresses(
+    std::vector<std::string> &dumper_current_filenames,
+    std::vector<my_off_t> &dumper_current_read_progress);
 
 #endif /* RPL_SOURCE_H_INCLUDED */

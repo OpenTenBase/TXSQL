@@ -1,0 +1,241 @@
+set @saved_value = @@txsql_convert_view_to_cte_enabled;
+create table t1 (a int, b int);
+insert into t1 values (1,2), (1,3), (2,4), (2,5), (3,10);
+create view simple_view as
+select * from t1;
+
+create view complex_view as
+select b from t1 group by b;
+
+create view complex_view_2 as
+select b+1 from t1 group by b+1;
+
+create view complex_view_3 as
+select b from t1 group by b;
+
+###
+### different view with the same definition
+###
+set @@txsql_convert_view_to_cte_enabled = 1;
+explain format=tree select * from complex_view as d_1, complex_view_3 as d_2;
+select * from complex_view as d_1, complex_view_3 as d_2;
+
+###
+### different view with the different definition
+###
+set @@txsql_convert_view_to_cte_enabled = 1;
+explain format=tree select * from complex_view as d_1, complex_view_2 as d_2;
+select * from complex_view as d_1, complex_view_2 as d_2;
+
+###
+### view with RAND Note: MySQL allow CTE with rand so the same as txsql cte!
+###
+create view uncacheable_view as
+select b,rand() from t1 group by b;
+
+set @@txsql_convert_view_to_cte_enabled = 0;
+explain format=tree select * from uncacheable_view as d_1, uncacheable_view as d_2;
+
+set @@txsql_convert_view_to_cte_enabled = 1;
+explain format=tree select * from uncacheable_view as d_1, uncacheable_view as d_2;
+
+drop view uncacheable_view;
+
+###
+### a view referenced only once
+###
+set @@txsql_convert_view_to_cte_enabled = 0;
+explain format=tree select * from simple_view;
+select * from simple_view;
+
+explain format=tree select * from complex_view;
+select * from complex_view;
+
+set @@txsql_convert_view_to_cte_enabled = 1;
+explain format=tree select * from simple_view;
+select * from simple_view;
+
+explain format=tree select * from complex_view;
+select * from complex_view;
+
+###
+### a view referenced twice
+###
+set @@txsql_convert_view_to_cte_enabled = 0;
+explain format=tree select * from simple_view as d_1, simple_view as d_2;
+select * from simple_view as d_1, simple_view as d_2;
+
+explain format=tree select * from complex_view as d_1, complex_view as d_2;
+select * from complex_view as d_1, complex_view as d_2;
+
+set @@txsql_convert_view_to_cte_enabled = 1;
+explain format=tree select * from simple_view as d_1, simple_view as d_2;
+select * from simple_view as d_1, simple_view as d_2;
+
+explain format=tree select * from complex_view as d_1, complex_view as d_2;
+select * from complex_view as d_1, complex_view as d_2;
+
+###
+### the same derived table 
+###
+set @@txsql_convert_view_to_cte_enabled = 0;
+explain format=tree select * from (select * from t1) as d_1, (select * from t1) as d_2;
+select * from (select * from t1) as d_1, (select * from t1) as d_2;
+
+explain format=tree select * from (select b from t1 group by b) as d_1, (select b from t1 group by b) as d_2;
+select * from (select b from t1 group by b) as d_1, (select b from t1 group by b) as d_2;
+
+set @@txsql_convert_view_to_cte_enabled = 1;
+explain format=tree select * from (select * from t1) as d_1, (select * from t1) as d_2;
+select * from (select * from t1) as d_1, (select * from t1) as d_2;
+
+explain format=tree select * from (select b from t1 group by b) as d_1, (select b from t1 group by b) as d_2;
+select * from (select b from t1 group by b) as d_1, (select b from t1 group by b) as d_2;
+
+###
+### mysql cte
+###
+set @@txsql_convert_view_to_cte_enabled = 0;
+explain format=tree
+with simple_view as (select * from t1)
+select * from simple_view as d_1, simple_view as d_2;
+
+with complex_view as (select * from t1)
+select * from simple_view as d_1, simple_view as d_2;
+
+explain format=tree
+with simple_view as (select b from t1 group by b)
+select * from simple_view as d_1, simple_view as d_2;
+
+with simple_view as (select b from t1 group by b)
+select * from simple_view as d_1, simple_view as d_2;
+
+set @@txsql_convert_view_to_cte_enabled = 1;
+explain format=tree
+with simple_view as (select * from t1)
+select * from simple_view as d_1, simple_view as d_2;
+
+with complex_view as (select * from t1)
+select * from simple_view as d_1, simple_view as d_2;
+
+explain format=tree
+with simple_view as (select b from t1 group by b)
+select * from simple_view as d_1, simple_view as d_2;
+
+with simple_view as (select b from t1 group by b)
+select * from simple_view as d_1, simple_view as d_2;
+
+--disable_query_log
+--source suite/standard_benchmarks/inc/tpch_create_tables.inc
+--echo # Load data ...
+--source suite/standard_benchmarks/inc/tpch_load.inc
+--echo # Create indexes ...
+--source suite/standard_benchmarks/inc/tpch_create_indexes.inc
+--echo # Analyze tables ...
+analyze table customer, lineitem, nation, orders, part, partsupp, region, supplier;
+--enable_query_log
+
+create view revenue0 (supplier_no, total_revenue) as
+	select
+		l_suppkey,
+		sum(l_extendedprice * (1 - l_discount))
+	from
+		lineitem
+	where
+		l_shipdate >= '1995-06-01'
+		and l_shipdate < date_add('1995-06-01', interval '90' day)
+	group by
+		l_suppkey;
+
+let $Q15=
+select
+	s_suppkey,
+	s_name,
+	s_address,
+	s_phone,
+	total_revenue
+from
+	supplier,
+	revenue0
+where
+	s_suppkey = supplier_no
+	and total_revenue = (
+		select
+			max(total_revenue)
+		from
+			revenue0
+	)
+order by
+	s_suppkey;
+
+set @@txsql_convert_view_to_cte_enabled = 0;
+--replace_regex /cost=[0-9]+\.[0-9]+/cost=#/
+eval explain format=tree $Q15;
+--replace_regex /time=.+/time=X...)/
+eval explain analyze $Q15;
+eval $Q15;
+
+set @@txsql_convert_view_to_cte_enabled = 1;
+--replace_regex /cost=[0-9]+\.[0-9]+/cost=#/
+eval explain format=tree $Q15;
+--replace_regex /time=.+/time=X...)/
+eval explain analyze $Q15;
+eval $Q15;
+
+let $Q15_new = with cte_revenue0 (supplier_no, total_revenue) as (
+	select
+		l_suppkey,
+		sum(l_extendedprice * (1 - l_discount))
+	from
+		lineitem
+	where
+		l_shipdate >= '1995-06-01'
+		and l_shipdate < date_add('1995-06-01', interval '90' day)
+	group by
+		l_suppkey)
+select
+	s_suppkey,
+	s_name,
+	s_address,
+	s_phone,
+	total_revenue
+from
+	supplier,
+	cte_revenue0 as t1
+where
+	s_suppkey = supplier_no
+	and total_revenue = (
+		select
+			max(total_revenue)
+		from
+			cte_revenue0 as t2
+	)
+order by
+	s_suppkey;
+
+set @@txsql_convert_view_to_cte_enabled = 0;
+--replace_regex /cost=[0-9]+\.[0-9]+/cost=#/
+eval explain format=tree $Q15_new;
+--replace_regex /time=.+/time=X...)/
+eval explain analyze $Q15_new;
+eval $Q15_new;
+
+set @@txsql_convert_view_to_cte_enabled = 1;
+--replace_regex /cost=[0-9]+\.[0-9]+/cost=#/
+eval explain format=tree $Q15_new;
+--replace_regex /time=.+/time=X...)/
+eval explain analyze $Q15_new;
+eval $Q15_new;
+
+drop table t1;
+drop view simple_view;
+drop view complex_view;
+drop view complex_view_2;
+drop view complex_view_3;
+drop view revenue0;
+--echo #
+--echo # Test end
+--echo #
+--echo # Cleanup, drop testing tables ...
+--source suite/standard_benchmarks/inc/tpch_drop.inc
+set @@txsql_convert_view_to_cte_enabled = @saved_value;

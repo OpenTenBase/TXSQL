@@ -1020,6 +1020,11 @@ static int show_threadpool_idle_threads(THD *thd MY_ATTRIBUTE((unused)),
 }
 #endif
 
+/* Cleaning window size for os page cache. */
+ulonglong cdb_page_cache_cleaning_window = 16 * 1024 * 1024;
+bool cdb_page_cache_cleaning_redo = true;
+bool cdb_page_cache_cleaning_binlog = true;
+
 #define mysqld_charset &my_charset_latin1
 #define mysqld_default_locale_name "en_US"
 
@@ -1172,6 +1177,8 @@ static PSI_mutex_key key_LOCK_rotate_binlog_master_key;
 static PSI_mutex_key key_LOCK_partial_revokes;
 static PSI_mutex_key key_LOCK_authentication_policy;
 static PSI_mutex_key key_LOCK_global_conn_mem_limit;
+PSI_mutex_key 
+  key_LOCK_page_cache_cleaning, key_BINLOG_LOCK_progress_tracker;
 #if defined(HAVE_OPT_CTX)
 static PSI_mutex_key key_LOCK_optimizer_context_memory_exceeded_counter;
 #endif
@@ -1292,6 +1299,10 @@ bool opt_show_replica_auth_info;
 bool opt_log_replica_updates = false;
 char *opt_replica_skip_errors;
 bool opt_replica_allow_batching = true;
+
+bool txsql_binlog_rotate_try_lock_index = false;
+bool txsql_binlog_rotate_try_lock_log = false;
+ulonglong txsql_binlog_purge_check_file_count = 0;
 
 bool txsql_audit_alter_table_enable= false;
 bool txsql_audit_set_option_enable= false;
@@ -2799,7 +2810,7 @@ static void clean_up(bool print_message) {
   Statistics_manager::deinit();
 
   stop_handle_manager();
-
+  stop_page_cache_cleaner();
   memcached_shutdown();
 
   release_keyring_handles();
@@ -2952,6 +2963,7 @@ static void clean_up_mutexes() {
   mysql_mutex_destroy(&LOCK_log_throttle_qni);
   mysql_mutex_destroy(&LOCK_status);
   mysql_mutex_destroy(&LOCK_manager);
+  mysql_mutex_destroy(&LOCK_page_cache_cleaning);
   mysql_mutex_destroy(&LOCK_crypt);
   mysql_mutex_destroy(&LOCK_user_conn);
   mysql_rwlock_destroy(&LOCK_sys_init_connect);
@@ -2978,6 +2990,7 @@ static void clean_up_mutexes() {
   mysql_mutex_destroy(&LOCK_password_history);
   mysql_mutex_destroy(&LOCK_password_reuse_interval);
   mysql_cond_destroy(&COND_manager);
+  mysql_cond_destroy(&COND_page_cache_cleaning);
   mysql_mutex_destroy(&LOCK_transmit_client_access);
   mysql_mutex_destroy(&LOCK_stats_manager);
 #ifdef _WIN32
@@ -5720,6 +5733,8 @@ int init_common_variables() {
 static int init_thread_environment() {
   mysql_mutex_init(key_LOCK_status, &LOCK_status, MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_LOCK_manager, &LOCK_manager, MY_MUTEX_INIT_FAST);
+  mysql_mutex_init(key_LOCK_page_cache_cleaning, &LOCK_page_cache_cleaning,
+                   MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_LOCK_crypt, &LOCK_crypt, MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_LOCK_user_conn, &LOCK_user_conn, MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_LOCK_global_system_variables,
@@ -5807,6 +5822,7 @@ static int init_thread_environment() {
                    MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_LOCK_global_conn_mem_limit, &LOCK_global_conn_mem_limit,
                    MY_MUTEX_INIT_FAST);
+  mysql_cond_init(key_COND_page_cache_cleaning, &COND_page_cache_cleaning);
   Statistics_manager::init_mutexes();
 #if defined(HAVE_OPT_CTX)
   mysql_mutex_init(key_LOCK_optimizer_context_memory_exceeded_counter,
@@ -8762,6 +8778,7 @@ int mysqld_main(int argc, char **argv)
   }
 
   start_handle_manager();
+  start_cdb_os_page_cache_cleaning_thread();
 
   sql_print_information("%s is using '%s' malloc library", my_progname,
                         MALLOC_LIBRARY);
@@ -12673,6 +12690,8 @@ static PSI_mutex_info all_server_mutexes[]=
   { &key_LOCK_Sql_Filter_Rule, "Sql_Filter_Rule_mutex", 0, 0, PSI_DOCUMENT_ME},
   { &key_master_info_transmit_lock, "Master_info::transmit_lock", 0, 0, PSI_DOCUMENT_ME},
   { &key_LOCK_statistics_tasks_pool, "LOCK_stats_manager", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
+  { &key_LOCK_page_cache_cleaning, "page_cache_cleaning", 0, 0, PSI_DOCUMENT_ME},
+  { &key_BINLOG_LOCK_progress_tracker, "MYSQL_BIN_LOG::LOCK_progress_tracker", 0, 0, PSI_DOCUMENT_ME},
 #if defined(HAVE_OPT_CTX)
   { &key_LOCK_optimizer_context_memory_exceeded_counter, "LOCK_optimizer_context_memory_exceeded_counter",
      PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
@@ -12756,6 +12775,7 @@ PSI_cond_key key_monitor_info_run_cond;
 PSI_cond_key key_cond_binlog_flush_thread;
 PSI_cond_key key_COND_delegate_connection_cond_var;
 PSI_cond_key key_COND_group_replication_connection_cond_var;
+PSI_cond_key key_COND_page_cache_cleaning;
 
 /* clang-format off */
 static PSI_cond_info all_server_conds[]=
@@ -12800,7 +12820,8 @@ static PSI_cond_info all_server_conds[]=
   { &key_monitor_info_run_cond, "Source_IO_monitor::run_cond", 0, 0, PSI_DOCUMENT_ME},
   { &key_cond_binlog_flush_thread, "cond_binlog_flush_thread", 0, 0, PSI_DOCUMENT_ME},
   { &key_COND_delegate_connection_cond_var, "THD::COND_delegate_connection_cond_var", 0, 0, PSI_DOCUMENT_ME},
-  { &key_COND_group_replication_connection_cond_var, "THD::COND_group_replication_connection_cond_var", 0, 0, PSI_DOCUMENT_ME}
+  { &key_COND_group_replication_connection_cond_var, "THD::COND_group_replication_connection_cond_var", 0, 0, PSI_DOCUMENT_ME},
+  { &key_COND_page_cache_cleaning, "os_page_cache_cleaning", 0, 0, PSI_DOCUMENT_ME}
 };
 /* clang-format on */
 
@@ -12812,6 +12833,7 @@ PSI_thread_key key_thread_parser_service;
 PSI_thread_key key_thread_handle_con_admin_sockets;
 PSI_thread_key key_thread_binlog_flush;
 PSI_thread_key key_thread_sql_statistics_clear_expired_info;
+PSI_thread_key key_thread_os_page_cache_cleaning;
 
 /* clang-format off */
 static PSI_thread_info all_server_threads[]=
@@ -12833,6 +12855,7 @@ PSI_FLAG_USER | PSI_FLAG_NO_SEQNUM, 0, PSI_DOCUMENT_ME},
   { &key_thread_handle_con_admin_sockets, "admin_interface", "con_admin", PSI_FLAG_USER, 0, PSI_DOCUMENT_ME},
   { &key_thread_binlog_flush, "binlog_flush", "binlog_flush", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_thread_sql_statistics_clear_expired_info, "sql_statistics", "sql_stat", PSI_FLAG_USER, 0, PSI_DOCUMENT_ME},
+  { &key_thread_os_page_cache_cleaning, "os_page_cache_cleaning", "working_mode", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME}
 };
 /* clang-format on */
 

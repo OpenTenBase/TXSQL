@@ -1,0 +1,69 @@
+# varchar -> char
+create table t1(id int not null primary key, c1 varchar(10)) default character set=latin1;
+alter table t1 modify column c1 char(20),algorithm=instant;
+drop table t1;
+
+create table t1(id int not null primary key, c1 varchar(10)) default character set=utf8mb3;
+alter table t1 modify column c1 char(20),algorithm=instant;
+drop table t1;
+
+create table t1(id int not null primary key, c1 varchar(10)) default character set=binary;
+alter table t1 modify column c1 char(20),algorithm=instant;
+drop table t1;
+
+create table t1(id int not null primary key, c1 varchar(10)) default character set=utf8mb4;
+alter table t1 modify column c1 char(20),algorithm=instant;
+drop table t1;
+
+# char -> varchar
+create table t1(id int not null primary key, c1 char(10)) default character set=latin1;
+alter table t1 modify column c1 varchar(20),algorithm=instant;
+drop table t1;
+
+create table t1(id int not null primary key, c1 char(10)) default character set=utf8mb3;
+alter table t1 modify column c1 varchar(20),algorithm=instant;
+drop table t1;
+
+create table t1(id int not null primary key, c1 char(10)) default character set=binary;
+alter table t1 modify column c1 varchar(20),algorithm=instant;
+drop table t1;
+
+create table t1(id int not null primary key, c1 char(10)) default character set=utf8mb4;
+alter table t1 modify column c1 varchar(20),algorithm=instant;
+drop table t1;
+
+# binary -> varbinary
+create table t1(id int not null primary key, c1 binary(10)) default character set=latin1;
+alter table t1 modify column c1 varbinary(20),algorithm=instant;
+drop table t1;
+
+create table t1(id int not null primary key, c1 binary(10)) default character set=utf8mb3;
+alter table t1 modify column c1 varbinary(20),algorithm=instant;
+drop table t1;
+
+create table t1(id int not null primary key, c1 binary(10)) default character set=binary;
+alter table t1 modify column c1 varbinary(20),algorithm=instant;
+drop table t1;
+
+create table t1(id int not null primary key, c1 binary(10)) default character set=utf8mb4;
+alter table t1 modify column c1 varbinary(20),algorithm=instant;
+drop table t1;
+
+# other character sets should fail except binary
+create table t1(id int not null primary key, c1 binary(10)) default character set=gbk;
+alter table t1 modify column c1 varbinary(20),algorithm=instant;
+drop table t1;
+
+create table t1(id int not null primary key, c1 binary(10)) default character set=utf16le;
+alter table t1 modify column c1 varbinary(20),algorithm=instant;
+drop table t1;
+
+create table t1(id int not null primary key, c1 char(10)) default character set=gbk;
+error ER_ALTER_OPERATION_NOT_SUPPORTED_REASON;
+alter table t1 modify column c1 varchar(20),algorithm=instant;
+drop table t1;
+
+create table t1(id int not null primary key, c1 varchar(10)) default character set=utf16le;
+error ER_ALTER_OPERATION_NOT_SUPPORTED_REASON;
+alter table t1 modify column c1 char(20),algorithm=instant;
+drop table t1;

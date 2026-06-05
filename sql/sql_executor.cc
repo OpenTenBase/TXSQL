@@ -739,6 +739,39 @@ void ExtractConditions(Item *condition,
   }
 }
 
+bool ExistsConditions(Item *condition,
+                      Mem_root_array<Item *> *condition_parts) {
+  bool ret = false;
+  for (size_t i = 0; !ret && i < condition_parts->size(); ++i) {
+    Item *condition_part = (*condition_parts)[i];
+    if (condition_part->walk(&Item::ignore_ins, enum_walk::POSTFIX, nullptr))
+      assert(false); //TODO: check same need more strictly.
+    else if (condition_part->eq(condition, false))
+      ret = true;
+  }
+  return ret;
+}
+
+bool ExistsTablesList(TABLE_LIST *table,
+                      Mem_root_array<TABLE_LIST *> *table_set) {
+  for (TABLE_LIST *t : *table_set) {
+    if (table->table->s->get_table_def_version() ==
+      t->table->s->get_table_def_version())
+      return true;
+  }
+  return false;
+}
+
+TABLE_LIST *FindByTableId(Table_id table_id, TABLE_LIST *table_list) {
+  TABLE_LIST *next = table_list;
+  for (; next != nullptr; next = next->next_local) {
+    assert(next->table->s != nullptr);
+    if (next->table->s->get_table_def_version() == table_id)
+      return next;
+  }
+  return nullptr;
+}
+
 /**
   See if “path” has any MRR nodes; if so, we cannot optimize them away
   in PossiblyAttachFilter(), as the BKA iterator expects there to be a
@@ -1622,7 +1655,7 @@ AccessPath *GetAccessPathForDerivedTable(
         /*ref_slice=*/-1, rematerialize, query_expression->select_limit_cnt,
         query_expression->offset_limit_cnt == 0
             ? query_expression->m_reject_multiple_rows
-            : false);
+            : false, /*cte_expr=*/table_ref->txsql_cte());
     EstimateMaterializeCost(thd, path);
     path = MoveCompositeIteratorsFromTablePath(path);
     if (query_expression->offset_limit_cnt != 0) {
@@ -1665,7 +1698,8 @@ AccessPath *GetAccessPathForDerivedTable(
         invalidators, table, table_path, table_ref->common_table_expr(),
         query_expression,
         /*ref_slice=*/-1, rematerialize, tmp_table_param->end_write_records,
-        query_expression->m_reject_multiple_rows);
+        query_expression->m_reject_multiple_rows,
+        /*cte_expr=*/table_ref->txsql_cte());
     EstimateMaterializeCost(thd, path);
     path = MoveCompositeIteratorsFromTablePath(path);
   }

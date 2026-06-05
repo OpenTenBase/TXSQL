@@ -554,6 +554,8 @@ struct System_variables {
   bool txsql_pread_count_enabled;
   /// @sa Sys_txsql_count_conversion_enabled
   bool txsql_count_conversion_enabled;
+  /// @sa Sys_txsql_convert_view_to_cte_enabled
+  bool txsql_convert_view_to_cte_enabled;
 };
 
 /**

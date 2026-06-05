@@ -67,6 +67,8 @@
 #include "typelib.h"
 #include "unsafe_string_append.h"
 
+#include "os_page_cache.h"
+
 #ifndef NDEBUG
 static uint binlog_dump_count = 0;
 volatile uint kill_binlog_dump= 0;
@@ -300,7 +302,7 @@ void Binlog_sender::init() {
 
   LogErr(INFORMATION_LEVEL, ER_RPL_BINLOG_STARTING_DUMP, thd->thread_id(),
          thd->server_id, m_start_file, m_start_pos);
-
+  mysql_bin_log.page_cache_cleaning_make_progress();
   {
     long long int cdb_replica_role;
     if (!get_user_var_int("cdb_replica_role", &cdb_replica_role, nullptr)) {
@@ -397,6 +399,7 @@ void Binlog_sender::run() {
   my_off_t start_pos = m_start_pos;
   const char *log_file = m_linfo.log_file_name;
   bool is_index_file_reopened_on_binlog_disable = false;
+  mysql_bin_log.update_last_clean_file_pos(log_file, start_pos);
 
   reader.allocator()->set_sender(this);
   while (!has_error() && !m_thd->killed) {
@@ -456,6 +459,18 @@ void Binlog_sender::run() {
                             true /*need_lock_index=true*/);
       set_fatal_error("could not find next log");
       break;
+    }
+
+    if (cdb_page_cache_cleaning_binlog) {
+      mysql_bin_log.page_cache_cleaning_make_progress();
+      DBUG_EXECUTE_IF("page_cache_cleaning_test", {
+        sql_print_information(
+            "A cdb_page_cache_cleaning_window of"
+            " binlog data is sent to slave or reached EOF.");
+      });
+      DBUG_EXECUTE_IF("trigger_page_cache_cleanup_after_reading_a_binlog_file",
+                      { mysql_bin_log.trigger_page_cache_cleanup(); });
+      page_cache_wake_up_worker();
     }
 
     start_pos = BIN_LOG_HEADER_SIZE;
@@ -686,6 +701,20 @@ int Binlog_sender::send_events(File_reader *reader, my_off_t end_pos) {
 
     if (unlikely(after_send_hook(log_file, in_exclude_group ? log_pos : 0)))
       return 1;
+
+    my_off_t read_pos = log_pos;
+    assert(read_pos >= m_linfo.last_read_pos);
+    if (cdb_page_cache_cleaning_binlog &&
+        (read_pos - m_linfo.last_read_pos >= cdb_page_cache_cleaning_window)) {
+      mysql_bin_log.update_log_last_read_pos(&m_linfo, read_pos);
+      mysql_bin_log.page_cache_cleaning_make_progress();
+      DBUG_EXECUTE_IF("page_cache_cleaning_test", {
+        sql_print_information(
+            "A cdb_page_cache_cleaning_window of"
+            " binlog data is sent to slave or reached EOF.");
+      });
+      page_cache_wake_up_worker();
+    }
   }
 
   /*

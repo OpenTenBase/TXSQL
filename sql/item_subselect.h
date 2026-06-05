@@ -255,6 +255,7 @@ class Item_subselect : public Item_result_field {
   Item *replace_item_field(uchar *arg) override;
   Item *replace_item_view_ref(uchar *arg) override;
   Item *replace_item(Item_transformer t, uchar *arg);
+  Item *replace_item_subselect(uchar *) override;
 
   friend class Query_result_interceptor;
   friend class Item_in_optimizer;

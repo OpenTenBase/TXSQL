@@ -111,7 +111,8 @@ class Mem_compare_sint4_generic {
   }
 };
 
-#if defined(__i386__) || defined(__x86_64__) || defined(_WIN32)
+#if defined(__i386__) || defined(__x86_64__) || defined(_WIN32) || \
+    defined(__aarch64__)
 
 TEST_F(AlignmentTest, AlignedSort) {
   for (int ix = 0; ix < num_iterations; ++ix) {

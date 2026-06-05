@@ -79,11 +79,11 @@ a	b
 select * from (select * from t1 union all select * from t1) a;
 a	b
 1	a
+2	b
+3	c
+3	c
 1	a
 2	b
-2	b
-3	c
-3	c
 3	c
 3	c
 select * from (select * from t1 union all select * from t1 limit 2) a;
@@ -670,8 +670,8 @@ f1	f11
 2	2
 3	3
 5	5
-7	7
 9	9
+7	7
 explain for multitable derived
 EXPLAIN SELECT * FROM (SELECT * FROM t1 JOIN t2 ON f1=f2) tt;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
@@ -821,8 +821,8 @@ f1	f11
 2	2
 3	3
 5	5
-7	7
 9	9
+7	7
 explain showing created indexes and late materialization
 FLUSH STATUS;
 EXPLAIN
@@ -1070,42 +1070,6 @@ f1	f11	f1	f11	f1	f11
 5	5	5	5	5	5
 5	5	5	5	5	5
 5	5	5	5	5	5
-7	7	7	7	7	7
-7	7	7	7	7	7
-7	7	7	7	7	7
-7	7	7	7	7	7
-7	7	7	7	7	7
-7	7	7	7	7	7
-7	7	7	7	7	7
-7	7	7	7	7	7
-7	7	7	7	7	7
-7	7	7	7	7	7
-7	7	7	7	7	7
-7	7	7	7	7	7
-7	7	7	7	7	7
-7	7	7	7	7	7
-7	7	7	7	7	7
-7	7	7	7	7	7
-7	7	7	7	7	7
-7	7	7	7	7	7
-7	7	7	7	7	7
-7	7	7	7	7	7
-7	7	7	7	7	7
-7	7	7	7	7	7
-7	7	7	7	7	7
-7	7	7	7	7	7
-7	7	7	7	7	7
-7	7	7	7	7	7
-7	7	7	7	7	7
-7	7	7	7	7	7
-7	7	7	7	7	7
-7	7	7	7	7	7
-7	7	7	7	7	7
-7	7	7	7	7	7
-7	7	7	7	7	7
-7	7	7	7	7	7
-7	7	7	7	7	7
-7	7	7	7	7	7
 9	9	9	9	9	9
 9	9	9	9	9	9
 9	9	9	9	9	9
@@ -1142,6 +1106,42 @@ f1	f11	f1	f11	f1	f11
 9	9	9	9	9	9
 9	9	9	9	9	9
 9	9	9	9	9	9
+7	7	7	7	7	7
+7	7	7	7	7	7
+7	7	7	7	7	7
+7	7	7	7	7	7
+7	7	7	7	7	7
+7	7	7	7	7	7
+7	7	7	7	7	7
+7	7	7	7	7	7
+7	7	7	7	7	7
+7	7	7	7	7	7
+7	7	7	7	7	7
+7	7	7	7	7	7
+7	7	7	7	7	7
+7	7	7	7	7	7
+7	7	7	7	7	7
+7	7	7	7	7	7
+7	7	7	7	7	7
+7	7	7	7	7	7
+7	7	7	7	7	7
+7	7	7	7	7	7
+7	7	7	7	7	7
+7	7	7	7	7	7
+7	7	7	7	7	7
+7	7	7	7	7	7
+7	7	7	7	7	7
+7	7	7	7	7	7
+7	7	7	7	7	7
+7	7	7	7	7	7
+7	7	7	7	7	7
+7	7	7	7	7	7
+7	7	7	7	7	7
+7	7	7	7	7	7
+7	7	7	7	7	7
+7	7	7	7	7	7
+7	7	7	7	7	7
+7	7	7	7	7	7
 SHOW STATUS LIKE 'Handler_read%';
 Variable_name	Value
 Handler_read_first	0
@@ -1333,8 +1333,8 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t2`.`f2` AS `f2`,`test`.`t2`.`f22` AS `f22` from `test`.`t2` where ((`test`.`t2`.`f2` < 7) and (`test`.`t2`.`f2` in (2,3)))
 SELECT * FROM (SELECT * FROM v6) tt;
 f2	f22
-2	2
 3	3
+2	2
 materialized view in a merged view in a materialized derived
 CREATE VIEW v7 AS SELECT * FROM v1;
 EXPLAIN SELECT * FROM (SELECT * FROM v7 GROUP BY 1) tt;
@@ -2411,8 +2411,8 @@ FROM t1 JOIN (SELECT a, b, @c:= a+b FROM t2) AS dt ON t1.a=dt.a;
 a	b	a	b	@c:= a+b
 1	10	1	100	101
 2	20	2	200	202
-Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
 Warnings:
+Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
 explain SELECT *
 FROM t1 JOIN (SELECT a, b, @c:= a+b FROM t2) AS dt ON t1.a=dt.a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
@@ -3660,14 +3660,14 @@ ON t2.c2k = t1.c1k
 RIGHT JOIN t2 AS alias2
 ON alias2.c2n = alias1.dt_field;
 field1
-cc
-cc
-cc
-cc
 ff
-kk
-rr
 tt
+cc
+cc
+cc
+cc
+rr
+kk
 prepare s from 'SELECT alias1.dt_field AS field1
 FROM (SELECT t2.c2n AS dt_field
 FROM t1 RIGHT JOIN t2
@@ -3694,14 +3694,14 @@ ON t2.c2k = t1.c1k
 RIGHT JOIN t2 AS alias2
 ON alias2.c2n = alias1.dt_field;
 field1
-cc
-cc
-cc
-cc
 ff
-kk
-rr
 tt
+cc
+cc
+cc
+cc
+rr
+kk
 prepare s from 'SELECT alias1.dt_field AS field1
 FROM (SELECT t2.c2n AS dt_field
 FROM t2 LEFT JOIN t1
@@ -3725,27 +3725,27 @@ FROM vl AS alias1
 RIGHT JOIN t2 AS alias2
 ON alias2.c2n = alias1.v_field;
 field1
-cc
-cc
-cc
-cc
 ff
-kk
-rr
 tt
+cc
+cc
+cc
+cc
+rr
+kk
 SELECT alias1.v_field AS field1
 FROM vr AS alias1
 RIGHT JOIN t2 AS alias2
 ON alias2.c2n = alias1.v_field;
 field1
-cc
-cc
-cc
-cc
 ff
-kk
-rr
 tt
+cc
+cc
+cc
+cc
+rr
+kk
 SELECT alias1.dt_field AS field1
 FROM (SELECT t2.c2n AS dt_field
 FROM t1 RIGHT JOIN
@@ -3756,14 +3756,14 @@ ON t2.c2k = t1.c1k
 RIGHT JOIN t2 AS alias2
 ON alias2.c2n = alias1.dt_field;
 field1
-cc
-cc
-cc
-cc
 ff
-kk
-rr
 tt
+cc
+cc
+cc
+cc
+rr
+kk
 SELECT alias1.dt_field AS field1
 FROM (SELECT t2.c2n AS dt_field
 FROM t1 RIGHT JOIN
@@ -3774,14 +3774,14 @@ ON t2.c2k = t1.c1k
 RIGHT JOIN t2 AS alias2
 ON alias2.c2n = alias1.dt_field;
 field1
-cc
-cc
-cc
-cc
 ff
-kk
-rr
 tt
+cc
+cc
+cc
+cc
+rr
+kk
 DROP VIEW vl, vr;
 DROP TABLE t1, t2, `empty`;
 # Bug#22239474: Unexpected error 1093 on nested subquery for update
@@ -4072,7 +4072,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	t1	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
 Warnings:
 Note	1249	Select 3 was reduced during optimization
-Note	1003	/* select#1 */ select 1 AS `alias1`,`alias1` AS `alias2` from dual
+Note	1003	/* select#1 */ select 1 AS `alias1`,1 AS `alias2` from dual
 SELECT *
 FROM (SELECT (1) alias1,
 (SELECT alias1) alias2
@@ -4100,7 +4100,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	t1	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
 Warnings:
 Note	1249	Select 3 was reduced during optimization
-Note	1003	/* select#1 */ select `alias1` AS `alias2` from dual
+Note	1003	/* select#1 */ select 1 AS `alias2` from dual
 SELECT alias2
 FROM (SELECT (1) alias1,
 (SELECT alias1) alias2
@@ -4613,15 +4613,15 @@ WHERE dayofyear(1) AND max(1)
 GROUP BY a
 ) FROM t1;
 (
-)
-) d1
-1
-GROUP BY a
 SELECT 1 FROM (
 SELECT avg(1) FROM t1
 WHERE dayofyear(1) AND max(1)
-Warning	1292	Incorrect datetime value: '1'
+) d1
+GROUP BY a
+)
+1
 Warnings:
+Warning	1292	Incorrect datetime value: '1'
 SET sql_mode=DEFAULT;
 DROP TABLE t1;
 #
@@ -4668,3 +4668,55 @@ a	(SELECT MIN(c) FROM cte AS cte2 WHERE t2.d = cte2.b)
 2	60
 3	60
 DROP TABLE t1, t2;
+#
+# Bug#35410465: Subquery ORDER BY is ignored
+#
+CREATE TABLE t1 (f1 LONGTEXT, f2 INTEGER);
+INSERT INTO t1 VALUES (NULL, NULL), (1,2);
+SELECT f1
+FROM (SELECT *
+FROM (SELECT t1.*
+FROM t1 LEFT JOIN t1 AS t2
+ON (t1.f1 = t2.f1)) AS dt1 ORDER BY f1 asc) AS dt2;
+f1
+NULL
+1
+DROP TABLE t1;
+CREATE TABLE t1
+(a LONGTEXT,
+b BIGINT DEFAULT NULL,
+c DOUBLE DEFAULT NULL,
+d DATETIME DEFAULT NULL)
+ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+INSERT INTO t1 VALUES
+(NULL,NULL,NULL,NULL),('Cat1',0,0.5,'2013-06-10 11:10:10'),
+('Cat2',1,1.5,'2013-06-11 12:11:11'),('Cat1',2,2.5,'2013-06-12 13:12:12'),
+('Cat2',3,3.5,'2013-06-13 14:13:13'),('Cat1',4,4.5,'2013-06-14 15:14:14'),
+('Cat2',5,5.5,'2013-06-15 16:15:15'),('Cat1',6,6.5,'2013-06-16 17:16:16'),
+('Cat2',7,7.5,'2013-06-17 18:17:17'),('Cat1',8,8.5,'2013-06-18 19:18:18');
+SELECT a, b
+FROM (SELECT a, b, count1, count2
+FROM (SELECT dt3.a, dt3.b, dt3.count1, count2
+FROM (SELECT dt1.a, dt1.b, count1
+FROM (SELECT a, b
+FROM (SELECT a, b FROM t1) AS dt GROUP BY a, b) AS dt1
+LEFT JOIN
+(SELECT a, COUNT(*) AS count1 FROM t1 GROUP BY a) AS dt2
+ON (dt2.a = dt1.a)) AS dt3
+LEFT JOIN
+(SELECT a, COUNT(*) AS count2
+FROM (SELECT a FROM t1) AS dt5 GROUP BY a) AS dt4
+ON (dt3.a = dt4.a)) AS dt5
+ORDER BY count1 desc, a, count2 desc, b) AS dt6;
+a	b
+Cat1	0
+Cat1	2
+Cat1	4
+Cat1	6
+Cat1	8
+Cat2	1
+Cat2	3
+Cat2	5
+Cat2	7
+NULL	NULL
+DROP TABLE t1;

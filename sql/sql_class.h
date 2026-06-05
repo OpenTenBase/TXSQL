@@ -119,6 +119,7 @@
 
 /* Changes from TXSQL start. */
 #include "sql/sql_seq.h"
+#include "sql/txsql_cte/txsql_cte.h"
 #include <list>
 /* Changes from TXSQL end. */
 
@@ -1219,6 +1220,7 @@ class THD : public MDL_context_owner,
 #endif
 #endif /* defined(HAVE_PX) */
 
+  txsql::cte_map_t<txsql::CTE_view_expr> cte_map;
  private:
   /**
     The lex to hold the parsed tree of conventional (non-prepared) queries.

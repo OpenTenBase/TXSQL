@@ -134,6 +134,8 @@
 #include "thr_lock.h"
 #include "sql/opt_statistics.h"
 
+#include "os_page_cache.h"
+#include "sql/rpl_source.h"
 extern bool txsql_slave_io_optimaze_write;
 extern ulonglong sqlasync_group_slave_relay_fsync ;
 
@@ -3243,7 +3245,7 @@ bool purge_source_logs_to_file(THD *thd, const char *to_log) {
   mysql_bin_log.make_log_name(search_file_name, to_log);
   auto purge_error = mysql_bin_log.purge_logs(
       search_file_name, include_to_log, need_index_lock, need_update_threads,
-      nullptr, auto_purge);
+      nullptr, auto_purge, txsql_binlog_purge_check_file_count);
   return purge_error_message(thd, purge_error);
 }
 
@@ -3606,7 +3608,8 @@ MYSQL_BIN_LOG::MYSQL_BIN_LOG(uint *sync_period, bool relay_log)
       previous_gtid_set_relaylog(nullptr),
       is_rotating_caused_by_incident(false),
       m_cur_bin_suffix(0),
-      m_cur_tmp_suffix(0) {
+      m_cur_tmp_suffix(0),
+      progress_tracker(this) {
   /*
     We don't want to initialize locks here as such initialization depends on
     safe_mutex (when using safe_mutex) which depends on MY_INIT(), which is
@@ -3650,7 +3653,7 @@ void MYSQL_BIN_LOG::cleanup() {
       Commit_stage_manager::get_instance().deinit();
     }
   }
-
+  progress_tracker.cleanup();
   delete m_binlog_file;
   m_binlog_file = nullptr;
 }
@@ -3676,6 +3679,7 @@ void MYSQL_BIN_LOG::init_pthread_objects() {
         m_key_LOCK_flush_queue, m_key_LOCK_sync_queue, m_key_LOCK_commit_queue,
         m_key_LOCK_done, m_key_COND_done, m_key_COND_flush_queue);
   }
+  progress_tracker.init();
 }
 
 void MYSQL_BIN_LOG::binlog_flush(ordered_commit_flush_thread *manager)
@@ -4794,7 +4798,8 @@ bool MYSQL_BIN_LOG::init_gtid_sets(Gtid_set *all_gtids, Gtid_set *lost_gtids,
                                    bool verify_checksum, bool need_lock,
                                    Transaction_boundary_parser *trx_parser,
                                    Gtid_monitoring_info *partial_trx,
-                                   bool is_server_starting) {
+                                   bool is_server_starting, bool add_log,
+                                   ulonglong check_file_count) {
   DBUG_TRACE;
   DBUG_PRINT(
       "info",
@@ -4838,7 +4843,7 @@ bool MYSQL_BIN_LOG::init_gtid_sets(Gtid_set *all_gtids, Gtid_set *lost_gtids,
     sid_map = lost_gtids->get_sid_map();
 
   // Gather the set of files to be accessed.
-  auto log_index = this->get_log_index(false);
+  auto log_index = this->get_log_index(false, check_file_count);
   std::list<std::string> filename_list = log_index.second;
   int error = log_index.first;
   list<string>::iterator it;
@@ -5048,6 +5053,11 @@ bool MYSQL_BIN_LOG::init_gtid_sets(Gtid_set *all_gtids, Gtid_set *lost_gtids,
           goto end;
         }
         case NO_GTIDS:
+          if (check_file_count != 0) {
+            error = 1;
+            goto end;
+          }
+          [[fallthrough]];
         case GOT_PREVIOUS_GTIDS: {
           /*
             Mysql server iterates forwards through binary logs, looking for
@@ -5351,6 +5361,7 @@ bool MYSQL_BIN_LOG::open_binlog(
   m_dependency_tracker.rotate();
 
   close_purge_index_file();
+  progress_tracker.update_active_file(log_file_name);
 
   update_binlog_end_pos();
   return false;
@@ -5801,6 +5812,7 @@ int MYSQL_BIN_LOG::find_next_log(LOG_INFO *linfo, bool need_lock_index) {
 
   linfo->index_file_offset = my_b_tell(&index_file);
 
+  linfo->last_read_pos = 0;
 err:
   if (need_lock_index) mysql_mutex_unlock(&LOCK_index);
   return error;
@@ -5835,7 +5847,7 @@ int MYSQL_BIN_LOG::find_next_relay_log(char log_name[FN_REFLEN + 1]) {
 }
 
 std::pair<int, std::list<std::string>> MYSQL_BIN_LOG::get_log_index(
-    bool need_lock_index) {
+    bool need_lock_index, ulonglong file_count) {
   DBUG_TRACE;
   LOG_INFO log_info;
 
@@ -5846,11 +5858,19 @@ std::pair<int, std::list<std::string>> MYSQL_BIN_LOG::get_log_index(
 
   std::list<std::string> filename_list;
   int error = 0;
+  ulonglong count = 0;
   for (error =
            this->find_log_pos(&log_info, nullptr, false /*need_lock_index*/);
        error == 0;
        error = this->find_next_log(&log_info, false /*need_lock_index*/)) {
     filename_list.push_back(std::string(log_info.log_file_name));
+    if (file_count != 0) {
+      count++;
+      if (count >= file_count) {
+        error = LOG_INFO_EOF;
+        break;
+      }
+    }
   }
 
   if (need_lock_index) mysql_mutex_unlock(&LOCK_index);
@@ -6032,6 +6052,10 @@ bool MYSQL_BIN_LOG::reset_logs(THD *thd, bool delete_only) {
 err:
   if (name == nullptr)
     name = const_cast<char *>(save_name);  // restore old file-name
+
+  if (!error && !is_relay_log) {
+    update_progress_tracker_logfiles(true);
+  }
   sid_lock->unlock();
   mysql_mutex_unlock(&LOCK_index);
   mysql_mutex_unlock(&LOCK_log);
@@ -6201,7 +6225,8 @@ err:
 
 int MYSQL_BIN_LOG::purge_logs(const char *to_log, bool included,
                               bool need_lock_index, bool need_update_threads,
-                              ulonglong *decrease_log_space, bool auto_purge) {
+                              ulonglong *decrease_log_space, bool auto_purge,
+                              ulonglong check_file_count) {
   int error = 0, no_of_log_files_to_purge = 0, no_of_log_files_purged = 0;
   int no_of_threads_locking_log = 0;
   bool exit_loop = false;
@@ -6214,6 +6239,9 @@ int MYSQL_BIN_LOG::purge_logs(const char *to_log, bool included,
     mysql_mutex_lock(&LOCK_index);
   else
     mysql_mutex_assert_owner(&LOCK_index);
+
+  DEBUG_SYNC(current_thd, "txsql_purge_binlog_wait_after_lock_index");
+
   if ((error =
            find_log_pos(&log_info, to_log, false /*need_lock_index=false*/))) {
     LogErr(ERROR_LEVEL, ER_BINLOG_PURGE_LOGS_CALLED_WITH_FILE_NOT_IN_INDEX,
@@ -6282,10 +6310,32 @@ int MYSQL_BIN_LOG::purge_logs(const char *to_log, bool included,
   // Update gtid_state->lost_gtids
   if (!is_relay_log) {
     global_sid_lock->wrlock();
-    error = init_gtid_sets(
-        nullptr, const_cast<Gtid_set *>(gtid_state->get_lost_gtids()),
-        opt_source_verify_checksum, false /*false=don't need lock*/,
-        nullptr /*trx_parser*/, nullptr /*partial_trx*/);
+    if (check_file_count != 0) {
+      Gtid_set *lost_gtids =
+          const_cast<Gtid_set *>(gtid_state->get_lost_gtids());
+      Gtid_set temp_lost_gtids(global_sid_map, nullptr);
+      error = init_gtid_sets(
+          nullptr, &temp_lost_gtids, opt_source_verify_checksum,
+          false /*false=don't need lock*/, nullptr /*trx_parser*/,
+          nullptr /*partial_trx*/, false, false, check_file_count);
+      if (error || temp_lost_gtids.is_empty()) {
+        temp_lost_gtids.clear();
+        sql_print_warning(
+            "[TXSQL] failed to init gtids while "
+            "txsql_binlog_purge_check_file_count=%lu, error: %d",
+            check_file_count, error);
+        error = init_gtid_sets(nullptr, lost_gtids, opt_source_verify_checksum,
+                               false /*false=don't need lock*/,
+                               nullptr /*trx_parser*/, nullptr /*partial_trx*/);
+      } else {
+        lost_gtids->add_gtid_set(&temp_lost_gtids);
+      }
+    } else {
+      error = init_gtid_sets(
+          nullptr, const_cast<Gtid_set *>(gtid_state->get_lost_gtids()),
+          opt_source_verify_checksum, false /*false=don't need lock*/,
+          nullptr /*trx_parser*/, nullptr /*partial_trx*/);
+    }
     global_sid_lock->unlock();
     if (error) goto err;
   }
@@ -6305,6 +6355,10 @@ err:
 
   DBUG_EXECUTE_IF("crash_purge_non_critical_after_update_index",
                   DBUG_SUICIDE(););
+
+  if (!error && !close_error_index && !error_index && !is_relay_log) {
+    update_progress_tracker_logfiles();
+  }
 
   if (need_lock_index) mysql_mutex_unlock(&LOCK_index);
 
@@ -6738,7 +6792,8 @@ void MYSQL_BIN_LOG::dec_prep_xids(THD *thd) {
 
 int MYSQL_BIN_LOG::new_file(
     Format_description_log_event *extra_description_event) {
-  return new_file_impl(true /*need_lock_log=true*/, extra_description_event);
+  return new_file_impl(true /*need_lock_log=true*/, extra_description_event,
+                       false);
 }
 
 /*
@@ -6746,8 +6801,10 @@ int MYSQL_BIN_LOG::new_file(
     nonzero - error
 */
 int MYSQL_BIN_LOG::new_file_without_locking(
-    Format_description_log_event *extra_description_event) {
-  return new_file_impl(false /*need_lock_log=false*/, extra_description_event);
+    Format_description_log_event *extra_description_event,
+    bool try_lock_index) {
+  return new_file_impl(false /*need_lock_log=false*/, extra_description_event,
+                       try_lock_index);
 }
 
 /**
@@ -6766,7 +6823,8 @@ int MYSQL_BIN_LOG::new_file_without_locking(
   @note The new file name is stored last in the index file
 */
 int MYSQL_BIN_LOG::new_file_impl(
-    bool need_lock_log, Format_description_log_event *extra_description_event) {
+    bool need_lock_log, Format_description_log_event *extra_description_event,
+    bool try_lock_index) {
   int error = 0;
   bool close_on_error = false;
   char new_name[FN_REFLEN], *new_name_ptr = nullptr, *old_name, *file_to_open;
@@ -6786,6 +6844,15 @@ int MYSQL_BIN_LOG::new_file_impl(
     mysql_mutex_assert_owner(&LOCK_log);
   DBUG_EXECUTE_IF("semi_sync_3-way_deadlock",
                   DEBUG_SYNC(current_thd, "before_rotate_binlog"););
+
+  if (try_lock_index) {
+    error = mysql_mutex_trylock(&LOCK_index);
+    if (error != 0) {
+      /* lock failed */
+      return TRY_LOCK_INDEX_FAIL;
+    }
+  }
+
   mysql_mutex_lock(&LOCK_xids);
   /*
     We need to ensure that the number of prepared XIDs are 0.
@@ -6800,7 +6867,9 @@ int MYSQL_BIN_LOG::new_file_impl(
   }
   mysql_mutex_unlock(&LOCK_xids);
 
-  mysql_mutex_lock(&LOCK_index);
+  if (!try_lock_index) {
+    mysql_mutex_lock(&LOCK_index);
+  }
 
   mysql_mutex_assert_owner(&LOCK_log);
   mysql_mutex_assert_owner(&LOCK_index);
@@ -6982,6 +7051,11 @@ end:
 
     close(LOG_CLOSE_INDEX, false /*need_lock_log=false*/,
           false /*need_lock_index=false*/);
+  }
+  else {
+    if (!is_relay_log) {
+      update_progress_tracker_logfiles();
+    }
   }
 
   mysql_mutex_unlock(&LOCK_index);
@@ -7479,7 +7553,8 @@ bool MYSQL_BIN_LOG::write_event(Log_event *event_info) {
   @retval
     nonzero - error in rotating routine.
 */
-int MYSQL_BIN_LOG::rotate(bool force_rotate, bool *check_purge) {
+int MYSQL_BIN_LOG::rotate(bool force_rotate, bool *check_purge,
+                          bool try_lock_index) {
   int error = 0;
   DBUG_TRACE;
 
@@ -7491,7 +7566,15 @@ int MYSQL_BIN_LOG::rotate(bool force_rotate, bool *check_purge) {
   if (DBUG_EVALUATE_IF("force_rotate", 1, 0) || force_rotate ||
       (m_binlog_file->get_real_file_size() >= (my_off_t)max_size) ||
       DBUG_EVALUATE_IF("simulate_max_binlog_size", true, false)) {
-    error = new_file_without_locking(nullptr);
+    error = new_file_without_locking(nullptr, try_lock_index);
+    if (try_lock_index && error == TRY_LOCK_INDEX_FAIL) {
+      DEBUG_SYNC(current_thd, "txsql_try_lock_index_failed");
+      return 0;
+    }
+    if (cdb_page_cache_cleaning_binlog) {
+      progress_tracker.update_active_file(log_file_name);
+      progress_tracker.make_progress();
+    }
     *check_purge = true;
   }
   return error;
@@ -8284,6 +8367,11 @@ int MYSQL_BIN_LOG::open_binlog(const char *opt_name) {
   }
 
 err:
+  if (error == 0 && !is_relay_log) {
+    mysql_mutex_lock(&LOCK_index);
+    update_progress_tracker_logfiles(true);
+    mysql_mutex_unlock(&LOCK_index);
+  }
   if (should_execute_ha_recover) {
     error = ha_recover();
     if (error) LogErr(ERROR_LEVEL, ER_BINLOG_CRASH_RECOVERY_ERROR_RETURNED_SE);
@@ -9286,13 +9374,25 @@ void MYSQL_BIN_LOG::rotate_after_commit(THD *thd) {
   */
   DEBUG_SYNC(thd, "ready_to_do_rotation");
   bool check_purge = false;
-  mysql_mutex_lock(&LOCK_log);
-  /*
-    If rotate fails then depends on binlog_error_action variable
-    appropriate action will be taken inside rotate call.
-  */
-  int error = rotate(false, &check_purge);
-  mysql_mutex_unlock(&LOCK_log);
+  int error = 0;
+  bool lock_log_locked = true;
+  if (txsql_binlog_rotate_try_lock_log) {
+    error = mysql_mutex_trylock(&LOCK_log);
+    if (error != 0) {
+      lock_log_locked = false;
+      error = 0;
+    }
+  } else {
+    mysql_mutex_lock(&LOCK_log);
+  }
+  if (lock_log_locked) {
+    /*
+      If rotate fails then depends on binlog_error_action variable
+      appropriate action will be taken inside rotate call.
+    */
+    error = rotate(false, &check_purge, txsql_binlog_rotate_try_lock_index);
+    mysql_mutex_unlock(&LOCK_log);
+  }
   if (error)
     thd->commit_error = THD::CE_COMMIT_ERROR;
   else if (check_purge)
@@ -12093,6 +12193,271 @@ bool check_binlog_cache_dbl_used(const THD *thd) {
   binlog_cache_mngr *cache_mngr = thd_get_cache_mngr(thd);
   return cache_mngr->all_finalized();
 }
+
+void MYSQL_BIN_LOG::BIN_LOG_PROGRESS_TRACKER::init() {
+  mysql_mutex_init(key_BINLOG_LOCK_progress_tracker,
+                   &LOCK_binlog_progress_tracker, MY_MUTEX_INIT_SLOW);
+}
+void MYSQL_BIN_LOG::BIN_LOG_PROGRESS_TRACKER::cleanup() {
+  mysql_mutex_destroy(&LOCK_binlog_progress_tracker);
+}
+void MYSQL_BIN_LOG::BIN_LOG_PROGRESS_TRACKER::reset_pointers() {
+  mysql_mutex_assert_owner(&LOCK_binlog_progress_tracker);
+  data.last_cleaned_file_idx = 0;
+  data.last_cleaned_file_offset = 0;
+}
+void MYSQL_BIN_LOG::BIN_LOG_PROGRESS_TRACKER::make_progress() {
+  mysql_mutex_lock(&LOCK_binlog_progress_tracker);
+  data.has_progress = true;
+  mysql_mutex_unlock(&LOCK_binlog_progress_tracker);
+}
+bool MYSQL_BIN_LOG::BIN_LOG_PROGRESS_TRACKER::has_progress() {
+  // It's tolerable to do a dirty read on this flag.
+  return data.has_progress;
+}
+void MYSQL_BIN_LOG::BIN_LOG_PROGRESS_TRACKER::set_progress(bool made_progress) {
+  mysql_mutex_assert_owner(&LOCK_binlog_progress_tracker);
+  data.has_progress = made_progress;
+}
+void MYSQL_BIN_LOG::BIN_LOG_PROGRESS_TRACKER::update_active_file(
+    const char *active_binlog_filename) {
+  mysql_mutex_lock(&LOCK_binlog_progress_tracker);
+  data.active_binlog_filename = active_binlog_filename;
+  mysql_mutex_unlock(&LOCK_binlog_progress_tracker);
+}
+static int compare_log_name(const char *log_1, const char *log_2);
+class LogFilenameEqual {
+ public:
+  LogFilenameEqual(const std::string &lhs = "") : lhs(lhs) {}
+  bool operator()(const std::string &rhs) const {
+    return compare_log_name(lhs.c_str(), rhs.c_str()) == 0;
+  }
+
+ private:
+  const std::string &lhs;
+};
+void MYSQL_BIN_LOG::BIN_LOG_PROGRESS_TRACKER::update_last_clean_file_pos(
+    const std::string &new_dumper_at_file_name,
+    my_off_t new_dumper_at_file_pos) {
+  mysql_mutex_lock(&LOCK_binlog_progress_tracker);
+  LogFilenameEqual equal(new_dumper_at_file_name);
+  std::vector<std::string>::const_iterator it =
+      std::find_if(data.sorted_binlog_file_fullnames.begin(),
+                   data.sorted_binlog_file_fullnames.end(), equal);
+  if (it != data.sorted_binlog_file_fullnames.end()) {
+    int file_idx = it - data.sorted_binlog_file_fullnames.begin();
+    if (file_idx < data.last_cleaned_file_idx ||
+        (file_idx == data.last_cleaned_file_idx &&
+         new_dumper_at_file_pos < data.last_cleaned_file_offset)) {
+      data.last_cleaned_file_offset = new_dumper_at_file_pos;
+      data.last_cleaned_file_idx = file_idx;
+      DBUG_EXECUTE_IF("page_cache_cleaning_test", {
+        sql_print_information(
+            "new dump thread read before the page"
+            " cache cleanup position, resetting pointers");
+      });
+    }
+  }
+  mysql_mutex_unlock(&LOCK_binlog_progress_tracker);
+}
+void MYSQL_BIN_LOG::BIN_LOG_PROGRESS_TRACKER::trigger_page_cache_cleanup(
+    const std::vector<std::string> &dumper_current_filenames,
+    const std::vector<my_off_t> &dumper_current_read_progress) {
+  mysql_mutex_lock(&LOCK_binlog_progress_tracker);
+  int min_file_idx = (int)data.sorted_binlog_file_fullnames.size();
+  my_off_t min_file_offset = std::numeric_limits<my_off_t>::max();
+  for (size_t i = 0; i < dumper_current_filenames.size(); ++i) {
+    LogFilenameEqual equal(dumper_current_filenames[i]);
+    std::vector<std::string>::const_iterator it =
+        std::find_if(data.sorted_binlog_file_fullnames.begin(),
+                     data.sorted_binlog_file_fullnames.end(), equal);
+    DBUG_EXECUTE_IF("page_cache_cleaning_test", {
+      sql_print_information(
+          "dumper_current_filenames[%lu]: %s, "
+          "dumper_current_read_progress[%lu]: %llu",
+          i, dumper_current_filenames[i].c_str(), i,
+          dumper_current_read_progress[i]);
+    });
+    if (it != data.sorted_binlog_file_fullnames.end()) {
+      int dis = it - data.sorted_binlog_file_fullnames.begin();
+      if (dis < min_file_idx ||
+          (dis == min_file_idx &&
+           dumper_current_read_progress[i] < min_file_offset)) {
+        min_file_idx = dis;
+        min_file_offset = dumper_current_read_progress[i];
+      }
+    }
+  }
+  int num_dumpers = dumper_current_filenames.size();
+  if (num_dumpers == 0) {
+    // No slaves, clean the page cache of files before the active binlog file
+    DBUG_EXECUTE_IF("page_cache_cleaning_test", {
+      sql_print_information("page cache cleaning without slaves");
+    });
+    if (data.active_binlog_filename.empty()) {
+      goto exit;
+    }
+    LogFilenameEqual equal(data.active_binlog_filename);
+    std::vector<std::string>::const_iterator it =
+        std::find_if(data.sorted_binlog_file_fullnames.begin(),
+                     data.sorted_binlog_file_fullnames.end(), equal);
+    if (it == data.sorted_binlog_file_fullnames.end()) goto exit;
+    min_file_idx = it - data.sorted_binlog_file_fullnames.begin();
+    ;
+    min_file_offset = 0;
+  } else {
+    DBUG_EXECUTE_IF("page_cache_cleaning_test", {
+      sql_print_information("page cache cleaning with slaves");
+    });
+  }
+  DBUG_EXECUTE_IF("page_cache_cleaning_test", {
+    sql_print_information(
+        "min_file %s(%d), min_file_offset %llu, "
+        "data.last_cleaned_file_idx %s(%d), "
+        "data.last_cleaned_file_offset %llu, "
+        "data.sorted_binlog_file_fullnames.size() %lu",
+        min_file_idx < (int)data.sorted_binlog_file_fullnames.size()
+            ? data.sorted_binlog_file_fullnames[min_file_idx].c_str()
+            : NULL,
+        min_file_idx, min_file_offset,
+        data.last_cleaned_file_idx <
+                (int)data.sorted_binlog_file_fullnames.size()
+            ? data.sorted_binlog_file_fullnames[data.last_cleaned_file_idx]
+                  .c_str()
+            : NULL,
+        data.last_cleaned_file_idx, data.last_cleaned_file_offset,
+        data.sorted_binlog_file_fullnames.size());
+  });
+  if (min_file_idx != (int)data.sorted_binlog_file_fullnames.size()) {
+    assert(min_file_offset != std::numeric_limits<my_off_t>::max());
+    for (int i = data.last_cleaned_file_idx; i <= min_file_idx; ++i) {
+      MY_STAT stat;
+      const char *log_filename = data.sorted_binlog_file_fullnames[i].c_str();
+      if (compare_log_name(log_filename, data.active_binlog_filename.c_str()) ==
+          0) {
+        // We avoid cleaning the active binlog file
+        // that is currently being written.
+        goto exit;
+      }
+      if (!mysql_file_stat(binlog->m_key_file_log, log_filename, &stat,
+                           MYF(0))) {
+        // Somehow errors occurred, probably because some files got purged.
+        // We skip the cleaning all together and catch up later
+        // when sorted_binlog_file_fullnames is up to date.
+        goto exit;
+      }
+      my_off_t file_size = stat.st_size;
+      assert(i != min_file_idx || file_size >= min_file_offset);
+      my_off_t start_off = data.last_cleaned_file_offset;
+      if (start_off > file_size) start_off = file_size;
+      for (;;) {
+        // If on the last file, we do not wish to clean the the area
+        // beyond min_file_offset as this area might be actively accessed
+        // by the dumper threads.
+        if (i == min_file_idx && start_off >= min_file_offset) {
+          break;
+        }
+        // We do not clean the area beyond the file size.
+        if (i < min_file_idx && start_off >= file_size) {
+          break;
+        }
+        // Cap the cleaning region to be valid area within a file
+        my_off_t len = cdb_page_cache_cleaning_window;
+
+        // We make sure the cleaning region size ==
+        // cdb_page_cache_cleaning_window except for the last remaining region
+        // of a file.
+        if (i == min_file_idx && start_off + len > min_file_offset) {
+          break;
+        }
+        if (start_off + len > file_size) {
+          len = file_size - start_off;
+        }
+        page_cache_post_cleaning_work(log_filename, start_off, len);
+        start_off += len;
+      }
+      if (i == min_file_idx) {
+        my_off_t last_cleaned_file_offset = start_off;
+        data.last_cleaned_file_offset = last_cleaned_file_offset;
+        data.last_cleaned_file_idx = min_file_idx;
+      } else {
+        assert(i < min_file_idx);
+        data.last_cleaned_file_offset = 0;
+        data.last_cleaned_file_idx = i + 1;
+      }
+    }
+  }
+exit:
+  set_progress(false);
+  mysql_mutex_unlock(&LOCK_binlog_progress_tracker);
+}
+void MYSQL_BIN_LOG::update_progress_tracker_logfiles(bool reset_pointers) {
+  /* This function is used to take a snapshot of the contents in binlog index file.
+  When binlog cache cleaning is disabled, the snapshot is not used. 
+  */
+  if (!cdb_page_cache_cleaning_binlog) return;
+
+  std::vector<string> filenames;
+  mysql_mutex_assert_owner(&LOCK_index);
+  /** If the index file is somehow closed, we skip reading the contents. */
+  if (!my_b_inited(&index_file)) return;
+  /** Reload the binlog file paths from the index file in sorted order. */
+  LOG_INFO linfo;
+  int error;
+  for (error = find_log_pos(&linfo, NULL, false /*need_lock_index=false*/);
+       !error; error = find_next_log(&linfo, false /*need_lock_index=false*/)) {
+    DBUG_PRINT("info", ("read log filename '%s'", linfo.log_file_name));
+    filenames.push_back(string(linfo.log_file_name));
+  }
+  mysql_mutex_lock(&progress_tracker.LOCK_binlog_progress_tracker);
+  progress_tracker.data.sorted_binlog_file_fullnames.swap(filenames);
+  if (reset_pointers) {
+    progress_tracker.reset_pointers();
+    progress_tracker.set_progress(false);
+  }
+  mysql_mutex_unlock(&progress_tracker.LOCK_binlog_progress_tracker);
+}
+void MYSQL_BIN_LOG::update_log_last_read_pos(LOG_INFO *linfo,
+                                             my_off_t last_read_off) {
+  mysql_mutex_lock(&LOCK_index);
+  assert(linfo->last_read_pos <= last_read_off);
+  linfo->last_read_pos = last_read_off;
+  mysql_mutex_unlock(&LOCK_index);
+}
+void MYSQL_BIN_LOG::page_cache_cleaning_make_progress() {
+  progress_tracker.make_progress();
+}
+void MYSQL_BIN_LOG::enable_page_cache_cleaning() {
+  if (!is_relay_log) {
+    mysql_mutex_lock(&LOCK_index);
+    update_progress_tracker_logfiles(true);
+    mysql_mutex_unlock(&LOCK_index);
+  }
+}
+void MYSQL_BIN_LOG::update_last_clean_file_pos(const std::string &log_filename,
+                                               my_off_t log_file_pos) {
+  progress_tracker.update_last_clean_file_pos(log_filename, log_file_pos);
+}
+void MYSQL_BIN_LOG::trigger_page_cache_cleanup() {
+  if (progress_tracker.has_progress() == false) {
+    return;
+  }
+  if (cdb_page_cache_cleaning_binlog == false) return;
+  DBUG_EXECUTE_IF("page_cache_cleaning_test", {
+    sql_print_information("progress_tracker: made progress.");
+  });
+  std::vector<std::string> dumper_current_filenames;
+  std::vector<my_off_t> dumper_current_read_progress;
+  mysql_mutex_lock(&LOCK_replica_list);
+  mysql_mutex_lock(&LOCK_index);
+  page_cache_cleanning_collect_slave_log_progresses(
+      dumper_current_filenames, dumper_current_read_progress);
+  mysql_mutex_unlock(&LOCK_index);
+  mysql_mutex_unlock(&LOCK_replica_list);
+  progress_tracker.trigger_page_cache_cleanup(dumper_current_filenames,
+                                              dumper_current_read_progress);
+}
+
 /* Changes from TXSQL end.*/
 /** @} */
 

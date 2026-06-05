@@ -2965,9 +2965,9 @@ static Sys_var_ulong Sys_max_binlog_size(
     "Binary log will be rotated automatically when the size exceeds this "
     "value. Will also apply to relay logs if max_relay_log_size is 0",
     GLOBAL_VAR(max_binlog_size), CMD_LINE(REQUIRED_ARG),
-    VALID_RANGE(IO_SIZE, 1024 * 1024L * 1024L), DEFAULT(1024 * 1024L * 1024L),
-    BLOCK_SIZE(IO_SIZE), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr),
-    ON_UPDATE(fix_max_binlog_size));
+    VALID_RANGE(IO_SIZE, 1024 * 1024L * 1024L * 10L),
+    DEFAULT(1024 * 1024L * 1024L), BLOCK_SIZE(IO_SIZE), NO_MUTEX_GUARD,
+    NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(fix_max_binlog_size));
 
 static Sys_var_ulong Sys_max_connections(
     "max_connections", "The number of simultaneous clients allowed",
@@ -3453,6 +3453,7 @@ static const char *optimizer_switch_names[] = {
     "hypergraph_optimizer",  // Deliberately not documented below.
     "derived_condition_pushdown",
     "sort_merge_join",
+    "winmagic",
     "default",
     NullS};
 static Sys_var_flagset Sys_optimizer_switch(
@@ -3466,7 +3467,7 @@ static Sys_var_flagset Sys_optimizer_switch(
     " block_nested_loop, batched_key_access, use_index_extensions,"
     " condition_fanout_filter, derived_merge, hash_join,"
     " subquery_to_derived, prefer_ordering_index,"
-    " derived_condition_pushdown, sort_merge_join} and val is one of "
+    " derived_condition_pushdown, sort_merge_join, winmagic} and val is one of "
     "{on, off, default}",
     HINT_UPDATEABLE SESSION_VAR(optimizer_switch), CMD_LINE(REQUIRED_ARG),
     optimizer_switch_names, DEFAULT(OPTIMIZER_SWITCH_DEFAULT), NO_MUTEX_GUARD,
@@ -4074,6 +4075,27 @@ static bool check_thread_handling(sys_var *, THD *, set_var *var) {
   }
   return false;
 }
+
+static Sys_var_bool Sys_txsql_binlog_rotate_try_lock_index(
+    "txsql_binlog_rotate_try_lock_index",
+    "If set to ON, binlog will not rotate if LOCK_index could not be acquired.",
+    GLOBAL_VAR(txsql_binlog_rotate_try_lock_index), CMD_LINE(OPT_ARG),
+    DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL),
+    ON_UPDATE(NULL));
+
+static Sys_var_bool Sys_txsql_binlog_rotate_try_lock_log(
+    "txsql_binlog_rotate_try_lock_log",
+    "If set to ON, binlog will not rotate if LOCK_log could not be acquired.",
+    GLOBAL_VAR(txsql_binlog_rotate_try_lock_log), CMD_LINE(OPT_ARG),
+    DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL),
+    ON_UPDATE(NULL));
+
+static Sys_var_ulonglong Sys_txsql_binlog_purge_check_file_count(
+    "txsql_binlog_purge_check_file_count",
+    "Check how many binlog files to get lost gtids during purge.",
+    GLOBAL_VAR(txsql_binlog_purge_check_file_count), CMD_LINE(OPT_ARG),
+    VALID_RANGE(0, ULONG_MAX), DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD,
+    NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(nullptr));
 /* Changes from txsql end. */
 
 static Sys_var_enum Sys_thread_handling(
@@ -8325,6 +8347,13 @@ static Sys_var_bool Sys_txsql_range_estimation_by_histogram(
 static Sys_var_deprecated_alias Sys_range_estimation_by_histogram(
     "range_estimation_by_histogram", Sys_txsql_range_estimation_by_histogram);
 
+static Sys_var_bool Sys_txsql_convert_view_to_cte_enabled(
+    "txsql_convert_view_to_cte_enabled",
+    "When enabled, allow convert view to cte ",
+    SESSION_VAR(txsql_convert_view_to_cte_enabled), CMD_LINE(OPT_ARG),
+    DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+    ON_CHECK(NULL), ON_UPDATE(NULL));
+
 static Sys_var_bool Sys_txsql_load_data_local_strict_mode(
     "txsql_load_data_local_strict_mode",
     "Whether to emit errors (or warnings) in strict mode when executing LOAD "
@@ -9215,5 +9244,40 @@ static Sys_var_bool Sys_txsql_show_kill_log(
     GLOBAL_VAR(txsql_show_kill_log), CMD_LINE(OPT_ARG),
     DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL),
     ON_UPDATE(NULL));
+
+static bool update_cdb_page_cache_cleaning_binlog(sys_var *self, THD *thd,
+                                                  enum_var_type type) {
+  if (opt_bin_log) {
+    if (cdb_page_cache_cleaning_binlog == true) {
+      mysql_bin_log.enable_page_cache_cleaning();
+    }
+  }
+  return false;
+}
+static Sys_var_ulonglong Sys_page_cache_cleaning_window(
+    "cdb_page_cache_cleaning_window",
+    "Cleaning window size for page cache in bytes. Default is "
+    "16,777,216(16MB).",
+    GLOBAL_VAR(cdb_page_cache_cleaning_window), CMD_LINE(OPT_ARG),
+    VALID_RANGE(1024 * 1024, 1024 * 1024 * 1024), DEFAULT(16 * 1024 * 1024),
+    BLOCK_SIZE(1));
+static Sys_var_bool Sys_cdb_enable_page_cache_cleaning_redo(
+    "cdb_page_cache_cleaning_redo",
+    "5.7 Compatable Var: No effect in 8.0.30",
+    GLOBAL_VAR(cdb_page_cache_cleaning_redo), CMD_LINE(OPT_ARG),
+    DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL),
+    ON_UPDATE(NULL));
+static Sys_var_bool Sys_cdb_enable_page_cache_cleaning_binlog(
+    "cdb_page_cache_cleaning_binlog",
+    "Enable page cache cleaning for binlog files",
+    GLOBAL_VAR(cdb_page_cache_cleaning_binlog), CMD_LINE(OPT_ARG),
+    DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL),
+    ON_UPDATE(update_cdb_page_cache_cleaning_binlog));
+
+bool cdb_sql_mode_fixup_enabled = false;
+static Sys_var_bool Sys_cdb_sql_mode_fixup_enabled(
+    "cdb_sql_mode_fixup_enabled", "5.7 Compatable Var: No effect in 8.0.30",
+    GLOBAL_VAR(cdb_sql_mode_fixup_enabled), CMD_LINE(OPT_ARG),
+    DEFAULT(false));
 
 /* Changes from txsql end. */

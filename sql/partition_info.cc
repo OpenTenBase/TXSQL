@@ -1108,6 +1108,50 @@ error:
   return true;
 }
 
+static bool check_and_set_engine_type(THD *thd, partition_element *p_elem) {
+  DBUG_TRACE;
+
+  if (p_elem->engine_type && p_elem->engine_type->db_type == DB_TYPE_MYISAM) {
+    p_elem->engine_type = ha_resolve_by_legacy_type(thd, DB_TYPE_INNODB);
+  }
+  return false;
+}
+
+/*
+  convert myisam to innodb
+*/
+
+bool partition_info::convert_engine_type(THD *thd) {
+  uint n_parts = partitions.elements;
+  DBUG_TRACE;
+
+  if (n_parts) {
+    List_iterator<partition_element> part_it(partitions);
+    uint i = 0;
+    do {
+      partition_element *part_elem = part_it++;
+
+      if (is_sub_partitioned() && part_elem->subpartitions.elements) {
+        uint n_subparts = part_elem->subpartitions.elements;
+        uint j = 0;
+        List_iterator<partition_element> sub_it(part_elem->subpartitions);
+        do {
+          partition_element *sub_elem = sub_it++;
+          if (check_and_set_engine_type(thd, sub_elem))
+            goto error;
+        } while (++j < n_subparts);
+        /* ensure that the partition also has correct engine */
+        if (check_and_set_engine_type(thd, part_elem))
+          goto error;
+      } else if (check_and_set_engine_type(thd, part_elem))
+        goto error;
+    } while (++i < n_parts);
+  }
+  return false;
+error:
+  return true;
+}
+
 /*
   This routine allocates an array for all range constants to achieve a fast
   check what partition a certain value belongs to. At the same time it does
