@@ -74,3 +74,6 @@ innodb_fast_ahi_cleanup_num_entries_thres=0
 
 loose-innodb-i-s-cache-min-idle-us=0
 innodb_skip_dive_for_unique_key=off
+cdb_page_cache_cleaning_binlog=on
+cdb_page_cache_cleaning_window=1048576
+cdb_page_cache_cleaning_redo=on

@@ -1534,3 +1534,24 @@ err:
   mysql_bin_log.unlock_index();
   return true;
 }
+
+void page_cache_cleanning_collect_slave_log_progresses(
+    std::vector<std::string> &dumper_current_filenames,
+    std::vector<my_off_t> &dumper_current_read_progress) {
+  mysql_mutex_assert_owner(&LOCK_replica_list);
+  for (const auto &si : slave_list) {
+    Find_thd_with_id find_thd_with_id(si.second->thd_id);
+    THD *thd = Global_THD_manager::get_instance()->find_thd(&find_thd_with_id).get();
+
+    if (thd == nullptr) {
+      // the SLAVE_INFO is just registering
+      continue;
+    }
+    mysql_mutex_lock(&thd->LOCK_thd_data);
+    if (thd->current_linfo) {
+      dumper_current_filenames.push_back(thd->current_linfo->log_file_name);
+      dumper_current_read_progress.push_back(thd->current_linfo->last_read_pos);
+    }
+    mysql_mutex_unlock(&thd->LOCK_thd_data);
+  }
+}

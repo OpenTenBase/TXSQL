@@ -1,0 +1,36 @@
+create table t(id int primary key auto_increment, 
+v1 char(255) default "1", 
+v2 char(255) default "1", 
+v3 char(255) default "1", 
+v4 char(255) default "1");
+set @old_cdb_page_cache_cleaning_binlog = @@cdb_page_cache_cleaning_binlog;
+set global cdb_page_cache_cleaning_binlog = on;
+SET GLOBAL DEBUG='+d,page_cache_cleaning_test';
+insert into t(v1) values("1");
+insert into t(v1) values("1");
+insert into t(v1) values("1");
+insert into t(v1) values("1");
+insert into t(v1) values("1");
+insert into t(v1) values("1");
+insert into t(v1) values("1");
+insert into t(v1) values("1");
+insert into t(v1) values("1");
+insert into t(v1) values("1");
+flush logs;
+SET GLOBAL DEBUG='-d,page_cache_cleaning_test';
+set global cdb_page_cache_cleaning_binlog = off;
+SET GLOBAL DEBUG='+d,page_cache_cleaning_test';
+insert into t(v1) values("1");
+insert into t(v1) values("1");
+insert into t(v1) values("1");
+insert into t(v1) values("1");
+insert into t(v1) values("1");
+insert into t(v1) values("1");
+insert into t(v1) values("1");
+insert into t(v1) values("1");
+insert into t(v1) values("1");
+insert into t(v1) values("1");
+flush logs;
+SET GLOBAL DEBUG='-d,page_cache_cleaning_test';
+drop table t;
+set global cdb_page_cache_cleaning_binlog = @old_cdb_page_cache_cleaning_binlog;

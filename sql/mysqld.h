@@ -1038,5 +1038,15 @@ extern CThdBottomHalf *g_thdBottomHalf;
 extern bool g_txsql_enable_name_ack;
 extern bool txsql_show_kill_log;
 
+extern ulonglong cdb_page_cache_cleaning_window;
+extern bool cdb_page_cache_cleaning_redo;
+extern bool cdb_page_cache_cleaning_binlog;
+
+extern mysql_cond_t COND_page_cache_cleaning;
+extern PSI_cond_key key_LOCK_page_cache_cleaning,
+    key_BINLOG_LOCK_progress_tracker, key_COND_page_cache_cleaning;
+extern PSI_mutex_key key_thread_os_page_cache_cleaning;
+extern mysql_mutex_t LOCK_page_cache_cleaning;
+
 /* Changes from txsql end. */
 #endif /* MYSQLD_INCLUDED */

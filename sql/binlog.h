@@ -125,6 +125,8 @@ struct LOG_INFO {
   int entry_index;  // used in purge_logs(), calculatd in find_log_pos().
   int encrypted_header_size;
   uint8_t encrypted_version;
+  my_off_t last_read_pos;  // used in os page cache cleaning
+
   LOG_INFO()
       : index_file_offset(0),
         index_file_start_offset(0),
@@ -132,7 +134,8 @@ struct LOG_INFO {
         fatal(false),
         entry_index(0),
         encrypted_header_size(0),
-        encrypted_version(0) {
+        encrypted_version(0),
+        last_read_pos(0) {
     memset(log_file_name, 0, FN_REFLEN);
   }
 };
@@ -1156,6 +1159,63 @@ class MYSQL_BIN_LOG : public TC_LOG {
  public:
   bool wait_for_flushed_trxs_finished();
   /* Changes from TXSQL end. */
+  void update_log_last_read_pos(LOG_INFO *linfo, my_off_t last_read_off);
+  void update_last_clean_file_pos(const std::string &log_filename,
+                                  my_off_t log_file_pos);
+  void trigger_page_cache_cleanup();
+  void page_cache_cleaning_make_progress();
+  void enable_page_cache_cleaning();
+  struct binlog_progress_data_t {
+    /* A snapshot of the contents in binlog index file */
+    std::vector<std::string> sorted_binlog_file_fullnames;
+    /* The index into sorted_binlog_file_fullnames that indicates the
+      binlog file cleaned last time. */
+    int last_cleaned_file_idx;
+    /* The cleaninig offset of the last file.
+      This is used in combination with last_cleaned_file_idx.
+      (last_cleaned_file_idx, last_cleaned_file_offset) indicates
+      the cleaning progress at byte granularity . */
+    my_off_t last_cleaned_file_offset;
+    /* Current binlog file actively being written. */
+    std::string active_binlog_filename;
+    /* Whether there is any progress(data read/write, file rotations)
+    made by dump/writer threads. */
+    bool has_progress;
+    binlog_progress_data_t()
+        : last_cleaned_file_idx(0),
+          last_cleaned_file_offset(0),
+          has_progress(false) {}
+  };
+
+  /**
+   * This class tracks the binlog read progress of all dump threads.
+   * This is to help the page cache cleaner identify the safe cleaning
+   * position among all the binlog files.
+   */
+  class BIN_LOG_PROGRESS_TRACKER {
+   public:
+    BIN_LOG_PROGRESS_TRACKER(MYSQL_BIN_LOG *binlog) : binlog(binlog) {}
+    void init();
+    void cleanup();
+    void update_active_file(const char *active_binlog_filename);
+    void trigger_page_cache_cleanup(
+        const std::vector<std::string> &dumper_current_filenames,
+        const std::vector<my_off_t> &dumper_current_read_progress);
+    void update_last_clean_file_pos(const std::string &new_dumper_at_file_name,
+                                    my_off_t new_dumper_at_file_pos);
+    void reset_pointers();
+    void make_progress();
+    bool has_progress();
+    void set_progress(bool made_progress);
+    mysql_mutex_t LOCK_binlog_progress_tracker;
+
+    /* Updates to members of `data` is protected by
+    LOCK_binlog_progress_tracker.*/
+    binlog_progress_data_t data;
+    MYSQL_BIN_LOG *binlog;
+  };
+  void update_progress_tracker_logfiles(bool reset_pointers = false);
+  BIN_LOG_PROGRESS_TRACKER progress_tracker;
 };
 
 struct LOAD_FILE_INFO {

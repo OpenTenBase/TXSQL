@@ -243,6 +243,7 @@ root@localhost	FOREGROUND
 sql/compress_gtid_table	FOREGROUND
 sql/event_scheduler	FOREGROUND
 sql/main	BACKGROUND
+sql/os_page_cache_cleaning	BACKGROUND
 sql/sql_statistics	BACKGROUND
 threadpool/timer_thread	BACKGROUND
 CALL sys.ps_setup_show_enabled(TRUE, TRUE);
@@ -298,6 +299,7 @@ root@localhost	FOREGROUND
 sql/compress_gtid_table	FOREGROUND
 sql/event_scheduler	FOREGROUND
 sql/main	BACKGROUND
+sql/os_page_cache_cleaning	BACKGROUND
 sql/sql_statistics	BACKGROUND
 threadpool/timer_thread	BACKGROUND
 enabled_instruments	timed

@@ -50,8 +50,12 @@
 #include "sql/sql_base.h"  // tdc_flush_unused_tables
 #include "sql/opt_statistics.h"
 
+#include "binlog.h"
+#include "os_page_cache.h"
+
 static bool volatile manager_thread_in_use;
 static bool abort_manager;
+bool volatile abort_page_cache_cleaner;
 
 my_thread_t manager_thread;
 mysql_mutex_t LOCK_manager;
@@ -155,4 +159,47 @@ void stop_handle_manager() {
     mysql_cond_signal(&COND_manager);
   }
   mysql_mutex_unlock(&LOCK_manager);
+}
+
+extern mysql_mutex_t LOCK_page_cache_cleaning;
+extern mysql_cond_t COND_page_cache_cleaning;
+
+extern MYSQL_BIN_LOG mysql_bin_log;
+extern "C" void *cdb_os_page_cache_cleaning_thread(void *arg
+                                                   __attribute__((unused))) {
+  my_thread_init();
+  while (!abort_page_cache_cleaner) {
+    page_cache_process_cleaning_work();
+    if (abort_page_cache_cleaner) break;
+    if (opt_bin_log) {
+      mysql_bin_log.trigger_page_cache_cleanup();
+    }
+  }
+  page_cache_cleanup();
+  my_thread_end();
+  return (NULL);
+}
+
+void start_cdb_os_page_cache_cleaning_thread() {
+  DBUG_ENTER("start_cdb_os_page_cache_cleaning_thread");
+
+  my_thread_handle hThread;
+  int error;
+  if ((error = mysql_thread_create(key_thread_os_page_cache_cleaning, &hThread,
+                                   &connection_attrib,
+                                   cdb_os_page_cache_cleaning_thread, 0)))
+    sql_print_warning(
+        "TXSQL: Can't start os page cache cleaning thread(errno= %d)", error);
+
+  DBUG_VOID_RETURN;
+}
+
+/* Initiate shutdown of page cache cleaner thread */
+void stop_page_cache_cleaner() {
+  DBUG_ENTER("stop_page_cache_cleaner");
+  abort_page_cache_cleaner = true;
+  mysql_mutex_lock(&LOCK_page_cache_cleaning);
+  mysql_cond_signal(&COND_page_cache_cleaning);
+  mysql_mutex_unlock(&LOCK_page_cache_cleaning);
+  DBUG_VOID_RETURN;
 }
