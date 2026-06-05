@@ -3247,8 +3247,12 @@ int open_table_from_share(THD *thd, TABLE_SHARE *share, const char *alias,
     outparam->no_replicate = false;
   }
 
-  outparam->fields_use_count.clear();
-  outparam->fields_use_count.resize(share->fields);
+  if (!outparam->fields_use_count) {
+    outparam->fields_use_count = new (root) Mem_root_array<uint>(root, share->fields);
+    if (outparam->fields_use_count == nullptr) goto err;  // OOM
+  } else {
+    outparam->reset_fields_use_count();
+  }
 
   /* Increment the opened_tables counter, only when open flags set. */
   if (db_stat) thd->status_var.opened_tables++;
@@ -3271,6 +3275,9 @@ err:
     for (auto &table_cc : *outparam->table_check_constraint_list) {
       free_items(table_cc.value_generator()->item_list);
     }
+  }
+  if (outparam->fields_use_count) {
+    outparam->fields_use_count->clear();
   }
   outparam->file = nullptr;  // For easier error checking
   outparam->db_stat = 0;
@@ -4131,8 +4138,7 @@ void TABLE::init(THD *thd, TABLE_LIST *tl) {
     bind_value_generators_to_fields();
   }
 
-  fields_use_count.clear();
-  fields_use_count.resize(s->fields);
+  reset_fields_use_count();
 }
 
 /**
@@ -4169,8 +4175,7 @@ void TABLE::reset() {
   m_parallel_scan = false;
   m_parallel_workers = 0;
 #endif /* defined(HAVE_PX) */
-  fields_use_count.clear();
-  fields_use_count.resize(s->fields);
+  reset_fields_use_count();
 }
 
 /**
@@ -4237,8 +4242,7 @@ bool TABLE::init_tmp_table(THD *thd, TABLE_SHARE *share, MEM_ROOT *m_root,
 #ifndef NDEBUG
   set_tmp_table_seq_id(thd->get_tmp_table_seq_id());
 #endif
-  fields_use_count.clear();
-  fields_use_count.resize(s->fields);
+  reset_fields_use_count();
   return false;
 }
 

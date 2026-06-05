@@ -1666,7 +1666,7 @@ struct TABLE {
     Reference count of each field in read operation (read_set). Valid only
     for SELECT statemnt.
   */
-  std::vector<uint> fields_use_count;
+  Mem_root_array<uint> *fields_use_count{nullptr};
 
   /**
     In the prepare phase, every time Field appears in fields and conditions,
@@ -1675,15 +1675,26 @@ struct TABLE {
     it from TABLE::read_set.
   */
   void release_field(uint16 field_index) {
-    if (fields_use_count.size() > field_index &&
-        --fields_use_count[field_index] == 0) {
+    if (fields_use_count == nullptr) return;
+    if (fields_use_count->empty()) return;
+    if (fields_use_count->size() > field_index &&
+        --((*fields_use_count)[field_index]) == 0) {
       bitmap_clear_bit(read_set, field_index);
     }
   }
 
   void use_field(uint16 field_index) {
-    if (fields_use_count.size() > field_index) {
-      ++fields_use_count[field_index];
+    if (fields_use_count == nullptr) return;
+    if (fields_use_count->empty()) return;
+    if (fields_use_count->size() > field_index) {
+      ++(*fields_use_count)[field_index];
+    }
+  }
+
+  void reset_fields_use_count() {
+    if (fields_use_count) {
+      fields_use_count->clear();
+      fields_use_count->resize(s->fields);
     }
   }
   
