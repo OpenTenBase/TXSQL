@@ -212,10 +212,10 @@ Txsql_implicit_convert_to_count_star	6
 set @@txsql_count_conversion_enabled=0;
 EXPLAIN format=tree select avg(b) from t2;
 EXPLAIN
--> Aggregate: px_sum_switcher(avg(t2.b))  (cost=0.85 rows=1)
-    -> PX Receiver (slice: 0; workers: 1)  (cost=0.85 rows=1)
-        -> PX Sender (slice: 1; workers: 3)  (cost=0.85 rows=1)
-            -> Aggregate: px_sum_switcher(avg(t2.b))  (cost=0.85 rows=1)
+-> Aggregate: sum(t2.b), count(t2.b)
+    -> PX Receiver (slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 3)
+            -> Aggregate: sum(t2.b), count(t2.b)  (cost=0.85 rows=1)
                 -> Parallel table scan on t2  (cost=0.55 rows=3)
 
 select avg(b) from t2;
@@ -230,10 +230,10 @@ Txsql_implicit_convert_to_count_star	0
 set @@txsql_count_conversion_enabled=1;
 EXPLAIN format=tree select avg(b) from t2;
 EXPLAIN
--> Aggregate: px_sum_switcher(avg(t2.b))  (cost=0.85 rows=1)
-    -> PX Receiver (slice: 0; workers: 1)  (cost=0.85 rows=1)
-        -> PX Sender (slice: 1; workers: 3)  (cost=0.85 rows=1)
-            -> Aggregate: px_sum_switcher(avg(t2.b))  (cost=0.85 rows=1)
+-> Aggregate: sum(t2.b), count(0)
+    -> PX Receiver (slice: 0; workers: 1)
+        -> PX Sender (slice: 1; workers: 3)
+            -> Aggregate: sum(t2.b), count(0)  (cost=0.85 rows=1)
                 -> Parallel table scan on t2  (cost=0.55 rows=3)
 
 select avg(b) from t2;
