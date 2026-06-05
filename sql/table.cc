@@ -3247,6 +3247,13 @@ int open_table_from_share(THD *thd, TABLE_SHARE *share, const char *alias,
     outparam->no_replicate = false;
   }
 
+  if (!outparam->fields_use_count) {
+    outparam->fields_use_count = new (root) Mem_root_array<uint>(root, share->fields);
+    if (outparam->fields_use_count == nullptr) goto err;  // OOM
+  } else {
+    outparam->reset_fields_use_count();
+  }
+
   /* Increment the opened_tables counter, only when open flags set. */
   if (db_stat) thd->status_var.opened_tables++;
 
@@ -3268,6 +3275,9 @@ err:
     for (auto &table_cc : *outparam->table_check_constraint_list) {
       free_items(table_cc.value_generator()->item_list);
     }
+  }
+  if (outparam->fields_use_count) {
+    outparam->fields_use_count->clear();
   }
   outparam->file = nullptr;  // For easier error checking
   outparam->db_stat = 0;
@@ -4127,6 +4137,8 @@ void TABLE::init(THD *thd, TABLE_LIST *tl) {
   if (!pos_in_table_list->prelocking_placeholder) {
     bind_value_generators_to_fields();
   }
+
+  reset_fields_use_count();
 }
 
 /**
@@ -4163,6 +4175,7 @@ void TABLE::reset() {
   m_parallel_scan = false;
   m_parallel_workers = 0;
 #endif /* defined(HAVE_PX) */
+  reset_fields_use_count();
 }
 
 /**
@@ -4229,6 +4242,7 @@ bool TABLE::init_tmp_table(THD *thd, TABLE_SHARE *share, MEM_ROOT *m_root,
 #ifndef NDEBUG
   set_tmp_table_seq_id(thd->get_tmp_table_seq_id());
 #endif
+  reset_fields_use_count();
   return false;
 }
 
@@ -5454,6 +5468,7 @@ void TABLE::mark_column_used(Field *field, enum enum_mark_columns mark) {
     case MARK_COLUMNS_READ: {
       Key_map part_of_key = field->part_of_key;
       bitmap_set_bit(read_set, field->field_index());
+      use_field(field->field_index());
 
       part_of_key.merge(field->part_of_prefixkey);
       covering_keys.intersect(part_of_key);
@@ -5471,6 +5486,7 @@ void TABLE::mark_column_used(Field *field, enum enum_mark_columns mark) {
 
     case MARK_COLUMNS_TEMP:
       bitmap_set_bit(read_set, field->field_index());
+      use_field(field->field_index());
       if (field->is_virtual_gcol()) mark_gcol_in_maps(field);
       break;
   }
@@ -5552,6 +5568,7 @@ void TABLE::mark_auto_increment_column() {
     store() to check overflow of auto_increment values
   */
   bitmap_set_bit(read_set, found_next_number_field->field_index());
+  use_field(found_next_number_field->field_index());
   bitmap_set_bit(write_set, found_next_number_field->field_index());
   if (s->next_number_keypart)
     mark_columns_used_by_index_no_reset(s->next_number_index, read_set);
@@ -5584,8 +5601,10 @@ void TABLE::mark_columns_needed_for_delete(THD *thd) {
   if (file->ha_table_flags() & HA_REQUIRES_KEY_COLUMNS_FOR_DELETE) {
     Field **reg_field;
     for (reg_field = field; *reg_field; reg_field++) {
-      if ((*reg_field)->is_flag_set(PART_KEY_FLAG))
+      if ((*reg_field)->is_flag_set(PART_KEY_FLAG)) {
         bitmap_set_bit(read_set, (*reg_field)->field_index());
+        use_field((*reg_field)->field_index());
+      }
     }
     file->column_bitmaps_signal();
   }
@@ -5661,8 +5680,10 @@ void TABLE::mark_columns_needed_for_update(THD *thd, bool mark_binlog_columns) {
     Field **reg_field;
     for (reg_field = field; *reg_field; reg_field++) {
       /* Merge keys is all keys that had a column referred to in the query */
-      if (merge_keys.is_overlapping((*reg_field)->part_of_key))
+      if (merge_keys.is_overlapping((*reg_field)->part_of_key)) {
         bitmap_set_bit(read_set, (*reg_field)->field_index());
+        use_field((*reg_field)->field_index());
+      }
     }
     file->column_bitmaps_signal();
   }
@@ -5758,8 +5779,10 @@ void TABLE::mark_columns_per_binlog_row_image(THD *thd) {
            */
           if ((s->primary_key < MAX_KEY) &&
               (my_field->is_flag_set(PRI_KEY_FLAG) ||
-               (my_field->type() != MYSQL_TYPE_BLOB)))
+               (my_field->type() != MYSQL_TYPE_BLOB))) {
             bitmap_set_bit(read_set, my_field->field_index());
+            use_field(my_field->field_index());
+          }
 
           if (my_field->type() != MYSQL_TYPE_BLOB)
             bitmap_set_bit(write_set, my_field->field_index());
@@ -7320,7 +7343,10 @@ void TABLE::mark_gcol_in_maps(const Field *field) {
     Typed array fields internally are using a conversion field, it needs to
     marked as readable in order to do conversions.
   */
-  if (field->is_array()) bitmap_set_bit(read_set, field->field_index());
+  if (field->is_array()) {
+    bitmap_set_bit(read_set, field->field_index());
+    use_field(field->field_index());
+  }
 
   /*
     Note that underlying base columns are here added to read_set but not added
@@ -7338,6 +7364,7 @@ void TABLE::mark_gcol_in_maps(const Field *field) {
   for (uint i = 0; i < s->fields; i++) {
     if (bitmap_is_set(&field->gcol_info->base_columns_map, i)) {
       bitmap_set_bit(read_set, i);
+      use_field(i);
       if (this->field[i]->is_virtual_gcol()) bitmap_set_bit(write_set, i);
     }
   }
