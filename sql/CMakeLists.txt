@@ -373,6 +373,8 @@ SET(SQL_PX_SOURCES
 ENDIF()
 
 SET(SQL_SHARED_SOURCES
+  txsql_cte/txsql_cte.cc
+  txsql_hash/txsql_hash.cc
   auth/auth_acls.cc
   auth/auth_common.cc
   auth/dynamic_privileges_impl.cc

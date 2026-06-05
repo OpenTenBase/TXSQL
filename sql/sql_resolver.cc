@@ -112,6 +112,7 @@
 #include "sql/log.h"
 #include "template_utils.h"
 #include "thr_lock.h"  // TL_READ
+#include "sql/txsql_cte/txsql_cte.h"
 
 using std::function;
 
@@ -1281,6 +1282,19 @@ void Query_block::remap_tables(THD *thd) {
   }
 }
 
+static bool check_convert_view_to_cte_enable(TABLE_LIST *tl, LEX *lex, Query_block *block) {
+  if (!tl->is_view() ||
+      lex->sql_command != SQLCOM_SELECT ||
+      lex->is_from_ps ||
+      lex->is_executing_ps ||
+      lex->is_from_sp ||
+      block->uncacheable & UNCACHEABLE_RAND) {
+    return false;
+  }
+
+  return true;
+}
+
 /**
   @brief Resolve derived table, view or table function references in query block
 
@@ -1319,6 +1333,27 @@ bool Query_block::resolve_placeholder_tables(THD *thd, bool apply_semijoin) {
         return true; /* purecov: inspected */
     }
     if (tl->is_merged()) continue;
+
+    // Check if view is referenced multiple times
+    if (unlikely(thd->variables.txsql_convert_view_to_cte_enabled) &&
+        !thd->in_sub_stmt &&
+        check_convert_view_to_cte_enable(tl, thd->lex, this)) {
+      txsql::CTE_node *node = new (thd->mem_root) txsql::CTE_view(tl);
+      if (node == nullptr) return true;
+      auto cte_expr = thd->cte_map.find(node);
+      if (cte_expr == thd->cte_map.end()) {
+        txsql::CTE_view_expr *cte_view_expr = new (thd->mem_root) txsql::CTE_view_expr(thd->mem_root);
+        if (cte_view_expr == nullptr) return true;
+        thd->cte_map[node] = cte_view_expr;
+        cte_view_expr->tmp_tables.push_back(tl);
+        tl->set_cte_expr(cte_view_expr);
+      } else {
+        cte_expr->second->count++;
+        cte_expr->second->tmp_tables.push_back(tl);
+        tl->set_cte_expr(cte_expr->second);
+      }
+    }
+
     // Prepare remaining derived tables for materialization
     if (tl->is_table_function()) {
       if (tl->setup_table_function(thd)) {

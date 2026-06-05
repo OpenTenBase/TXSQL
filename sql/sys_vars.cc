@@ -8347,6 +8347,13 @@ static Sys_var_bool Sys_txsql_range_estimation_by_histogram(
 static Sys_var_deprecated_alias Sys_range_estimation_by_histogram(
     "range_estimation_by_histogram", Sys_txsql_range_estimation_by_histogram);
 
+static Sys_var_bool Sys_txsql_convert_view_to_cte_enabled(
+    "txsql_convert_view_to_cte_enabled",
+    "When enabled, allow convert view to cte ",
+    SESSION_VAR(txsql_convert_view_to_cte_enabled), CMD_LINE(OPT_ARG),
+    DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+    ON_CHECK(NULL), ON_UPDATE(NULL));
+
 static Sys_var_bool Sys_txsql_load_data_local_strict_mode(
     "txsql_load_data_local_strict_mode",
     "Whether to emit errors (or warnings) in strict mode when executing LOAD "

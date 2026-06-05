@@ -1655,7 +1655,7 @@ AccessPath *GetAccessPathForDerivedTable(
         /*ref_slice=*/-1, rematerialize, query_expression->select_limit_cnt,
         query_expression->offset_limit_cnt == 0
             ? query_expression->m_reject_multiple_rows
-            : false);
+            : false, /*cte_expr=*/table_ref->txsql_cte());
     EstimateMaterializeCost(thd, path);
     path = MoveCompositeIteratorsFromTablePath(path);
     if (query_expression->offset_limit_cnt != 0) {
@@ -1698,7 +1698,8 @@ AccessPath *GetAccessPathForDerivedTable(
         invalidators, table, table_path, table_ref->common_table_expr(),
         query_expression,
         /*ref_slice=*/-1, rematerialize, tmp_table_param->end_write_records,
-        query_expression->m_reject_multiple_rows);
+        query_expression->m_reject_multiple_rows,
+        /*cte_expr=*/table_ref->txsql_cte());
     EstimateMaterializeCost(thd, path);
     path = MoveCompositeIteratorsFromTablePath(path);
   }

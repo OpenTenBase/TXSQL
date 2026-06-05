@@ -1708,7 +1708,7 @@ inline AccessPath *NewMaterializeAccessPath(
     Mem_root_array<const AccessPath *> *invalidators, TABLE *table,
     AccessPath *table_path, Common_table_expr *cte, Query_expression *unit,
     int ref_slice, bool rematerialize, ha_rows limit_rows,
-    bool reject_multiple_rows) {
+    bool reject_multiple_rows, txsql::CTE_view_expr *cte_expr = nullptr) {
   MaterializePathParameters *param =
       new (thd->mem_root) MaterializePathParameters;
   param->query_blocks = std::move(query_blocks);
@@ -1726,6 +1726,9 @@ inline AccessPath *NewMaterializeAccessPath(
   param->rematerialize = rematerialize;
   param->limit_rows = limit_rows;
   param->reject_multiple_rows = reject_multiple_rows;
+  if (cte_expr && cte_expr->tmp_tables.size() >= 2) {
+    param->cte_expr = cte_expr;
+  }
 
 #ifndef NDEBUG
   for (MaterializePathParameters::QueryBlock &query_block :
