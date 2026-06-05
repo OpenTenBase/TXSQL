@@ -7670,7 +7670,10 @@ Field_json *Field_json::clone(MEM_ROOT *mem_root) const {
   @return true if new_field is compatible with this field, false otherwise
 */
 uint Field_json::is_equal(const Create_field *new_field) const {
-  // All JSON fields are compatible with each other.
+
+  if (has_different_compression_attributes_with(*new_field))
+    return IS_EQUAL_NO;
+
   return (new_field->sql_type == real_type());
 }
 

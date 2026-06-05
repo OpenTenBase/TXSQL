@@ -326,6 +326,13 @@ The following options may be given as the first argument:
  --cdb-optimize-ps-priv-check 
  This option is deprecated. Use txsql_simplify_priv_check
  instead.
+ --cdb-page-cache-cleaning-binlog
+ Enable page cache cleaning for binlog files
+ --cdb-page-cache-cleaning-redo
+ 5.7 Compatable Var: No effect in 8.0.30
+ --cdb-page-cache-cleaning-window[=#]
+ Cleaning window size for page cache in bytes. Default is
+ 16,777,216(16MB).
  --cdb-recycle-bin-db-not-visible 
  This option is deprecated. Use
  txsql_recycle_bin_db_not_visible instead.
@@ -356,6 +363,8 @@ The following options may be given as the first argument:
  replication channel.
  --cdb-skip-event-scheduler 
  Enable the event scheduler.Possible values are ON,OFF
+ --cdb-sql-mode-fixup-enabled
+ 5.7 Compatable Var: No effect in 8.0.30
  --cdb-sql-statistics 
  sql statistics switch.
  --cdb-sql-statistics-info-threshold=# 
@@ -957,7 +966,8 @@ The following options may be given as the first argument:
  use_index_extensions, condition_fanout_filter,
  derived_merge, hash_join, subquery_to_derived,
  prefer_ordering_index, derived_condition_pushdown,
- sort_merge_join} and val is one of {on, off, default}
+ sort_merge_join, winmagic} and val is one of {on, off,
+ default}
  --optimizer-trace=name 
  Controls tracing of the Optimizer:
  optimizer_trace=option=val[,option=val...], where option
@@ -2066,6 +2076,9 @@ cdb-optimize-large-trans-binlog FALSE
 cdb-optimize-large-trans-binlog-aver-affected-rows-threshold 10000
 cdb-optimize-large-trans-binlog-last-affected-rows-threshold 10000
 cdb-optimize-ps-priv-check FALSE
+cdb-page-cache-cleaning-binlog FALSE
+cdb-page-cache-cleaning-redo FALSE
+cdb-page-cache-cleaning-window 16777216
 cdb-recycle-bin-db-not-visible TRUE
 cdb-recycle-bin-enabled FALSE
 cdb-recycle-bin-retention 604800
@@ -2073,6 +2086,7 @@ cdb-recycle-scheduler-interval 0
 cdb-replica-host-detection TRUE
 cdb-role CDB_ROLE_UNKNOWN
 cdb-skip-event-scheduler FALSE
+cdb-sql-mode-fixup-enabled FALSE
 cdb-sql-statistics FALSE
 cdb-sql-statistics-info-threshold 10000
 character-set-client-handshake TRUE

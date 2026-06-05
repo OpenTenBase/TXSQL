@@ -571,6 +571,7 @@ class partition_info {
   char *find_duplicate_field();
   const char *find_duplicate_name();
   bool check_engine_mix(handlerton *engine_type, bool default_engine);
+  bool convert_engine_type(THD *thd);
   bool check_range_constants(THD *thd);
   bool check_list_constants(THD *thd);
   bool check_partition_info(THD *thd, handlerton **eng_type, handler *file,

@@ -648,7 +648,7 @@ bool px_access_path::WalkAccessPathsForCompat(
       const auto &param = path->materialize();
 
       TABLE_LIST *tl = param.param->table->pos_in_table_list;
-      if ((tl && tl->is_view()) || param.param->cte ||
+      if ((tl && tl->is_view()) || param.param->cte || param.param->cte_expr ||
           (parallel_scan && param.param->table->materialized)) {
         // If the temporary table is already materialized, the subpath may not
         // be executed during execution.

@@ -162,8 +162,8 @@ WHERE t2.k = CONCAT(t1.k, 'X')) = 'XXX',
 SUM(k)
 FROM t1;
 (SELECT 'X' FROM t2
-NULL	NULL
 WHERE t2.k = CONCAT(t1.k, 'X')) = 'XXX'	SUM(k)
+NULL	NULL
 EXPLAIN SELECT SUM(k), k
 FROM t1
 HAVING (SELECT 'X' FROM t2
@@ -202,9 +202,9 @@ WHERE t2.k = CONCAT(t1.k, 'X')
 AND SUM(t1.k)) = 'XXX'
 FROM t1;
 (SELECT 'X' FROM t2
+WHERE t2.k = CONCAT(t1.k, 'X')
 AND SUM(t1.k)) = 'XXX'
 NULL
-WHERE t2.k = CONCAT(t1.k, 'X')
 SET SQL_MODE=ONLY_FULL_GROUP_BY;
 EXPLAIN SELECT (SELECT 'X' FROM t2
 WHERE t2.k = CONCAT(t1.k, 'X')) = 'XXX'
@@ -276,8 +276,8 @@ WHERE t2.k = CONCAT(t1.k, 'X')) = 'XXX',
 SUM(k)
 FROM t1;
 (SELECT 'X' FROM t2
-NULL	NULL
 WHERE t2.k = CONCAT(t1.k, 'X')) = 'XXX'	SUM(k)
+NULL	NULL
 EXPLAIN SELECT SUM(k), k
 FROM t1
 HAVING (SELECT 'X' FROM t2
@@ -316,9 +316,9 @@ WHERE t2.k = CONCAT(t1.k, 'X')
 AND SUM(t1.k)) = 'XXX'
 FROM t1;
 (SELECT 'X' FROM t2
+WHERE t2.k = CONCAT(t1.k, 'X')
 AND SUM(t1.k)) = 'XXX'
 NULL
-WHERE t2.k = CONCAT(t1.k, 'X')
 SET SQL_MODE=DEFAULT;
 EXPLAIN SELECT (SELECT 'X' FROM t2
 WHERE t2.k = CONCAT(t1.k, 'X')) = 'XXX'
@@ -526,11 +526,11 @@ FROM t1 AS alias1 RIGHT JOIN t1 AS alias2
 ON alias1.cv = alias2.cv
 );
 cv
-I
-Q
-W
 h
+Q
+I
 q
+W
 DROP TABLE t1;
 # Bug#28970261: Sig6 in decorrelate_equality()
 CREATE TABLE t1 (col_varchar_key varchar(1) DEFAULT NULL);
@@ -1179,12 +1179,12 @@ GROUP BY table_user.id
 ) AS d
 ) AS users FROM table_city;
 id	users
-1	1,2,3,4,5,6,7,8
 2	1,2,3,4,5
-3	2,5
-4	1,2,3,5,8
 5	NULL
+4	1,2,3,5,8
+3	2,5
 6	NULL
+1	1,2,3,4,5,6,7,8
 DROP TABLE table_city, table_user, table_city_user;
 #
 # Bug#30267889 ASSERTION `M_INDEX_CURSOR.IS_POSITIONED()' FAILED | TEMPTABLE::HANDLER::POSITION
@@ -1629,21 +1629,21 @@ ON 1 > 2
 );
 1=
 (
+SELECT 1 FROM
 (
+SELECT 1 FROM t
+LEFT JOIN
 (
+SELECT 1 FROM t
+WHERE NOT EXISTS
 (
-)
+SELECT 1 FROM t WINDOW w1 AS (PARTITION BY a)
 )
 ) AS x
-) AS z
-LEFT JOIN
-NULL
 ON 1 > 2
-SELECT 1 FROM
-SELECT 1 FROM t
-SELECT 1 FROM t
-SELECT 1 FROM t WINDOW w1 AS (PARTITION BY a)
-WHERE NOT EXISTS
+) AS z
+)
+NULL
 DROP TABLE t;
 # Bug#30899681 Mysqld got signal 11 at Item::walk() 
 CREATE TABLE t1 (
@@ -1770,12 +1770,12 @@ SELECT a FROM (SELECT 1) u
 )
 FROM t GROUP BY 1;
 (
-(
-)
-) z
-1
 SELECT 1 FROM
+(
 SELECT a FROM (SELECT 1) u
+) z
+)
+1
 DROP TABLE t;
 #
 # Bug #31530529: SERVER CRASH SEEN - (MY_PRINT_STACKTRACE(UNSIGNED CHAR CONST*, UNSIGNED LONG)
@@ -2147,16 +2147,16 @@ FROM t0
 )
 );
 c0
--1945919442
--543970881
--64596961
-1230052719
-1936
-1983
-321108437
 329053785
 NULL
+-543970881
 NULL
+-64596961
+1936
+1230052719
+1983
+-1945919442
+321108437
 NULL
 NULL
 NULL
@@ -2224,3 +2224,15 @@ vc1	vc2	vc3
 1	1	1
 DROP VIEW v1;
 DROP TABLE vt1, vt2, vt3, vt4, t1, t2;
+#
+# Bug#34890862: Mysql server crash : `item->hidden == hidden' in
+#               assert_consistent_hidden_flags
+#
+CREATE TABLE t1 (f1 INTEGER, f2 INTEGER);
+SELECT *
+FROM (SELECT (SELECT SUM(t1.f1) FROM t1) AS subq
+FROM t1 AS t2
+WHERE t2.f1 IN (SELECT 1 FROM t1)
+ORDER BY t2.f2, subq) AS dt;
+subq
+DROP TABLE t1;

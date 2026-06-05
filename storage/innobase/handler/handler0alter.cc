@@ -11883,29 +11883,43 @@ static inline bool innobase_support_modify_instant(
           && field->key_type() != HA_KEYTYPE_LONGLONG) { /* bigint */
         return (false);
       }
-    } else if (old_field->real_type() == MYSQL_TYPE_VAR_STRING) {
-      if (field->real_type() != MYSQL_TYPE_VAR_STRING &&
-          field->real_type() != MYSQL_TYPE_VARCHAR
-          //&& field->type() != MYSQL_TYPE_BIT
-          && field->real_type() != MYSQL_TYPE_STRING) {
-        return (false);
-      }
-    } else if (old_field->real_type() == MYSQL_TYPE_VARCHAR) {
-      if (field->real_type() != MYSQL_TYPE_VAR_STRING &&
-          field->real_type() != MYSQL_TYPE_VARCHAR
-          //&& field->type() != MYSQL_TYPE_BIT
-          && field->real_type() != MYSQL_TYPE_STRING) {
-        return (false);
-      }
-    } else if (old_field->real_type() == MYSQL_TYPE_STRING) {
-      if (field->real_type() != MYSQL_TYPE_VAR_STRING &&
-          field->real_type() != MYSQL_TYPE_VARCHAR
-          //&& field->type() != MYSQL_TYPE_BIT
-          && field->real_type() != MYSQL_TYPE_STRING) {
-        return (false);
-      }
     } else {
-      return (false);
+      /* string type, supported character sets:
+        1. utf8mb3
+        2. utf8mb4
+        3. latin1
+        4. binary
+      */
+      const std::string_view csname(old_field->charset()->csname);
+      if (csname.compare("utf8mb4") != 0 && csname.compare("utf8mb3") != 0 &&
+          csname.compare("latin1") != 0 && csname.compare("binary") != 0 &&
+          csname.compare("utf8") != 0) {
+        return false;
+      }
+      if (old_field->real_type() == MYSQL_TYPE_VAR_STRING) {
+        if (field->real_type() != MYSQL_TYPE_VAR_STRING &&
+            field->real_type() != MYSQL_TYPE_VARCHAR
+            //&& field->type() != MYSQL_TYPE_BIT
+            && field->real_type() != MYSQL_TYPE_STRING) {
+          return (false);
+        }
+      } else if (old_field->real_type() == MYSQL_TYPE_VARCHAR) {
+        if (field->real_type() != MYSQL_TYPE_VAR_STRING &&
+            field->real_type() != MYSQL_TYPE_VARCHAR
+            //&& field->type() != MYSQL_TYPE_BIT
+            && field->real_type() != MYSQL_TYPE_STRING) {
+          return (false);
+        }
+      } else if (old_field->real_type() == MYSQL_TYPE_STRING) {
+        if (field->real_type() != MYSQL_TYPE_VAR_STRING &&
+            field->real_type() != MYSQL_TYPE_VARCHAR
+            //&& field->type() != MYSQL_TYPE_BIT
+            && field->real_type() != MYSQL_TYPE_STRING) {
+          return (false);
+        }
+      } else {
+        return (false);
+      }
     }
   }
   return (true);
