@@ -1,0 +1,50 @@
+source include/have_debug_sync.inc;
+source include/have_binlog_format_row.inc;
+
+connect (con1,localhost,root,,);
+connection default;
+
+reset master;
+--replace_column 2 #
+show binary logs;
+create table t1(id int,c1 varchar(4096));
+insert into t1 values(1,'a');
+
+flush binary logs;
+set global max_binlog_size=4096;
+
+connection con1;
+--replace_column 2 #
+show binary logs;
+
+begin;
+insert into t1 values(2,repeat('b',4096));
+insert into t1 values(3,repeat('c',4096));
+commit;
+
+--replace_column 2 #
+show binary logs;
+
+set debug_sync='txsql_purge_binlog_wait_after_lock_index signal txsql_binlog_index_locked wait_for txsql_purge_binlog_continue';
+send purge binary logs to 'binlog.000002';
+
+connection default;
+set debug_sync='now wait_for txsql_binlog_index_locked';
+set debug_sync='txsql_try_lock_index_failed signal txsql_try_lock_index_failed_rotate_finished';
+set global txsql_binlog_rotate_try_lock_index=ON;
+begin;
+insert into t1 values(4,repeat('b',4096));
+insert into t1 values(5,repeat('c',4096));
+commit;
+
+set debug_sync='now signal txsql_purge_binlog_continue wait_for txsql_try_lock_index_failed_rotate_finished';
+--replace_column 2 #
+show binary logs;
+
+connection con1;
+reap;
+disconnect con1;
+connection default;
+drop table t1;
+set global max_binlog_size=default;
+set global txsql_binlog_rotate_try_lock_index=default;
