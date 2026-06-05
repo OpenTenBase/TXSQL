@@ -34,6 +34,7 @@
 #include "sql/filesort.h"
 #include "sql/item.h"
 #include "sql/item_sum.h"
+#include "sql/sql_count_conversion.h"
 #include "sql/sql_optimizer.h"
 #include "sql/sql_executor.h"
 #include "sql/log.h"
@@ -219,7 +220,14 @@ Item_sum **Item_sum_avg::pq_rebuild_item(THD *thd, Query_block *select) {
   }
 
   Item_sum *new_sum_item = new (thd->mem_root) Item_sum_sum(POS(), args[0], has_with_distinct(), m_window);
-  Item_sum *new_count_item = new (thd->mem_root) Item_sum_count(POS(), args[0], m_window);
+  Item_sum *new_count_item = nullptr;
+  if (thd->variables.txsql_count_conversion_enabled && can_convert_to_zero(args[0])) {
+    Item *zero_args = new (thd->mem_root) Item_int(int32{0}, 1);
+    if (zero_args == nullptr) return nullptr;
+    new_count_item = new (thd->mem_root) Item_sum_count(POS(), zero_args, m_window);
+  } else {
+    new_count_item = new (thd->mem_root) Item_sum_count(POS(), args[0], m_window);
+  }
   if (new_sum_item == nullptr || new_sum_item->pq_copy_item(thd, select, this)) {
     return nullptr;
   }
