@@ -2163,3 +2163,15 @@ vc1	vc2	vc3
 1	1	1
 DROP VIEW v1;
 DROP TABLE vt1, vt2, vt3, vt4, t1, t2;
+#
+# Bug#34890862: Mysql server crash : `item->hidden == hidden' in
+#               assert_consistent_hidden_flags
+#
+CREATE TABLE t1 (f1 INTEGER, f2 INTEGER);
+SELECT *
+FROM (SELECT (SELECT SUM(t1.f1) FROM t1) AS subq
+FROM t1 AS t2
+WHERE t2.f1 IN (SELECT 1 FROM t1)
+ORDER BY t2.f2, subq) AS dt;
+subq
+DROP TABLE t1;
