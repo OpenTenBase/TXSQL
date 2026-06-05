@@ -5954,7 +5954,9 @@ finish:
     DBUG_PRINT("cnt_conversion",
                ("clear fields_use_count of table: '%s'  query_id: %lu",
                 table->s->table_name.str, (ulong)table->query_id));
-    if (!table->fields_use_count.empty()) table->fields_use_count.clear();
+    if (table->fields_use_count && !table->fields_use_count->empty()) {
+      table->fields_use_count->clear();
+    }
   }
 
   lex->cleanup(thd, true);
