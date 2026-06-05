@@ -1032,6 +1032,14 @@ ExplainData ExplainAccessPath(const AccessPath *path, JOIN *join,
         } else {
           ret += ItemToString(*item);
         }
+        /*
+          Note: use real_sum_func(), i.e, Item_rollup_sum_switcher will return
+          master()->sum_func() in sum_func.
+        */
+        if ((*item)->real_sum_func() == Item_sum::COUNT_FUNC &&
+            ((Item_sum_count *)(*item))->is_coverted_count_zero) {
+          ret += " using conversion for count of not null column";
+        }
       }
       description.push_back(move(ret));
       children.push_back({path->aggregate().child});

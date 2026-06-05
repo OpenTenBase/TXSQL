@@ -552,6 +552,8 @@ struct System_variables {
 #endif /* HAVE_PX */
   /// @sa Sys_txsql_pread_count_enabled
   bool txsql_pread_count_enabled;
+  /// @sa Sys_txsql_count_conversion_enabled
+  bool txsql_count_conversion_enabled;
   /// @sa Sys_txsql_convert_view_to_cte_enabled
   bool txsql_convert_view_to_cte_enabled;
 };
@@ -625,6 +627,9 @@ struct System_status_var {
 
   /* Number of statements sent from the client. */
   ulonglong questions;
+
+  ulonglong txsql_implicit_convert_to_count_zero;
+  ulonglong txsql_total_count_function;
 
   /// How many queries have been executed on a secondary storage engine.
   ulonglong secondary_engine_execution_count;

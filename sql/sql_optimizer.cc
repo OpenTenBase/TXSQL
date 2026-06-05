@@ -97,6 +97,7 @@
 #include "sql/sql_class.h"
 #include "sql/sql_const.h"
 #include "sql/sql_const_folding.h"
+#include "sql/sql_count_conversion.h"
 #include "sql/sql_error.h"
 #include "sql/sql_join_buffer.h"  // JOIN_CACHE
 #include "sql/sql_planner.h"      // calculate_condition_filter
@@ -443,6 +444,17 @@ bool JOIN::optimize(bool finalize_access_paths) {
   if (query_block->partitioned_table_count && prune_table_partitions()) {
     error = 1;
     DBUG_PRINT("error", ("Error from prune_partitions"));
+    return true;
+  }
+
+  /*
+     Try to optimize count(col) to count(0) if possible.
+  */
+  if (thd->variables.txsql_count_conversion_enabled &&
+      thd->lex->sql_command == SQLCOM_SELECT &&
+      count_col_conversion(thd, *fields)) {
+    error = 1;
+    DBUG_PRINT("error", ("Error from count_col_conversion"));
     return true;
   }
 
