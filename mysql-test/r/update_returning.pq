@@ -350,3 +350,119 @@ ERROR HY000: The target table v2 of the UPDATE is not updatable
 DROP VIEW v2;
 DROP TABLE t1;
 DROP TABLE t2;
+CREATE TABLE table_a (id int, value int);
+CREATE TABLE table_b (id int, ta_id int, value int);
+INSERT INTO table_a VALUES (1, 10);
+INSERT INTO table_a VALUES (2, 20);
+INSERT INTO table_a VALUES (3, 30);
+INSERT INTO table_b VALUES (1, 1, 100);
+INSERT INTO table_b VALUES (2, 1, 200);
+INSERT INTO table_b VALUES (3, 2, 300);
+INSERT INTO table_b VALUES (4, 2, 400);
+CREATE VIEW v AS
+SELECT      a.id a_id, b.id b_id, b.ta_id, a.value v1, b.value v2
+FROM        table_a a
+INNER JOIN  table_b b ON (b.ta_id = a.id);
+INSERT INTO v (a_id, v1) VALUES (3, 30) returning *;
+ERROR HY000: Feature returning with multi table is unsupported ().
+INSERT INTO v (a_id, v1) VALUES (3, 30);
+update v set a_id = 2 returning *;
+ERROR HY000: Feature returning with multi table is unsupported ().
+drop view v;
+drop table table_a;
+drop table table_b;
+CREATE TABLE `sbtest9` (
+`id` int NOT NULL,
+`c1` int DEFAULT NULL,
+`c2` char(16) DEFAULT NULL,
+`c3` char(64) NOT NULL,
+`c4` varchar(128) DEFAULT NULL,
+`c5` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+`c6` text,
+`c7` char(64) DEFAULT NULL,
+`c8` varchar(256) DEFAULT NULL,
+`c9` blob,
+`c10` varchar(128) DEFAULT NULL,
+`c11` varchar(128) DEFAULT NULL,
+`c12` varchar(128) DEFAULT NULL,
+`c13` varchar(128) DEFAULT NULL,
+`c14` varchar(128) DEFAULT NULL,
+`c15` varchar(128) DEFAULT NULL,
+`c16` varchar(128) DEFAULT NULL,
+`c17` varchar(128) DEFAULT NULL,
+`c18` varchar(128) DEFAULT NULL,
+`c19` varchar(128) DEFAULT NULL,
+`c20` varchar(128) DEFAULT NULL,
+`c21` varchar(128) DEFAULT NULL,
+`c22` varchar(128) DEFAULT NULL,
+`c23` varchar(128) DEFAULT NULL,
+`c24` varchar(128) DEFAULT NULL,
+`c25` varchar(128) DEFAULT NULL,
+`c26` varchar(128) DEFAULT NULL,
+`c27` varchar(128) DEFAULT NULL,
+`c28` varchar(128) DEFAULT NULL,
+`c29` varchar(128) DEFAULT NULL,
+`c30` varchar(128) DEFAULT NULL,
+`c31` varchar(128) DEFAULT NULL,
+`c32` varchar(128) DEFAULT NULL,
+`c33` varchar(128) DEFAULT NULL,
+`c34` varchar(128) DEFAULT NULL,
+`c35` char(143) DEFAULT NULL,
+`c36` varchar(128) DEFAULT NULL,
+`c37` varchar(128) DEFAULT NULL,
+`c38` varchar(128) DEFAULT NULL,
+`c39` varchar(128) DEFAULT NULL,
+`c40` varchar(128) DEFAULT NULL,
+`c41` varchar(128) DEFAULT NULL,
+`c42` varchar(128) DEFAULT NULL,
+`c43` varchar(128) DEFAULT NULL,
+`c44` varchar(128) DEFAULT NULL,
+`c45` varchar(128) DEFAULT NULL,
+`c46` varchar(128) DEFAULT NULL,
+`c47` varchar(128) DEFAULT NULL,
+`c48` varchar(128) DEFAULT NULL,
+`c49` varchar(128) DEFAULT NULL,
+`c50` varchar(128) DEFAULT NULL,
+`c51` varchar(128) DEFAULT NULL,
+`c52` varchar(128) DEFAULT NULL,
+`c53` varchar(128) DEFAULT NULL,
+`c54` varchar(128) DEFAULT NULL,
+`c55` varchar(128) DEFAULT NULL,
+`c56` varchar(128) DEFAULT NULL,
+`c57` varchar(128) DEFAULT NULL,
+`c58` varchar(128) DEFAULT NULL,
+`c59` varchar(128) DEFAULT NULL,
+`c60` varchar(128) DEFAULT NULL,
+`c61` varchar(128) DEFAULT NULL,
+`c62` varchar(128) DEFAULT NULL,
+`c63` varchar(128) DEFAULT NULL,
+`c64` varchar(128) DEFAULT NULL,
+`c65` varchar(128) DEFAULT NULL,
+`c66` varchar(128) DEFAULT NULL,
+`c67` varchar(128) DEFAULT NULL,
+`c68` varchar(128) DEFAULT NULL,
+`c69` varchar(128) DEFAULT NULL,
+`last_ts` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+PRIMARY KEY (`id`,`c3`,`c5`),
+KEY `idx_c1` (`c1`),
+KEY `idx_c2` (`c2`)
+) ENGINE=INNODB DEFAULT CHARSET=utf8mb3;
+Warnings:
+Warning	1287	'utf8mb3' is deprecated and will be removed in a future release. Please use utf8mb4 instead
+UPDATE
+sbtest9
+set
+c1 = -6324,
+c2 = '@#$   ',
+c5 = '2003-10-09 03:25:15.389172',
+last_ts = '2025-06-18 14:30:02.549981',
+c3 = 'gfedclk      jihqponm         ',
+c4 = 'gfedclkjihVUTSRQPONMLKJ                     IHGFEDCBAzyxwvutsrqponm                        ',
+c6 = 'HIJ   KLMN   ',
+c7 = 'gfedclkjihHGFEDC                                                BAzyxwvutsrqponm                                                ',
+c8 = 'edcbajihgffedc*&^%$#@!ZYXWVUTSRQPONMLKJIHGFEDCBAzyxwvutsrqponm                                                            lkjihgfedcba*&^%$#@!ZYXWVUTSRQPONMLKJIHGFEDCBAzyxwvutsrqponmlk                                                               ',
+c9 = 'cdef   '
+where
+id = 704 RETURNING *;
+id	c1	c2	c3	c4	c5	c6	c7	c8	c9	c10	c11	c12	c13	c14	c15	c16	c17	c18	c19	c20	c21	c22	c23	c24	c25	c26	c27	c28	c29	c30	c31	c32	c33	c34	c35	c36	c37	c38	c39	c40	c41	c42	c43	c44	c45	c46	c47	c48	c49	c50	c51	c52	c53	c54	c55	c56	c57	c58	c59	c60	c61	c62	c63	c64	c65	c66	c67	c68	c69	last_ts
+drop table sbtest9;

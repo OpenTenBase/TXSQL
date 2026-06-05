@@ -19,69 +19,96 @@ DROP TABLE t1;
 
 CREATE TABLE t1 (a INT PRIMARY KEY, b INT, c INT);
 INSERT INTO t1 VALUES(1,2,3),(3,4, 7),(5,6, 11);
+--sorted_result
 SELECT * FROM t1;
 
 CREATE TABLE t2 (a INT PRIMARY KEY, b INT, c INT as (a+b));
 INSERT INTO t2(a,b) VALUES(1,2),(3,4),(5,6);
+--sorted_result
 SELECT * FROM t2;
 
 UPDATE t1 SET b=3 WHERE a=1 RETURNING c;
+--sorted_result
 SELECT * FROM t1;
 UPDATE t1 SET b=2 WHERE a=1 RETURNING *;
+--sorted_result
 SELECT * FROM t1;
 UPDATE t1 SET b=b*2 RETURNING b, c+b as d;
+--sorted_result
 SELECT * FROM t1;
 UPDATE t1 SET b=b+2 RETURNING *, c+b as d;
+--sorted_result
 SELECT * FROM t1;
 --error ER_BAD_TABLE_ERROR
 UPDATE t1 SET c=c+1 WHERE 1 RETURNING a,t.*,a,b,c;
 # use subquery in RETURNING clause. we can't use t1 here otherwise we get
 # ER_UPDATE_TABLE_USED error.
 UPDATE t1 SET b=b*2 RETURNING a, c+b as d, (SELECT count(*) FROM t2) as x;
+--sorted_result
 SELECT * FROM t1;
+--sorted_result
 SELECT * FROM t2;
 
 SELECT a,t2.*,b FROM t2;
 --error ER_PARSE_ERROR
 SELECT a,*,b FROM t2;
 UPDATE t2 SET b=b+2 WHERE a=5 and b>2 RETURNING c,b,a;
+--sorted_result
 SELECT * FROM t1;
+--sorted_result
 SELECT * FROM t2;
 
 --error ER_PARSE_ERROR
 UPDATE t2 SET b=b*c RETURNING t2.a, *, b, c+b as d;
+--sorted_result
 SELECT * FROM t2;
 UPDATE t2 SET b=b*c RETURNING t2.a, t2.*, b, c+b as d;
+--sorted_result
 SELECT * FROM t2;
 UPDATE t2 SET b=b*2 RETURNING a, b, c+b as d, t2.*, (SELECT t1.b + t1.c FROM t1 WHERE t1.a=t2.a) as x;
+--sorted_result
 SELECT * FROM t1;
+--sorted_result
 SELECT * FROM t2;
 UPDATE t2 SET b=b/2 limit 2 RETURNING sqrt(a+sqrt(a)) as s,t2.*, (SELECT count(*) FROM t1) as x;
+--sorted_result
 SELECT * FROM t1;
+--sorted_result
 SELECT * FROM t2;
 UPDATE t1 SET c=c+1 WHERE 1 or (a=6 and b>4) RETURNING a;
+--sorted_result
 SELECT * FROM t1;
+--sorted_result
 SELECT * FROM t2;
 explain UPDATE t2 SET b=b*2 RETURNING a, b, c+b as d, t2.*, (SELECT t1.b + t1.c FROM t1 WHERE t1.a=t2.a) as x;
 
 
 # DELETE RETURNING
+--sorted_result
 SELECT * FROM t1;
 DELETE FROM t1 WHERE a=1 RETURNING *;
+--sorted_result
 SELECT * FROM t1;
 
 DELETE FROM t1 WHERE a=3 RETURNING a+b, b-c as m;
+--sorted_result
 SELECT * FROM t1;
+--sorted_result
 SELECT * FROM t2;
 DELETE FROM t1 WHERE a=6 and b>4 RETURNING sqrt(a+sqrt(b)) as s, t1.*, (SELECT count(*) FROM t2) as x;
+--sorted_result
 SELECT * FROM t1;
+--sorted_result
 SELECT * FROM t2;
 DELETE FROM t2 limit 2 RETURNING *,a-b;
 --error ER_BAD_TABLE_ERROR
 DELETE FROM t1 limit 1 RETURNING a,t.*,a,b,c;
+--sorted_result
 SELECT * FROM t1;
+--sorted_result
 SELECT * FROM t2;
 DELETE FROM t1 WHERE 1 or (a=6 and b>4) RETURNING a;
+--sorted_result
 SELECT * FROM t1;
 
 explain format=json DELETE FROM t1 WHERE a=6 and b>4 RETURNING sqrt(a+sqrt(b)) as s, t1.*, (SELECT count(*) FROM t2) as x;
@@ -101,6 +128,7 @@ INSERT INTO t2 SELECT * FROM t1;
 DELETE FROM t1 WHERE id1=100000 RETURNING val1;
 --error ER_BAD_FIELD_ERROR
 DELETE FROM t1 RETURNING val2;
+--sorted_result
 SELECT * FROM t1;
 
 #DELETE FROM table ... RETURNING <expr with aggr function>
@@ -130,6 +158,7 @@ DELETE FROM t1;
 INSERT INTO t1 VALUES (1,'a'),(2,'b'),(3,'c');
 CREATE VIEW v1 AS SELECT * FROM t1;
 UPDATE v1 SET val1='d' RETURNING id1;
+--sorted_result
 SELECT * FROM v1;
 DROP VIEW v1;
 
@@ -154,7 +183,7 @@ INSERT INTO table_b VALUES (2, 1, 200);
 INSERT INTO table_b VALUES (3, 2, 300);
 INSERT INTO table_b VALUES (4, 2, 400);
 
-CREATE VIEW v AS 
+CREATE VIEW v AS
     SELECT      a.id a_id, b.id b_id, b.ta_id, a.value v1, b.value v2
     FROM        table_a a
     INNER JOIN  table_b b ON (b.ta_id = a.id);
@@ -168,3 +197,98 @@ update v set a_id = 2 returning *;
 drop view v;
 drop table table_a;
 drop table table_b;
+
+CREATE TABLE `sbtest9` (
+  `id` int NOT NULL,
+  `c1` int DEFAULT NULL,
+  `c2` char(16) DEFAULT NULL,
+  `c3` char(64) NOT NULL,
+  `c4` varchar(128) DEFAULT NULL,
+  `c5` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  `c6` text,
+  `c7` char(64) DEFAULT NULL,
+  `c8` varchar(256) DEFAULT NULL,
+  `c9` blob,
+  `c10` varchar(128) DEFAULT NULL,
+  `c11` varchar(128) DEFAULT NULL,
+  `c12` varchar(128) DEFAULT NULL,
+  `c13` varchar(128) DEFAULT NULL,
+  `c14` varchar(128) DEFAULT NULL,
+  `c15` varchar(128) DEFAULT NULL,
+  `c16` varchar(128) DEFAULT NULL,
+  `c17` varchar(128) DEFAULT NULL,
+  `c18` varchar(128) DEFAULT NULL,
+  `c19` varchar(128) DEFAULT NULL,
+  `c20` varchar(128) DEFAULT NULL,
+  `c21` varchar(128) DEFAULT NULL,
+  `c22` varchar(128) DEFAULT NULL,
+  `c23` varchar(128) DEFAULT NULL,
+  `c24` varchar(128) DEFAULT NULL,
+  `c25` varchar(128) DEFAULT NULL,
+  `c26` varchar(128) DEFAULT NULL,
+  `c27` varchar(128) DEFAULT NULL,
+  `c28` varchar(128) DEFAULT NULL,
+  `c29` varchar(128) DEFAULT NULL,
+  `c30` varchar(128) DEFAULT NULL,
+  `c31` varchar(128) DEFAULT NULL,
+  `c32` varchar(128) DEFAULT NULL,
+  `c33` varchar(128) DEFAULT NULL,
+  `c34` varchar(128) DEFAULT NULL,
+  `c35` char(143) DEFAULT NULL,
+  `c36` varchar(128) DEFAULT NULL,
+  `c37` varchar(128) DEFAULT NULL,
+  `c38` varchar(128) DEFAULT NULL,
+  `c39` varchar(128) DEFAULT NULL,
+  `c40` varchar(128) DEFAULT NULL,
+  `c41` varchar(128) DEFAULT NULL,
+  `c42` varchar(128) DEFAULT NULL,
+  `c43` varchar(128) DEFAULT NULL,
+  `c44` varchar(128) DEFAULT NULL,
+  `c45` varchar(128) DEFAULT NULL,
+  `c46` varchar(128) DEFAULT NULL,
+  `c47` varchar(128) DEFAULT NULL,
+  `c48` varchar(128) DEFAULT NULL,
+  `c49` varchar(128) DEFAULT NULL,
+  `c50` varchar(128) DEFAULT NULL,
+  `c51` varchar(128) DEFAULT NULL,
+  `c52` varchar(128) DEFAULT NULL,
+  `c53` varchar(128) DEFAULT NULL,
+  `c54` varchar(128) DEFAULT NULL,
+  `c55` varchar(128) DEFAULT NULL,
+  `c56` varchar(128) DEFAULT NULL,
+  `c57` varchar(128) DEFAULT NULL,
+  `c58` varchar(128) DEFAULT NULL,
+  `c59` varchar(128) DEFAULT NULL,
+  `c60` varchar(128) DEFAULT NULL,
+  `c61` varchar(128) DEFAULT NULL,
+  `c62` varchar(128) DEFAULT NULL,
+  `c63` varchar(128) DEFAULT NULL,
+  `c64` varchar(128) DEFAULT NULL,
+  `c65` varchar(128) DEFAULT NULL,
+  `c66` varchar(128) DEFAULT NULL,
+  `c67` varchar(128) DEFAULT NULL,
+  `c68` varchar(128) DEFAULT NULL,
+  `c69` varchar(128) DEFAULT NULL,
+  `last_ts` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`id`,`c3`,`c5`),
+  KEY `idx_c1` (`c1`),
+  KEY `idx_c2` (`c2`)
+) ENGINE=INNODB DEFAULT CHARSET=utf8mb3;
+
+UPDATE
+  sbtest9
+set
+  c1 = -6324,
+  c2 = '@#$   ',
+  c5 = '2003-10-09 03:25:15.389172',
+  last_ts = '2025-06-18 14:30:02.549981',
+  c3 = 'gfedclk      jihqponm         ',
+  c4 = 'gfedclkjihVUTSRQPONMLKJ                     IHGFEDCBAzyxwvutsrqponm                        ',
+  c6 = 'HIJ   KLMN   ',
+  c7 = 'gfedclkjihHGFEDC                                                BAzyxwvutsrqponm                                                ',
+  c8 = 'edcbajihgffedc*&^%$#@!ZYXWVUTSRQPONMLKJIHGFEDCBAzyxwvutsrqponm                                                            lkjihgfedcba*&^%$#@!ZYXWVUTSRQPONMLKJIHGFEDCBAzyxwvutsrqponmlk                                                               ',
+  c9 = 'cdef   '
+where
+  id = 704 RETURNING *;
+
+drop table sbtest9;
