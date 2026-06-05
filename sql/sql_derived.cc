@@ -777,6 +777,12 @@ bool TABLE_LIST::setup_materialized_derived_tmp_table(THD *thd)
   // From resolver POV, columns of this table are readonly
   set_readonly();
 
+  if (txsql_cte() && txsql_cte()->is_cte_consumer(this)) {
+    table = txsql_cte()->clone_tmp_table(thd, this);
+    if (table == nullptr) return true; /* purecov: inspected */
+    derived_result->table = table;
+  }
+
   if (m_common_table_expr && m_common_table_expr->tmp_tables.size() > 0) {
     trace_derived.add("reusing_tmp_table", true);
     table = m_common_table_expr->clone_tmp_table(thd, this);
@@ -971,7 +977,8 @@ bool TABLE_LIST::can_push_condition_to_derived(THD *thd) {
          !(common_table_expr() &&
            (common_table_expr()->references.size() >= 2 ||
             common_table_expr()->recursive)) &&   // 4
-         (thd->lex->set_var_list.elements == 0);  // 5
+         (thd->lex->set_var_list.elements == 0) &&  // 5
+         !(txsql_cte() && txsql_cte()->tmp_tables.size() >= 2);
 }
 
 /**

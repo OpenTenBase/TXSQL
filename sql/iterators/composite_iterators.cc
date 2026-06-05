@@ -972,6 +972,17 @@ bool MaterializeIterator<Profiler>::Init() {
     }
   }
 
+  if (!table()->materialized && table()->pos_in_table_list &&
+      table()->pos_in_table_list->txsql_cte() != nullptr &&
+      table()->pos_in_table_list->txsql_cte()->tmp_tables.size() >= 2) {
+    for (TABLE_LIST *table_ref : table()->pos_in_table_list->txsql_cte()->tmp_tables) {
+      if (table_ref->table != nullptr && table_ref->table->materialized) {
+        table()->materialized = true;
+        break;
+      }
+    }
+  }
+
   if (table()->materialized) {
     bool rematerialize = m_rematerialize;
 

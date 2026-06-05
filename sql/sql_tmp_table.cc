@@ -2434,6 +2434,11 @@ void free_tmp_table(TABLE *table) {
     table->pos_in_table_list->common_table_expr()->remove_table(
         table->pos_in_table_list);
   }
+  if (table->pos_in_table_list != nullptr &&
+      table->pos_in_table_list->txsql_cte() != nullptr) {
+    table->pos_in_table_list->txsql_cte()->remove_table(
+        table->pos_in_table_list);
+  }
   /*
     In create_tmp_table(), the share's memroot is allocated inside own_root
     and is then made a copy of own_root, so it is inside its memory blocks,
@@ -2572,7 +2577,8 @@ bool create_ondisk_from_heap(THD *thd, TABLE *wtable, int error,
 
   if (wtable_list) {
     Common_table_expr *cte = wtable_list->common_table_expr();
-    if (cte) {
+    if (cte || (wtable_list->txsql_cte() && wtable_list->txsql_cte()->tmp_tables.size() >= 2)) {
+      assert(!(cte && wtable_list->txsql_cte()));
       int i = 0, found = -1;
       TABLE *t;
       while ((t = ref_it.get_next())) {
@@ -2585,7 +2591,8 @@ bool create_ondisk_from_heap(THD *thd, TABLE *wtable, int error,
       assert(found >= 0);
       if (found > 0)
         // 'wtable' is at position 'found', move it to 0 to convert it first
-        std::swap(cte->tmp_tables[0], cte->tmp_tables[found]);
+        std::swap(cte ? cte->tmp_tables[0] : wtable_list->txsql_cte()->tmp_tables[0],
+                  cte ? cte->tmp_tables[found] : wtable_list->txsql_cte()->tmp_tables[found]);
       ref_it.rewind();
     }
   }

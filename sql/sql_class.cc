@@ -1956,6 +1956,9 @@ void THD::cleanup_after_query() {
   px_worker_executing = false;
 #endif
 #endif /* defined(HAVE_PX) */
+  if (!in_sub_stmt && !cte_map.empty()) {
+    txsql::cte_clear(&cte_map);
+  }
 }
 
 /*

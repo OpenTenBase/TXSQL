@@ -61,6 +61,8 @@
 #include "sql/sql_sort.h"  // Sort_result
 #include "thr_lock.h"
 #include "typelib.h"
+#include "sql/txsql_hash/txsql_hash.h"
+#include "sql/txsql_cte/txsql_cte.h"
 
 class Field;
 
@@ -3580,6 +3582,7 @@ struct TABLE_LIST {
   */
   const Create_col_name_list *m_derived_column_names{nullptr};
 
+  txsql::CTE_view_expr *m_txsql_cte{nullptr};
  public:
   ST_SCHEMA_TABLE *schema_table{nullptr}; /* Information_schema table */
   Query_block *schema_query_block{nullptr};
@@ -3866,6 +3869,9 @@ struct TABLE_LIST {
     m_derived_column_names = d;
   }
 
+  void set_cte_expr(txsql::CTE_view_expr *cte) { m_txsql_cte = cte; }
+
+  txsql::CTE_view_expr *txsql_cte() const { return m_txsql_cte; }
  private:
   /*
     A group of members set and used only during JOIN::optimize().
@@ -4362,11 +4368,23 @@ class Derived_refs_iterator {
   explicit Derived_refs_iterator(TABLE_LIST *start_arg) : start(start_arg) {}
   TABLE *get_next() {
     const Common_table_expr *cte = start->common_table_expr();
+    txsql::CTE_view_expr *view_cte = start->txsql_cte();
     m_is_first = ref_idx == 0;
     // Derived tables and views have a single reference.
-    if (cte == nullptr) {
+    if (cte == nullptr && (view_cte == nullptr || view_cte->tmp_tables.size() == 1)) {
       return ref_idx++ == 0 ? start->table : nullptr;
     }
+
+    if (view_cte != nullptr && view_cte->tmp_tables.size() >= 2) {
+      assert(!cte);
+      while (ref_idx < view_cte->tmp_tables.size()) {
+        TABLE *table = view_cte->tmp_tables[ref_idx++]->table;
+        if (table != nullptr) return table;
+      }
+      return nullptr;
+    }
+
+    assert(cte);
     /*
       CTEs may have multiple references. Return the next one, but notice that
       some references may have been deleted.

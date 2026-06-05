@@ -552,6 +552,8 @@ struct System_variables {
 #endif /* HAVE_PX */
   /// @sa Sys_txsql_pread_count_enabled
   bool txsql_pread_count_enabled;
+  /// @sa Sys_txsql_convert_view_to_cte_enabled
+  bool txsql_convert_view_to_cte_enabled;
 };
 
 /**
