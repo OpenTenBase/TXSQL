@@ -1048,5 +1048,9 @@ extern PSI_cond_key key_LOCK_page_cache_cleaning,
 extern PSI_mutex_key key_thread_os_page_cache_cleaning;
 extern mysql_mutex_t LOCK_page_cache_cleaning;
 
+extern bool txsql_binlog_rotate_try_lock_index;
+extern bool txsql_binlog_rotate_try_lock_log;
+extern ulonglong txsql_binlog_purge_check_file_count;
+
 /* Changes from txsql end. */
 #endif /* MYSQLD_INCLUDED */

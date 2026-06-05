@@ -3245,7 +3245,7 @@ bool purge_source_logs_to_file(THD *thd, const char *to_log) {
   mysql_bin_log.make_log_name(search_file_name, to_log);
   auto purge_error = mysql_bin_log.purge_logs(
       search_file_name, include_to_log, need_index_lock, need_update_threads,
-      nullptr, auto_purge);
+      nullptr, auto_purge, txsql_binlog_purge_check_file_count);
   return purge_error_message(thd, purge_error);
 }
 
@@ -4798,7 +4798,8 @@ bool MYSQL_BIN_LOG::init_gtid_sets(Gtid_set *all_gtids, Gtid_set *lost_gtids,
                                    bool verify_checksum, bool need_lock,
                                    Transaction_boundary_parser *trx_parser,
                                    Gtid_monitoring_info *partial_trx,
-                                   bool is_server_starting) {
+                                   bool is_server_starting, bool add_log,
+                                   ulonglong check_file_count) {
   DBUG_TRACE;
   DBUG_PRINT(
       "info",
@@ -4842,7 +4843,7 @@ bool MYSQL_BIN_LOG::init_gtid_sets(Gtid_set *all_gtids, Gtid_set *lost_gtids,
     sid_map = lost_gtids->get_sid_map();
 
   // Gather the set of files to be accessed.
-  auto log_index = this->get_log_index(false);
+  auto log_index = this->get_log_index(false, check_file_count);
   std::list<std::string> filename_list = log_index.second;
   int error = log_index.first;
   list<string>::iterator it;
@@ -5052,6 +5053,11 @@ bool MYSQL_BIN_LOG::init_gtid_sets(Gtid_set *all_gtids, Gtid_set *lost_gtids,
           goto end;
         }
         case NO_GTIDS:
+          if (check_file_count != 0) {
+            error = 1;
+            goto end;
+          }
+          [[fallthrough]];
         case GOT_PREVIOUS_GTIDS: {
           /*
             Mysql server iterates forwards through binary logs, looking for
@@ -5841,7 +5847,7 @@ int MYSQL_BIN_LOG::find_next_relay_log(char log_name[FN_REFLEN + 1]) {
 }
 
 std::pair<int, std::list<std::string>> MYSQL_BIN_LOG::get_log_index(
-    bool need_lock_index) {
+    bool need_lock_index, ulonglong file_count) {
   DBUG_TRACE;
   LOG_INFO log_info;
 
@@ -5852,11 +5858,19 @@ std::pair<int, std::list<std::string>> MYSQL_BIN_LOG::get_log_index(
 
   std::list<std::string> filename_list;
   int error = 0;
+  ulonglong count = 0;
   for (error =
            this->find_log_pos(&log_info, nullptr, false /*need_lock_index*/);
        error == 0;
        error = this->find_next_log(&log_info, false /*need_lock_index*/)) {
     filename_list.push_back(std::string(log_info.log_file_name));
+    if (file_count != 0) {
+      count++;
+      if (count >= file_count) {
+        error = LOG_INFO_EOF;
+        break;
+      }
+    }
   }
 
   if (need_lock_index) mysql_mutex_unlock(&LOCK_index);
@@ -6211,7 +6225,8 @@ err:
 
 int MYSQL_BIN_LOG::purge_logs(const char *to_log, bool included,
                               bool need_lock_index, bool need_update_threads,
-                              ulonglong *decrease_log_space, bool auto_purge) {
+                              ulonglong *decrease_log_space, bool auto_purge,
+                              ulonglong check_file_count) {
   int error = 0, no_of_log_files_to_purge = 0, no_of_log_files_purged = 0;
   int no_of_threads_locking_log = 0;
   bool exit_loop = false;
@@ -6224,6 +6239,9 @@ int MYSQL_BIN_LOG::purge_logs(const char *to_log, bool included,
     mysql_mutex_lock(&LOCK_index);
   else
     mysql_mutex_assert_owner(&LOCK_index);
+
+  DEBUG_SYNC(current_thd, "txsql_purge_binlog_wait_after_lock_index");
+
   if ((error =
            find_log_pos(&log_info, to_log, false /*need_lock_index=false*/))) {
     LogErr(ERROR_LEVEL, ER_BINLOG_PURGE_LOGS_CALLED_WITH_FILE_NOT_IN_INDEX,
@@ -6292,10 +6310,32 @@ int MYSQL_BIN_LOG::purge_logs(const char *to_log, bool included,
   // Update gtid_state->lost_gtids
   if (!is_relay_log) {
     global_sid_lock->wrlock();
-    error = init_gtid_sets(
-        nullptr, const_cast<Gtid_set *>(gtid_state->get_lost_gtids()),
-        opt_source_verify_checksum, false /*false=don't need lock*/,
-        nullptr /*trx_parser*/, nullptr /*partial_trx*/);
+    if (check_file_count != 0) {
+      Gtid_set *lost_gtids =
+          const_cast<Gtid_set *>(gtid_state->get_lost_gtids());
+      Gtid_set temp_lost_gtids(global_sid_map, nullptr);
+      error = init_gtid_sets(
+          nullptr, &temp_lost_gtids, opt_source_verify_checksum,
+          false /*false=don't need lock*/, nullptr /*trx_parser*/,
+          nullptr /*partial_trx*/, false, false, check_file_count);
+      if (error || temp_lost_gtids.is_empty()) {
+        temp_lost_gtids.clear();
+        sql_print_warning(
+            "[TXSQL] failed to init gtids while "
+            "txsql_binlog_purge_check_file_count=%lu, error: %d",
+            check_file_count, error);
+        error = init_gtid_sets(nullptr, lost_gtids, opt_source_verify_checksum,
+                               false /*false=don't need lock*/,
+                               nullptr /*trx_parser*/, nullptr /*partial_trx*/);
+      } else {
+        lost_gtids->add_gtid_set(&temp_lost_gtids);
+      }
+    } else {
+      error = init_gtid_sets(
+          nullptr, const_cast<Gtid_set *>(gtid_state->get_lost_gtids()),
+          opt_source_verify_checksum, false /*false=don't need lock*/,
+          nullptr /*trx_parser*/, nullptr /*partial_trx*/);
+    }
     global_sid_lock->unlock();
     if (error) goto err;
   }
@@ -6752,7 +6792,8 @@ void MYSQL_BIN_LOG::dec_prep_xids(THD *thd) {
 
 int MYSQL_BIN_LOG::new_file(
     Format_description_log_event *extra_description_event) {
-  return new_file_impl(true /*need_lock_log=true*/, extra_description_event);
+  return new_file_impl(true /*need_lock_log=true*/, extra_description_event,
+                       false);
 }
 
 /*
@@ -6760,8 +6801,10 @@ int MYSQL_BIN_LOG::new_file(
     nonzero - error
 */
 int MYSQL_BIN_LOG::new_file_without_locking(
-    Format_description_log_event *extra_description_event) {
-  return new_file_impl(false /*need_lock_log=false*/, extra_description_event);
+    Format_description_log_event *extra_description_event,
+    bool try_lock_index) {
+  return new_file_impl(false /*need_lock_log=false*/, extra_description_event,
+                       try_lock_index);
 }
 
 /**
@@ -6780,7 +6823,8 @@ int MYSQL_BIN_LOG::new_file_without_locking(
   @note The new file name is stored last in the index file
 */
 int MYSQL_BIN_LOG::new_file_impl(
-    bool need_lock_log, Format_description_log_event *extra_description_event) {
+    bool need_lock_log, Format_description_log_event *extra_description_event,
+    bool try_lock_index) {
   int error = 0;
   bool close_on_error = false;
   char new_name[FN_REFLEN], *new_name_ptr = nullptr, *old_name, *file_to_open;
@@ -6800,6 +6844,15 @@ int MYSQL_BIN_LOG::new_file_impl(
     mysql_mutex_assert_owner(&LOCK_log);
   DBUG_EXECUTE_IF("semi_sync_3-way_deadlock",
                   DEBUG_SYNC(current_thd, "before_rotate_binlog"););
+
+  if (try_lock_index) {
+    error = mysql_mutex_trylock(&LOCK_index);
+    if (error != 0) {
+      /* lock failed */
+      return TRY_LOCK_INDEX_FAIL;
+    }
+  }
+
   mysql_mutex_lock(&LOCK_xids);
   /*
     We need to ensure that the number of prepared XIDs are 0.
@@ -6814,7 +6867,9 @@ int MYSQL_BIN_LOG::new_file_impl(
   }
   mysql_mutex_unlock(&LOCK_xids);
 
-  mysql_mutex_lock(&LOCK_index);
+  if (!try_lock_index) {
+    mysql_mutex_lock(&LOCK_index);
+  }
 
   mysql_mutex_assert_owner(&LOCK_log);
   mysql_mutex_assert_owner(&LOCK_index);
@@ -7498,7 +7553,8 @@ bool MYSQL_BIN_LOG::write_event(Log_event *event_info) {
   @retval
     nonzero - error in rotating routine.
 */
-int MYSQL_BIN_LOG::rotate(bool force_rotate, bool *check_purge) {
+int MYSQL_BIN_LOG::rotate(bool force_rotate, bool *check_purge,
+                          bool try_lock_index) {
   int error = 0;
   DBUG_TRACE;
 
@@ -7510,8 +7566,11 @@ int MYSQL_BIN_LOG::rotate(bool force_rotate, bool *check_purge) {
   if (DBUG_EVALUATE_IF("force_rotate", 1, 0) || force_rotate ||
       (m_binlog_file->get_real_file_size() >= (my_off_t)max_size) ||
       DBUG_EVALUATE_IF("simulate_max_binlog_size", true, false)) {
-    error = new_file_without_locking(nullptr);
-
+    error = new_file_without_locking(nullptr, try_lock_index);
+    if (try_lock_index && error == TRY_LOCK_INDEX_FAIL) {
+      DEBUG_SYNC(current_thd, "txsql_try_lock_index_failed");
+      return 0;
+    }
     if (cdb_page_cache_cleaning_binlog) {
       progress_tracker.update_active_file(log_file_name);
       progress_tracker.make_progress();
@@ -9315,13 +9374,25 @@ void MYSQL_BIN_LOG::rotate_after_commit(THD *thd) {
   */
   DEBUG_SYNC(thd, "ready_to_do_rotation");
   bool check_purge = false;
-  mysql_mutex_lock(&LOCK_log);
-  /*
-    If rotate fails then depends on binlog_error_action variable
-    appropriate action will be taken inside rotate call.
-  */
-  int error = rotate(false, &check_purge);
-  mysql_mutex_unlock(&LOCK_log);
+  int error = 0;
+  bool lock_log_locked = true;
+  if (txsql_binlog_rotate_try_lock_log) {
+    error = mysql_mutex_trylock(&LOCK_log);
+    if (error != 0) {
+      lock_log_locked = false;
+      error = 0;
+    }
+  } else {
+    mysql_mutex_lock(&LOCK_log);
+  }
+  if (lock_log_locked) {
+    /*
+      If rotate fails then depends on binlog_error_action variable
+      appropriate action will be taken inside rotate call.
+    */
+    error = rotate(false, &check_purge, txsql_binlog_rotate_try_lock_index);
+    mysql_mutex_unlock(&LOCK_log);
+  }
   if (error)
     thd->commit_error = THD::CE_COMMIT_ERROR;
   else if (check_purge)

@@ -276,11 +276,13 @@ class MYSQL_BIN_LOG : public TC_LOG {
     LOCK_log.
   */
   int new_file_without_locking(
-      Format_description_log_event *extra_description_event);
+      Format_description_log_event *extra_description_event,
+      bool try_lock_index = false);
 
- private:
+private:
   int new_file_impl(bool need_lock,
-                    Format_description_log_event *extra_description_event);
+                    Format_description_log_event *extra_description_event,
+                    bool try_lock_index);
 
   bool open(PSI_file_key log_file_key, const char *log_name,
             const char *new_name, uint32 new_index_number);
@@ -433,7 +435,8 @@ class MYSQL_BIN_LOG : public TC_LOG {
                       bool verify_checksum, bool need_lock,
                       Transaction_boundary_parser *trx_parser,
                       Gtid_monitoring_info *partial_trx,
-                      bool is_server_starting = false);
+                      bool is_server_starting = false, bool add_log = false,
+                      ulonglong check_file_count = 0);
 
   void set_previous_gtid_set_relaylog(Gtid_set *previous_gtid_set_param) {
     assert(is_relay_log);
@@ -800,7 +803,7 @@ class MYSQL_BIN_LOG : public TC_LOG {
   void make_log_name(char *buf, const char *log_ident);
   bool is_active(const char *log_file_name);
   int remove_logs_from_index(LOG_INFO *linfo, bool need_update_threads);
-  int rotate(bool force_rotate, bool *check_purge);
+  int rotate(bool force_rotate, bool *check_purge, bool try_lock_index = false);
 
   /**
     @brief This function runs automatic purge if the conditions to meet
@@ -838,7 +841,7 @@ class MYSQL_BIN_LOG : public TC_LOG {
   bool flush_and_sync(const bool force = false);
   int purge_logs(const char *to_log, bool included, bool need_lock_index,
                  bool need_update_threads, ulonglong *decrease_log_space,
-                 bool auto_purge);
+                 bool auto_purge, ulonglong check_file_count = 0);
   int purge_logs_before_date(time_t purge_time, bool auto_purge);
   int set_crash_safe_index_file_name(const char *base_file_name);
   int open_crash_safe_index_file();
@@ -877,7 +880,7 @@ class MYSQL_BIN_LOG : public TC_LOG {
             the content of the log index file.
   */
   std::pair<int, std::list<std::string>> get_log_index(
-      bool need_lock_index = true);
+      bool need_lock_index = true, ulonglong file_count = 0);
   inline char *get_index_fname() { return index_file_name; }
   inline char *get_log_fname() { return log_file_name; }
   const char *get_name() const { return name; }
@@ -1216,6 +1219,9 @@ class MYSQL_BIN_LOG : public TC_LOG {
   };
   void update_progress_tracker_logfiles(bool reset_pointers = false);
   BIN_LOG_PROGRESS_TRACKER progress_tracker;
+
+ private:
+  static constexpr int TRY_LOCK_INDEX_FAIL = 12345;
 };
 
 struct LOAD_FILE_INFO {

@@ -1,0 +1,38 @@
+reset master;
+show binary logs;
+Log_name	File_size	Encrypted	Algorithm
+binlog.000001	#	No	No
+create table t1(id int,c1 varchar(4096));
+insert into t1 values(1,'a');
+flush binary logs;
+set global max_binlog_size=4096;
+show binary logs;
+Log_name	File_size	Encrypted	Algorithm
+binlog.000001	#	No	No
+binlog.000002	#	No	No
+begin;
+insert into t1 values(2,repeat('b',4096));
+insert into t1 values(3,repeat('c',4096));
+commit;
+show binary logs;
+Log_name	File_size	Encrypted	Algorithm
+binlog.000001	#	No	No
+binlog.000002	#	No	No
+binlog.000003	#	No	No
+set debug_sync='txsql_purge_binlog_wait_after_lock_index signal txsql_binlog_index_locked wait_for txsql_purge_binlog_continue';
+purge binary logs to 'binlog.000002';
+set debug_sync='now wait_for txsql_binlog_index_locked';
+set debug_sync='txsql_try_lock_index_failed signal txsql_try_lock_index_failed_rotate_finished';
+set global txsql_binlog_rotate_try_lock_index=ON;
+begin;
+insert into t1 values(4,repeat('b',4096));
+insert into t1 values(5,repeat('c',4096));
+commit;
+set debug_sync='now signal txsql_purge_binlog_continue wait_for txsql_try_lock_index_failed_rotate_finished';
+show binary logs;
+Log_name	File_size	Encrypted	Algorithm
+binlog.000002	#	No	No
+binlog.000003	#	No	No
+drop table t1;
+set global max_binlog_size=default;
+set global txsql_binlog_rotate_try_lock_index=default;

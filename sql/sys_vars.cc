@@ -2965,9 +2965,9 @@ static Sys_var_ulong Sys_max_binlog_size(
     "Binary log will be rotated automatically when the size exceeds this "
     "value. Will also apply to relay logs if max_relay_log_size is 0",
     GLOBAL_VAR(max_binlog_size), CMD_LINE(REQUIRED_ARG),
-    VALID_RANGE(IO_SIZE, 1024 * 1024L * 1024L), DEFAULT(1024 * 1024L * 1024L),
-    BLOCK_SIZE(IO_SIZE), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr),
-    ON_UPDATE(fix_max_binlog_size));
+    VALID_RANGE(IO_SIZE, 1024 * 1024L * 1024L * 10L),
+    DEFAULT(1024 * 1024L * 1024L), BLOCK_SIZE(IO_SIZE), NO_MUTEX_GUARD,
+    NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(fix_max_binlog_size));
 
 static Sys_var_ulong Sys_max_connections(
     "max_connections", "The number of simultaneous clients allowed",
@@ -4075,6 +4075,27 @@ static bool check_thread_handling(sys_var *, THD *, set_var *var) {
   }
   return false;
 }
+
+static Sys_var_bool Sys_txsql_binlog_rotate_try_lock_index(
+    "txsql_binlog_rotate_try_lock_index",
+    "If set to ON, binlog will not rotate if LOCK_index could not be acquired.",
+    GLOBAL_VAR(txsql_binlog_rotate_try_lock_index), CMD_LINE(OPT_ARG),
+    DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL),
+    ON_UPDATE(NULL));
+
+static Sys_var_bool Sys_txsql_binlog_rotate_try_lock_log(
+    "txsql_binlog_rotate_try_lock_log",
+    "If set to ON, binlog will not rotate if LOCK_log could not be acquired.",
+    GLOBAL_VAR(txsql_binlog_rotate_try_lock_log), CMD_LINE(OPT_ARG),
+    DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL),
+    ON_UPDATE(NULL));
+
+static Sys_var_ulonglong Sys_txsql_binlog_purge_check_file_count(
+    "txsql_binlog_purge_check_file_count",
+    "Check how many binlog files to get lost gtids during purge.",
+    GLOBAL_VAR(txsql_binlog_purge_check_file_count), CMD_LINE(OPT_ARG),
+    VALID_RANGE(0, ULONG_MAX), DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD,
+    NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(nullptr));
 /* Changes from txsql end. */
 
 static Sys_var_enum Sys_thread_handling(

@@ -1300,6 +1300,10 @@ bool opt_log_replica_updates = false;
 char *opt_replica_skip_errors;
 bool opt_replica_allow_batching = true;
 
+bool txsql_binlog_rotate_try_lock_index = false;
+bool txsql_binlog_rotate_try_lock_log = false;
+ulonglong txsql_binlog_purge_check_file_count = 0;
+
 bool txsql_audit_alter_table_enable= false;
 bool txsql_audit_set_option_enable= false;
 /**
