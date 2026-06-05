@@ -2187,7 +2187,7 @@ bool CostingReceiver::ProposeTableScan(
     } else {
       bool rematerialize = Overlaps(tl->derived_query_expression()->uncacheable,
                                     UNCACHEABLE_DEPENDENT);
-      if (tl->common_table_expr()) {
+      if (tl->common_table_expr() || (tl->txsql_cte() && tl->txsql_cte()->tmp_tables.size() >= 2)) {
         // Handled in clear_corr_derived_tmp_tables(), not here.
         rematerialize = false;
       }
