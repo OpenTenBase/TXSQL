@@ -1,0 +1,42 @@
+set global txsql_recycle_bin_enabled=on;
+drop table if exists t1;
+create table t1(a int);
+use <RECYCLE_DATABASE>;
+insert into test.t1 values (11);
+truncate table test.t1;
+insert into test.t1 values (22);
+truncate table test.t1;
+insert into test.t1 values (33);
+drop table test.t1;
+show recycle_bin;
+db	table	recycle_table	drop_time	purge_time
+test	t1	#	#	#
+test	t1	#	#	#
+test	t1	#	#	#
+CLEAR RECYCLE_BIN test.t1 BEFORE TIMESTAMP('ts3');
+show recycle_bin;
+db	table	recycle_table	drop_time	purge_time
+test	t1	#	#	#
+test	t1	#	#	#
+RESTORE test.t1 FROM RECYCLE_BIN WITH TIMESTAMP('ts2');
+select * from test.t1;
+a
+22
+truncate table test.t1;
+insert into test.t1 values (44);
+drop table test.t1;
+CLEAR RECYCLE_BIN ALL test.t1 BEFORE TIMESTAMP('ts5');
+show recycle_bin;
+db	table	recycle_table	drop_time	purge_time
+test	t1	#	#	#
+CLEAR RECYCLE_BIN test.t1 BEFORE TIMESTAMP('ts5');
+ERROR HY000: No corresponding record was found in recycle_bin.
+RESTORE test.t1 FROM RECYCLE_BIN WITH TIMESTAMP('ts5');
+select * from test.t1;
+a
+44
+show recycle_bin;
+db	table	recycle_table	drop_time	purge_time
+drop table test.t1;
+clear recycle_bin;
+set global txsql_recycle_bin_enabled = default;
