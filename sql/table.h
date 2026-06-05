@@ -1661,6 +1661,32 @@ struct TABLE {
   // List of table check constraints.
   Sql_table_check_constraint_list *table_check_constraint_list{nullptr};
 
+ public:
+  /**
+    Reference count of each field in read operation (read_set). Valid only
+    for SELECT statemnt.
+  */
+  std::vector<uint> fields_use_count;
+
+  /**
+    In the prepare phase, every time Field appears in fields and conditions,
+    read_set will be set once. Introduce TABLE::fields_use_count to record
+    the number of times each field is referenced. If use_count is 0, remove
+    it from TABLE::read_set.
+  */
+  void release_field(uint16 field_index) {
+    if (fields_use_count.size() > field_index &&
+        --fields_use_count[field_index] == 0) {
+      bitmap_clear_bit(read_set, field_index);
+    }
+  }
+
+  void use_field(uint16 field_index) {
+    if (fields_use_count.size() > field_index) {
+      ++fields_use_count[field_index];
+    }
+  }
+  
  private:
   /**
     If true, this table is inner w.r.t. some outer join operation, all columns

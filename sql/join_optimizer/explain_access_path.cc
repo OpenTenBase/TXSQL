@@ -999,6 +999,11 @@ ExplainData ExplainAccessPath(const AccessPath *path, JOIN *join,
         } else {
           ret += ItemToString(*item);
         }
+
+        if ((*item)->sum_func() == Item_sum::COUNT_FUNC &&
+            ((Item_sum_count *)(*item))->is_coverted_count_zero) {
+          ret += " using conversion for count of not null column";
+        }
       }
       description.push_back(move(ret));
       children.push_back({path->aggregate().child});

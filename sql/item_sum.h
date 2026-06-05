@@ -1155,6 +1155,8 @@ class Item_sum_count : public Item_sum_int {
     return (sum_func() == COUNT_DISTINCT_FUNC) ? false : true;
   }
 #endif /* defined(HAVE_PX) */
+  // True if it is count(0) converted from count(non_null_field)
+  bool is_coverted_count_zero{false};
 };
 
 /* Item to get the value of a stored sum function */

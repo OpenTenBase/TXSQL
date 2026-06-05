@@ -300,6 +300,7 @@ class Fake_TABLE : public TABLE {
     new_field->table_name = &table_name;
     new_field->set_field_index(pos);
     bitmap_set_bit(read_set, pos);
+    use_field(pos);
     const ptrdiff_t field_offset = pos * MAX_FIELD_WIDTH;
     new_field->set_field_ptr(record[0] + field_offset + 1);
     if (new_field->get_null_ptr() != nullptr)
