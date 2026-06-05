@@ -1,0 +1,83 @@
+--source include/have_log_bin.inc
+--source include/have_debug_sync.inc
+
+create table t(id int primary key auto_increment, 
+               v1 char(255) default "1", 
+               v2 char(255) default "1", 
+               v3 char(255) default "1", 
+               v4 char(255) default "1");
+
+connect (root_conn,127.0.0.1,root,,);
+connection root_conn;
+set @old_cdb_page_cache_cleaning_binlog = @@cdb_page_cache_cleaning_binlog;
+set global cdb_page_cache_cleaning_binlog = on;
+
+# case #1:  page cache cleaning functionality ON
+SET GLOBAL DEBUG='+d,page_cache_cleaning_test';
+
+insert into t(v1) values("1");
+insert into t(v1) values("1");
+insert into t(v1) values("1");
+insert into t(v1) values("1");
+insert into t(v1) values("1");
+insert into t(v1) values("1");
+insert into t(v1) values("1");
+insert into t(v1) values("1");
+insert into t(v1) values("1");
+insert into t(v1) values("1");
+
+# This rotates binlog which should trigger the cleanup
+flush logs;
+# Wait a while for the background thread to actually do the cleanup
+sleep 2;
+
+let SEARCH_FILE= $MYSQLTEST_VARDIR/log/mysqld.1.err;
+
+--let SEARCH_PATTERN=progress_tracker: made progress
+--source include/search_pattern_in_file.inc
+--let SEARCH_PATTERN=page cache cleaning without slaves
+--source include/search_pattern_in_file.inc
+--let SEARCH_PATTERN=POSIX_FADV_DONTNEED
+--source include/search_pattern_in_file.inc
+SET GLOBAL DEBUG='-d,page_cache_cleaning_test';
+
+# First empty the error log
+--disable_result_log
+--exec echo > $SEARCH_FILE
+--enable_result_log
+
+# case #2: page cache cleaning functionality OFF
+set global cdb_page_cache_cleaning_binlog = off;
+--sleep 1
+
+SET GLOBAL DEBUG='+d,page_cache_cleaning_test';
+
+insert into t(v1) values("1");
+insert into t(v1) values("1");
+insert into t(v1) values("1");
+insert into t(v1) values("1");
+insert into t(v1) values("1");
+insert into t(v1) values("1");
+insert into t(v1) values("1");
+insert into t(v1) values("1");
+insert into t(v1) values("1");
+insert into t(v1) values("1");
+
+# This rotates binlog which should trigger the cleanup
+# However, we do not expect anything related to page cache 
+# cleaning in the debug log since the switch is off.
+flush logs;
+sleep 2;
+
+
+--let SEARCH_PATTERN=progress_tracker: made progress
+--source include/search_pattern_not_in_file.inc
+--let SEARCH_PATTERN=page cache cleaning without slaves
+--source include/search_pattern_not_in_file.inc
+--let SEARCH_PATTERN=POSIX_FADV_DONTNEED
+--source include/search_pattern_not_in_file.inc
+SET GLOBAL DEBUG='-d,page_cache_cleaning_test';
+
+drop table t;
+set global cdb_page_cache_cleaning_binlog = @old_cdb_page_cache_cleaning_binlog;
+disconnect root_conn;

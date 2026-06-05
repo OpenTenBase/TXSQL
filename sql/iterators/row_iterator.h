@@ -26,6 +26,7 @@
 #include <assert.h>
 #include <string>
 #include <prealloced_array.h>
+#include <vector>
 
 class Item;
 class JOIN;
