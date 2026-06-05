@@ -563,38 +563,23 @@ bool Recycle_bin_persistor::find_tables_before_time(
     dd::Raw_record record{table};
 
     if (record.store(FIELD_ORIGIN_SCHEMA, dd::String_type(db_name)) ||
-        record.store(FIELD_ORIGIN_TABLE, dd::String_type(table_name)))
-      return true;
+        record.store(FIELD_ORIGIN_TABLE, dd::String_type(table_name))) {
+      err = -1;
+      goto end;
+    }
 
-    uchar user_key[MAX_KEY_LENGTH];
-    uint key_no = KEY_SCHEMA_TABLE;
-    KEY *key_info = table->key_info + key_no;
-    key_copy(user_key, table->record[0], key_info, key_info->key_length);
-
-    if ((err = table->file->ha_index_init(key_no, true))) {
+    if ((err = table->file->ha_index_init(KEY_DROP_TIME, true))) {
       table->file->print_error(err, MYF(0));
       goto end;
     }
 
-    my_timeval oldest_table = {INT64_MAX, INT64_MAX};
-    for ((err = table->file->ha_index_read_map(
-              table->record[0], user_key,
-              make_prev_keypart_map(key_parts[KEY_SCHEMA_TABLE]),
-              HA_READ_PREFIX_LAST));
-         !err;
-         (err = table->file->ha_index_prev(table->record[0]))) {
+    for ((err = table->file->ha_index_first(table->record[0])); !err;
+        (err = table->file->ha_index_next(table->record[0]))) {
       if (!match_schema_table_key(record, db_name, table_name)) continue;
       my_timeval now = record.read_timestamp(FIELD_DROP_TIME);
       if (before_time && now.m_tv_sec >= before_time) break;
-
-      if (!all && (now.m_tv_sec < oldest_table.m_tv_sec ||
-                   (now.m_tv_sec == oldest_table.m_tv_sec &&
-                    now.m_tv_usec < oldest_table.m_tv_usec))) {
-        tables.clear();
-        tables.push_back(record.read_str(FIELD_TABLE_NAME).c_str());
-      } else if (all) {
-        tables.push_back(record.read_str(FIELD_TABLE_NAME).c_str());
-      }
+      tables.push_back(record.read_str(FIELD_TABLE_NAME).c_str());
+      if (!all) break;
     }
     table->file->ha_index_end();
     if (err == HA_ERR_END_OF_FILE || err == HA_ERR_KEY_NOT_FOUND) err = 0;

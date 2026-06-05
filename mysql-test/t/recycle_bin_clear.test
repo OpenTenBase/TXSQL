@@ -1,0 +1,80 @@
+connect (con_root_master, localhost, root,,,,$MASTER_MYSOCK);
+set global txsql_recycle_bin_enabled=on;
+
+let $recycle_database = __txsql_recycle_bin__;
+
+drop table if exists t1;
+create table t1(a int);
+
+--replace_regex /__.*_recycle_bin__/<RECYCLE_DATABASE>/
+--eval use $recycle_database
+insert into test.t1 values (11);
+truncate table test.t1;
+
+sleep 1;
+insert into test.t1 values (22);
+truncate table test.t1;
+
+sleep 1;
+insert into test.t1 values (33);
+drop table test.t1;
+--replace_column 3 # 4 # 5 #
+show recycle_bin;
+
+# now we have 3 tables in recycle bin
+# test.t1 with data 11, drop_time = ts1
+# test.t1 with data 22, drop_time = ts2
+# test.t1 with data 33, drop_time = ts3
+# and meets condition ts1 < ts2 < ts3
+
+# let last_drop_time = ts3
+# clear recycle_bin test.t1 before timestamp(ts3) will clear record ts1
+--let $last_drop_time= query_get_value("select drop_time from mysql.recycle_bin_info where origin_schema='test' and origin_table='t1' order by drop_time desc limit 1", drop_time, 1)
+--replace_regex /'\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}'/'ts3'/
+--eval CLEAR RECYCLE_BIN test.t1 BEFORE TIMESTAMP('$last_drop_time')
+
+--replace_column 3 # 4 # 5 #
+show recycle_bin;
+
+# let first_drop_time = ts3
+# restore test.t1 from recycle_bin test.t1 with timestamp(ts3) will recover record ts2
+--let $first_drop_time= query_get_value("select drop_time from mysql.recycle_bin_info where origin_schema='test' and origin_table='t1' order by drop_time asc limit 1", drop_time, 1)
+--replace_regex /'\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}'/'ts2'/
+--eval RESTORE test.t1 FROM RECYCLE_BIN WITH TIMESTAMP('$first_drop_time')
+
+select * from test.t1;
+
+# drop generate one more recycle bin record with ts4, ts3 < ts4
+truncate table test.t1;
+
+insert into test.t1 values (44);
+sleep 1;
+# drop generate one more recycle bin record with ts5, ts4 < ts5
+drop table test.t1;
+
+# let last_drop_time = ts5
+# clear recycle_bin all test.t1 before timestamp(ts5) will clear record ts3, ts4
+--let $last_drop_time= query_get_value("select drop_time from mysql.recycle_bin_info where origin_schema='test' and origin_table='t1' order by drop_time desc limit 1", drop_time, 1)
+--replace_regex /'\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}'/'ts5'/
+--eval CLEAR RECYCLE_BIN ALL test.t1 BEFORE TIMESTAMP('$last_drop_time')
+
+--replace_column 3 # 4 # 5 #
+show recycle_bin;
+
+# no records to clear before ts5
+--replace_regex /'\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}'/'ts5'/
+--error ER_RECYCLE_BIN_NOT_FOUND
+--eval CLEAR RECYCLE_BIN test.t1 BEFORE TIMESTAMP('$last_drop_time')
+
+# restore test.t1 from recycle_bin test.t1 with timestamp(ts4) will recover record ts5
+--replace_regex /'\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}'/'ts5'/
+--eval RESTORE test.t1 FROM RECYCLE_BIN WITH TIMESTAMP('$last_drop_time')
+
+select * from test.t1;
+--replace_column 3 # 4 # 5 #
+show recycle_bin;
+
+drop table test.t1;
+clear recycle_bin;
+
+set global txsql_recycle_bin_enabled = default;
