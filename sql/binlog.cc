@@ -9224,6 +9224,8 @@ int MYSQL_BIN_LOG::finish_commit(THD *thd) {
     dec_prep_xids(thd);
   }
 
+  DEBUG_SYNC(thd, "after_dec_prep_xids");
+
   // If the transaction was committed successfully, run the after_commit
   if (committed_low && (thd->commit_error != THD::CE_COMMIT_ERROR) &&
       thd->get_transaction()->m_flags.run_hooks) {
