@@ -151,6 +151,7 @@ PSI_memory_key key_memory_statistics_task;
 #if defined(HAVE_OPT_CTX)
 PSI_memory_key key_memory_optimizer_context;
 #endif
+PSI_memory_key key_memory_page_cache_clean;
 
 #ifdef HAVE_PSI_INTERFACE
 
@@ -396,17 +397,19 @@ static PSI_memory_info all_server_memory[] = {
      "Memory allocated for in-memory sets for persisted variables"},
     {&key_memory_thread_pool_connection, "thread_pool_connection", 0, 0,
      PSI_DOCUMENT_ME},
-    {&key_memory_hot_update_metadata, "hot_update_metadata", 0, 0, 
+    {&key_memory_hot_update_metadata, "hot_update_metadata", 0, 0,
      PSI_DOCUMENT_ME},
-    {&key_memory_statistics_manager,"statistics_manager", 0, 0,
+    {&key_memory_statistics_manager, "statistics_manager", 0, 0,
      PSI_DOCUMENT_ME},
-    {&key_memory_statistics_task,"statistics_manager_task", 0, 0,
+    {&key_memory_statistics_task, "statistics_manager_task", 0, 0,
      PSI_DOCUMENT_ME},
+    {&key_memory_page_cache_clean, "cdb_page_cache_clean", 0,0,PSI_DOCUMENT_ME}
 #if defined(HAVE_OPT_CTX)
-    {&key_memory_optimizer_context, "optimization context for parallel execution", 0, 0,
-     PSI_DOCUMENT_ME}
+    ,
+    {&key_memory_optimizer_context,
+     "optimization context for parallel execution", 0, 0, PSI_DOCUMENT_ME}
 #endif
-    };
+};
 
 void register_server_memory_keys() {
   const char *category = "sql";

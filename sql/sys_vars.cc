@@ -9210,4 +9210,39 @@ static Sys_var_bool Sys_txsql_show_kill_log(
     DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL),
     ON_UPDATE(NULL));
 
+static bool update_cdb_page_cache_cleaning_binlog(sys_var *self, THD *thd,
+                                                  enum_var_type type) {
+  if (opt_bin_log) {
+    if (cdb_page_cache_cleaning_binlog == true) {
+      mysql_bin_log.enable_page_cache_cleaning();
+    }
+  }
+  return false;
+}
+static Sys_var_ulonglong Sys_page_cache_cleaning_window(
+    "cdb_page_cache_cleaning_window",
+    "Cleaning window size for page cache in bytes. Default is "
+    "16,777,216(16MB).",
+    GLOBAL_VAR(cdb_page_cache_cleaning_window), CMD_LINE(OPT_ARG),
+    VALID_RANGE(1024 * 1024, 1024 * 1024 * 1024), DEFAULT(16 * 1024 * 1024),
+    BLOCK_SIZE(1));
+static Sys_var_bool Sys_cdb_enable_page_cache_cleaning_redo(
+    "cdb_page_cache_cleaning_redo",
+    "5.7 Compatable Var: No effect in 8.0.30",
+    GLOBAL_VAR(cdb_page_cache_cleaning_redo), CMD_LINE(OPT_ARG),
+    DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL),
+    ON_UPDATE(NULL));
+static Sys_var_bool Sys_cdb_enable_page_cache_cleaning_binlog(
+    "cdb_page_cache_cleaning_binlog",
+    "Enable page cache cleaning for binlog files",
+    GLOBAL_VAR(cdb_page_cache_cleaning_binlog), CMD_LINE(OPT_ARG),
+    DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL),
+    ON_UPDATE(update_cdb_page_cache_cleaning_binlog));
+
+bool cdb_sql_mode_fixup_enabled = false;
+static Sys_var_bool Sys_cdb_sql_mode_fixup_enabled(
+    "cdb_sql_mode_fixup_enabled", "5.7 Compatable Var: No effect in 8.0.30",
+    GLOBAL_VAR(cdb_sql_mode_fixup_enabled), CMD_LINE(OPT_ARG),
+    DEFAULT(false));
+
 /* Changes from txsql end. */

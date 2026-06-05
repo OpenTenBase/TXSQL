@@ -44,6 +44,16 @@ ORDER BY name
 unified_parent_thread_id	unified parent_thread_id
 role	NULL
 instrumented	YES
+name	thread/sql/os_page_cache_cleaning
+type	BACKGROUND
+processlist_user	NULL
+processlist_host	NULL
+processlist_db	NULL
+processlist_command	NULL
+processlist_info	NULL
+unified_parent_thread_id	unified parent_thread_id
+role	NULL
+instrumented	YES
 name	thread/sql/signal_handler
 type	BACKGROUND
 processlist_user	NULL
@@ -125,6 +135,7 @@ parent_thread_name	child_thread_name
 thread/sql/event_scheduler	thread/sql/event_worker
 thread/sql/main	thread/sql/compress_gtid_table
 thread/sql/main	thread/sql/one_connection
+thread/sql/main	thread/sql/os_page_cache_cleaning
 thread/sql/main	thread/sql/signal_handler
 thread/sql/main	thread/sql/sql_statistics
 thread/sql/one_connection	thread/sql/event_scheduler

@@ -503,6 +503,7 @@ SET(SQL_SHARED_SOURCES
   opt_sum.cc
   opt_trace.cc
   opt_trace2server.cc
+  os_page_cache.cc
   pack_rows.cc
   parse_file.cc
   parse_tree_handler.cc
