@@ -470,8 +470,6 @@ class ha_innobase : public handler {
                               Alter_copy_info *ha_copy_alter_info,
                               List<Create_field> &create, ulong &found) override;
 
-  void prepare_copy_alter(Alter_copy_info *ha_copy_alter_info) override;
-
   /** Commit or rollback the changes made during
   prepare_inplace_alter_table() and inplace_alter_table() inside
   the storage engine. Note that the allowed level of concurrency
