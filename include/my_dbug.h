@@ -93,6 +93,10 @@ extern void _db_unlock_file_(void);
 extern FILE *_db_fp_(void);
 extern void _db_flush_();
 
+extern void parallel_reader_copy_dbug_keyword_list(CODE_STATE **dst_ptr, CODE_STATE **src_ptr);
+
+extern void parallel_reader_reset_dbug_keyword_list(CODE_STATE **cs_ptr);
+
 #ifdef __cplusplus
 
 #if defined(__GNUC__)
