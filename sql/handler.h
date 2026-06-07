@@ -6284,10 +6284,6 @@ class handler {
                                              ha_copy_alter_info, create, found);
   }
 
-  void ha_prepare_copy_alter(Alter_copy_info *ha_copy_alter_info) {
-    return prepare_copy_alter(ha_copy_alter_info);
-  }
-
   /**
      Public function wrapping the actual handler call.
      Allows us to enforce asserts regardless of handler implementation.
@@ -6428,11 +6424,6 @@ class handler {
                       List<Create_field> &create [[maybe_unused]],
                       ulong &found [[maybe_unused]]) {
     return 0;
-  }
-
-  virtual void prepare_copy_alter(
-    Alter_copy_info *ha_copy_alter_info [[maybe_unused]]) {
-      return;
   }
 
   /**

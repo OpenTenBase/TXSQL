@@ -763,7 +763,9 @@ struct trx_t {
   Therefore in innobase_kill_connection. We don't increment this
   counter via TrxInInnoDB. */
 
-  uint32_t in_depth; /*!< Track nested TrxInInnoDB
+  /* [TXSQL Parallel Copy DDL] modify this member into an atomic one
+  since there are multi threads that will modify it. */
+  std::atomic<uint32_t> in_depth; /*!< Track nested TrxInInnoDB
                         count */
 
   uint32_t in_innodb; /*!< if the thread is executing

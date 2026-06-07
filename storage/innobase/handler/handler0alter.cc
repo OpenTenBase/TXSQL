@@ -344,8 +344,6 @@ struct ha_innobase_copy_ctx : public copy_alter_handler_ctx {
 struct ha_innobase_copy_ctx_t {
   mem_heap_t * copy_heap;
 
-  row_prebuilt_t * copy_prebuilt;
-
   row_prebuilt_t * from_prebuilt;
 
   THD * copy_thd;
@@ -356,12 +354,10 @@ struct ha_innobase_copy_ctx_t {
 
   TABLE * from_table, * to_table;
 
-  void init(dict_table_t * new_inno_table, dict_table_t *old_inno_table,
-            TABLE *from, TABLE *to,
-            row_prebuilt_t * prebuilt, row_prebuilt_t * old_prebuilt,
-            THD * thd, dd::Table *new_dd_tab, const dd::Table *old_dd_tab,
-            ha_innobase_copy_ctx *copy_ctx, List<Create_field> create) {
-
+  void init(dict_table_t *old_inno_table, TABLE *from, TABLE *to,
+            row_prebuilt_t *old_prebuilt, THD *thd, dd::Table *new_dd_tab,
+            const dd::Table *old_dd_tab, copy_alter_handler_ctx *copy_ctx,
+            List<Create_field> create, bool & auto_increment_field_copied) {
     copy_heap = mem_heap_create(1024, UT_LOCATION_HERE);
 
     from_table = open_table_uncached(thd, copy_ctx->get_path(), copy_ctx->db,
@@ -380,18 +376,6 @@ struct ha_innobase_copy_ctx_t {
     to_table->column_bitmaps_set_no_signal(&to_table->s->all_set,
                                              &to_table->s->all_set);
 
-    copy_prebuilt = row_create_prebuilt(new_inno_table, to->s->reclength);
-
-    copy_prebuilt->default_rec = to->s->default_values;
-    ut_ad(copy_prebuilt->default_rec);
-
-    /* Use same trx as original prebuilt. */
-    copy_prebuilt->trx = prebuilt->trx;
-
-    copy_prebuilt->m_mysql_table = to;
-
-    build_copy_template(copy_prebuilt, true, to_table);
-
     from_prebuilt = row_create_prebuilt(old_inno_table, from->s->reclength);
     from_prebuilt->default_rec = from->s->default_values;
     ut_ad(from_prebuilt->default_rec);
@@ -401,6 +385,8 @@ struct ha_innobase_copy_ctx_t {
     from_prebuilt->m_mysql_table = from;
 
     build_copy_template(from_prebuilt, true, from_table);
+
+    to_table->next_number_field = to_table->found_next_number_field;
 
     copy_thd = thd;
 
@@ -442,12 +428,17 @@ struct ha_innobase_copy_ctx_t {
         continue;
       }
       if (def->field) {
-        const char * cmp_name = (*ptr)->field_name;
+        if (*ptr == to_table->next_number_field) {
+          auto_increment_field_copied = true;
+        }
+
+        const char *cmp_name = (*ptr)->field_name;
         if (def->change) {
           cmp_name = def->change;
         }
         for (Field **from_it = from_table->field; *from_it; from_it++) {
-          if (my_strcasecmp(system_charset_info, (*from_it)->field_name, cmp_name) == 0) {
+          if (my_strcasecmp(system_charset_info, (*from_it)->field_name,
+                            cmp_name) == 0) {
             (copy_end++)->set(*ptr, *from_it);
             break;
           }
@@ -471,8 +462,6 @@ struct ha_innobase_copy_ctx_t {
     mem_heap_free(copy_heap);
 
     /* Do not close the table. */
-    copy_prebuilt->table = nullptr;
-    row_prebuilt_free(copy_prebuilt, false);
     from_prebuilt->table = nullptr;
     row_prebuilt_free(from_prebuilt, false);
 
@@ -1810,87 +1799,69 @@ void ha_innobase::parallel_scan_end(void *parallel_scan_ctx) {
   ut::delete_(parallel_reader);
 }
 
-void ha_innobase::prepare_copy_alter(Alter_copy_info *ha_copy_alter_info) {
-  ha_copy_alter_info->handler_ctx = new (m_user_thd->mem_root)
-                                        ha_innobase_copy_ctx(m_prebuilt);
-  ha_innobase_copy_ctx *ctx [[maybe_unused]] =
-      static_cast<ha_innobase_copy_ctx *>(ha_copy_alter_info->handler_ctx);
-  assert(ctx);
-  if (m_prebuilt->mysql_template == nullptr) {
-    build_template(true);
-  }
-  row_get_prebuilt_insert_row(m_prebuilt);
-}
-
 /*
   @return error status (zero on success, HA_ERR_* error code on error)
 */
 int ha_innobase::parallel_copy_data_between_tables(
-                TABLE *from, TABLE *to, dd::Table *new_dd_tab,
-                const dd::Table *old_dd_tab,
-                Alter_copy_info *ha_copy_alter_info,
-                List<Create_field> &create, ulong &found) {
+    TABLE *from, TABLE *to, dd::Table *new_dd_tab, const dd::Table *old_dd_tab,
+    Alter_copy_info *ha_copy_alter_info, List<Create_field> &create,
+    ulong &found) {
   dberr_t err = DB_SUCCESS;
   if (dict_table_is_discarded(m_prebuilt->table)) {
     return (HA_ERR_NO_SUCH_TABLE);
   }
   size_t num_threads;
-  THD * thd = current_thd;
-  mem_heap_t * heap = mem_heap_create(1024, UT_LOCATION_HERE);
+  THD *thd = current_thd;
+  mem_heap_t *heap = mem_heap_create(1024, UT_LOCATION_HERE);
   dict_index_t *clust_index = m_prebuilt->table->first_index();
+
   int constraint_err = 0;
 
   ha_innobase_copy_ctx *ctx =
       static_cast<ha_innobase_copy_ctx *>(ha_copy_alter_info->handler_ctx);
 
-  row_prebuilt_t * new_prebuilt = ctx->prebuilt;
-
   auto trx = m_prebuilt->trx;
-
-  innobase_register_trx(ht, ha_thd(), trx);
-
-  trx_start_if_not_started_xa(trx, false, UT_LOCATION_HERE);
-
+  trx_start_if_not_started_xa(trx, true, UT_LOCATION_HERE);
   trx_assign_read_view(trx);
 
   if (trx_is_interrupted(trx)) {
     mem_heap_free(heap);
-    ib::error(ER_IB_MSG_1004) << "Trx is interrupted, parallel copy data is stopped.";
-    return (true);
+    ib::error(ER_IB_MSG_1004)
+        << "Trx is interrupted, parallel copy data is stopped.";
+    return (DB_INTERRUPTED);
   }
 
   trx->op_info = "parallel copying data between tables";
 
-  // all threads one trx and one que_thr_t.
-  // que_thr_t *thr = pars_complete_graph_for_exec(nullptr, trx, heap, m_prebuilt);
-
   num_threads = thd_parallel_read_threads(m_prebuilt->trx->mysql_thd);
 
-  num_threads =
-      Parallel_reader::available_threads(num_threads, false);
+  num_threads = Parallel_reader::available_threads(num_threads, false);
 
   if (num_threads == 0) {
     mem_heap_free(heap);
     ib::error(ER_IB_MSG_1004) << "No enough parallel reader threads.";
-    return (true);
+    return (DB_INTERRUPTED);
   }
 
-  sql_print_information("[TXSQL Parallel Copy DDL] parallel_threads=%u, "\
-                          "sql=%s.", num_threads, thd->query().str);
+  sql_print_information(
+      "[TXSQL Parallel Copy DDL] parallel_threads=%u, "
+      "sql=%s.",
+      num_threads, thd->query().str);
 
+  dict_table_t *old_inno_table = dd_table_open_on_id(
+      old_dd_tab->se_private_id(), thd, nullptr, false, true);
 
-  dict_table_t * new_inno_table = dd_table_open_on_id(new_dd_tab->se_private_id(),
-                                                      thd, nullptr, false, true);
-  dict_table_t * old_inno_table = dd_table_open_on_id(old_dd_tab->se_private_id(),
-                                                      thd, nullptr, false, true);
-  ha_innobase_copy_ctx_t ** ctx_array = ut::new_arr_withkey<ha_innobase_copy_ctx_t *>(
-      UT_NEW_THIS_FILE_PSI_KEY, ut::Count{num_threads});
+  bool auto_increment_field_copied = 0;
+
+  ha_innobase_copy_ctx_t **ctx_array =
+      ut::new_arr_withkey<ha_innobase_copy_ctx_t *>(UT_NEW_THIS_FILE_PSI_KEY,
+                                                    ut::Count{num_threads});
 
   for (size_t i = 0; i < num_threads; i++) {
-    ctx_array[i] = ut::new_withkey<ha_innobase_copy_ctx_t>(UT_NEW_THIS_FILE_PSI_KEY);
-    ctx_array[i]->init(new_inno_table, old_inno_table,
-                       from, to, new_prebuilt, m_prebuilt,
-                       thd, new_dd_tab, old_dd_tab, ctx, create);
+    ctx_array[i] =
+        ut::new_withkey<ha_innobase_copy_ctx_t>(UT_NEW_THIS_FILE_PSI_KEY);
+    ctx_array[i]->init(old_inno_table, from, to, m_prebuilt, thd, new_dd_tab,
+                       old_dd_tab, ctx, create, auto_increment_field_copied);
   }
 
   Parallel_reader::Scan_range full_scan;
@@ -1900,9 +1871,8 @@ int ha_innobase::parallel_copy_data_between_tables(
   std::atomic<dberr_t> global_err{DB_SUCCESS};
 
   auto process_row = [&](const Parallel_reader::Ctx *ctx) {
-    dberr_t error = DB_SUCCESS;
+    int error;
     const rec_t *mrec = ctx->m_rec;
-    // row_ext_t *ext = nullptr;
     const size_t thread_id = ctx->thread_id();
     char my_stack;
     thd->thread_stack = &my_stack;  // remember where our stack is
@@ -1916,9 +1886,8 @@ int ha_innobase::parallel_copy_data_between_tables(
 
     current_thd = thd;
 
-    mem_heap_t * row_heap = ctx_array[thread_id]->copy_heap;
-    row_prebuilt_t * from_prebuilt = ctx_array[thread_id]->from_prebuilt;
-    row_prebuilt_t * to_prebuilt = ctx_array[thread_id]->copy_prebuilt;
+    mem_heap_t *row_heap = ctx_array[thread_id]->copy_heap;
+    row_prebuilt_t *from_prebuilt = ctx_array[thread_id]->from_prebuilt;
 
     Copy_field *copy = ctx_array[thread_id]->copy;
     Copy_field *copy_end = ctx_array[thread_id]->copy_end;
@@ -1926,8 +1895,8 @@ int ha_innobase::parallel_copy_data_between_tables(
     Field **gen_fields = ctx_array[thread_id]->gen_fields;
     Field **gen_fields_end = ctx_array[thread_id]->gen_fields_end;
 
-    TABLE * from_table = ctx_array[thread_id]->from_table;
-    TABLE * to_table = ctx_array[thread_id]->to_table;
+    TABLE *from_table = ctx_array[thread_id]->from_table;
+    TABLE *to_table = ctx_array[thread_id]->to_table;
 
     /* Conver rec_t to MySQL record */
 
@@ -1936,27 +1905,33 @@ int ha_innobase::parallel_copy_data_between_tables(
 
     rec_offs_init(offsets_);
 
-    offsets = rec_get_offsets(mrec, clust_index, offsets,
-                              ULINT_UNDEFINED, UT_LOCATION_HERE, &row_heap);
+    offsets = rec_get_offsets(mrec, clust_index, offsets, ULINT_UNDEFINED,
+                              UT_LOCATION_HERE, &row_heap);
 
-    byte * mysql_rec;
+    byte *mysql_rec;
 
     ulint bufsize = std::max(UNIV_PAGE_SIZE, from_prebuilt->mysql_row_len);
     mysql_rec = static_cast<byte *>(
         ut::malloc_withkey(UT_NEW_THIS_FILE_PSI_KEY, bufsize));
 
-    if (!row_sel_store_mysql_rec(mysql_rec, from_prebuilt, mrec,
-                                nullptr, true, clust_index,
-                                clust_index, offsets, false, nullptr,
-                                from_prebuilt->blob_heap)) {
-       ut::free(mysql_rec);
-       global_err.store(DB_ERROR);
-       return DB_ERROR;
+    if (!row_sel_store_mysql_rec(mysql_rec, from_prebuilt, mrec, nullptr, true,
+                                 clust_index, clust_index, offsets, false,
+                                 nullptr, from_prebuilt->blob_heap)) {
+      ut::free(mysql_rec);
+      global_err.store(DB_ERROR);
+      return DB_ERROR;
     }
 
     memcpy(from_table->record[0], mysql_rec, from_table->s->reclength);
 
     innobase_rec_reset(to_table);
+
+    if (to_table->next_number_field) {
+        if (auto_increment_field_copied)
+          to_table->autoinc_field_has_explicit_non_null_value = true;
+        else
+          to_table->next_number_field->reset();
+      }
 
     for (Copy_field *copy_ptr = copy; copy_ptr != copy_end; copy_ptr++) {
       copy_ptr->invoke_do_copy();
@@ -1990,35 +1965,43 @@ int ha_innobase::parallel_copy_data_between_tables(
     }
 
     if (thd->is_killed()) {
+      thd->send_kill_message();
       ut::free(mysql_rec);
       global_err.store(DB_ERROR);
       return DB_ERROR;
     }
 
-    error = row_insert_for_mysql((byte *)to_table->record[0], to_prebuilt);
-    int res_code = convert_error_code_to_mysql(error, 0, ha_thd());
-    if (res_code) {
-      if (!to_table->file->is_ignorable_error(res_code)) {
+    error = to_table->file->ha_write_row(to_table->record[0]);
+
+    to_table->autoinc_field_has_explicit_non_null_value = false;
+
+    if (error) {
+      if (!to_table->file->is_ignorable_error(error)) {
         /* Not a duplicate key error. */
-        to_table->file->print_error(res_code, MYF(0));
+        to_table->file->print_error(error, MYF(0));
       } else {
         /* Report duplicate key error. */
-        uint key_nr = to_table->file->get_dup_key(res_code);
+        uint key_nr = to_table->file->get_dup_key(error);
         if ((int)key_nr >= 0) {
           const char *err_msg = ER_THD(thd, ER_DUP_ENTRY_WITH_KEY_NAME);
-          if (key_nr == 0 && (to_table->key_info[0].key_part[0].field->is_flag_set(
-                                AUTO_INCREMENT_FLAG)))
+          if (key_nr == 0 &&
+              (to_table->key_info[0].key_part[0].field->is_flag_set(
+                  AUTO_INCREMENT_FLAG)))
             err_msg = ER_THD(thd, ER_DUP_ENTRY_AUTOINCREMENT_CASE);
           print_keydup_error(
-              to_table, key_nr == MAX_KEY ? nullptr : &to_table->key_info[key_nr], err_msg,
-              MYF(0), from_table->s->table_name.str);
+              to_table,
+              key_nr == MAX_KEY ? nullptr : &to_table->key_info[key_nr],
+              err_msg, MYF(0), from_table->s->table_name.str);
         } else
-          to_table->file->print_error(res_code, MYF(0));
+          to_table->file->print_error(error, MYF(0));
       }
     }
     ut::free(mysql_rec);
     total_recs++;
-    return error;
+    if (error)
+      return DB_ERROR;
+    else
+      return DB_SUCCESS;
   };
   err = reader.add_scan(trx, config, process_row);
 
@@ -2028,7 +2011,6 @@ int ha_innobase::parallel_copy_data_between_tables(
 
   found = total_recs.load();
 
-  dd_table_close(new_inno_table, thd, nullptr, false);
   dd_table_close(old_inno_table, thd, nullptr, false);
 
   if (ctx_array) {
@@ -2043,9 +2025,8 @@ int ha_innobase::parallel_copy_data_between_tables(
   trx->op_info = "";
 
   if (constraint_err) return constraint_err;
-  return (convert_error_code_to_mysql(err, 0, ha_thd()));
+  return (convert_error_code_to_mysql(err, 0, thd));
 }
-
 
 bool ha_innobase::inplace_alter_table(TABLE *altered_table,
                                       Alter_inplace_info *ha_alter_info,
