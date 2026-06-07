@@ -1,0 +1,35 @@
+#
+# Verify that parallel copy DDL falls back to single-threaded copy when the
+# target table contains a generated column. These expressions share a single
+# Item tree across per-thread TABLE copies, evaluating them in parallel
+# workers causes data races (e.g. Item_func_regexp::m_facade).
+#
+
+SET SESSION txsql_parallel_copy_ddl=ON;
+
+--let SEARCH_FILE= $MYSQLTEST_VARDIR/log/mysqld.1.err
+
+CREATE TABLE t1 (
+  id INT PRIMARY KEY,
+  a INT,
+  b INT GENERATED ALWAYS AS (a + 1) VIRTUAL
+) ENGINE=INNODB;
+
+INSERT INTO t1 (id, a) VALUES (1, 10), (2, 20), (3, 30);
+ALTER TABLE t1 ADD COLUMN c INT, ALGORITHM=COPY;
+
+--let SEARCH_PATTERN= Executing non-parallel copy DDL  when txsql_parallel_copy_ddl=ON
+--source include/search_pattern_in_file.inc
+
+DROP TABLE t1;
+
+# Control: a plain table without any generated column must still take the
+# parallel path.
+CREATE TABLE t2 (id INT PRIMARY KEY, a INT) ENGINE=INNODB;
+INSERT INTO t2 VALUES (1, 10), (2, 20), (3, 30);
+ALTER TABLE t2 ADD COLUMN c INT, ALGORITHM=COPY;
+
+--let SEARCH_PATTERN= \[TXSQL Parallel Copy DDL\] parallel_threads=
+--source include/search_pattern_in_file.inc
+
+DROP TABLE t2;
