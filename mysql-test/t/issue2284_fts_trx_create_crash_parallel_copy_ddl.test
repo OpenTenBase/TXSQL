@@ -1,0 +1,39 @@
+--source include/have_debug.inc
+
+CONNECT (con1,localhost,root,,);
+
+CREATE TABLE articles (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  title VARCHAR(200),
+  content TEXT,
+  FULLTEXT INDEX ft_index (title, content) WITH PARSER ngram
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+delimiter |;
+drop procedure if exists populate;
+create procedure populate(IN start INT, IN end INT)
+begin
+declare i int default start;
+SET autocommit=0;
+repeat
+INSERT INTO articles (title, content) VALUES
+    ('MySQL Full-Text Search', 'This article explains how to use full-text search in MySQL.'),
+    ('Understanding MySQL', 'MySQL is a popular relational database management system.'),
+    ('Advanced MySQL Techniques', 'Learn advanced techniques for optimizing MySQL performance.');
+set i=i+1;
+until i=end
+end repeat;
+SET autocommit=1;
+end |
+delimiter ;|
+
+CALL populate(0, 10000);
+
+set session debug = '+d,sync_fts_trx_create';
+SET SESSION txsql_parallel_copy_ddl = ON;
+
+ALTER TABLE articles ENGINE=innodb, algorithm=copy;
+
+set session debug = '-d,sync_fts_trx_create';
+drop table articles;
+drop procedure populate;

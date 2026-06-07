@@ -1781,6 +1781,37 @@ int _db_keyword_(CODE_STATE *cs, const char *keyword, int strict) {
   return result;
 }
 
+void parallel_reader_copy_dbug_keyword_list(CODE_STATE **dst_ptr,
+                                            CODE_STATE **src_ptr) {
+  if (*dst_ptr == nullptr || *src_ptr == nullptr) {
+    return;
+  }
+
+  CODE_STATE *dst = *dst_ptr;
+  CODE_STATE *src = *src_ptr;
+
+  if (dst->stack == &init_settings) {
+    PushState(dst);
+    assert(dst->stack->keywords == nullptr);
+
+    dst->stack->keywords = ListCopy(src->stack->keywords);
+    dst->stack->flags |= DEBUG_ON;
+  }
+}
+
+void parallel_reader_reset_dbug_keyword_list(CODE_STATE **cs_ptr) {
+  if (*cs_ptr == nullptr) {
+    return;
+  }
+
+  CODE_STATE *cs = *cs_ptr;
+
+  if (cs->stack != &init_settings) {
+    FreeState(cs, cs->stack, 1);
+    cs->stack= &init_settings;
+  }
+}
+
 /*
  *  FUNCTION
  *

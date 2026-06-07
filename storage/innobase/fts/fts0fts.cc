@@ -29,6 +29,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
  ***********************************************************************/
 
 #include <current_thd.h>
+#include <sql_class.h>
 #include <sys/types.h>
 #include <new>
 
@@ -2639,7 +2640,12 @@ void fts_trx_add_op(trx_t *trx, dict_table_t *table, doc_id_t doc_id,
   fts_trx_table_t *stmt_ftt;
 
   if (!trx->fts_trx) {
-    trx->fts_trx = fts_trx_create(trx);
+    if (current_thd && current_thd->is_doing_parallel_copy_data) {
+      std::call_once(*trx->fts_trx_create_once_flag,
+                     [&trx]() { trx->fts_trx = fts_trx_create(trx); });
+    } else {
+      trx->fts_trx = fts_trx_create(trx);
+    }
   }
 
   tran_ftt = fts_trx_init(trx, table, trx->fts_trx->savepoints);
