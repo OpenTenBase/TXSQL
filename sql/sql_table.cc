@@ -18721,6 +18721,12 @@ static bool check_if_can_use_parallel_copy_ddl(THD *thd, TABLE *from, TABLE *to,
       && (table_def && table_def->foreign_keys()->empty())
       && (old_table_def && old_table_def->foreign_keys().empty())
       && !is_multi_value && !check_if_table_has_functional_index(to)) {
+    /* Generated columns and generated-default columns share a single
+    Item tree across per-thread TABLE copies, evaluating them in parallel
+    workers causes data races. Fall back to single-threaded copy. */
+    if (to->s->vfields > 0 || to->s->gen_def_field_count > 0) {
+      return false;
+    }
     return true;
   }
   return res;

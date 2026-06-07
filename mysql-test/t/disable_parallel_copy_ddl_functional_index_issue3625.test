@@ -14,7 +14,7 @@ ALTER TABLE t1 ADD INDEX idx_sale_month ((MONTH(fld2))), ALGORITHM= COPY;
 ALTER TABLE t1 DROP INDEX idx_sale_month, ALGORITHM= COPY;
 
 --let SEARCH_FILE= $MYSQLTEST_VARDIR/log/mysqld.1.err
---let SEARCH_PATTERN= \[TXSQL\] parallel_threads=
+--let SEARCH_PATTERN= \[TXSQL Parallel Copy DDL\] parallel_threads=
 --source include/search_pattern_in_file.inc
 
 DROP TABLE t1;

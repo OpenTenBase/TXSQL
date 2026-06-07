@@ -56,6 +56,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "srv0srv.h"
 
 #include "dict0mem.h"
+#include "sql/current_thd.h"
 #include "sql_thd_internal_api.h"
 
 // Forward declaration
