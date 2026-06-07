@@ -18921,13 +18921,6 @@ static int copy_data_between_tables(
   if (check_if_can_use_parallel_copy_ddl(thd, from, to, alter_ctx,
                                          order, is_auto_inc, is_multi_value,
                                          table_def, old_table_def)) {
-
-    to->file->ha_prepare_copy_alter(&ha_copy_alter_info);
-
-    ha_copy_alter_info.handler_ctx->init(alter_ctx->new_db, alter_ctx->db,
-                                         alter_ctx->table_name, alter_ctx->tmp_name,
-                                         alter_ctx->get_path(),
-                                         alter_ctx->get_tmp_path());
     if (!(error = iterator->Read())) {
       /*
         Return error if source table isn't empty.
@@ -18944,14 +18937,19 @@ static int copy_data_between_tables(
         error = 1;
         goto err;
       }
-    }
+      ha_copy_alter_info.handler_ctx = new copy_alter_handler_ctx();
+      ha_copy_alter_info.handler_ctx->init(alter_ctx->new_db, alter_ctx->db,
+                                           alter_ctx->table_name, alter_ctx->tmp_name,
+                                           alter_ctx->get_path(),
+                                           alter_ctx->get_tmp_path());
 
-    error = from->file->ha_parallel_copy_data_between_tables(from, to, table_def,
-                                                             old_table_def,
-                                                             &ha_copy_alter_info,
-                                                             create, found_count);
-    mysql_stage_set_work_completed(psi, found_count);
-    thd->get_stmt_da()->set_current_row_for_condition(found_count);
+      error = from->file->ha_parallel_copy_data_between_tables(from, to, table_def,
+                                                              old_table_def,
+                                                              &ha_copy_alter_info,
+                                                              create, found_count);
+      mysql_stage_set_work_completed(psi, found_count);
+      thd->get_stmt_da()->set_current_row_for_condition(found_count);
+    }
   }
   else {
     while (!(error = iterator->Read())) {

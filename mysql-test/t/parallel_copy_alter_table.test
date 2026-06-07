@@ -367,6 +367,105 @@ drop table t1;
 
 --echo 
 --echo 
+--echo #Case 25: #Test generated column
+CREATE TABLE t (a int(11), b int(11),
+ c int(11) GENERATED ALWAYS AS (a+b) VIRTUAL,
+ d int(11) GENERATED ALWAYS AS (a+b) VIRTUAL);
+INSERT INTO t(a,b) VALUES(1,2);
+ALTER TABLE t DROP d, ADD e varchar(10);
+ALTER TABLE t ADD d int, ADD f char(10) AS ('aaa');
+ALTER TABLE t CHANGE d dd int, CHANGE f ff varchar(10) AS ('bbb');
+ALTER TABLE t DROP c, DROP ff;
+ALTER TABLE t ADD c int(11) as (a+b), ADD f varchar(10) as ('aaa');
+ALTER TABLE t CHANGE c c int(11) as (a), CHANGE f f varchar(10) as('bbb');
+ALTER TABLE t CHANGE c c int(11) as (a) after f;
+ALTER TABLE t CHANGE b b int(11) after c;
+DROP TABLE t;
+
+--echo 
+--echo 
+--echo #Case 26: #Added columns mixed with virtual GC and other columns
+create table t1 (a int);
+insert into t1 values(1);
+alter table t1 add column (b int generated always as (a+1) virtual, c int);
+DROP TABLE t1;
+
+--echo 
+--echo 
+--echo #Case 27: #Test generated column
+CREATE TABLE t (a INT, b INT, c INT GENERATED ALWAYS AS(a+b), h VARCHAR(10), j INT, m INT  GENERATED ALWAYS AS(b + j), n VARCHAR(10), p VARCHAR(20) GENERATED ALWAYS AS(CONCAT(n, h)), INDEX idx1(c), INDEX idx2 (m), INDEX idx3(p));
+INSERT INTO t VALUES(11, 22, DEFAULT, "AAA", 8, DEFAULT, "XXX", DEFAULT);
+INSERT INTO t VALUES(1, 2, DEFAULT, "uuu", 9, DEFAULT, "uu", DEFAULT);
+INSERT INTO t VALUES(3, 4, DEFAULT, "uooo", 1, DEFAULT, "umm", DEFAULT);
+alter table t add  x int, add xx int generated ALWAYS AS(x);
+DROP TABLE t;
+
+--echo 
+--echo 
+--echo #Case 28: #Test change column to auto-inc column
+CREATE TABLE `t2` (
+  `a` int(11) NOT NULL,
+  `b` char(4) DEFAULT NULL,
+  `f` float DEFAULT NULL,
+  PRIMARY KEY (`a`),
+  KEY `f` (`f`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+ insert into t2 values(1,'rbr',0.834772);
+ ALTER TABLE test.t2 CHANGE a a INT UNSIGNED NOT NULL AUTO_INCREMENT;
+ INSERT INTO test.t2 VALUES (NULL,'TEST',RAND());
+DROP TABLE t2;
+
+--echo 
+--echo 
+--echo #Case 29: #Test auto-inc column under concurrency of DDL and DML
+
+delimiter |;
+#Procedure for alter(DDL)
+CREATE PROCEDURE test.sp2 (IN start BIGINT)
+BEGIN
+SET @idx =start;
+WHILE (@idx > 0) DO
+ALTER TABLE test.t1 ADD n2 BIGINT;
+ALTER TABLE test.t1 DROP COLUMN n2;
+SET @idx = @idx - 1;
+END WHILE;
+END|
+
+#Procedure for INSERT
+CREATE PROCEDURE test.sp1 (IN start BIGINT)
+BEGIN
+SET @idx =start;
+WHILE (@idx > 0) DO
+INSERT INTO test.t1 (c2,c3) VALUES(repeat('q',10),@idx);
+SET @idx = @idx - 1;
+END WHILE;
+END|
+
+delimiter ;|
+
+connect (con1,localhost,root,,);
+
+connection default;
+SET SESSION txsql_parallel_copy_ddl=ON;
+CREATE TABLE t1 (c1 INT AUTO_INCREMENT PRIMARY KEY, c2 TEXT(1024), c3 INT);
+--send call test.sp2(30);
+
+connection con1;
+--send call test.sp1(300);
+--reap
+
+connection default;
+--reap
+
+CHECK TABLE t1;
+DROP TABLE t1;
+DROP PROCEDURE test.sp1;
+DROP PROCEDURE test.sp2;
+
+SET SESSION txsql_parallel_copy_ddl=ON;
+
+--echo 
+--echo 
 --echo #Case : test parallel copy ddl with a large amount of data
 CREATE TABLE t1 (c1 char(127) PRIMARY KEY, c2 int, c3 char(127)) ENGINE=INNODB;
 let row_count=5000;
