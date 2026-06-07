@@ -2540,7 +2540,13 @@ run_again:
 
     if (table->skip_alter_undo) {
       if (trx->fts_trx == nullptr) {
-        trx->fts_trx = fts_trx_create(trx);
+        DBUG_EXECUTE_IF("sync_fts_trx_create", sleep(1););
+        if (current_thd && current_thd->is_doing_parallel_copy_data) {
+          std::call_once(*trx->fts_trx_create_once_flag,
+                         [&trx]() { trx->fts_trx = fts_trx_create(trx); });
+        } else {
+          trx->fts_trx = fts_trx_create(trx);
+        }
       }
 
       fts_trx_table_t ftt;

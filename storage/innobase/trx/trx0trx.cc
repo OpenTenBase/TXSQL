@@ -257,6 +257,11 @@ static void trx_init(trx_t *trx) {
   trx->lock.hu_rec_id.m_space_id = UINT32_UNDEFINED;
   trx->lock.hu_rec_id.m_page_no = UINT32_UNDEFINED;
   trx->lock.hu_rec_id.m_heap_no = UINT32_UNDEFINED;
+
+  if (trx->fts_trx_create_once_flag) {
+    ut::delete_(trx->fts_trx_create_once_flag);
+  }
+  trx->fts_trx_create_once_flag = ut::new_<std::once_flag>();
 }
 
 /** For managing the life-cycle of the trx_t instance that we get
@@ -272,7 +277,7 @@ struct TrxFactory {
     ut::zalloc_withkey() in Pool::Pool() which would not call
     the constructors of the trx_t members. */
     new (trx) trx_t();
-    
+
     trx->read_view = new ReadView();
 
     ut_a(!trx->rw_trx_hash_pins);
@@ -296,7 +301,7 @@ struct TrxFactory {
     mutex_create(LATCH_ID_TRX, &trx->mutex);
     mutex_create(LATCH_ID_TRX_UNDO, &trx->undo_mutex);
     mutex_create(LATCH_ID_TRX_VIEW, &trx->view_mutex);
-    
+
     lock_trx_alloc_locks(trx);
   }
 
@@ -323,6 +328,9 @@ struct TrxFactory {
     }
 
     ut_a(UT_LIST_GET_LEN(trx->lock.trx_locks) == 0);
+
+    ut::delete_(trx->fts_trx_create_once_flag);
+    trx->fts_trx_create_once_flag = nullptr;
 
     ut::delete_(trx->xid);
     ut::free(trx->detailed_error);
@@ -1055,7 +1063,7 @@ static void trx_resurrect(trx_rseg_t *rseg) {
       trx_sys->rw_trx_hash.insert(trx);
       trx_sys->rw_trx_hash.put_pins(trx);
     }
-    
+
     trx_resurrect_table_ids(trx, &trx->rsegs.m_redo, undo);
   }
 }
@@ -1379,7 +1387,7 @@ static void trx_start_low(
     /* Temporary rseg is assigned only if the transaction
     updates a temporary table */
     DEBUG_SYNC_C("trx_sys_before_assign_id");
-    
+
     trx_sys->register_rw(trx);
 
     trx_sys_rw_trx_add(trx);
@@ -1395,7 +1403,7 @@ static void trx_start_low(
       if (read_write) {
         trx_sys->register_rw(trx);
         trx_sys_rw_trx_add(trx);
-      } 
+      }
     }
   }
 
@@ -3432,7 +3440,7 @@ void trx_set_rw_mode(trx_t *trx) /*!< in/out: transaction that is RW */
   ut_ad(trx->rsegs.m_redo.rseg != nullptr);
 
   DEBUG_SYNC_C("trx_sys_before_assign_id");
-  
+
   trx_sys->register_rw(trx);
 
   /* So that we can see our own changes. */

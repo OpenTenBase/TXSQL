@@ -2014,6 +2014,24 @@ int ha_innobase::parallel_copy_data_between_tables(
     else
       return DB_SUCCESS;
   };
+
+#ifndef NDEBUG
+  CODE_STATE **thread_var_dbug = my_thread_var_dbug();
+
+  reader.set_start_callback(
+      [thread_var_dbug](Parallel_reader::Thread_ctx *thread_ctx) -> dberr_t {
+        parallel_reader_copy_dbug_keyword_list(my_thread_var_dbug(),
+                                               thread_var_dbug);
+        return DB_SUCCESS;
+      });
+
+  reader.set_finish_callback(
+      [](Parallel_reader::Thread_ctx *thread_ctx) -> dberr_t {
+        parallel_reader_reset_dbug_keyword_list(my_thread_var_dbug());
+        return DB_SUCCESS;
+      });
+#endif /* !NDEBUG */
+
   err = reader.add_scan(trx, config, process_row);
 
   thd_start_parallel_copy_data(thd);

@@ -1109,6 +1109,7 @@ struct trx_t {
   /*------------------------------*/
   uint32_t flush_tables; /*!< if "covering" the FLUSH TABLES",
                             count of tables being flushed. */
+  std::once_flag *fts_trx_create_once_flag;
 
   /*------------------------------*/
   bool internal; /*!< true if it is a system/internal
