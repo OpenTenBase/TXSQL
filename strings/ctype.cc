@@ -33,6 +33,10 @@
 
 #include <algorithm>
 
+#if defined(__aarch64__)
+#include <arm_neon.h>
+#endif
+
 #include "m_ctype.h"
 #include "m_string.h"
 #include "my_byteorder.h"
@@ -951,6 +955,18 @@ size_t my_convert(char *to, size_t to_length, const CHARSET_INFO *to_cs,
                                errors);
 
   length = length2 = std::min(to_length, from_length);
+
+#if defined(__aarch64__)
+  for (; length >= 16; length -= 16, from += 16, to += 16) {
+    const uint8x16_t bytes =
+        vld1q_u8(reinterpret_cast<const uint8_t *>(from));
+    const uint64x2_t high_bits = vreinterpretq_u64_u8(bytes);
+    if ((vgetq_lane_u64(high_bits, 0) | vgetq_lane_u64(high_bits, 1)) &
+        0x8080808080808080ULL)
+      break;
+    vst1q_u8(reinterpret_cast<uint8_t *>(to), bytes);
+  }
+#endif
 
 #if defined(__i386__) || defined(_WIN32) || defined(__x86_64__) || \
     defined(__aarch64__)
