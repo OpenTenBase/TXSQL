@@ -85,7 +85,9 @@ enum enum_parsing_context {
   CTX_UNION,
   CTX_UNION_RESULT,  ///< Pseudo-table context for UNION result
   CTX_QUERY_SPEC,     ///< Inner SELECTs of UNION expression
-  CTX_RETURNING_CLAUSE // RETURNING clause execution context
+  CTX_RETURNING_CLAUSE, // RETURNING clause execution context
+  CTX_IN_WHERE,       ///< IN() subquery in WHERE clause item tree
+  CTX_IN_ON         ///< IN() subquery in ON clause item tree
 };
 
 /**

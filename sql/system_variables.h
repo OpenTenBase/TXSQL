@@ -498,7 +498,12 @@ struct System_variables {
     @sa Sys_threshold_of_interesting_order_for_merge_join
   */
   uint threshold_of_interesting_order_for_merge_join;
-
+  
+  /**
+    @sa Sys_in_subquery_conversion_threshold
+  */
+  uint in_subquery_conversion_threshold;
+  bool in_subquery_conversion_threshold_enabled;
   /**
     @sa Sys_txsql_range_estimation_by_histogram
   */

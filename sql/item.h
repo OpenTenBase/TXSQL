@@ -2767,6 +2767,13 @@ class Item : public Parse_tree_node {
 
   virtual Item *equality_substitution_transformer(uchar *) { return this; }
 
+  virtual Item *in_predicate_to_in_subs_transformer(uchar *){ return this; }
+
+  virtual void mark_as_condition_AND_part(TABLE_LIST *) {}
+
+  // void set_name(THD * thd, const char * str, size_t length, 
+  //   const CHARSET_INFO * cs);
+
   /**
     Check if a partition function is allowed.
 
@@ -4097,6 +4104,8 @@ class Item_ident_for_show final : public Item {
 class COND_EQUAL;
 class Item_equal;
 
+const LEX_CSTRING empty_clex_str= {"", 0};
+const LEX_CSTRING star_clex_str=  {"*", 1};
 class Item_field : public Item_ident {
   typedef Item_ident super;
 
@@ -4428,8 +4437,14 @@ class Item_asterisk : public Item_field {
   */
   Item_asterisk(const POS &pos, const char *opt_schema_name,
                 const char *opt_table_name)
-      : super(pos, opt_schema_name, opt_table_name, "*") {}
+      : super(pos, opt_schema_name, opt_table_name, "*") {
+      }
 
+  Item_asterisk(Name_resolution_context *context, const char *opt_schema_name,
+                const char *opt_table_name)
+      : super(context, opt_schema_name, opt_table_name, "*") {
+  }
+  
   bool itemize(Parse_context *pc, Item **res) override;
   bool fix_fields(THD *, Item **) override {
     assert(false);  // should never happen: see setup_wild()

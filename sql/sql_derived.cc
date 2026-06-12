@@ -1663,26 +1663,39 @@ bool TABLE_LIST::materialize_derived(THD *thd) {
     assert(table->s->primary_key == MAX_KEY);
   }
 
-  if (table->hash_field) {
-    table->file->ha_index_init(0, false);
+  bool tvc_exsit = false;
+  bool res = false;
+  auto query_cursor = unit->first_query_block();
+  for (Query_block *qb = query_cursor; qb; qb= qb->next_query_block()){
+    if(qb->tvc){
+      res = qb->tvc->exec(qb);
+      tvc_exsit = true;
+    }
   }
 
-  // execute unit without cleaning up
-  if (unit->force_create_iterators(thd)) {
-    return true;
-  }
-  bool res = unit->execute(thd);
+  if(!tvc_exsit){
 
-  if (table->hash_field) {
-    table->file->ha_index_or_rnd_end();
+    if (table->hash_field) {
+      table->file->ha_index_init(0, false);
+    }
+
+    // execute unit without cleaning up
+    if (unit->force_create_iterators(thd)) {
+      return true;
+    }
+    res = unit->execute(thd);
+
+    if (table->hash_field) {
+      table->file->ha_index_or_rnd_end();
+    }
   }
 
   if (!res) {
-    /*
-      Here we entirely fix both TABLE_LIST and list of SELECT's as
-      there were no derived tables
-    */
-    if (derived_result->flush()) res = true; /* purecov: inspected */
+      /*
+        Here we entirely fix both TABLE_LIST and list of SELECT's as
+        there were no derived tables
+      */
+      if (derived_result->flush()) res = true; /* purecov: inspected */
   }
 
   table->materialized = true;

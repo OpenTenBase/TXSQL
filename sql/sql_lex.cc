@@ -674,7 +674,6 @@ Query_block *LEX::new_query(Query_block *curr_query_block) {
       thd, curr_query_block, nullptr, nullptr, parsing_place);
   if (sel_query_expression == nullptr) return nullptr;
   Query_block *const select = sel_query_expression->first_query_block();
-
   if (select->set_context(nullptr)) return nullptr; /* purecov: inspected */
   /*
     Assume that a subquery has an outer name resolution context
@@ -2281,7 +2280,7 @@ Query_expression::Query_expression(enum_parsing_context parsing_context)
       m_with_clause(nullptr),
       derived_table(nullptr),
       first_recursive(nullptr),
-      m_lateral_deps(0) {
+      m_lateral_deps(0){
   switch (parsing_context) {
     case CTX_ORDER_BY:
       explain_marker = CTX_ORDER_BY_SQ;  // A subquery in ORDER BY
@@ -2298,6 +2297,8 @@ Query_expression::Query_expression(enum_parsing_context parsing_context)
     case CTX_INSERT_VALUES:
     case CTX_INSERT_UPDATE:
     case CTX_WHERE:
+    case CTX_IN_WHERE:
+    case CTX_IN_ON:
     case CTX_DERIVED:
     case CTX_NONE:  // A subquery in a non-select
     case CTX_RETURNING_CLAUSE:
@@ -2321,9 +2322,10 @@ Query_block::Query_block(MEM_ROOT *mem_root, Item *where, Item *having)
       first_context(&context),
       top_join_list(mem_root),
       join_list(&top_join_list),
+      tvc(nullptr),
       m_where_cond(where),
       m_having_cond(having),
-      returning_fields(nullptr) {}
+      returning_fields(nullptr){}
 
 /**
   Set the name resolution context for the specified query block.

@@ -8639,6 +8639,22 @@ static Sys_var_ulonglong Sys_txsql_recycle_bin_max_size(
 static Sys_var_deprecated_alias Sys_recycle_bin_max_size(
     "recycle_bin_max_size", Sys_txsql_recycle_bin_max_size);
 
+static Sys_var_uint Sys_in_subquery_conversion_threshold(
+       "in_predicate_conversion_threshold",
+       "The minimum number of scalar elements in the value list of "
+       "IN predicate that triggers its conversion to IN subquery. Set to "
+       "0 to disable the conversion",
+       SESSION_VAR(in_subquery_conversion_threshold), CMD_LINE(REQUIRED_ARG),
+       VALID_RANGE(0, UINT_MAX), DEFAULT(1000),BLOCK_SIZE(1));
+
+static Sys_var_bool Sys_in_subquery_conversion_threshold_enabled(
+       "in_predicate_conversion_threshold_enabled",
+       "The minimum number of scalar elements in the value list of "
+       "IN predicate that triggers its conversion to IN subquery. Set to "
+       "0 to disable the conversion",
+       SESSION_VAR(in_subquery_conversion_threshold_enabled), CMD_LINE(OPT_ARG),
+       DEFAULT(false));
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
 #ifdef HAVE_TDSQL
 static Sys_var_bool Sys_threadpool_eager_mode(
     "thread_pool_eager_mode",

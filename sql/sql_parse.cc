@@ -7269,7 +7269,7 @@ TABLE_LIST *Query_block::add_table_to_list(
       first_table = first_table ? first_table->next_local : nullptr;
     for (TABLE_LIST *tables = first_table; tables;
          tables = tables->next_local) {
-      if (!my_strcasecmp(table_alias_charset, alias_str, tables->alias) &&
+      if (! my_strcasecmp(table_alias_charset, alias_str, tables->alias) &&
           !strcmp(ptr->db, tables->db)) {
         my_error(ER_NONUNIQ_TABLE, MYF(0), alias_str); /* purecov: tested */
         return nullptr;                                /* purecov: tested */

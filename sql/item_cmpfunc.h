@@ -52,6 +52,7 @@
 #include "sql/table.h"
 #include "sql_string.h"
 #include "template_utils.h"  // down_cast
+#include "query_result.h"
 
 class Arg_comparator;
 class Field;
@@ -2015,8 +2016,45 @@ class Item_func_case final : public Item_func {
   enum Functype functype() const override { return CASE_FUNC; }
 };
 
-/**
-  in_expr [NOT] IN (in_value_list).
+class table_value_constr
+{
+public:
+  List<List<Item>> lists_of_values;
+  Query_result* result;
+  Query_block *query_block;
+  Query_block * parent_query_block;
+  Item_type_holder *type_holders;
+
+  enum { QEP_NOT_PRESENT_YET, QEP_AVAILABLE} have_query_plan;
+
+  //Explain_context *explain;
+  ulonglong select_options;
+  
+  table_value_constr(List<List<Item>> tvc_values, Query_block *qb, Query_block * parent_qb,
+		     ulonglong select_options_arg) :
+    lists_of_values(tvc_values), result(0), query_block(qb), parent_query_block(parent_qb),type_holders(0),
+    have_query_plan(QEP_NOT_PRESENT_YET),
+    select_options(select_options_arg)
+  { }
+
+  ha_rows get_records() { return lists_of_values.elements; }
+  
+  bool prepare(THD *thd_arg, Query_block *qb, 
+	       Query_result*tmp_result,
+	       Query_expression*unit_arg);
+
+  bool to_be_wrapped_as_with_tail();
+
+  // int save_explain_data_intern(THD *thd_arg,
+	// 		       Explain_context *output);
+  bool optimize(THD *thd_arg);
+  bool exec(Query_block *qb);
+
+  void print(THD *thd_arg, String *str, enum_query_type query_type);
+  bool walk_values(Item_processor processor, bool walk_subquery, void *arg);
+};
+
+/**g
 
   The current implementation distinguishes 2 cases:
   1) all items in in_value_list are constants and have the same
@@ -2039,7 +2077,13 @@ class Item_func_in final : public Item_func_opt_neg {
   bool have_null{false};
   /// Set to true when bisection values are populated
   bool populated{false};
-
+  /**
+    Set to true when IN predicate is transformed into an IN subquery.
+    This transformation is done by the in_predicate_to_in_subs_transformer()
+    function.
+  */
+  bool transform_into_subq{false};
+  bool transform_into_subq_checked{false};
  private:
   /// Set to true if the values arguments are const
   bool values_are_const{true};
@@ -2058,7 +2102,7 @@ class Item_func_in final : public Item_func_opt_neg {
 
  public:
   Item_func_in(const POS &pos, PT_item_list *list, bool is_negation)
-      : Item_func_opt_neg(pos, list, is_negation) {
+      : Item_func_opt_neg(pos, list, is_negation),transform_into_subq_checked(false) {
     memset(&cmp_items, 0, sizeof(cmp_items));
     allowed_arg_cols = 0;  // Fetch this value from first argument
   }
@@ -2110,6 +2154,10 @@ class Item_func_in final : public Item_func_opt_neg {
     not_null_tables_cache |= args[0]->not_null_tables();
   }
 
+  Item *in_predicate_to_in_subs_transformer(uchar *arg) override;
+  bool to_be_transformed_into_in_subq(THD *thd);
+  bool create_value_list_for_tvc(THD *thd,List<List<Item>> &values);
+  void mark_as_condition_AND_part(TABLE_LIST *embedding) override;
  private:
   /**
      Usable if @<in value list@> is made only of constants. Returns true if one

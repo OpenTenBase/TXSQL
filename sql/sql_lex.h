@@ -2042,6 +2042,12 @@ class Query_block {
     Use TABLE_LIST::next_leaf to traverse the list.
   */
   TABLE_LIST *leaf_tables{nullptr};
+  /*
+    List of IN-predicates in this query block that
+    can be transformed into IN-subselect defined with TVC.
+  */
+  List<Item_func_in> in_funcs;
+  table_value_constr *tvc;
   // Last table for LATERAL join, used by table functions
   TABLE_LIST *end_lateral_table{nullptr};
 
@@ -2083,7 +2089,13 @@ class Query_block {
   enum_parsing_context parsing_place{CTX_NONE};
   /// Parse context: is inside a set function if this is positive
   uint in_sum_expr{0};
-
+  /*
+    Number of current derived table made with TVC during the
+    transformation of IN-predicate into IN-subquery for this
+    st_select_lex.
+  */
+  uint curr_tvc_name;
+  //List<Item_func_in> in_funcs;
   /**
     Three fields used by semi-join transformations to know when semi-join is
     possible, and in which condition tree the subquery predicate is located.

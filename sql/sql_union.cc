@@ -478,7 +478,9 @@ bool Query_expression::prepare(THD *thd, Query_result *sel_result,
     // All query blocks get their options in this phase
     sl->set_query_result(tmp_result);
     sl->make_active_options(added_options | SELECT_NO_UNLOCK, removed_options);
-
+    if(sl->tvc){
+      sl->tvc->prepare(thd, sl, tmp_result, this);
+    }
     thd->lex->set_current_query_block(sl);
 
     if (sl == first_recursive) {
@@ -700,7 +702,10 @@ bool Query_expression::optimize(THD *thd, TABLE *materialize_destination,
 
     // LIMIT is required for optimization
     if (set_limit(thd, query_block)) return true; /* purecov: inspected */
-
+    if(query_block->tvc){
+      if (query_block->tvc->optimize(thd))
+        return true; /* purecov: inspected */
+    }
     if (query_block->optimize(thd, finalize_access_paths)) return true;
 
     /*

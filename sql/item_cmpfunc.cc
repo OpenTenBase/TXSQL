@@ -89,6 +89,7 @@
 #include "sql/sql_time.h"  // str_to_datetime
 #include "sql/system_variables.h"
 #include "sql/thd_raii.h"
+#include "protocol.h"
 
 using std::max;
 using std::min;
@@ -5411,7 +5412,340 @@ void Item_func_in::cleanup() {
   DBUG_VOID_RETURN;
 }
 
+bool fix_fields_for_tvc(THD *thd, List_iterator_fast<List<Item>> &li)
+{
+  DBUG_ENTER("fix_fields_for_tvc");
+  List<Item> *lst;
+  li.rewind();
+
+  while ((lst= li++))
+  {
+    List_iterator<Item> it(*lst);
+    Item *item;
+
+    while ((item= it++))
+    {
+      if(item->fixed){
+        continue;
+      }
+      if((item->fix_fields(thd,it.ref()) || item->check_cols(1))){
+        DBUG_RETURN(true);
+      }
+    }
+  }
+  DBUG_RETURN(false);
+}
+
+bool table_value_constr::prepare(THD *thd_arg, Query_block *qb, 
+	       Query_result*tmp_result,
+	       Query_expression*unit_arg){
+  DBUG_ENTER("table_value_constr::prepare");
+  //qb->in_tvc= true;
+  if(!thd_arg->variables.in_subquery_conversion_threshold_enabled)
+      DBUG_RETURN(true);
+  List_iterator_fast<List<Item>> li(lists_of_values);
+
+  List<Item> *first_elem = li++; 
+  uint cnt= first_elem->elements;
+  Item_type_holder  *holders= type_holders;
+  
+  if (cnt == 0)
+  {
+    DBUG_RETURN(true);
+  }
+
+  if (fix_fields_for_tvc(thd_arg, li))
+    DBUG_RETURN(true);
+
+  if(!holders){
+    List_iterator_fast<Item> it(*first_elem);
+    Item *item;
+    qb->fields.clear();
+    for (uint pos= 0; (item= it++); pos++)
+    {
+      //item->item_name = NAME_STRING("_col_1");
+      qb->fields.push_back(item);
+    }
+  }
+
+  result= tmp_result;
+  if (result && result->prepare(thd_arg,qb->fields, unit_arg))
+    DBUG_RETURN(true);
+
+  DBUG_RETURN(false);
+}
+
+bool table_value_constr::optimize(THD *thd_arg){
+  DBUG_ENTER("table_value_constr::optimize");
+  if (query_block->has_sj_candidates() && query_block->flatten_subqueries(thd_arg))
+    return true; 
+  query_block->set_sj_candidates(nullptr);
+  DBUG_RETURN(false);
+}
+
+
+bool table_value_constr::exec(Query_block *qb){
+  DBUG_ENTER("table_value_constr::exec");
+  List_iterator_fast<List<Item>> li(lists_of_values);
+  List<Item> *elem;
+  THD *cur_thd= qb->parent_lex->thd;
+  ha_rows send_records= 0;
+  int rc=0;
+  
+  if (result->send_result_set_metadata(current_thd,qb->fields,
+                                       Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF))
+  {
+    DBUG_RETURN(true);
+  }
+
+  //fix_rownum_pointers(sl->parent_lex->thd, sl, &send_records);
+  mem_root_deque<Item *> new_deque(current_thd->mem_root);
+  while ((elem = li++))
+  {
+    cur_thd->get_stmt_da()->inc_current_row_for_condition();
+    if (send_records >= qb->master_query_expression()->select_limit_cnt)
+      break;
+    new_deque.clear();
+    List_iterator<Item> it(*elem);
+    Item *item;
+    while ((item = it++)) {
+      new_deque.push_back(item);
+    }
+    rc = result->send_data(cur_thd, new_deque);
+    if (!rc)
+      send_records++;
+    else if (rc > 0)
+      DBUG_RETURN(true);
+  }
+
+  if (result->send_eof(cur_thd))
+    DBUG_RETURN(true);
+
+  DBUG_RETURN(false);
+
+}
+
+static bool cmp_row_types(Item* item1, Item* item2)
+{
+  return false;
+  uint n= item1->cols();
+  if (item2->check_cols(n))
+    return true;
+
+  for (uint i=0; i < n; i++)
+  {
+    Item *inner= item1->element_index(i);
+    Item *outer= item2->element_index(i);
+    if(inner->type() != outer->type() &&
+       inner->result_type() != outer->result_type())
+      return true;
+    /*TODO: check inner item subquery_type whether allows materialization*/
+  }
+  return false;
+}
+
+static bool create_tvc_name(THD *thd, Query_block *parent_select,
+			    const char **alias)
+{
+  char buff[6];
+  int len = snprintf(buff, sizeof(buff), "tvc_%u", parent_select ? parent_select->curr_tvc_name : 0);
+  *alias = thd->strmake(buff, len);
+  return alias == nullptr;
+}
+
+Item * Item_func_in::in_predicate_to_in_subs_transformer(uchar *arg){
+  if (!transform_into_subq)
+    return this;
+
+  List<List<Item>> value_list;
+  LEX *lex = current_thd->lex;
+  Query_block *parent_query_block = lex->current_query_block();
+  uint8 save_derived_tables = parent_query_block->derived_table_count;
+  Mem_root_array<Item_exists_subselect *> sj_candidates_local(current_thd->mem_root);
+  Query_block *sq_select = nullptr;
+  Item *item;
+
+  for (uint i=1; i < arg_count; i++)
+  {
+    if (!args[i]->const_item())
+    {
+      return this;
+    }
+
+    if (cmp_row_types(args[i], args[0]))
+    {
+      return this;
+    }
+  }
+
+  sq_select = lex->new_query(lex->current_query_block());
+  lex->set_current_query_block(sq_select);
+  sq_select->linkage = DERIVED_TABLE_TYPE; 
+  sq_select->parsing_place= CTX_SELECT_LIST;
+  sq_select->tvc = 0;
+
+  /* Create item list as '*' for the subquery SQ */
+  item = new (current_thd->mem_root) Item_asterisk (&sq_select->context,nullptr,nullptr);
+  if (item == NULL || sq_select->add_item_to_list(item))
+    return this;
+  sq_select->with_wild++;
+
+  Query_block *tvc_select; // select for tvc
+  Query_expression *derived_unit; // unit for tvc_select
+  tvc_select = lex->new_query(lex->current_query_block());
+  lex->set_current_query_block(tvc_select);
+  tvc_select->linkage = DERIVED_TABLE_TYPE;
+  derived_unit = tvc_select->master_query_expression();
+  
+
+  if (create_value_list_for_tvc(current_thd, value_list))
+    return this;
+  if (!(tvc_select->tvc=
+          new (current_thd->mem_root)
+	    table_value_constr(value_list,
+                               tvc_select,sq_select,
+                               tvc_select->active_options())))
+    goto err;
+  
+  Table_ident *ti;
+  const char* alias;
+  TABLE_LIST *derived_tab;
+  if(!(ti= new (current_thd->mem_root) Table_ident(derived_unit))){
+    goto err;
+  }
+  create_tvc_name(current_thd, parent_query_block, &alias);
+  
+  if (!(derived_tab=
+          sq_select->add_table_to_list(current_thd,
+				       ti, alias, 0, TL_READ, MDL_SHARED_READ)))
+    goto err;
+  sq_select->add_joined_table(derived_tab);
+  sq_select ->select_n_where_fields += derived_unit->first_query_block()->select_n_where_fields;
+  sq_select->context.table_list= sq_select->table_list.first;
+  sq_select->context.first_name_resolution_table= sq_select->table_list.first;
+  sq_select->set_where_cond(nullptr);
+  //sq_select->parsing_place= parent_query_block->parsing_place;
+  sq_select->parsing_place= CTX_NONE;
+  Item_in_subselect *in_subs;
+  Item *sq;
+  if (!(in_subs=
+          new (current_thd->mem_root) Item_in_subselect(args[0], sq_select)))
+    goto err;
+  in_subs->value_transform = BOOL_IS_TRUE;
+  in_subs->strategy = Subquery_strategy::UNSPECIFIED;
+  sq = in_subs;
+  parent_query_block->set_sj_candidates(&sj_candidates_local);
+  parent_query_block->resolve_place = Query_block::RESOLVE_CONDITION;
+  current_thd->lex->set_current_query_block(parent_query_block);
+  if (sq->fix_fields(current_thd, (Item **)&sq))
+    goto err;
+  parent_query_block->curr_tvc_name ++;
+  parent_query_block->set_where_cond(sq);
+  //if(!negated)
+  //    in_subs->embedding_join_nest;
+  if (parent_query_block->has_sj_candidates() && parent_query_block->flatten_subqueries(current_thd))
+     goto err;
+  derived_unit->derived_table->optimize_derived(current_thd);
+  sq = parent_query_block->where_cond();
+  return sq;
+err:
+    parent_query_block->derived_table_count= save_derived_tables;
+    current_thd->lex->set_current_query_block(parent_query_block);
+    return NULL;
+}
+
+bool Item_func_in::create_value_list_for_tvc(THD *thd,
+				             List<List<Item>> &values)
+{
+  bool is_list_of_rows= args[1]->type() == Item::ROW_ITEM;
+
+  for (uint i=1; i < arg_count; i++)
+  {
+    char col_name[16] = {0};
+    List<Item> *tvc_value;
+    if (!(tvc_value= new (thd->mem_root) List<Item>()))
+      return true;
+
+    if (is_list_of_rows)
+    {
+      Item_row *row_list= (Item_row *)(args[i]);
+
+      if (!row_list)
+        return true;
+
+      for (uint j=0; j < row_list->cols(); j++)
+      {
+        if (i == 1){
+          snprintf(col_name, sizeof(col_name), "_col_%d", j + 1);
+          row_list->element_index(j)->item_name = NAME_STRING(col_name);
+        }
+	      if (tvc_value->push_back(row_list->element_index(j),thd->mem_root))
+	        return true;
+      }
+    }
+    else
+    {
+      if (i == 1){
+        args[i]->item_name = NAME_STRING("_col_1");
+      }
+      if (tvc_value->push_back(args[i]))
+        return true;
+    }
+
+    if (values.push_back(tvc_value, thd->mem_root))
+      return true;
+  }
+  return false;
+}
+
+void Item_func_in::mark_as_condition_AND_part(TABLE_LIST *embedding){
+  THD *thd= current_thd;
+
+  if (!transform_into_subq_checked)
+  {
+    if ((transform_into_subq= to_be_transformed_into_in_subq(thd)))
+      thd->lex->current_query_block()->in_funcs.push_back(this, thd->mem_root);
+    transform_into_subq_checked= true;
+  }
+}
+
+bool Item_func_in::to_be_transformed_into_in_subq(THD *thd){
+  bool is_row_list= args[1]->type() == Item::ROW_ITEM;
+  uint values_count= arg_count-1;
+
+  if (is_row_list)
+    values_count*= ((Item_row *)(args[1]))->cols();
+  
+   if (thd->variables.in_subquery_conversion_threshold == 0 ||
+      thd->variables.in_subquery_conversion_threshold > values_count)
+    return false;
+
+  if (!(thd->lex->context_analysis_only & CONTEXT_ANALYSIS_ONLY_PREPARE))
+    return true;
+
+  /* Occurence of '?' in IN list is checked only for PREPARE <stmt> commands */
+  for (uint i=1; i < arg_count; i++)
+  {
+    if (!is_row_list)
+    {
+      if (args[i]->type() == Item::PARAM_ITEM)
+        return false;
+    }
+    else
+    {
+      Item_row *row_list= (Item_row *)(args[i]);
+      for (uint j=0; j < row_list->cols(); j++)
+      {
+        if (row_list->element_index(j)->type() == Item::PARAM_ITEM)
+          return false;
+      }
+    }
+  }
+  return true;  
+}
+
 Item_func_in::~Item_func_in() { cleanup_arrays(); }
+
 
 Item_cond::Item_cond(THD *thd, Item_cond *item)
     : Item_bool_func(thd, item), abort_on_null(item->abort_on_null) {

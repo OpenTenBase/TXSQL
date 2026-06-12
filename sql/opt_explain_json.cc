@@ -2026,6 +2026,15 @@ bool Explain_format_JSON::begin_context(enum_parsing_context ctx_arg,
       current_context = ctx;
       break;
     }
+    case CTX_IN_WHERE:{
+      assert(subquery != nullptr);
+      subquery_ctx *ctx =
+          new (*THR_MALLOC) subquery_ctx(CTX_WHERE, nullptr, current_context);
+      if (ctx == nullptr || current_context->add_where_subquery(ctx, subquery))
+        return true;
+      current_context = ctx;
+      break;
+    }
     default:
       assert(!"Unknown EXPLAIN context!");
       return true;
