@@ -24,6 +24,7 @@ CALL insert_t1(0, 20000);
 # Simulate duplicate key.
 UPDATE t1 SET v = 2 WHERE id = 9999;
 
+--replace_regex /#sql-[^']+/#sql-temp/
 --error 1022
 ALTER TABLE t1 ADD UNIQUE INDEX k_1(v), algorithm=copy;
 

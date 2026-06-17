@@ -1,24 +1,12 @@
-disable_ps_protocol;
-
-connect (tencent_conn, localhost, root,'',,$MASTER_MYPORT);
-
 set global innodb_backquery_enable=ON;
-
 set global innodb_backquery_enable=OFF;
-
 create table t1(id int, c1 int);
-let $time1 = query_get_value(select now(), now(), 1);
-disable_query_log;
-disable_result_log;
-error ER_BACKQUERY_TIMESTAMP;
-eval select * from t1 as of timestamp '$time1';
-enable_result_log;
-enable_query_log;
-
-connection tencent_conn;
 set global innodb_backquery_persistent=ON;
 show global status like '%txsql_persistent_flashback_query_counts';
+Variable_name	Value
+Innodb_txsql_persistent_flashback_query_counts	1
 set global innodb_backquery_persistent=OFF;
 show global status like '%txsql_persistent_flashback_query_counts';
-
+Variable_name	Value
+Innodb_txsql_persistent_flashback_query_counts	0
 drop table if exists t1;

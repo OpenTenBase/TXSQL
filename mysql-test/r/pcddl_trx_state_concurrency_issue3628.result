@@ -16,6 +16,6 @@ end |
 CALL insert_t1(0, 20000);
 UPDATE t1 SET v = 2 WHERE id = 9999;
 ALTER TABLE t1 ADD UNIQUE INDEX k_1(v), algorithm=copy;
-ERROR 23000: Can't write; duplicate key in table '#sql-431ed_e'
+ERROR 23000: Can't write; duplicate key in table '#sql-temp'
 DROP TABLE t1;
 DROP PROCEDURE insert_t1;
