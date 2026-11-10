@@ -1700,8 +1700,19 @@ void Log_throttle::new_window(ulonglong now) {
 
 void Slow_log_throttle::new_window(ulonglong now) {
   Log_throttle::new_window(now);
+  m_suppressed_count = 0;
   total_exec_time = 0;
   total_lock_time = 0;
+}
+
+ulong Slow_log_throttle::prepare_summary(ulong rate) {
+  // Keep the original quota reset even when no entry was actually suppressed.
+  Log_throttle::prepare_summary(rate);
+  const ulong ret = m_suppressed_count;
+  m_suppressed_count = 0;
+  total_exec_time = 0;
+  total_lock_time = 0;
+  return ret;
 }
 
 Slow_log_throttle::Slow_log_throttle(ulong *threshold, mysql_mutex_t *lock,
@@ -1791,6 +1802,7 @@ bool Slow_log_throttle::log(THD *thd, bool eligible) {
         Current query's logging should be suppressed.
         Add its execution time and lock time to totals for the current window.
       */
+      ++m_suppressed_count;
       total_exec_time += (end_utime_of_query - thd->start_utime);
       total_lock_time += thd->get_lock_usec();
       suppress_current = true;

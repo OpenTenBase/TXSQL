@@ -610,6 +610,12 @@ class Slow_log_throttle : public Log_throttle {
   */
   ulonglong total_lock_time;
 
+  /** Actual suppressed entries since the last summary, independent of rate. */
+  ulong m_suppressed_count{0};
+
+  /** Drain summary statistics under LOCK_log_throttle; preserve quota rules. */
+  ulong prepare_summary(ulong rate);
+
   /**
     A reference to the threshold ("no more than n log lines per ...").
     References a (system-?) variable in the server.
