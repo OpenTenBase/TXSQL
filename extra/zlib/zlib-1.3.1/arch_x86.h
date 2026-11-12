@@ -4,8 +4,8 @@
 
 #define ZLIB_X86_64_CRC32_PCLMUL 1
 
-/* Check GCC version and only apply vpclmulqdq target attribute when compiler is GCC 8 or later */
-#if defined(__GNUC__) && (__GNUC__ >= 8)
+/* Apply vpclmulqdq target attribute when compiler is GCC 8 or later, or clang */
+#if defined(__clang__) || (defined(__GNUC__) && (__GNUC__ >= 8))
 #  define HAVE_VPCLMULQDQ_ATTRIBUTE 1
 #endif
 

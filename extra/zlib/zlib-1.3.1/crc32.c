@@ -29,7 +29,7 @@
 
 #include "zutil.h"      /* for Z_U4, Z_U8, z_crc_t, and FAR definitions */
 
-#if defined(__x86_64__) || defined(__amd64__) || defined(_M_X64)
+#if defined(__x86_64__) || defined(__amd64__)
 #include "arch_x86.h"
 #endif
 

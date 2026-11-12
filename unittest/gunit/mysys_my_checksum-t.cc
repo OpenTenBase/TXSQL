@@ -36,13 +36,13 @@ using namespace mycrc32;
 
 namespace mysys_my_checksum {
 
-#if defined(__x86_64__) || defined(__amd64__) || defined(_M_X64)
+#if defined(__x86_64__) || defined(__amd64__)
 extern "C" {
 int has_crc32_x86_avx(void);
 int has_crc32_x86_avx512(void);
 unsigned long crc32_z_impl_x86_avx(unsigned long crc,
                                    const unsigned char FAR *buf, z_size_t len);
-#if defined(__GNUC__) && (__GNUC__ >= 8)
+#if defined(__clang__) || (defined(__GNUC__) && (__GNUC__ >= 8))
 unsigned long crc32_z_impl_x86_avx512(unsigned long crc,
                                       const unsigned char FAR *buf, z_size_t len)
     __attribute__((weak));
@@ -71,7 +71,7 @@ std::uint32_t TableCrc32Reference(std::uint32_t crc_seed,
   return crc ^ 0xffffffffU;
 }
 
-#if defined(__x86_64__) || defined(__amd64__) || defined(_M_X64)
+#if defined(__x86_64__) || defined(__amd64__)
 void VerifyAgainstTableAndZlib(
     const std::vector<unsigned char> &data, std::size_t offset, std::size_t len,
     std::uint32_t seed,
@@ -166,7 +166,7 @@ TEST(MysysMyChecksum, IntegerCrc32_64bit) {
   EXPECT_EQ(IntegerCrc32(crc, value), ~zres);
 }
 
-#if defined(__x86_64__) || defined(__amd64__) || defined(_M_X64)
+#if defined(__x86_64__) || defined(__amd64__)
 TEST(MysysMyChecksum, Crc32ZMatchesAvxImplementationWhenSupported) {
   if (!has_crc32_x86_avx()) {
     GTEST_SKIP() << "CPU/OS does not support AVX+PCLMUL CRC32";
@@ -195,7 +195,7 @@ TEST(MysysMyChecksum, Crc32ZDispatchesToAvxImplementationWhenSupported) {
   if (!has_crc32_x86_avx()) {
     GTEST_SKIP() << "CPU/OS does not support AVX+PCLMUL CRC32";
   }
-#if defined(__GNUC__) && (__GNUC__ >= 8)
+#if defined(__clang__) || (defined(__GNUC__) && (__GNUC__ >= 8))
   if (crc32_z_impl_x86_avx512 != nullptr && has_crc32_x86_avx512()) {
     GTEST_SKIP() << "crc32_z uses AVX512 path on this CPU";
   }
@@ -273,7 +273,7 @@ TEST(MysysMyChecksum, SixteenByteBoundaryWithVariousOffsets) {
   }
 }
 
-#if defined(__GNUC__) && (__GNUC__ >= 8)
+#if defined(__clang__) || (defined(__GNUC__) && (__GNUC__ >= 8))
 TEST(MysysMyChecksum, Crc32ZDispatchesToAvx512ImplementationWhenSupported) {
   if (crc32_z_impl_x86_avx512 == nullptr) {
     GTEST_SKIP() << "AVX512 crc32 implementation is not linked in this build";

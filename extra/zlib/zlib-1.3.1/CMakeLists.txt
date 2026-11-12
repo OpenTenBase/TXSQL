@@ -136,7 +136,13 @@ set(ZLIB_SRCS
     zutil.c
 )
 
-if(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
+check_c_source_compiles("
+    #if !defined(__x86_64__) && !defined(__amd64__)
+    #  error not an x86_64 target
+    #endif
+    int main(void) { return 0; }" ZLIB_TARGET_X86_64)
+
+if(ZLIB_TARGET_X86_64)
     LIST(APPEND ZLIB_PRIVATE_HDRS arch_x86.h
                                   crc32_x86.h)
 
