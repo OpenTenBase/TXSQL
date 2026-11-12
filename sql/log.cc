@@ -1781,6 +1781,11 @@ bool Slow_log_throttle::log(THD *thd, bool eligible) {
     the current query is not of the type we handle.
   */
   if (*rate > 0) {
+    if (!eligible) {
+      const ulonglong close_at =
+          m_close_window_at.load(std::memory_order_relaxed);
+      if (close_at == 0 || my_micro_time() < close_at) return false;
+    }
     mysql_mutex_lock(LOCK_log_throttle);
 
     ulong suppressed_count = 0;
@@ -1796,6 +1801,8 @@ bool Slow_log_throttle::log(THD *thd, bool eligible) {
       suppressed_count = prepare_summary(*rate);
       // start new window only if this is the statement type we handle
       if (eligible) new_window(end_utime_of_query);
+      m_close_window_at.store(eligible ? get_window_end() : 0,
+                              std::memory_order_relaxed);
     }
     if (eligible && inc_log_count(*rate)) {
       /*

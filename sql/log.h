@@ -42,6 +42,8 @@
 #include <stddef.h>
 #include <sys/types.h>
 
+#include <atomic>
+
 #include "lex_string.h"
 #include "my_command.h"
 #include "my_compiler.h"
@@ -549,6 +551,8 @@ class Log_throttle {
   */
   bool in_window(ulonglong now) const { return (now < window_end); }
 
+  ulonglong get_window_end() const { return window_end; }
+
   /**
     Prepare a summary of suppressed lines for logging.
     This function returns the number of queries that were qualified for
@@ -631,6 +635,8 @@ class Slow_log_throttle : public Log_throttle {
     Slow_log_throttle is shared between THDs.
   */
   mysql_mutex_t *LOCK_log_throttle;
+  // Window hint only; the mutex still protects accounting and rollover.
+  std::atomic<ulonglong> m_close_window_at{0};
 
   /**
     Start a new window.
