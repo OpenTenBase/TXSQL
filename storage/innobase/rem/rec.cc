@@ -46,7 +46,7 @@ external tools. */
 @param[in]      rec     physical record
 @param[in]      index   record descriptor
 @param[in, out] offsets array of offsets */
-static void rec_init_offsets_new(const rec_t *rec, const dict_index_t *index,
+static ALWAYS_INLINE void rec_init_offsets_new(const rec_t *rec, const dict_index_t *index,
                                  ulint *offsets) {
   ulint status = rec_get_status(rec);
   ulint n_node_ptr_field = ULINT_UNDEFINED;
