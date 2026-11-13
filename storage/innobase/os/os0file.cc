@@ -2219,13 +2219,14 @@ dberr_t LinuxAIOHandler::resubmit(Slot *slot) {
   return (ret < 0 ? DB_IO_PARTIAL_FAILED : DB_SUCCESS);
 }
 
-/** Check if the AIO succeeded
+/** Check if the AIO succeeded. The caller must have exclusive ownership
+of the slot (see find_completed_slot()) but must not hold the array
+mutex: the completion processing includes page decryption, which can
+take long enough to stall all submitters and handler threads.
 @param[in,out]  slot            The slot to check
 @return DB_SUCCESS, DB_FAIL if the operation should be retried or
         DB_IO_ERROR on all other errors */
 dberr_t LinuxAIOHandler::check_state(Slot *slot) {
-  ut_ad(m_array->is_mutex_owned());
-
   /* Note that it may be that there is more then one completed
   IO requests. We process them one at a time. We may have a case
   here to improve the performance slightly by dealing with all
@@ -2234,7 +2235,7 @@ dberr_t LinuxAIOHandler::check_state(Slot *slot) {
   srv_set_io_thread_op_info(m_global_segment,
                             "processing completed aio requests");
 
-  ut_ad(slot->io_already_done);
+  ut_ad(!slot->io_already_done);
 
   dberr_t err;
 
@@ -2259,9 +2260,12 @@ dberr_t LinuxAIOHandler::check_state(Slot *slot) {
   return (err);
 }
 
-/** If no slot was found then the m_array->m_mutex will be released.
+/** Find a slot with a completed IO request and claim exclusive ownership
+of it. The mutex is always released before returning; when a completed
+slot is found, the caller takes over the slot: it must process it and
+free it (AIO::release) without holding the mutex.
 @param[out]     n_pending               The number of pending IOs
-@return NULL or a slot that has completed IO */
+@return NULL or a claimed slot that has completed IO */
 Slot *LinuxAIOHandler::find_completed_slot(ulint *n_pending) {
   ulint offset = m_n_slots * m_segment;
 
@@ -2276,8 +2280,15 @@ Slot *LinuxAIOHandler::find_completed_slot(ulint *n_pending) {
       ++*n_pending;
 
       if (slot->io_already_done) {
-        /* Something for us to work on.
-        Note: We don't release the mutex. */
+        /* Something for us to work on. Claim the slot before
+        releasing the mutex: the kernel event was already reaped
+        by collect(), so the slot will not be marked again, and
+        other handler threads skip slots with io_already_done
+        == false. Completion processing (page decryption et al.)
+        must not run while holding the array mutex, otherwise
+        all submitters and handler threads serialize behind it. */
+        slot->io_already_done = false;
+        m_array->release();
         return (slot);
       }
     }
@@ -2437,7 +2448,10 @@ dberr_t LinuxAIOHandler::poll(fil_node_t **m1, void **m2, IORequest *request) {
     slot = find_completed_slot(&n_pending);
 
     if (slot != nullptr) {
-      ut_ad(m_array->is_mutex_owned());
+      /* We now exclusively own the slot and the mutex is
+      released: the completion processing below includes page
+      decryption, which must not hold up the other submitters
+      and handler threads. */
 
       err = check_state(slot);
 
@@ -2448,13 +2462,13 @@ dberr_t LinuxAIOHandler::poll(fil_node_t **m1, void **m2, IORequest *request) {
 
       /* Partial IO, resubmit request for
       remaining bytes to read/write */
+      m_array->acquire();
       err = resubmit(slot);
+      m_array->release();
 
       if (err != DB_SUCCESS) {
         break;
       }
-
-      m_array->release();
 
     } else if (is_shutdown() && n_pending == 0) {
       /* There is no completed request. If there is
@@ -2492,8 +2506,8 @@ dberr_t LinuxAIOHandler::poll(fil_node_t **m1, void **m2, IORequest *request) {
 
   *request = slot->type;
 
+  m_array->acquire();
   m_array->release(slot);
-
   m_array->release();
 
   return (err);
